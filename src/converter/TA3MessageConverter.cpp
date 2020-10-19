@@ -1,12 +1,11 @@
 #include "TA3MessageConverter.h"
 
-#include <fstream>
 #include <iostream>
-#include <sstream>
 
 #include <boost/filesystem.hpp>
 #include <boost/progress.hpp>
 #include <eigen3/Eigen/Dense>
+#include <fmt/format.h>
 
 #include "utils/FileHandler.h"
 
@@ -94,52 +93,51 @@ namespace tomcat {
                         this->get_sorted_messages_in(file.path().string());
 
                     this->training_condition = NO_OBS;
+                    this->time_step = 0;
+                    this->mission_started = false;
+                    this->init_observations();
 
-                    for (auto& message : messages) {
-                        for (const auto& [node_label, value] :
-                             this->convert_online(message)) {
+                    try {
+                        for (auto& message : messages) {
+                            for (const auto& [node_label, value] :
+                                 this->convert_online(message)) {
 
-                            // Initialize matrix of observations with non
-                            // observed value
-                            if (!EXISTS(node_label, observations_per_node)) {
-                                observations_per_node[node_label] =
-                                    Eigen::MatrixXd::Constant(1, T + 1, NO_OBS);
+                                // Initialize matrix of observations with non
+                                // observed value
+                                if (!EXISTS(node_label,
+                                            observations_per_node)) {
+                                    observations_per_node[node_label] =
+                                        Eigen::MatrixXd::Constant(
+                                            1, T + 1, NO_OBS);
+                                }
+
+                                // Append one more row for a new mission trial
+                                if (observations_per_node[node_label].rows() ==
+                                    d - 1) {
+                                    observations_per_node[node_label]
+                                        .conservativeResize(d, Eigen::NoChange);
+                                    observations_per_node[node_label].row(d -
+                                                                          1) =
+                                        Eigen::MatrixXd::Constant(
+                                            1, T + 1, NO_OBS);
+                                }
+
+                                if (this->time_step <= T) {
+                                    observations_per_node[node_label](
+                                        d - 1, this->time_step) = value;
+                                }
                             }
 
-                            // Append one more row for a new mission trial
-                            if (observations_per_node[node_label].rows() ==
-                                d - 1) {
-                                observations_per_node[node_label]
-                                    .conservativeResize(d, Eigen::NoChange);
-                                observations_per_node[node_label].row(d - 1) =
-                                    Eigen::MatrixXd::Constant(1, T + 1, NO_OBS);
-                            }
-
-                            if (this->time_step <= T) {
-                                observations_per_node[node_label](
-                                    d - 1, this->time_step) = value;
-                            }
-
-                            // There are 4 training conditions but only the
-                            // first 3 are relevant for us.
-                            if (this->training_condition > 2) {
+                            if (this->time_step > T) {
                                 break;
                             }
                         }
-
-                        if (this->time_step > T ||
-                            this->training_condition > 2) {
-                            break;
-                        }
+                    }
+                    catch (TomcatModelException& exp) {
+                        cerr << exp.message << file.path().filename() << endl;
                     }
 
-                    if (this->training_condition > 2) {
-                        // The training condition is invalid. Discard this
-                        // mission trial and emit a message.
-                        cerr << "Training condition > 2 in file "
-                             << file.path().filename() << endl;
-                    }
-                    else if (this->time_step < T) {
+                    if (this->time_step < T) {
                         // The mission ended before the total amount of seconds
                         // expected. Discard this mission trial and emit a
                         // message.
@@ -150,9 +148,6 @@ namespace tomcat {
                         d++;
                     }
                     ++progress;
-                    this->time_step = 0;
-                    this->mission_started = false;
-                    this->init_observations();
                 }
             }
 
@@ -200,7 +195,18 @@ namespace tomcat {
                 }
                 else if (message["topic"] == "trial") {
                     const string value = message["data"]["condition"];
-                    this->training_condition = stoi(value) - 1;
+                    try {
+                        this->training_condition = stoi(value) - 1;
+
+                        if (this->training_condition > 2) {
+                            throw TomcatModelException(
+                                "Training condition > 2.");
+                        }
+                    }
+                    catch (std::invalid_argument& exp) {
+                        throw TomcatModelException(fmt::format(
+                            "Invalid training condition {}.", value));
+                    }
                 }
             }
 

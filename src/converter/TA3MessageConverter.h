@@ -71,6 +71,31 @@ namespace tomcat {
 
           private:
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Reads messages from a file and returns them sorted by timestamp.
+             *
+             * @param filepath: path of the file where the messages are stored.
+             *
+             * @return Sorted messages
+             */
+            static std::vector<nlohmann::json>
+            get_sorted_messages_in(const std::string& filepath);
+
+            /**
+             * Converts a string with remaining minutes and seconds to the total
+             * number of seconds for the mission to end.
+             *
+             * @param time: string containing the remaining time formatted (mm :
+             * ss)
+             *
+             * @return Remaining time in seconds.
+             */
+            int get_remaining_seconds_from(const std::string& time);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
@@ -87,27 +112,6 @@ namespace tomcat {
              */
             void
             load_map_area_configuration(const std::string& map_config_filepath);
-
-            /**
-             * Reads messages from a file and returns them sorted by timestamp.
-             *
-             * @param filepath: path of the file where the messages are stored.
-             *
-             * @return Sorted messages
-             */
-            std::vector<nlohmann::json>
-            get_sorted_messages_in(const std::string& filepath);
-
-            /**
-             * Converts a string with remaining minutes and seconds to the total
-             * number of seconds for the mission to end.
-             *
-             * @param time: string containing the remaining time formatted (mm :
-             * ss)
-             *
-             * @return Remaining time in seconds.
-             */
-            int get_remaining_seconds_from(const std::string& time);
 
             /**
              * Returns observation related to victim saving.

@@ -153,4 +153,5 @@ target_link_libraries(
         PRIVATE tomcat_model_lib
         ${Boost_LIBRARIES}
         Eigen3::Eigen
-        nlohmann_json::nlohmann_json)
+        nlohmann_json::nlohmann_json
+        fmt::fmt)
