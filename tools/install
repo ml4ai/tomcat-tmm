@@ -2,82 +2,56 @@
 
 set -u
 
-# Set the TOMCAT environment variable, assuming that the directory structure
+# Set the ROOT environment variable, assuming that the directory structure
 # mirrors that of the git repository.
-TOMCAT="$(cd "$( dirname "${BASH_SOURCE[0]}" )/../" >/dev/null 2>&1 && pwd)"
-export TOMCAT
+ROOT="$(cd "$( dirname "${BASH_SOURCE[0]}" )/../" >/dev/null 2>&1 && pwd)"
+export ROOT
 
 ###############################################################################
 
-source ${TOMCAT}/tools/configuration_helpers
+source ${ROOT}/tools/configuration_helpers
 set_local_configuration
 
 detect_ci
 detect_os
 
-if ! "$TOMCAT"/tools/download/openjdk8; then
-    echo "Failed to download OpenJDK 1.8.0_232-b09."
-    exit 1
-fi
-
-set_java_home
-
-__build_tomcat() {
-    pushd "${TOMCAT}"
-        echo "Building ToMCAT in `pwd`"
+__build_tmm() {
+    pushd "${ROOT}"
+        echo "Building TMM in $(pwd)"
 
         /bin/rm -rf build
         mkdir build
 
         pushd build > /dev/null
-            if [[ $CI -eq 1 && $OSTYPE == "darwin"* ]]; then
-                # On the macOS Github Actions runner, there is a problem
-                # with building against OpenCV with Homebrew - something to
-                # do with XCode and the Command Line Tools not playing
-                # nicely together. The line below is a fix for this issue.
-                sudo xcode-select -s /Library/Developer/CommandLineTools
-            fi
-
             if [[ $OSTYPE == "linux-gnu" ]]; then
                 NJOBS=$(nproc)
             else
                 NJOBS=$(sysctl -n hw.ncpu)
             fi
 
-
             # On CI, we build the examples by default.
-            if (( CI )); then
-                if ! cmake ${TOMCAT} -DBUILD_EXAMPLES=ON; then exit 1; fi
-            else
-                if ! cmake ${TOMCAT}; then exit 1; fi
-            fi
+            if ! cmake ${ROOT}; then exit 1; fi
 
             if ! make -j $NJOBS; then exit 1; fi
-            if ! make -j $NJOBS Minecraft; then exit 1; fi
         popd > /dev/null
     popd > /dev/null
 }
 
-__download_tomcat_data() {
-    if ! ${TOMCAT}/tools/download/tomcat_worlds; then exit 1; fi
-}
-
-_install_tomcat() {
+_install_tmm() {
     if (( ${INSTALL_DEPENDENCIES:-1} )); then
-        if ! ${TOMCAT}/tools/install_dependencies; then exit 1; fi
+        if ! ${ROOT}/tools/install_dependencies; then exit 1; fi
     else
         echo "INSTALL_DEPENDENCIES has been set to 0, so we skip the automatic"\
-             "installation of ToMCAT dependencies, and assume that you have"\
+             "installation of TMM dependencies, and assume that you have"\
              "already installed the prerequisites (either manually or using a"\
              "previous invocation of the install script.)"
     fi
-    __build_tomcat
-    __download_tomcat_data
+    __build_tmm
 
     echo " "
-    echo "Finished installing ToMCAT in ${TOMCAT}!"
+    echo "Finished installing TMM in ${ROOT}!"
     echo " "
 }
 
-_install_tomcat
+_install_tmm
 exit 0

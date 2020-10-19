@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(model)
+project(tomcat_tmm)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,9 +28,6 @@ find_package(
              system
              thread
              REQUIRED)
-
-# FMT is a library used for formatting.
-find_package(FMT REQUIRED)
 
 # Json library is being used for writing evaluations to an output stream
 find_package(nlohmann_json REQUIRED)

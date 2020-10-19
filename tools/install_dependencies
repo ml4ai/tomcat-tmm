@@ -2,14 +2,14 @@
 
 set -u
 
-# Set the TOMCAT environment variable, assuming that the directory structure
+# Set the ROOT environment variable, assuming that the directory structure
 # mirrors that of the git repository.
-TOMCAT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" >/dev/null 2>&1 && pwd)"
-export TOMCAT
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" >/dev/null 2>&1 && pwd)"
+export ROOT
 
-echo "Installing ToMCAT dependencies."
+echo "Installing ToMCAT faceAnalyzer dependencies."
 
-COMMON_MACOS_DEPS="cmake boost doxygen ffmpeg gradle mosquitto nlohmann-json openssl gsl yaml-cpp openblas"
+COMMON_MACOS_DEPS="cmake boost nlohmann-json gsl"
 __install_dependencies_using_macports() {
     echo "'port' executable detected, assuming that MacPorts"
     echo "(https://www.macports.org) is installed and is the package manager."
@@ -27,11 +27,6 @@ __install_dependencies_using_macports() {
             exit 1
         fi
     done
-
-    # We enable system audio recording ononly on macOS Catalina or above
-    if (( ENABLE_SYSTEM_AUDIO_RECORDING )); then
-        if ! sudo port -N install blackhole switchaudio-osx; then exit 1; fi
-    fi
 }
 
 __install_dependencies_using_homebrew() {
@@ -54,22 +49,6 @@ __install_dependencies_using_homebrew() {
             exit 1
         fi
     done
-
-    # We enable system audio recording ononly on macOS Catalina or above
-    if (( ENABLE_SYSTEM_AUDIO_RECORDING )); then
-        brew cask install blackhole
-        if [[ $? -ne 0 && $? -ne 1 ]]; then exit 1; fi
-
-        brew install switchaudio-osx
-        if [[ $? -ne 0 && $? -ne 1 ]]; then exit 1; fi
-    fi
-
-    if (( CI )); then
-      # On a CI runner, we will install lcov to provide code coverage estimates.
-      brew install lcov;
-      if [[ $? -ne 0 && $? -ne 1 ]]; then exit 1; fi
-    fi;
-
 }
 
 __install_dependencies_using_apt() {
@@ -92,23 +71,13 @@ __install_dependencies_using_apt() {
     sudo apt-get install -y \
         cmake \
         gcc-9 \
-        libfmt-dev \
-        doxygen \
-        ffmpeg \
-        wmctrl \
-        mosquitto \
-        mosquitto-clients \
         curl \
-        libopenblas-dev \
-        openssl \
         zlib1g-dev \
         libbz2-dev \
-        libyaml-cpp-dev \
-        libmosquitto-dev \
-        libboost-all-dev \
         nlohmann-json3-dev \
-        libeigen3-dev \
+        libboost-all-dev \
         libgsl-dev
+
     if [[ $? -ne 0 ]]; then exit 1; fi
 
 }
@@ -123,7 +92,7 @@ __install_dependencies() {
                  "we assume that the macOS Command Line Tools are not installed."
             echo "Installing them now..."
             xcode-select --install
-            "${TOMCAT}"/tools/macos/install_command_line_tools > /dev/null
+            "${ROOT}"/tools/macos/install_command_line_tools > /dev/null
 
             while [[ ! -d "/Library/Developer" ]]; do
                 sleep 1
@@ -138,7 +107,7 @@ __install_dependencies() {
             echo "Neither the MacPorts or Homebrew package managers have been "\
                  "detected. Proceeding to install MacPorts in the default "\
                  "location (/opt/local)"
-            if ! "${TOMCAT}"/tools/install_from_source/macports; then exit 1; fi
+            if ! "${ROOT}"/tools/install_from_source/macports; then exit 1; fi
 
             __install_dependencies_using_macports
 
@@ -163,7 +132,7 @@ __install_dependencies() {
         __install_dependencies_using_apt
 
     else
-        echo "This is not a macOS and not a Debian Linux distribution (at least"
+        echo "This is not macOS and not a Debian Linux distribution (at least"
         echo "apt-get is not around). We cannot proceed with the automated"
         echo "installation. Please consult docs/installation.md for the required"
         echo "dependencies."
