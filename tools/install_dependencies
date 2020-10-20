@@ -77,7 +77,8 @@ __install_dependencies_using_apt() {
         nlohmann-json3-dev \
         libboost-all-dev \
         libfmt-dev \
-        libgsl-dev
+        libgsl-dev \
+        libeigen3-dev
 
     if [[ $? -ne 0 ]]; then exit 1; fi
 
