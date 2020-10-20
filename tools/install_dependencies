@@ -81,7 +81,7 @@ __install_dependencies_using_apt() {
         libeigen3-dev \
         mosquitto \
         mosquitto-clients \
-        libmosquitto_dev
+        libmosquitto-dev
 
     if [[ $? -ne 0 ]]; then exit 1; fi
 
