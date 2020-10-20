@@ -78,7 +78,10 @@ __install_dependencies_using_apt() {
         libboost-all-dev \
         libfmt-dev \
         libgsl-dev \
-        libeigen3-dev
+        libeigen3-dev \
+        mosquitto \
+        mosquitto-clients \
+        libmosquitto_dev
 
     if [[ $? -ne 0 ]]; then exit 1; fi
 
