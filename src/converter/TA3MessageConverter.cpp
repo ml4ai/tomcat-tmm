@@ -1,6 +1,7 @@
 #include "TA3MessageConverter.h"
 
 #include <iostream>
+#include <iomanip>
 
 #include <boost/progress.hpp>
 #include <fmt/format.h>
