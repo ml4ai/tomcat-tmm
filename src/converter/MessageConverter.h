@@ -64,8 +64,9 @@ namespace tomcat {
              * @param output_dir: directory where node's observations over
              * mission samples and time steps must be saved
              */
-            virtual void convert_offline(const std::string& input_dir,
-                                 const std::string& output_dir) = 0;
+            virtual void
+            convert_offline(const std::string& input_dir,
+                            const std::string& output_dir) = 0;
 
             /**
              * Parses a json message object and, if related to an observation of

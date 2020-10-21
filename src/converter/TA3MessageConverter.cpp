@@ -2,11 +2,10 @@
 
 #include <iostream>
 
-#include <boost/filesystem.hpp>
 #include <boost/progress.hpp>
-#include <eigen3/Eigen/Dense>
 #include <fmt/format.h>
 
+#include "utils/EigenExtensions.h"
 #include "utils/FileHandler.h"
 
 using namespace std;
@@ -19,7 +18,7 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         TA3MessageConverter::TA3MessageConverter(
-            const std::string& map_config_filepath, int time_gap)
+            const string& map_config_filepath, int time_gap)
             : MessageConverter(time_gap) {
             this->init_observations();
             this->load_map_area_configuration(map_config_filepath);
@@ -53,7 +52,7 @@ namespace tomcat {
         }
 
         void TA3MessageConverter::load_map_area_configuration(
-            const std::string& map_config_filepath) {
+            const string& map_config_filepath) {
             fstream map_config_file;
             map_config_file.open(map_config_filepath);
             if (map_config_file.is_open()) {
@@ -73,96 +72,167 @@ namespace tomcat {
             }
         }
 
-        void
-        TA3MessageConverter::convert_offline(const std::string& input_dir,
-                                             const std::string& output_dir) {
+        void TA3MessageConverter::convert_offline(const string& input_dir,
+                                                  const string& output_dir) {
 
-            int num_mission_trials = std::count_if(
-                fs::directory_iterator(input_dir),
-                fs::directory_iterator(),
-                static_cast<bool (*)(const fs::path&)>(fs::is_regular_file));
+            nlohmann::json json_metadata = this->get_metadata(output_dir);
+            unordered_set<string> processed_filenames =
+                this->get_processed_message_filenames(json_metadata);
+            vector<fs::path> message_filepaths =
+                this->get_message_filepaths(input_dir, processed_filenames);
+            int num_message_files = message_filepaths.size();
+            boost::progress_display progress(num_message_files);
+
             int d = 1;
             unordered_map<string, Eigen::MatrixXd> observations_per_node;
-            boost::progress_display progress(num_mission_trials);
+            for (const auto& filepath : message_filepaths) {
 
-            for (const auto& file : fs::directory_iterator(input_dir)) {
-                if (fs::is_regular_file(file) &&
-                    file.path().filename().string().find("TrialMessages") !=
-                        string::npos) {
-                    vector<nlohmann::json> messages =
-                        this->get_sorted_messages_in(file.path().string());
+                vector<nlohmann::json> messages =
+                    this->get_sorted_messages_in(filepath.string());
 
-                    this->training_condition = NO_OBS;
-                    this->time_step = 0;
-                    this->mission_started = false;
-                    this->init_observations();
+                this->training_condition = NO_OBS;
+                this->time_step = 0;
+                this->mission_started = false;
+                this->init_observations();
 
-                    try {
-                        for (auto& message : messages) {
-                            for (const auto& [node_label, value] :
-                                 this->convert_online(message)) {
+                try {
+                    for (auto& message : messages) {
+                        for (const auto& [node_label, value] :
+                             this->convert_online(message)) {
 
-                                // Initialize matrix of observations with non
-                                // observed value
-                                if (!EXISTS(node_label,
-                                            observations_per_node)) {
-                                    observations_per_node[node_label] =
-                                        Eigen::MatrixXd::Constant(
-                                            1, T + 1, NO_OBS);
-                                }
-
-                                // Append one more row for a new mission trial
-                                if (observations_per_node[node_label].rows() ==
-                                    d - 1) {
-                                    observations_per_node[node_label]
-                                        .conservativeResize(d, Eigen::NoChange);
-                                    observations_per_node[node_label].row(d -
-                                                                          1) =
-                                        Eigen::MatrixXd::Constant(
-                                            1, T + 1, NO_OBS);
-                                }
-
-                                if (this->time_step <= T) {
-                                    observations_per_node[node_label](
-                                        d - 1, this->time_step) = value;
-                                }
+                            // Initialize matrix of observations with
+                            // non observed value
+                            if (!EXISTS(node_label, observations_per_node)) {
+                                observations_per_node[node_label] =
+                                    Eigen::MatrixXd::Constant(1, T + 1, NO_OBS);
                             }
 
-                            if (this->time_step > T) {
-                                break;
+                            // Append one more row for a new mission
+                            // trial
+                            if (observations_per_node[node_label].rows() ==
+                                d - 1) {
+                                observations_per_node[node_label]
+                                    .conservativeResize(d, Eigen::NoChange);
+                                observations_per_node[node_label].row(d - 1) =
+                                    Eigen::MatrixXd::Constant(1, T + 1, NO_OBS);
+                            }
+
+                            if (this->time_step <= T) {
+                                observations_per_node[node_label](
+                                    d - 1, this->time_step) = value;
                             }
                         }
-                    }
-                    catch (TomcatModelException& exp) {
-                        cerr << exp.message << file.path().filename() << endl;
+
+                        if (this->time_step > T) {
+                            break;
+                        }
                     }
 
                     if (this->time_step < T) {
-                        // The mission ended before the total amount of seconds
-                        // expected. Discard this mission trial and emit a
-                        // message.
-                        cerr << "Early stopping in file "
-                             << file.path().filename() << endl;
+                        // The mission ended before the total amount of
+                        // seconds expected. Discard this mission trial
+                        // and emit a message.
+                        throw TomcatModelException("Early stopping.");
                     }
                     else {
                         d++;
+
+                        // Add file to the converted files metadata
+                        nlohmann::json json_message_file;
+                        json_message_file["name"] =
+                            filepath.filename().string();
+                        json_message_file["initial_timestamp"] =
+                            this->initial_timestamp;
+                        json_metadata["files_converted"].push_back(json_message_file);
                     }
-                    ++progress;
                 }
+                catch (TomcatModelException& exp) {
+                    nlohmann::json json_message_file;
+                    json_message_file["name"] = filepath.filename().string();
+                    json_message_file["error"] = exp.message;
+                    json_metadata["files_not_converted"].push_back(json_message_file);
+
+                    // Remove the last observations from the matrices.
+                    for (auto& [node_label, data_matrix] :
+                         observations_per_node) {
+                        data_matrix.conservativeResize(data_matrix.rows() - 1,
+                                                       Eigen::NoChange);
+                    }
+                }
+
+                ++progress;
             }
 
             boost::filesystem::create_directories(output_dir);
-
-            for (const auto& [node_label, data_matrix] :
-                 observations_per_node) {
-                stringstream output_filepath;
-                output_filepath << output_dir << "/" << node_label << ".txt";
-                save_matrix_to_file(output_filepath.str(), data_matrix);
-            }
+            this->save_metadata(json_metadata, output_dir);
+            this->merge_and_save_observations(observations_per_node,
+                                              output_dir);
         }
 
-        vector<nlohmann::json> TA3MessageConverter::get_sorted_messages_in(
-            const std::string& filepath) {
+        nlohmann::json
+        TA3MessageConverter::get_metadata(const string& metadata_dir) {
+            // We store the files processed in a metadata file so that new
+            // conversions can skip messages already converted.
+            nlohmann::json json_metadata;
+            const string metadata_filepath =
+                get_filepath(metadata_dir, METADATA_FILENAME);
+            ifstream metadata_file_reader(metadata_filepath);
+            if (metadata_file_reader) {
+                json_metadata = nlohmann::json::parse(metadata_file_reader);
+            }
+            else {
+                // If no metadata file exists in the output directory, we create
+                // a new json object that will be store the metadata content of
+                // the current conversion.
+                json_metadata["files_converted"] = nlohmann::json::array();
+                json_metadata["files_not_converted"] = nlohmann::json::array();
+            }
+
+            return json_metadata;
+        }
+
+        unordered_set<string>
+        TA3MessageConverter::get_processed_message_filenames(
+            const nlohmann::json& json_metadata, bool all) {
+
+            unordered_set<string> filenames;
+            for (auto file_prop : json_metadata["files_converted"]) {
+                string filename = file_prop["name"];
+                filenames.insert(filename);
+            }
+
+            if (all) {
+                for (auto file_prop : json_metadata["files_not_converted"]) {
+                    string filename = file_prop["name"];
+                    filenames.insert(filename);
+                }
+            }
+
+            return filenames;
+        }
+
+        vector<boost::filesystem::path>
+        TA3MessageConverter::get_message_filepaths(
+            const string& messages_dir,
+            const std::unordered_set<string>& processed_message_filenames) {
+
+            vector<fs::path> filepaths;
+            for (const auto& file : fs::directory_iterator(messages_dir)) {
+                string filename = file.path().filename().string();
+                if (fs::is_regular_file(file) &&
+                    filename.find("TrialMessages") != string::npos) {
+
+                    if (!EXISTS(filename, processed_message_filenames)) {
+                        filepaths.push_back(file.path());
+                    }
+                }
+            }
+
+            return filepaths;
+        }
+
+        vector<nlohmann::json>
+        TA3MessageConverter::get_sorted_messages_in(const string& filepath) {
             vector<nlohmann::json> messages;
 
             ifstream file_reader(filepath);
@@ -172,12 +242,12 @@ namespace tomcat {
                 messages.push_back(nlohmann::json::parse(message));
             }
 
-            std::sort(messages.begin(),
-                      messages.end(),
-                      [](const nlohmann::json& lhs, const nlohmann::json& rhs) {
-                          return lhs["header"]["timestamp"].dump() <
-                                 rhs["header"]["timestamp"].dump();
-                      });
+            sort(messages.begin(),
+                 messages.end(),
+                 [](const nlohmann::json& lhs, const nlohmann::json& rhs) {
+                     return lhs["header"]["timestamp"].dump() <
+                            rhs["header"]["timestamp"].dump();
+                 });
 
             return messages;
         }
@@ -191,6 +261,7 @@ namespace tomcat {
                     message["data"]["mission_state"] == "Start") {
 
                     this->mission_started = true;
+                    this->initial_timestamp = message["header"]["timestamp"];
                     observations_per_node = this->last_observations_per_node;
                 }
                 else if (message["topic"] == "trial") {
@@ -203,7 +274,7 @@ namespace tomcat {
                                 "Training condition > 2.");
                         }
                     }
-                    catch (std::invalid_argument& exp) {
+                    catch (invalid_argument& exp) {
                         throw TomcatModelException(fmt::format(
                             "Invalid training condition {}.", value));
                     }
@@ -279,7 +350,7 @@ namespace tomcat {
                 minutes = stoi(time.substr(0, time.find(":")));
                 seconds = stoi(time.substr(time.find(":") + 1, time.size()));
             }
-            catch (std::invalid_argument& e) {
+            catch (invalid_argument& e) {
             }
 
             return seconds + minutes * 60;
@@ -331,6 +402,30 @@ namespace tomcat {
             }
 
             this->last_observations_per_node[BEEP] = value;
+        }
+
+        void
+        TA3MessageConverter::save_metadata(const nlohmann::json& json_metadata,
+                                           const string& output_dir) {
+
+            string metadata_filepath =
+                get_filepath(output_dir, METADATA_FILENAME);
+            ofstream output_file;
+            output_file.open(metadata_filepath);
+            output_file << setw(4) << json_metadata;
+        }
+
+        void TA3MessageConverter::merge_and_save_observations(
+            const unordered_map<string, Eigen::MatrixXd>& observations_per_node,
+            const string& output_dir) {
+
+            for (const auto& [node_label, data_matrix] :
+                 observations_per_node) {
+                string obs_filepath = get_filepath(output_dir, node_label);
+                Eigen::MatrixXd full_data = read_matrix_from_file(obs_filepath);
+                vstack(full_data, data_matrix);
+                save_matrix_to_file(obs_filepath, full_data);
+            }
         }
 
     } // namespace model

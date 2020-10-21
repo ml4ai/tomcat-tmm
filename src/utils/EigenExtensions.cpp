@@ -54,12 +54,15 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd
-        standard_error(const vector<Eigen::MatrixXd>& matrices){
+        standard_error(const vector<Eigen::MatrixXd>& matrices) {
             Eigen::MatrixXd mean_matrix = mean(matrices);
-            Eigen::MatrixXd se_matrix = (matrices[0].array() - mean_matrix.array()).pow(2).matrix();
+            Eigen::MatrixXd se_matrix =
+                (matrices[0].array() - mean_matrix.array()).pow(2).matrix();
 
             for (int i = 1; i < matrices.size(); i++) {
-                se_matrix = se_matrix + (matrices[i].array() - mean_matrix.array()).pow(2).matrix();
+                se_matrix =
+                    se_matrix +
+                    (matrices[i].array() - mean_matrix.array()).pow(2).matrix();
             }
 
             se_matrix = (se_matrix.array().sqrt() / matrices.size()).matrix();
@@ -77,6 +80,18 @@ namespace tomcat {
             stringstream ss;
             ss << matrix;
             return ss.str();
+        }
+
+        void vstack(Eigen::MatrixXd& original_matrix,
+                    const Eigen::MatrixXd& other_matrix) {
+
+            int old_rows = original_matrix.rows();
+            int new_rows = old_rows + other_matrix.rows();
+            int cols = other_matrix.cols();
+
+            original_matrix.conservativeResize(new_rows, cols);
+            original_matrix.block(old_rows, 0, other_matrix.rows(), cols) =
+                other_matrix;
         }
 
     } // namespace model
