@@ -1,4 +1,4 @@
-# This is a basic workflow to help you get started with Actions
+# Workflow for continuous integration and testing
 
 name: Continuous Integration
 
@@ -6,7 +6,7 @@ on:
   push:
     branches: [ '*' ]
   pull_request:
-    branches: [ 'master' ]
+    branches: [ '*' ]
 
 jobs:
   ci:
@@ -22,4 +22,6 @@ jobs:
 
     - name: Continuous Integration
       run: |
+        # Adarsh: This only tests for compilation. We should probably have
+        # some more robust testing.
         ./tools/install
