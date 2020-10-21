@@ -56,5 +56,14 @@ namespace tomcat {
          */
         std::string to_string(const Eigen::MatrixXd& matrix);
 
+        /**
+         * Appends a matrix in the original one rowwise.
+         *
+         * @param original_matrix: matrix to be appended
+         * @param other_matrix: matrix to append in the original one
+         */
+        void vstack(Eigen::MatrixXd& original_matrix,
+                    const Eigen::MatrixXd& other_matrix);
+
     } // namespace model
 } // namespace tomcat

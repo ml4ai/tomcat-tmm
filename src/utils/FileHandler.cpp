@@ -37,7 +37,12 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd read_matrix_from_file(const string& filepath) {
-            return read_tensor_from_file(filepath)(0, 0);
+            Tensor3 tensor = read_tensor_from_file(filepath);
+            if (tensor.is_empty()) {
+                return Eigen::MatrixXd(0,0);
+            } else {
+                return tensor(0, 0);
+            }
         }
 
         void save_tensor_to_file(const string& filepath,
@@ -58,8 +63,9 @@ namespace tomcat {
             bool started_reading_matrix = false;
             double* buffer = new double[MAXBUFSIZE];
             ifstream file_reader(filepath);
+            bool is_empty = file_reader.peek() == ifstream::traits_type ::eof();
 
-            while (true) {
+            while (!is_empty) {
                 // if (line.replace(line.begin(), line.end(), " ", "").empty())
                 // {
                 string line;

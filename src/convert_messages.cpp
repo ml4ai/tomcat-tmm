@@ -17,6 +17,7 @@ void convert_ta3_messages(const string& map_config_path,
                           const string& messages_input_dir,
                           const string& output_dir) {
     TA3MessageConverter converter(map_config_path);
+
     converter.convert_offline(messages_input_dir, output_dir);
 }
 
@@ -37,7 +38,7 @@ int main(int argc, char* argv[]) {
         "Directory where the files with the messages are stored.")(
         "output_dir",
         po::value<string>(&output_dir)
-            ->default_value("../../data/samples/ta3/falcon/human/v2"),
+            ->default_value("../../data/samples/ta3/falcon"),
         "Directory where the files with evidence extracted from the messages "
         "must be saved.");
 

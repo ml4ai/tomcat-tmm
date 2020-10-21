@@ -221,6 +221,7 @@ namespace tomcat {
             pipeline.set_estimation_process(this->offline_estimation);
             pipeline.set_aggregator(this->evaluation);
             pipeline.execute();
+            output_file.close();
         }
 
         void Experimentation::train_and_save() {
