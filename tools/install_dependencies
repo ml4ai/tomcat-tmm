@@ -9,7 +9,7 @@ export ROOT
 
 echo "Installing ToMCAT Team Mind dependencies."
 
-COMMON_MACOS_DEPS="cmake boost nlohmann-json gsl"
+COMMON_MACOS_DEPS="cmake boost nlohmann-json gsl mosquitto"
 __install_dependencies_using_macports() {
     echo "'port' executable detected, assuming that MacPorts"
     echo "(https://www.macports.org) is installed and is the package manager."
@@ -76,7 +76,12 @@ __install_dependencies_using_apt() {
         libbz2-dev \
         nlohmann-json3-dev \
         libboost-all-dev \
-        libgsl-dev
+        libfmt-dev \
+        libgsl-dev \
+        libeigen3-dev \
+        mosquitto \
+        mosquitto-clients \
+        libmosquitto-dev
 
     if [[ $? -ne 0 ]]; then exit 1; fi
 
