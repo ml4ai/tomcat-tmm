@@ -29,7 +29,6 @@ __build_tmm() {
                 NJOBS=$(sysctl -n hw.ncpu)
             fi
 
-            # On CI, we build the examples by default.
             if ! cmake ${ROOT}; then exit 1; fi
 
             if ! make -j $NJOBS; then exit 1; fi
