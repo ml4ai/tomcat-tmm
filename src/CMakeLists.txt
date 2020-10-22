@@ -155,3 +155,8 @@ target_link_libraries(
         Eigen3::Eigen
         nlohmann_json::nlohmann_json
         fmt::fmt)
+
+# Targets for experiments under the ASIST evaluation reports
+add_executable(TomcatASISTFall20 asist/run_experiments_fall20.cpp)
+target_include_directories(TomcatASISTFall20 PRIVATE ${EXPERIMENT_INCLUDES})
+target_link_libraries(TomcatASISTFall20 PRIVATE ${EXPERIMENT_LIBS})

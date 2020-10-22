@@ -1,9 +1,10 @@
 #include "TA3MessageConverter.h"
 
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
 #include <boost/progress.hpp>
+#include <boost/filesystem.hpp>
 #include <fmt/format.h>
 
 #include "utils/EigenExtensions.h"
@@ -144,20 +145,21 @@ namespace tomcat {
                             filepath.filename().string();
                         json_message_file["initial_timestamp"] =
                             this->initial_timestamp;
-                        json_metadata["files_converted"].push_back(json_message_file);
+                        json_metadata["files_converted"].push_back(
+                            json_message_file);
                     }
                 }
                 catch (TomcatModelException& exp) {
                     nlohmann::json json_message_file;
                     json_message_file["name"] = filepath.filename().string();
                     json_message_file["error"] = exp.message;
-                    json_metadata["files_not_converted"].push_back(json_message_file);
+                    json_metadata["files_not_converted"].push_back(
+                        json_message_file);
 
                     // Remove the last observations from the matrices.
                     for (auto& [node_label, data_matrix] :
                          observations_per_node) {
-                        data_matrix.conservativeResize(data_matrix.rows() - 1,
-                                                       Eigen::NoChange);
+                        data_matrix.conservativeResize(d - 1, Eigen::NoChange);
                     }
                 }
 
@@ -240,7 +242,11 @@ namespace tomcat {
             while (!file_reader.eof()) {
                 string message;
                 getline(file_reader, message);
-                messages.push_back(nlohmann::json::parse(message));
+                try {
+                    messages.push_back(nlohmann::json::parse(message));
+                } catch (nlohmann::detail::parse_error& exp) {
+
+                }
             }
 
             sort(messages.begin(),

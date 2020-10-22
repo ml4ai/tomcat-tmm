@@ -15,5 +15,5 @@ GCS_DIR=study-1_2020.08
 DATA_DIR="$ROOTDIR"/data/$GCS_DIR
 
 mkdir -p $DATA_DIR
-gsutil -m rsync -r -x ".*\.mp4$|.*\.png$|.*\.zip$|.*\.PNG$|.*\.csv$|.*\.tsv$" \
+gsutil -m rsync -r -x ".*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*\.png$|.*\.PNG$|.*\.csv$|.*Competency.*$|.*Condition.*$|Materials/$|TrialMessages.*$" \
     gs://studies.aptima.com/$GCS_DIR $DATA_DIR
