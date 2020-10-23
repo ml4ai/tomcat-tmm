@@ -86,3 +86,6 @@ netrc
 .ipynb_checkpoints/
 __pycache__
 *.ipynb
+
+# Preventing people from accidentally committing ASIST human subjects data to the repo.
+HSR*
