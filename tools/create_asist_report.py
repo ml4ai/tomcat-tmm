@@ -2,6 +2,8 @@ import sys
 import json
 import regex as re
 import numpy as np
+from datetime import datetime
+from datetime import timedelta
 
 
 def create_report(eval_filepath, metadata_filepath, horizon, report_filepath):
@@ -56,13 +58,14 @@ def get_estimates(evaluations, horizon, node_label, assignment_index=0):
     """
     Extracts estimates for a given estimator, horizon and node label from a set of evaluations.
 
-    :param evaluations: json object containing a set of evaluations performed in an experiment.
-    :param horizon: horizon of inference.
-    :param node_label: label of the node for which evaluations were computed.
+    :param evaluations: json object containing a set of evaluations performed in an experiment
+    :param horizon: horizon of inference
+    :param node_label: label of the node for which evaluations were computed
     :param assignment_index: if estimates where computed for non-binary nodes, this indicates the value for which to
-    extract the estimates.
-    :return: list of estimated probabilities.
+    extract the estimates
+    :return: list of estimated probabilities
     """
+
     estimates = [estimator['executions'][0]['estimates'][assignment_index] for estimator in
                  evaluations['estimation']['estimators'] if
                  estimator['name'] == 'sum-product' and estimator['inference_horizon'] == horizon and estimator[
@@ -72,6 +75,12 @@ def get_estimates(evaluations, horizon, node_label, assignment_index=0):
 
 
 def get_template_entry(trial):
+    """
+    Returns a report entry with pre-filled fields that are common to all kinds of entries.
+    :param trial: trial number
+    :return: minimal report entry
+    """
+
     report_entry = {"TA": "TA1",
                     "Team": "UAZ",
                     "AgentID": "ToMCAT",
@@ -81,7 +90,19 @@ def get_template_entry(trial):
 
 
 def create_training_condition_entry(trial, trial_idx, initial_timestamp, training_condition_estimates):
+    """
+    Creates a report entry for training condition estimates.
+
+    :param trial: trial number
+    :param trial_idx: index of the trial in the matrix of evaluation data
+    :param initial_timestamp: timestamp when the mission starts
+    :param training_condition_estimates: estimates for training condition
+    :return: report entry
+    """
+
     report_entry = get_template_entry(trial)
+    last_time_step = training_condition_estimates[0].shape[1] - 1
+    report_entry['Timestamp'] = get_timestamp(initial_timestamp, last_time_step)
     report_entry['TrainingCondition NoTriageNoSignal'] = training_condition_estimates[0][trial_idx][-1]
     report_entry['TrainingCondition TriageNoSignal'] = training_condition_estimates[1][trial_idx][-1]
     report_entry['TrainingCondition TriageSignal'] = training_condition_estimates[2][trial_idx][-1]
@@ -92,14 +113,41 @@ def create_training_condition_entry(trial, trial_idx, initial_timestamp, trainin
     return report_entry
 
 
+def get_timestamp(initial_timestamp, seconds):
+    """
+    Returns timestamp for a given estimate as the initial timestamp + number of seconds elapsed until the estimate.
+
+    :param initial_timestamp: timestamp when the mission starts
+    :param seconds: time step when an estimate was computed
+    :return: timestamp when an estimate was computed
+    """
+    timestamp = datetime.strptime(initial_timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')
+    timestamp += timedelta(seconds=seconds)
+    return datetime.strftime(timestamp, '%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+
+
 def create_victim_rescue_entries(trial, trial_idx, initial_timestamp, rescue_estimates, horizon, victim_type):
+    """
+    Creates report entries for victim rescue estimates. Each entry represents a moment when estimates surpassed
+    the threshold of 0.5 probability, indicating that the model is foreseeing a rescue in the next horizon.
+
+    :param trial: trial number
+    :param trial_idx: index of the trial in the matrix of evaluation data
+    :param initial_timestamp: timestamp when the mission starts
+    :param rescue_estimates: estimates for victim rescue
+    :param horizon: horizon of prediction
+    :param victim_type: Green or Yellow
+    :return: report entries
+    """
+
     entries = []
 
     prev_estimate = 0
-    for estimate in rescue_estimates[trial_idx]:
+    for t, estimate in enumerate(rescue_estimates[trial_idx]):
         # Only report the estimation prior to start rescuing
         if (estimate >= 0.5) and (prev_estimate < 0.5):
             report_entry = get_template_entry(trial)
+            report_entry['Timestamp'] = get_timestamp(initial_timestamp, t)
             report_entry['TrainingCondition NoTriageNoSignal'] = 'n.a.'
             report_entry['TrainingCondition TriageNoSignal'] = 'n.a.'
             report_entry['TrainingCondition TriageSignal'] = 'n.a.'

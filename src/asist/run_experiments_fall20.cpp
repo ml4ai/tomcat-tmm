@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
         "  1: Evaluation\n")(
         "data_dir",
         po::value<string>(&data_dir)->default_value(
-            "../../data/asist/study-1_2020.08/"),
+            "../../data/asist/study-1_2020.08_split/train"),
         "Directory where input data is (training or evaluation).")(
         "model_dir",
         po::value<string>(&model_dir)
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
         "(evaluation).")(
         "eval_dir",
         po::value<string>(&eval_dir)->default_value(
-            "../../data/evaluations/asist/study-1_2020.08/"),
+            "../../data/eval/asist/study-1_2020.08/"),
         "Directory where the evaluation file should be saved.")(
         "horizon",
         po::value<unsigned int>(&horizon)->default_value(1),
@@ -93,6 +93,7 @@ int main(int argc, char* argv[]) {
         cout << desc << "\n";
         return 1;
     }
+
 
     if (experiment_type == 0) {
         train(data_dir, model_dir);

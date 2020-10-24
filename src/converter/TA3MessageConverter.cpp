@@ -387,6 +387,11 @@ namespace tomcat {
         void TA3MessageConverter::fill_room_observation(
             const nlohmann::json& json_message) {
 
+            if (json_message["data"].contains("entered_area_id")) {
+                // Old version of the location monitor. Do not convert.
+                throw TomcatModelException("Old version of the location monitor.");
+            }
+
             int value = 0;
             if (json_message["data"].contains("locations")) {
                 string room_id = json_message["data"]["locations"][0]["id"];

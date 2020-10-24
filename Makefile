@@ -43,12 +43,12 @@ split:
 # The map configuration file must be downloaded manually from
 # https://gitlab.asist.aptima.com/asist/testbed/-/tree/master/Agents/IHMCLocationMonitor/ConfigFolderand
 # and be placed in the directory data/maps/asist
-convert:
+convert: sync split
 	@cd $(BUILD_DIR) && make -j TomcatConverter
 	@echo "Converting training data..."
 	@./$(BUILD_DIR)/bin/TomcatConverter --map_config $(MAP_CONFIG_PATH) --messages_dir $(TRAIN_MESSAGES_DIR) --output_dir $(TRAIN_SAMPLES_DIR)
 	@echo "Converting evaluation data..."
-	@./$(BUILD_DIR)/bin/TomcatConverter --map_config $(MAP_CONFIG_PATH) --messages_dir $(EVAL_MESSAGES_DIR) --output_dir $(TRAIN_SAMPLES_DIR)
+	@./$(BUILD_DIR)/bin/TomcatConverter --map_config $(MAP_CONFIG_PATH) --messages_dir $(EVAL_MESSAGES_DIR) --output_dir $(EVAL_SAMPLES_DIR)
 
 train: TomcatASISTFall20
 	@echo "Training model..."
