@@ -12,7 +12,7 @@ ROOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" >/dev/null 2>&1 && pwd)"
 export ROOTDIR
 
 GCS_DIR=study-1_2020.08
-DATA_DIR="$ROOTDIR"/data/$GCS_DIR
+DATA_DIR="$ROOTDIR"/data/asist/$GCS_DIR
 
 mkdir -p $DATA_DIR
 gsutil -m rsync -r -x ".*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*\.png$|.*\.PNG$|.*\.csv$|.*Competency.*$|.*Condition.*$|Materials/$|TrialMessages.*$" \

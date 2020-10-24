@@ -17,12 +17,12 @@ namespace po = boost::program_options;
 void train(const std::string& data_dir, const std::string& model_dir) {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
     EvidenceSet training_set(data_dir);
+    EvidenceSet test_set;
     Experimentation experimentation(gen,
                                     "training_study-1_2020.08",
                                     Experimentation::MODEL_VERSION::v2,
                                     training_set,
-                                    {});
-
+                                    test_set);
     experimentation.train_using_gibbs(50, 100);
     experimentation.save_model(model_dir);
     experimentation.train_and_save();
@@ -33,18 +33,22 @@ void evaluate(const std::string& data_dir,
               const std::string& eval_dir,
               unsigned int horizon) {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+    EvidenceSet training_set;
     EvidenceSet test_set(data_dir);
     Experimentation experimentation(gen,
                                     "evaluation_study-1_2020.08",
                                     Experimentation::MODEL_VERSION::v2,
-                                    {},
+                                    training_set,
                                     test_set);
     experimentation.load_model_from(model_dir);
 
     vector<MEASURES> measures = {MEASURES::accuracy};
     experimentation.compute_eval_scores_for(TomcatTA3V2::Q, 0, measures);
-    experimentation.compute_eval_scores_for(TomcatTA3V2::SG, horizon, measures);
-    experimentation.compute_eval_scores_for(TomcatTA3V2::SY, horizon, measures);
+    Eigen::VectorXd assignment = Eigen::VectorXd::Constant(1, 1);
+    experimentation.compute_eval_scores_for(
+        TomcatTA3V2::SG, horizon, measures, assignment);
+    experimentation.compute_eval_scores_for(
+        TomcatTA3V2::SY, horizon, measures, assignment);
 
     experimentation.display_estimates();
     experimentation.train_and_evaluate(eval_dir);
@@ -56,6 +60,7 @@ int main(int argc, char* argv[]) {
     string data_dir;
     string model_dir;
     string eval_dir;
+
     po::options_description desc("Allowed options");
     desc.add_options()("help,h", "Produce this help message")(
         "type",
@@ -76,7 +81,7 @@ int main(int argc, char* argv[]) {
         po::value<string>(&eval_dir)->default_value(
             "../../data/evaluations/asist/study-1_2020.08/"),
         "Directory where the evaluation file should be saved.")(
-        "h",
+        "horizon",
         po::value<unsigned int>(&horizon)->default_value(1),
         "Horizon of prediction for victim rescue in seconds.\n");
 
@@ -93,14 +98,12 @@ int main(int argc, char* argv[]) {
         train(data_dir, model_dir);
     }
     else if (experiment_type == 1) {
-        if (!vm.count("model_eval")) {
-            cout << "A directory must be provided for saving evaluations."
-                 << "\n";
+        if (!vm.count("eval_dir")) {
+            cout << "A directory must be provided for saving evaluations.\n";
             return 1;
         }
         else if (horizon < 1) {
-            cout << "The horizon of prediction has to be greater tha zero."
-                 << "\n";
+            cout << "The horizon of prediction has to be greater than zero.\n";
             return 1;
         }
         else {

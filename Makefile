@@ -1,48 +1,68 @@
-# Compiler
-CXX = g++
-CXXFLAGS = -std=c++17
-
-# Directory where objects and executables must be saved
+# Binaries
 BUILD_DIR = build
 
-# Include directories for external libraries (e.g. boost, eigen3, etc.)
-EXTRA_INCLUDES = -I /opt/local/include/
+MAP_CONFIG_PATH = data/maps/asist/Falcon_v1.0.json
 
-# Headers + external libraries
-INCLUDES = -I src/ $(EXTRA_INCLUDES)
+# Original data from the message bus
+MESSAGES_DIR = data/asist/study-1_2020.08_split
+TRAIN_MESSAGES_DIR = $(MESSAGES_DIR)/train
+EVAL_MESSAGES_DIR = $(MESSAGES_DIR)/eval
 
-# Libraries to link
-LIB_DIR_FLAGS = -L/opt/local/lib/
-LIB_FLAGS$ = -lboost_program_options-mt -lboost_filesystem-mt -lfmt
-LIBS = $(LIB_DIR_FLAGS) $(LIB_FLAGS)
+# Converted data
+SAMPLES_DIR = data/samples/asist/study-1_2020.08
+TRAIN_SAMPLES_DIR = $(SAMPLES_DIR)/train
+EVAL_SAMPLES_DIR = $(SAMPLES_DIR)/eval
 
-# Source and object files necessary for data conversion
-DATA_CONVERSION_SOURCES = src/convert_messages.cpp\
-					      src/converter/MessageConverter.cpp\
-					      src/converter/TA3MessageConverter.cpp\
-					      src/utils/FileHandler.cpp\
-					      src/utils/EigenExtensions.cpp\
-						  src/utils/Tensor3.cpp
+# Training & evaluation
+MODEL_DIR = data/model/asist/study-1_2020.08
+EVAL_DIR = data/eval/asist/study-1_2020.08
 
-DATA_CONVERSION_OBJECTS = $(DATA_CONVERSION_SOURCES:.cpp=.o)
+# Number of seconds ahead predictions are made for victim rescue
+H = 1
 
 # Phony targets
 .PHONY: all
-.PHONY: build
 .PHONY: sync
-#.PHONY: clean
+.PHONY: split
+.PHONY: convert
+.PHONY: train
+.PHONY: eval
+.PHONY: report
+.PHONY: TomcatASISTFall20
 
-all: build sync
-
-convert_messages: build $(DATA_CONVERSION_OBJECTS)
-	$(CXX) $(LIBS) $(patsubst %.o, $(BUILD_DIR)/%.o , $(DATA_CONVERSION_OBJECTS)) -o $(BUILD_DIR)/bin/$@
-
-%.o: %.cpp
-	@mkdir -p $(BUILD_DIR)/$(dir $@)
-	$(CXX) $(CXXFLAGS) -c $< $(INCLUDES) -o $(BUILD_DIR)/$@
+all: sync split convert train eval
 
 sync:
 	./tools/sync_asist_data
 
-build:
-	@mkdir -p $(BUILD_DIR)/bin
+# This requires the pre creation of the folder $(MESSAGES_DIR) and the file eval_list.txt in it.define
+# This file must contain the list of filenames that must be used for evaluation.
+split:
+	./tools/split_data
+
+# The map configuration file must be downloaded manually from
+# https://gitlab.asist.aptima.com/asist/testbed/-/tree/master/Agents/IHMCLocationMonitor/ConfigFolderand
+# and be placed in the directory data/maps/asist
+convert:
+	@cd $(BUILD_DIR) && make -j TomcatConverter
+	@echo "Converting training data..."
+	@./$(BUILD_DIR)/bin/TomcatConverter --map_config $(MAP_CONFIG_PATH) --messages_dir $(TRAIN_MESSAGES_DIR) --output_dir $(TRAIN_SAMPLES_DIR)
+	@echo "Converting evaluation data..."
+	@./$(BUILD_DIR)/bin/TomcatConverter --map_config $(MAP_CONFIG_PATH) --messages_dir $(EVAL_MESSAGES_DIR) --output_dir $(TRAIN_SAMPLES_DIR)
+
+train: TomcatASISTFall20
+	@echo "Training model..."
+	@./$(BUILD_DIR)/bin/TomcatASISTFall20 --type 0 --data_dir $(TRAIN_SAMPLES_DIR) --model_dir $(MODEL_DIR)
+
+eval: TomcatASISTFall20
+	@echo "Evaluating model..."
+	@./$(BUILD_DIR)/bin/TomcatASISTFall20 --type 1 --data_dir $(EVAL_SAMPLES_DIR) --model_dir $(MODEL_DIR) --eval_dir $(EVAL_DIR) --horizon $(H)
+
+report:
+	@python3 tools/create_asist_report.py $(EVAL_DIR)/evaluations.json $(EVAL_SAMPLES_DIR)/metadata.json $(H) $(EVAL_DIR)/report.txt
+
+TomcatASISTFall20:
+	@cd $(BUILD_DIR) && make -j TomcatASISTFall20
+
+
+

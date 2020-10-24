@@ -3,8 +3,8 @@
 #include <iomanip>
 #include <iostream>
 
-#include <boost/progress.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/progress.hpp>
 #include <fmt/format.h>
 
 #include "utils/EigenExtensions.h"
@@ -222,8 +222,9 @@ namespace tomcat {
             vector<fs::path> filepaths;
             for (const auto& file : fs::directory_iterator(messages_dir)) {
                 string filename = file.path().filename().string();
-                if (fs::is_regular_file(file) &&
-                    filename.find("TrialMessages") != string::npos) {
+                if ((fs::is_regular_file(file)) &&
+                    filename.find("TrialMessages") != string::npos &&
+                    file.path().extension().string() == ".metadata") {
 
                     if (!EXISTS(filename, processed_message_filenames)) {
                         filepaths.push_back(file.path());
@@ -244,8 +245,8 @@ namespace tomcat {
                 getline(file_reader, message);
                 try {
                     messages.push_back(nlohmann::json::parse(message));
-                } catch (nlohmann::detail::parse_error& exp) {
-
+                }
+                catch (nlohmann::detail::parse_error& exp) {
                 }
             }
 
