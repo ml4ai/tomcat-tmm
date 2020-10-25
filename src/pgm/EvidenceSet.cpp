@@ -97,15 +97,16 @@ namespace tomcat {
                         }
                     }
 
-                    // Also, if at least one data point is non-observable at given time step,
-                    // no other data point should be.
+                    // Also, if at least one data point is non-observable at
+                    // given time step, no other data point should be.
                     if (!obs_data) {
                         break;
                     }
                 }
                 if (obs_data) {
                     break;
-                } else {
+                }
+                else {
                     time_step++;
                 }
             }
@@ -118,8 +119,10 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void EvidenceSet::init_from_folder(const string& data_folder_path) {
             for (const auto& file : fs::directory_iterator(data_folder_path)) {
-                if (fs::is_regular_file(file)) {
-                    string filename = file.path().filename().string();
+                string filename = file.path().filename().string();
+                if (fs::is_regular_file(file) &&
+                    filename.find("metadata") == string::npos) {
+
                     string node_label = remove_extension(filename);
                     Tensor3 data = read_tensor_from_file(file.path().string());
                     this->add_data(node_label, data);

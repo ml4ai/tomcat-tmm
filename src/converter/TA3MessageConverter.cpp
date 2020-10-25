@@ -1,8 +1,9 @@
 #include "TA3MessageConverter.h"
 
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
+#include <boost/filesystem.hpp>
 #include <boost/progress.hpp>
 #include <fmt/format.h>
 
@@ -144,20 +145,21 @@ namespace tomcat {
                             filepath.filename().string();
                         json_message_file["initial_timestamp"] =
                             this->initial_timestamp;
-                        json_metadata["files_converted"].push_back(json_message_file);
+                        json_metadata["files_converted"].push_back(
+                            json_message_file);
                     }
                 }
                 catch (TomcatModelException& exp) {
                     nlohmann::json json_message_file;
                     json_message_file["name"] = filepath.filename().string();
                     json_message_file["error"] = exp.message;
-                    json_metadata["files_not_converted"].push_back(json_message_file);
+                    json_metadata["files_not_converted"].push_back(
+                        json_message_file);
 
                     // Remove the last observations from the matrices.
                     for (auto& [node_label, data_matrix] :
                          observations_per_node) {
-                        data_matrix.conservativeResize(data_matrix.rows() - 1,
-                                                       Eigen::NoChange);
+                        data_matrix.conservativeResize(d - 1, Eigen::NoChange);
                     }
                 }
 
@@ -220,8 +222,9 @@ namespace tomcat {
             vector<fs::path> filepaths;
             for (const auto& file : fs::directory_iterator(messages_dir)) {
                 string filename = file.path().filename().string();
-                if (fs::is_regular_file(file) &&
-                    filename.find("TrialMessages") != string::npos) {
+                if ((fs::is_regular_file(file)) &&
+                    filename.find("TrialMessages") != string::npos &&
+                    file.path().extension().string() == ".metadata") {
 
                     if (!EXISTS(filename, processed_message_filenames)) {
                         filepaths.push_back(file.path());
@@ -240,7 +243,11 @@ namespace tomcat {
             while (!file_reader.eof()) {
                 string message;
                 getline(file_reader, message);
-                messages.push_back(nlohmann::json::parse(message));
+                try {
+                    messages.push_back(nlohmann::json::parse(message));
+                }
+                catch (nlohmann::detail::parse_error& exp) {
+                }
             }
 
             sort(messages.begin(),
@@ -379,6 +386,11 @@ namespace tomcat {
 
         void TA3MessageConverter::fill_room_observation(
             const nlohmann::json& json_message) {
+
+            if (json_message["data"].contains("entered_area_id")) {
+                // Old version of the location monitor. Do not convert.
+                throw TomcatModelException("Old version of the location monitor.");
+            }
 
             int value = 0;
             if (json_message["data"].contains("locations")) {

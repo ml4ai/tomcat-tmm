@@ -86,7 +86,8 @@ namespace tomcat {
                 }
                 else {
                     Eigen::MatrixXd marginal =
-                        this->factor_graph.get_marginal_for(this->estimates.label, t, true);
+                        this->factor_graph.get_marginal_for(
+                            this->estimates.label, t, true);
 
                     if (marginal.size() == 0) {
                         marginal = Eigen::MatrixXd::Constant(
@@ -94,17 +95,20 @@ namespace tomcat {
                     }
                     else {
                         if (this->estimates.assignment.size() != 0) {
-                            int discrete_assignment = this->estimates.assignment[0];
+                            int discrete_assignment =
+                                this->estimates.assignment[0];
                             Eigen::VectorXd estimates_in_time_step =
                                 marginal.col(discrete_assignment);
 
-                            this->add_column_to_estimates(estimates_in_time_step);
+                            this->add_column_to_estimates(
+                                estimates_in_time_step);
                         }
                         else {
                             for (int col = 0; col < marginal.cols(); col++) {
                                 Eigen::VectorXd estimates_in_time_step =
                                     marginal.col(col);
-                                this->add_column_to_estimates(estimates_in_time_step, col);
+                                this->add_column_to_estimates(
+                                    estimates_in_time_step, col);
                             }
                         }
                     }
@@ -172,17 +176,16 @@ namespace tomcat {
                                 time_step,
                                 MessageNode::Direction::forward);
 
-                        //                        LOG("Forward");
-                        //                        cout << MessageNode::get_name(
-                        //                                    parent_node->get_label(),
-                        //                                    parent_incoming_messages_time_step)
-                        //                             << " -> "
-                        //                             <<
-                        //                             MessageNode::get_name(node->get_label(),
-                        //                                                      time_step)
-                        //                             << "\n";
-                        //                        LOG(message);
-                        //                        LOG("");
+//                        LOG("Forward");
+//                        cout << MessageNode::get_name(
+//                                    parent_node->get_label(),
+//                                    parent_incoming_messages_time_step)
+//                             << " -> "
+//                             << MessageNode::get_name(node->get_label(),
+//                                                      time_step)
+//                             << "\n";
+//                        LOG(message);
+//                        LOG("");
 
                         node->set_incoming_message_from(
                             parent_node->get_label(),
@@ -245,19 +248,16 @@ namespace tomcat {
                                     time_step,
                                     MessageNode::Direction::backwards);
 
-                            //                            LOG("Backward");
-                            //                            cout <<
-                            //                            MessageNode::get_name(node->get_label(),
-                            //                                                          time_step)
-                            //                                 << " -> "
-                            //                                 <<
-                            //                                 MessageNode::get_name(
-                            //                                        child_node->get_label(),
-                            //                                        time_step)
-                            //
-                            //                                 << "\n";
-                            //                            LOG(message);
-                            //                            LOG("");
+//                            LOG("Backward");
+//                            cout << MessageNode::get_name(node->get_label(),
+//                                                          time_step)
+//                                 << " -> "
+//                                 << MessageNode::get_name(
+//                                        child_node->get_label(), time_step)
+//
+//                                 << "\n";
+//                            LOG(message);
+//                            LOG("");
 
                             node->set_incoming_message_from(
                                 child_node->get_label(),
@@ -305,8 +305,9 @@ namespace tomcat {
                     estimated_probabilities = marginal.col(opposite_assignment);
                 }
                 else {
-                    estimated_probabilities = estimated_probabilities.array() *
-                                marginal.col(opposite_assignment).array();
+                    estimated_probabilities =
+                        estimated_probabilities.array() *
+                        marginal.col(opposite_assignment).array();
                 }
             }
             // Adjust the time counter back to it's original position.
@@ -319,21 +320,20 @@ namespace tomcat {
         }
 
         void SumProductEstimator::add_column_to_estimates(
-            const Eigen::VectorXd new_column,
-            int index) {
+            const Eigen::VectorXd new_column, int index) {
             if (this->estimates.estimates.size() < index + 1) {
                 // First estimates for a given assignment
                 this->estimates.estimates.push_back(Eigen::MatrixXd(0, 0));
                 this->estimates.estimates[index] = new_column;
-            } else {
+            }
+            else {
                 // Append new column to the existing estimates
                 int num_rows = this->estimates.estimates[index].rows();
                 int num_cols = this->estimates.estimates[index].cols() + 1;
                 this->estimates.estimates[index].conservativeResize(num_rows,
-                                                              num_cols);
+                                                                    num_cols);
                 this->estimates.estimates[index].col(num_cols - 1) = new_column;
             }
-
         }
 
         void SumProductEstimator::estimate_backward_in_time(

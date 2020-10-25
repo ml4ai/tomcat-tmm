@@ -3,8 +3,8 @@
 set -euo pipefail
 
 # Script to download/sync ASIST data.
-# Note: This does not work with Python 3.8 (as of 2020-10-01), but it does work
-# with Python 3.7.
+# Note: gsutil does not work with Python 3.8 on macOS (as of 2020-10-01), but
+# it does work with Python 3.7.
 
 # Set the ROOTDIR environment variable, assuming that the directory structure
 # mirrors that of the git repository.
@@ -12,8 +12,23 @@ ROOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" >/dev/null 2>&1 && pwd)"
 export ROOTDIR
 
 GCS_DIR=study-1_2020.08
-DATA_DIR="$ROOTDIR"/data/$GCS_DIR
+DATA_DIR="$ROOTDIR"/data/asist/$GCS_DIR
 
 mkdir -p $DATA_DIR
-gsutil -m rsync -r -x ".*\.mp4$|.*\.png$|.*\.zip$|.*\.PNG$|.*\.csv$|.*\.tsv$" \
+gsutil -m rsync -r \
+    -x ".*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*\.png$|.*\.PNG$|.*\.csv$|.*Competency.*$|.*Condition.*$|Materials/$|TrialMessages.*$" \
     gs://studies.aptima.com/$GCS_DIR $DATA_DIR
+
+
+# Create a directory and eval_list file for data splitting
+DATA_SPLIT_DIR="$DATA_DIR"_split
+EVAL_LIST_FILEPATH="$DATA_SPLIT_DIR"/eval_list.txt
+
+mkdir -p $DATA_SPLIT_DIR
+if [ ! -e $EVAL_LIST_FILEPATH ]
+then
+    echo "Creating file $EVAL_LIST_FILEPATH for data splitting."
+    touch -a $EVAL_LIST_FILEPATH
+fi
+
+echo "Please, update $EVAL_LIST_FILEPATH accordingly."
