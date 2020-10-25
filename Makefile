@@ -1,7 +1,7 @@
-# Study
+# The name of the Google Cloud Source folder where the ASIST HSR data resides.
 STUDY_ID = study-1_2020.08
 
-# Binaries
+# Binaries required for the ASIST evaluation analyses
 BUILD_DIR = build
 
 MAP_CONFIG_PATH = data/maps/asist/Falcon_v1.0.json
@@ -20,8 +20,8 @@ EVAL_SAMPLES_DIR = $(SAMPLES_DIR)/eval
 MODEL_DIR = data/model/asist/$(STUDY_ID)
 EVAL_DIR = data/eval/asist/$(STUDY_ID)
 
-# Number of seconds ahead predictions are made for victim rescue
-H = 1
+# Number of seconds ahead predictions are made for victim rescue (
+HORIZON = 1
 
 # Phony targets
 .PHONY: all
@@ -71,12 +71,12 @@ eval: TomcatASISTFall20 train
 	@echo "Evaluating model..."
 	@./$(BUILD_DIR)/bin/TomcatASISTFall20 --type 1 \
 		--data_dir $(EVAL_SAMPLES_DIR) --model_dir $(MODEL_DIR) \
-		--eval_dir $(EVAL_DIR) --horizon $(H)
+		--eval_dir $(EVAL_DIR) --horizon $(HORIZON)
 
 report: eval
 	@echo ""
 	@python3 tools/create_asist_report.py $(EVAL_DIR)/evaluations.json \
-		$(EVAL_SAMPLES_DIR)/metadata.json $(H) $(EVAL_DIR)/report.txt
+		$(EVAL_SAMPLES_DIR)/metadata.json $(HORIZON) $(EVAL_DIR)/report.txt
 
 TomcatASISTFall20:
 	@cd $(BUILD_DIR) && make -j TomcatASISTFall20
