@@ -50,7 +50,8 @@ split:
 # https://gitlab.asist.aptima.com/asist/testbed/-/tree/master/Agents/IHMCLocationMonitor/ConfigFolder
 # and be placed in the directory data/maps/asist with the filename
 # 'Falcon_v1.0.json'
-convert: sync split
+convert: sync split $(MAP_CONFIG_PATH) $(TRAIN_MESSAGES_DIR)\
+		 $(TRAIN_SAMPLES_DIR) $(EVAL_SAMPLES_DIR)
 	@echo ""
 	@cd $(BUILD_DIR) && make -j TomcatConverter
 	@echo "Converting training data..."
