@@ -2,13 +2,13 @@
 
 set -euo pipefail
 
-# Script to split ASIST data in two directories: one for training and the other for evaluation.
-# Symbolic links are created to avoid moving files from the main directory. This script
-# assumes asist data was synchronized already.
+# Script to split ASIST data in two directories: one for training and the other
+# for evaluation.  Symbolic links are created to avoid moving files from the
+# main directory. This script assumes asist data was synchronized already.
 #
-# It also assumes that there's a file called eval_list.txt in the study-1_2020.08 directory,
-# containing the list of filenames to evaluate. All of the other files not in this list will
-# be used for training the model.
+# It also assumes that there's a file called eval_list.txt in the
+# study-1_2020.08 directory, containing the list of filenames to evaluate. All
+# of the other files not in this list will be used for training the model.
 
 # Set the ROOTDIR environment variable, assuming that the directory structure
 # mirrors that of the git repository.
@@ -38,13 +38,12 @@ do
     [[ -e "$file" ]] && ln -s "$file" $TRAINING_DIR
 done
 
-# Create symbolic links in the evaluation directory for the files listed in eval_list.txt
-# and remove symbolic link fior these files from the training directory
+# Create symbolic links in the evaluation directory for the files listed in
+# eval_list.txt and remove symbolic link fior these files from the training
+# directory
 while IFS= read -r file; do
     [[ -e "$ORIGINAL_DATA_DIR/$file".metadata ]] && ln -s "$ORIGINAL_DATA_DIR/$file".metadata $EVAL_DIR
     [[ -e "$ORIGINAL_DATA_DIR/$file".fov ]] && ln -s "$ORIGINAL_DATA_DIR/$file".fov $EVAL_DIR
     [[ -e "$ORIGINAL_DATA_DIR/$file".metadata ]] && rm "$TRAINING_DIR/$file".metadata
     [[ -e "$ORIGINAL_DATA_DIR/$file".fov ]] && rm "$TRAINING_DIR/$file".fov
 done < $EVAL_LIST
-
-
