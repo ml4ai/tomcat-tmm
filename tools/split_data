@@ -39,11 +39,20 @@ do
 done
 
 # Create symbolic links in the evaluation directory for the files listed in
-# eval_list.txt and remove symbolic link fior these files from the training
+# eval_list.txt and remove symbolic link for these files from the training
 # directory
 while IFS= read -r file; do
-    [[ -e "$ORIGINAL_DATA_DIR/$file".metadata ]] && ln -s "$ORIGINAL_DATA_DIR/$file".metadata $EVAL_DIR
-    [[ -e "$ORIGINAL_DATA_DIR/$file".fov ]] && ln -s "$ORIGINAL_DATA_DIR/$file".fov $EVAL_DIR
-    [[ -e "$ORIGINAL_DATA_DIR/$file".metadata ]] && rm "$TRAINING_DIR/$file".metadata
-    [[ -e "$ORIGINAL_DATA_DIR/$file".fov ]] && rm "$TRAINING_DIR/$file".fov
+    [[ -e "$ORIGINAL_DATA_DIR/$file".metadata ]] && ln -s \
+    "$ORIGINAL_DATA_DIR/$file".metadata $EVAL_DIR && rm \
+    "$TRAINING_DIR/$file".metadata
+    [[ -e "$ORIGINAL_DATA_DIR/$file".fov ]] && ln -s \
+    "$ORIGINAL_DATA_DIR/$file".fov $EVAL_DIR && rm \
+    "$TRAINING_DIR/$file".fov
 done < $EVAL_LIST
+
+# If no file exists for the filenames listed in eval_list.txt, the exit code
+# will be 1. However, the error was already handled by not creating symbolic
+# links in the evaluation directory. Therefore, we force an sucessful exit
+# code if the execution reached the end of the script without any other issues.
+exit 0
+
