@@ -166,10 +166,12 @@ namespace tomcat {
                 ++progress;
             }
 
-            boost::filesystem::create_directories(output_dir);
-            this->save_metadata(json_metadata, output_dir);
-            this->merge_and_save_observations(observations_per_node,
-                                              output_dir);
+            if (!message_filepaths.empty()) {
+                boost::filesystem::create_directories(output_dir);
+                this->save_metadata(json_metadata, output_dir);
+                this->merge_and_save_observations(observations_per_node,
+                                                  output_dir);
+            }
         }
 
         nlohmann::json

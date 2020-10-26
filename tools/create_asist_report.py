@@ -1,6 +1,6 @@
 import sys
 import json
-import regex as re
+import re
 import numpy as np
 from datetime import datetime
 from datetime import timedelta
@@ -12,7 +12,8 @@ def create_report(eval_filepath, metadata_filepath, horizon, report_filepath):
     by DARPA for the asist program.
 
     :param eval_filepath: filepath of the file with estimates and evaluation
-    :param metadata_filepath: filepath of the metadata file of the evaluation data
+    :param metadata_filepath: filepath of the metadata file of the evaluation
+    data
     :param horizon: inference horizon for victim rescue
     :param report_filepath: filepath of the final report
     :return:
@@ -79,10 +80,12 @@ def get_estimates(evaluations, horizon, node_label, assignment_index=0):
     Extracts estimates for a given estimator, horizon and node label from a set
     of evaluations.
 
-    :param evaluations: json object containing a set of evaluations performed in an experiment
+    :param evaluations: json object containing a set of evaluations performed in
+     an experiment
     :param horizon: horizon of inference
     :param node_label: label of the node for which evaluations were computed
-    :param assignment_index: if estimates where computed for non-binary nodes, this indicates the value for which to
+    :param assignment_index: if estimates where computed for non-binary nodes,
+    this indicates the value for which to
     extract the estimates
     :return: list of estimated probabilities
     """
@@ -91,8 +94,8 @@ def get_estimates(evaluations, horizon, node_label, assignment_index=0):
         estimator["executions"][0]["estimates"][assignment_index]
         for estimator in evaluations["estimation"]["estimators"]
         if estimator["name"] == "sum-product"
-        and estimator["inference_horizon"] == horizon
-        and estimator["node_label"] == node_label
+           and estimator["inference_horizon"] == horizon
+           and estimator["node_label"] == node_label
     ][0]
 
     return np.array(
@@ -102,7 +105,8 @@ def get_estimates(evaluations, horizon, node_label, assignment_index=0):
 
 def get_template_entry(trial):
     """
-    Returns a report entry with pre-filled fields that are common to all kinds of entries.
+    Returns a report entry with pre-filled fields that are common to all kinds
+    of entries.
     :param trial: trial number
     :return: minimal report entry
     """
@@ -118,7 +122,7 @@ def get_template_entry(trial):
 
 
 def create_training_condition_entry(
-    trial, trial_idx, initial_timestamp, training_condition_estimates
+        trial, trial_idx, initial_timestamp, training_condition_estimates
 ):
     """
     Creates a report entry for training condition estimates.
@@ -166,7 +170,8 @@ def get_timestamp(initial_timestamp, seconds):
 
 
 def create_victim_rescue_entries(
-    trial, trial_idx, initial_timestamp, rescue_estimates, horizon, victim_type
+        trial, trial_idx, initial_timestamp, rescue_estimates, horizon,
+        victim_type
 ):
     """
     Creates report entries for victim rescue estimates. Each entry represents a

@@ -18,17 +18,3 @@ mkdir -p $DATA_DIR
 gsutil -m rsync -r \
     -x ".*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*\.png$|.*\.PNG$|.*\.csv$|.*Competency.*$|.*Condition.*$|Materials/$|TrialMessages.*$" \
     gs://studies.aptima.com/$GCS_DIR $DATA_DIR
-
-
-# Create a directory and eval_list file for data splitting
-DATA_SPLIT_DIR="$DATA_DIR"_split
-EVAL_LIST_FILEPATH="$DATA_SPLIT_DIR"/eval_list.txt
-
-mkdir -p $DATA_SPLIT_DIR
-if [ ! -e $EVAL_LIST_FILEPATH ]
-then
-    echo "Creating file $EVAL_LIST_FILEPATH for data splitting."
-    touch -a $EVAL_LIST_FILEPATH
-fi
-
-echo "Please, update $EVAL_LIST_FILEPATH accordingly."
