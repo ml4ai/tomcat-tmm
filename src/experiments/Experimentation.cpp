@@ -2,10 +2,13 @@
 
 #include <boost/filesystem.hpp>
 
-using namespace std;
+#include "utils/FileHandler.h"
 
 namespace tomcat {
     namespace model {
+
+        using namespace std;
+        namespace fs = boost::filesystem;
 
         //----------------------------------------------------------------------
         // Constructors & Destructor
@@ -93,7 +96,8 @@ namespace tomcat {
                 num_samples);
         }
 
-        void Experimentation::save_model(const string& output_dir) {
+        void Experimentation::save_model(const string& output_dir,
+                                         bool save_partials) {
             string final_output_dir = output_dir;
 
             if (this->data_splitter->get_splits().size() > 1) {
@@ -101,7 +105,9 @@ namespace tomcat {
             }
 
             this->saver = make_shared<DBNSaver>(this->tomcat->get_model(),
-                                                final_output_dir);
+                                                this->trainer,
+                                                final_output_dir,
+                                                save_partials);
         }
 
         void Experimentation::compute_baseline_estimates_for(
@@ -209,8 +215,9 @@ namespace tomcat {
                 node_label, inference_horizon, measures, assignment, estimator);
         }
 
-        void Experimentation::train_and_evaluate(const string& output_dir) {
-            boost::filesystem::create_directories(output_dir);
+        void Experimentation::train_and_evaluate(const string& output_dir,
+                                                 bool evaluate_on_partials) {
+            fs::create_directories(output_dir);
             string filepath = fmt::format("{}/evaluations.json", output_dir);
             ofstream output_file;
             output_file.open(filepath);
@@ -222,6 +229,51 @@ namespace tomcat {
             pipeline.set_aggregator(this->evaluation);
             pipeline.execute();
             output_file.close();
+
+            if (evaluate_on_partials) {
+                this->evaluate_on_partials(output_dir);
+                // Restore the model's parameters to the aggregation over
+                // partials.
+                this->trainer->update_model_from_partials();
+            }
+        }
+
+        void Experimentation::evaluate_on_partials(const string& output_dir) {
+            cout << "Computing estimates over partials\n";
+            string partials_dir = fmt::format("{}/partials", output_dir);
+            if (this->data_splitter->get_splits().size() > 1) {
+                partials_dir = fmt::format("{}/fold{}", partials_dir);
+            }
+
+            for (int i = 0; this->trainer->get_num_partials(); i++) {
+                const string filename = fmt::format("evaluations{}.json", i);
+                const string experiment_id =
+                    fmt::format("{}_{}", this->experiment_id, i);
+
+                this->trainer->update_model_from_partial(i);
+
+                int num_fold = 1;
+                for (const auto& [training_data, test_data] :
+                     this->data_splitter->get_splits()) {
+
+                    const string eval_dir =
+                        fmt::format(partials_dir, num_fold++);
+                    const string filepath = get_filepath(eval_dir, filename);
+                    fs::create_directories(eval_dir);
+
+                    shared_ptr<KFold> data_splitter =
+                        make_shared<KFold>(training_data, test_data);
+
+                    ofstream output_file;
+                    output_file.open(filepath);
+                    Pipeline pipeline(experiment_id, output_file);
+                    pipeline.set_data_splitter(data_splitter);
+                    pipeline.set_estimation_process(this->offline_estimation);
+                    pipeline.set_aggregator(this->evaluation);
+                    pipeline.execute();
+                    output_file.close();
+                }
+            }
         }
 
         void Experimentation::train_and_save() {
@@ -233,8 +285,11 @@ namespace tomcat {
             }
         }
 
-        void Experimentation::generate_synthetic_data(
-            int num_samples, const std::string& output_dir, int equals_until, int max_time_step) {
+        void
+        Experimentation::generate_synthetic_data(int num_samples,
+                                                 const std::string& output_dir,
+                                                 int equals_until,
+                                                 int max_time_step) {
 
             this->trainer->fit({});
             this->tomcat->generate_synthetic_data(

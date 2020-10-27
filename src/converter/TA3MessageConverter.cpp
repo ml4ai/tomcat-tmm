@@ -10,11 +10,11 @@
 #include "utils/EigenExtensions.h"
 #include "utils/FileHandler.h"
 
-using namespace std;
-namespace fs = boost::filesystem;
-
 namespace tomcat {
     namespace model {
+
+        using namespace std;
+        namespace fs = boost::filesystem;
 
         //----------------------------------------------------------------------
         // Constructors & Destructor

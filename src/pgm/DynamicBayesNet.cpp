@@ -437,6 +437,34 @@ namespace tomcat {
                 ->get_cardinality();
         }
 
+        bool DynamicBayesNet::has_node_with_label(
+            const std::string& node_label) const {
+            return EXISTS(node_label, this->label_to_nodes);
+        }
+
+        bool DynamicBayesNet::has_parameter_node_with_label(
+            const std::string& node_label) const {
+            if (EXISTS(node_label, this->label_to_nodes)) {
+                return this->label_to_nodes.at(node_label)[0]
+                    ->get_metadata()
+                    ->is_parameter();
+            }
+
+            return false;
+        }
+
+        vector<string> DynamicBayesNet::get_parameter_node_labels() const {
+            vector<string> labels;
+
+            for (const auto& node_template : this->node_templates) {
+                if (node_template.get_metadata()->is_parameter()) {
+                    labels.push_back(node_template.get_metadata()->get_label());
+                }
+            }
+
+            return labels;
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------

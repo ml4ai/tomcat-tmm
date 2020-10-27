@@ -33,9 +33,12 @@ namespace tomcat {
 
             vector<KFold::Split> splits = this->data_splitter->get_splits();
             for (const auto& [training_data, test_data] : splits) {
-                this->model_trainer->prepare();
-                this->model_trainer->fit(training_data);
-                if (this->model_saver != nullptr) {
+                if (this->model_trainer) {
+                    this->model_trainer->prepare();
+                    this->model_trainer->fit(training_data);
+                }
+
+                if (this->model_saver) {
                     this->model_saver->save();
                 }
 
@@ -44,12 +47,12 @@ namespace tomcat {
                 this->estimation_process->estimate(test_data);
                 this->estimation_process->keep_estimates();
 
-                if (this->evaluation != nullptr) {
+                if (this->evaluation) {
                     this->evaluation->evaluate(test_data);
                 }
             }
 
-            if (this->evaluation != nullptr) {
+            if (this->evaluation) {
                 this->evaluation->aggregate();
             }
 
@@ -66,7 +69,7 @@ namespace tomcat {
             }
 
             if (this->model_trainer == nullptr) {
-                throw TomcatModelException(
+                LOG_WARNING(
                     "A model trainer was not provided to the pipeline.");
             }
 
@@ -92,7 +95,9 @@ namespace tomcat {
             json["execution_end"] = final_timestamp;
             json["duration_in_seconds"] = duration_in_seconds;
             this->data_splitter->get_info(json["data_split"]);
-            this->model_trainer->get_info(json["training"]);
+            if (this->model_trainer) {
+                this->model_trainer->get_info(json["training"]);
+            }
             this->estimation_process->get_info(json["estimation"]);
             if (this->evaluation) {
                 this->evaluation->get_info(json["evaluation"]);
@@ -104,8 +109,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
-        void Pipeline::set_data_splitter(
-            const shared_ptr<KFold>& data_splitter) {
+        void
+        Pipeline::set_data_splitter(const shared_ptr<KFold>& data_splitter) {
             this->data_splitter = data_splitter;
         }
 
@@ -114,8 +119,8 @@ namespace tomcat {
             this->model_trainer = model_trainer;
         }
 
-        void Pipeline::set_model_saver(
-            const shared_ptr<DBNSaver>& model_saver) {
+        void
+        Pipeline::set_model_saver(const shared_ptr<DBNSaver>& model_saver) {
             this->model_saver = model_saver;
         }
 

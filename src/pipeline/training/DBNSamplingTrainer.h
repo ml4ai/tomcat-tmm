@@ -43,6 +43,13 @@ namespace tomcat {
 
             void get_info(nlohmann::json& json) const override;
 
+          protected:
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            std::shared_ptr<DynamicBayesNet> get_model() const override;
+
           private:
             //------------------------------------------------------------------
             // Member functions

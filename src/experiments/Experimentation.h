@@ -1,9 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <unordered_set>
 #include <vector>
-#include <string>
 
 #include <eigen3/Eigen/Dense>
 #include <fmt/format.h>
@@ -107,7 +107,8 @@ namespace tomcat {
 
             void train_using_gibbs(int burn_in, int num_samples);
 
-            void save_model(const std::string& output_dir);
+            void save_model(const std::string& output_dir,
+                            bool save_partials = false);
 
             void compute_baseline_estimates_for(
                 const std::string& node_label,
@@ -131,7 +132,8 @@ namespace tomcat {
                 std::vector<MEASURES> measures,
                 Eigen::VectorXd assignment = Eigen::VectorXd(0));
 
-            void train_and_evaluate(const std::string& output_dir);
+            void train_and_evaluate(const std::string& output_dir,
+                                    bool evaluate_on_partials = false);
 
             void train_and_save();
 
@@ -164,6 +166,12 @@ namespace tomcat {
                                          std::vector<MEASURES> measures,
                                          Eigen::VectorXd assignment,
                                          std::shared_ptr<Estimator> estimator);
+
+            /**
+             * Run evaluation for each one of the models defined by each one of
+             * the parameter samples generated during training.
+             */
+            void evaluate_on_partials(const std::string& output_dir);
 
             //------------------------------------------------------------------
             // Data members

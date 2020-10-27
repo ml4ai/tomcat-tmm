@@ -53,6 +53,13 @@ namespace tomcat {
 
             void get_info(nlohmann::json& json) const override;
 
+          protected:
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            std::shared_ptr<DynamicBayesNet> get_model() const override;
+
           private:
             //------------------------------------------------------------------
             // Member functions
@@ -62,6 +69,11 @@ namespace tomcat {
              * Copies data members from another DBNLoader.
              */
             void copy_loader(const DBNLoader& loader);
+
+            /**
+             * Loads parameter samples generated during the training process.
+             */
+            void load_partials();
 
             //------------------------------------------------------------------
             // Data members
