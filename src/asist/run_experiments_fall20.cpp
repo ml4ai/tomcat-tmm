@@ -23,7 +23,7 @@ void train(const std::string& data_dir, const std::string& model_dir) {
                                     Experimentation::MODEL_VERSION::v2,
                                     training_set,
                                     test_set);
-    experimentation.train_using_gibbs(1, 2);
+    experimentation.train_using_gibbs(50, 100);
     experimentation.save_model(model_dir, true);
     experimentation.train_and_save();
 }
