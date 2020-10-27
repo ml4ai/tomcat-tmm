@@ -372,7 +372,8 @@ namespace tomcat {
             }
         }
 
-        void DynamicBayesNet::load_from(const string& input_dir) {
+        void DynamicBayesNet::load_from(const string& input_dir,
+                                        bool freeze_nodes) {
             // Parameters of the model should be in files with the same name as
             // the parameters timed names. (eg. (Theta_S0,0).txt)
             for (const auto& file :
@@ -399,7 +400,10 @@ namespace tomcat {
                         Eigen::MatrixXd assignment =
                             read_matrix_from_file(file.path().string());
                         parameter_node->set_assignment(assignment);
-                        parameter_node->freeze();
+
+                        if (freeze_nodes) {
+                            parameter_node->freeze();
+                        }
                     }
                 }
             }

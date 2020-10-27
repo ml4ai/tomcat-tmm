@@ -58,7 +58,7 @@ namespace tomcat {
                     this->sampler->get_samples(param_label);
             }
 
-            this->update_model_from_partials();
+            this->update_model_from_partials(false);
         }
 
         void DBNSamplingTrainer::get_info(nlohmann::json& json) const {

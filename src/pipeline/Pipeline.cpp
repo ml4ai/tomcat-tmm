@@ -63,19 +63,19 @@ namespace tomcat {
         }
 
         void Pipeline::check() {
-            if (this->data_splitter == nullptr) {
+            if (!this->data_splitter) {
                 throw TomcatModelException(
                     "A data splitter was not provided to the pipeline.");
             }
 
-            if (this->model_trainer == nullptr) {
-                LOG_WARNING(
-                    "A model trainer was not provided to the pipeline.");
-            }
-
-            if (this->estimation_process == nullptr) {
-                LOG_WARNING("No estimation was provided to the pipeline.");
-            }
+//            if (this->model_trainer) {
+//                LOG_WARNING(
+//                    "A model trainer was not provided to the pipeline.");
+//            }
+//
+//            if (this->estimation_process) {
+//                LOG_WARNING("No estimation was provided to the pipeline.");
+//            }
         }
 
         void Pipeline::display_results(

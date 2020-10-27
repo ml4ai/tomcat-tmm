@@ -172,8 +172,10 @@ namespace tomcat {
              *
              * @param input_dir: directory where the files with the parameters'
              * values are saved
+             * @param freeze_nodes: if true nodes that had their assignments
+             * set will be frozen
              */
-            void load_from(const std::string& input_dir);
+            void load_from(const std::string& input_dir, bool freeze_nodes);
 
             /**
              * Returns edges of the unrolled DBN

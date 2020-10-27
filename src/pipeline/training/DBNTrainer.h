@@ -91,15 +91,17 @@ namespace tomcat {
              * during the training process.
              *
              * @param sample_idx: Index of the sample.
+             * @param force: whether frozen parameter nodes should be updated.
              */
-            void update_model_from_partial(int sample_idx);
+            void update_model_from_partial(int sample_idx, bool force);
 
             /**
              * Updates model using as parameters the average over the
              * parameter samples generated in the trained step.
              *
+             * @param force: whether frozen parameter nodes should be updated.
              */
-            void update_model_from_partials();
+            void update_model_from_partials(bool force);
 
           protected:
             //------------------------------------------------------------------
@@ -129,8 +131,9 @@ namespace tomcat {
              *
              * @param sample_idx: index of the samples to use. If nullptr, an
              * average over the partials are used as parameter value.
+             * @param force: whether frozen parameter nodes should be updated.
              */
-            void update_model(std::unique_ptr<int> sample_idx);
+            void update_model(std::unique_ptr<int> sample_idx, bool force);
         };
 
     } // namespace model

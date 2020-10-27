@@ -27,9 +27,11 @@ namespace tomcat {
              * @param model: DBN
              * @param input_folder_path: folder where the model's parameters
              * are stored
+             * @param freeze_loaded_nodes: whether loaded nodes should be frozen
              */
             DBNLoader(std::shared_ptr<DynamicBayesNet> model,
-                      std::string input_folder_path);
+                      std::string input_folder_path,
+                      bool freeze_loaded_nodes = true);
 
             ~DBNLoader();
 
@@ -87,6 +89,9 @@ namespace tomcat {
             // function fit. It can be used to identify a folder with parameters
             // for a specific cross validation step.
             int cv_step = 0;
+
+            // Frozen nodes cannot have their assignments changed.
+            bool freeze_loaded_nodes;
         };
 
     } // namespace model

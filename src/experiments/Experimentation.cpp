@@ -216,41 +216,46 @@ namespace tomcat {
         }
 
         void Experimentation::train_and_evaluate(const string& output_dir,
-                                                 bool evaluate_on_partials) {
-            fs::create_directories(output_dir);
-            string filepath = fmt::format("{}/evaluations.json", output_dir);
-            ofstream output_file;
-            output_file.open(filepath);
-            Pipeline pipeline(this->experiment_id, output_file);
-            pipeline.set_data_splitter(this->data_splitter);
-            pipeline.set_model_trainer(this->trainer);
-            pipeline.set_model_saver(this->saver);
-            pipeline.set_estimation_process(this->offline_estimation);
-            pipeline.set_aggregator(this->evaluation);
-            pipeline.execute();
-            output_file.close();
+            bool evaluate_on_partials) {
+                fs::create_directories(output_dir);
+                string filepath = fmt::format("{}/evaluations.json", output_dir);
+                ofstream output_file;
+                output_file.open(filepath);
+                Pipeline pipeline(this->experiment_id, output_file);
+                pipeline.set_data_splitter(this->data_splitter);
+                pipeline.set_model_trainer(this->trainer);
+                pipeline.set_model_saver(this->saver);
+                pipeline.set_estimation_process(this->offline_estimation);
+                pipeline.set_aggregator(this->evaluation);
+                pipeline.execute();
+                output_file.close();
 
             if (evaluate_on_partials) {
                 this->evaluate_on_partials(output_dir);
                 // Restore the model's parameters to the aggregation over
                 // partials.
-                this->trainer->update_model_from_partials();
+                this->trainer->update_model_from_partials(true);
             }
         }
 
         void Experimentation::evaluate_on_partials(const string& output_dir) {
-            cout << "Computing estimates over partials\n";
+            cout << "\nComputing estimates over partials\n";
+
             string partials_dir = fmt::format("{}/partials", output_dir);
             if (this->data_splitter->get_splits().size() > 1) {
                 partials_dir = fmt::format("{}/fold{}", partials_dir);
             }
 
-            for (int i = 0; this->trainer->get_num_partials(); i++) {
+            for (int i = 0; i < this->trainer->get_num_partials(); i++) {
+                cout << "\nPartial " << (i + 1) << "\n";
+
                 const string filename = fmt::format("evaluations{}.json", i);
                 const string experiment_id =
                     fmt::format("{}_{}", this->experiment_id, i);
 
-                this->trainer->update_model_from_partial(i);
+                // Since the model is a pointer, updating the parameters here
+                // will affect the estimates over this model.
+                this->trainer->update_model_from_partial(i, true);
 
                 int num_fold = 1;
                 for (const auto& [training_data, test_data] :

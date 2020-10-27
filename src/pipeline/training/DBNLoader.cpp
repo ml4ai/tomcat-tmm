@@ -16,8 +16,10 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         DBNLoader::DBNLoader(shared_ptr<DynamicBayesNet> model,
-                             string input_folder_path)
-            : model(model), input_folder_path(input_folder_path) {}
+                             string input_folder_path,
+                             bool freeze_loaded_nodes)
+            : model(model), input_folder_path(input_folder_path),
+              freeze_loaded_nodes(freeze_loaded_nodes) {}
 
         DBNLoader::~DBNLoader() {}
 
@@ -40,6 +42,7 @@ namespace tomcat {
             this->model = loader.model;
             this->input_folder_path = loader.input_folder_path;
             this->cv_step = loader.cv_step;
+            this->freeze_loaded_nodes = loader.freeze_loaded_nodes;
             this->param_label_to_samples = loader.param_label_to_samples;
         }
 
@@ -50,7 +53,7 @@ namespace tomcat {
             // replace it with the current number.
             string final_folder_path =
                 fmt::format(this->input_folder_path, ++this->cv_step);
-            this->model->load_from(final_folder_path);
+            this->model->load_from(final_folder_path, this->freeze_loaded_nodes);
             this->load_partials();
         }
 
@@ -67,7 +70,6 @@ namespace tomcat {
                         const string filepath =
                             get_filepath(partials_dir, param_label + ".txt");
                         Tensor3 param_samples = read_tensor_from_file(filepath);
-                        LOG(param_samples);
                         this->param_label_to_samples[param_label] =
                             param_samples;
                     }

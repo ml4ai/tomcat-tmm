@@ -26,19 +26,21 @@ namespace tomcat {
                  this->param_label_to_samples) {
                 return param_samples.get_shape()[1];
             }
+
+            return 0;
         }
 
-        void DBNTrainer::update_model_from_partial(int sample_idx) {
-            this->update_model(make_unique<int>(sample_idx));
+        void DBNTrainer::update_model_from_partial(int sample_idx, bool force) {
+            this->update_model(make_unique<int>(sample_idx), force);
         }
 
-        void DBNTrainer::update_model(unique_ptr<int> sample_idx) {
+        void DBNTrainer::update_model(unique_ptr<int> sample_idx, bool force) {
             shared_ptr<DynamicBayesNet> model = this->get_model();
 
             for (const auto& node : model->get_parameter_nodes()) {
                 shared_ptr<RandomVariableNode> rv_node =
                     dynamic_pointer_cast<RandomVariableNode>(node);
-                if (!rv_node->is_frozen()) {
+                if (!rv_node->is_frozen() || force) {
                     string node_label = node->get_metadata()->get_label();
                     if (EXISTS(node_label, this->param_label_to_samples)) {
                         int time_step = rv_node->get_time_step();
@@ -56,14 +58,21 @@ namespace tomcat {
                             param_value = samples.colwise().mean();
                         }
 
-                        rv_node->set_assignment(param_value);
+                        if (rv_node->is_frozen()) {
+                            rv_node->unfreeze();
+                            rv_node->set_assignment(param_value);
+                            rv_node->freeze();
+                        }
+                        else {
+                            rv_node->set_assignment(param_value);
+                        }
                     }
                 }
             }
         }
 
-        void DBNTrainer::update_model_from_partials() {
-            this->update_model(nullptr);
+        void DBNTrainer::update_model_from_partials(bool force) {
+            this->update_model(nullptr, force);
         }
 
     } // namespace model
