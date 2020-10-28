@@ -31,7 +31,8 @@ void train(const std::string& data_dir, const std::string& model_dir) {
 void evaluate(const std::string& data_dir,
               const std::string& model_dir,
               const std::string& eval_dir,
-              unsigned int horizon) {
+              unsigned int horizon,
+              bool evaluate_on_partials) {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
     EvidenceSet training_set;
     EvidenceSet test_set(data_dir);
@@ -51,12 +52,13 @@ void evaluate(const std::string& data_dir,
         TomcatTA3V2::SY, horizon, measures, assignment);
 
     experimentation.display_estimates();
-    experimentation.train_and_evaluate(eval_dir, true);
+    experimentation.train_and_evaluate(eval_dir, evaluate_on_partials);
 }
 
 int main(int argc, char* argv[]) {
     int experiment_type;
     unsigned int horizon;
+    bool partials = false;
     string data_dir;
     string model_dir;
     string eval_dir;
@@ -83,7 +85,11 @@ int main(int argc, char* argv[]) {
         "Directory where the evaluation file should be saved.")(
         "horizon",
         po::value<unsigned int>(&horizon)->default_value(1),
-        "Horizon of prediction for victim rescue in seconds.\n");
+        "Horizon of prediction for victim rescue in seconds.\n")(
+        "partials",
+        po::bool_switch(&partials),
+        "Whether models from each parameters sample should be evaluated as "
+        "well.\n");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -93,7 +99,6 @@ int main(int argc, char* argv[]) {
         cout << desc << "\n";
         return 1;
     }
-
 
     if (experiment_type == 0) {
         train(data_dir, model_dir);
@@ -108,7 +113,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         else {
-            evaluate(data_dir, model_dir, eval_dir, horizon);
+            evaluate(data_dir, model_dir, eval_dir, horizon, partials);
         }
     }
     else {

@@ -139,8 +139,9 @@ def get_density_interval(partials_dir, horizon, node_label, assignment_index=0):
 
     min_estimates = np.min(all_estimates, axis=0)
     max_estimates = np.max(all_estimates, axis=0)
+    mean_estimates = np.mean(all_estimates, axis=0)
 
-    return min_estimates, max_estimates
+    return min_estimates, max_estimates, mean_estimates
 
 
 def get_template_entry(trial):
@@ -195,17 +196,23 @@ def create_training_condition_entry(
 
     min_estimate_0 = intervals[0][0][trial_idx][-1]
     max_estimate_0 = intervals[0][1][trial_idx][-1]
+    mean_estimate_0 = intervals[0][2][trial_idx][-1]
     min_estimate_1 = intervals[1][0][trial_idx][-1]
     max_estimate_1 = intervals[1][1][trial_idx][-1]
+    mean_estimate_1 = intervals[1][2][trial_idx][-1]
     min_estimate_2 = intervals[2][0][trial_idx][-1]
     max_estimate_2 = intervals[2][1][trial_idx][-1]
+    mean_estimate_2 = intervals[2][2][trial_idx][-1]
     report_entry["Rationale"] = {
-        "DensityInterval NoTriageNoSignal": "[{}, {}]".format(min_estimate_0,
-                                                              max_estimate_0),
-        "DensityInterval TriageNoSignal": "[{}, {}]".format(min_estimate_1,
-                                                            max_estimate_1),
-        "DensityInterval TriageSignal": "[{}, {}]".format(min_estimate_2,
-                                                          max_estimate_2),
+        "DensityInterval NoTriageNoSignal": "{} [{}, {}]".format(
+            mean_estimate_0, min_estimate_0,
+            max_estimate_0),
+        "DensityInterval TriageNoSignal": "{} [{}, {}]".format(
+            mean_estimate_1, min_estimate_1,
+            max_estimate_1),
+        "DensityInterval TriageSignal": "{} [{}, {}]".format(mean_estimate_2,
+                                                             min_estimate_2,
+                                                             max_estimate_2),
     }
 
     return report_entry
@@ -260,12 +267,14 @@ def create_victim_rescue_entries(
             report_entry["VictimType Confidence"] = "n.a."
             min_estimate = intervals[0][trial_idx][t]
             max_estimate = intervals[1][trial_idx][t]
+            mean_estimate = intervals[2][trial_idx][t]
             report_entry["Rationale"] = {
                 "time_unit": "seconds",
                 "time_step_size": 1,
                 "horizon_of_prediction": horizon,
-                "density_interval": "[{}, {}]".format(min_estimate,
-                                                      max_estimate)
+                "density_interval": "{} [{}, {}]".format(
+                    mean_estimate, min_estimate,
+                    max_estimate)
             }
 
             if victim_type == "Green":
