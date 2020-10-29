@@ -66,9 +66,13 @@ namespace tomcat {
                                                 1,
                                             shuffled_indices.end());
                 }
+
                 vector<int> test_indices(
                     shuffled_indices.begin() + start_idx,
                     shuffled_indices.begin() + end_idx + 1);
+
+                // We save this to use in the get_info method.
+                this->test_indices_per_fold.push_back(test_indices);
 
                 for (auto& node_label : data.get_node_labels()) {
                     Tensor3 node_data = data[node_label];
@@ -126,6 +130,17 @@ namespace tomcat {
 
         void KFold::get_info(nlohmann::json& json) const {
             json["num_folds"] = this->splits.size();
+
+            if (!this->test_indices_per_fold.empty()) {
+                json["shuffled_test_indices"] = nlohmann::json::array();
+                for (const auto& test_indices : this->test_indices_per_fold) {
+                    nlohmann::json json_indices = nlohmann::json::array();
+                    for (int idx : test_indices) {
+                        json_indices.push_back(idx);
+                    }
+                    json["shuffled_test_indices"].push_back(json_indices);
+                }
+            }
         }
 
         //----------------------------------------------------------------------

@@ -32,7 +32,12 @@ namespace tomcat {
             }
 
             vector<KFold::Split> splits = this->data_splitter->get_splits();
+            int fold = 1;
             for (const auto& [training_data, test_data] : splits) {
+                if (splits.size() > 1) {
+                    cout << "Fold " << fold << "\n";
+                }
+
                 if (this->model_trainer) {
                     this->model_trainer->prepare();
                     this->model_trainer->fit(training_data);
@@ -50,6 +55,8 @@ namespace tomcat {
                 if (this->evaluation) {
                     this->evaluation->evaluate(test_data);
                 }
+
+                fold++;
             }
 
             if (this->evaluation) {

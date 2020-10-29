@@ -127,7 +127,7 @@ namespace tomcat {
 
             for (const auto& node_label : this->sampled_node_labels) {
                 if (!EXISTS(node_label, excluding)) {
-                    string filename = node_label + ".txt";
+                    string filename = node_label;
                     string filepath = get_filepath(output_folder, filename);
                     save_tensor_to_file(filepath,
                                         this->get_samples(node_label));

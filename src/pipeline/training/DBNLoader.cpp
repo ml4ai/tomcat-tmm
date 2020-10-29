@@ -61,17 +61,20 @@ namespace tomcat {
             this->param_label_to_samples.clear();
             const string partials_dir =
                 fmt::format("{}/{}", this->input_folder_path, "partials");
-            for (const auto& file : fs::directory_iterator(partials_dir)) {
-                string filename = file.path().filename().string();
-                if (fs::is_regular_file(file)) {
-                    const string param_label = remove_extension(filename);
-                    if (this->model->has_parameter_node_with_label(
-                            param_label)) {
-                        const string filepath =
-                            get_filepath(partials_dir, param_label + ".txt");
-                        Tensor3 param_samples = read_tensor_from_file(filepath);
-                        this->param_label_to_samples[param_label] =
-                            param_samples;
+            if (fs::exists(partials_dir)) {
+                for (const auto& file : fs::directory_iterator(partials_dir)) {
+                    string filename = file.path().filename().string();
+                    if (fs::is_regular_file(file)) {
+                        const string param_label = remove_extension(filename);
+                        if (this->model->has_parameter_node_with_label(
+                                param_label)) {
+                            const string filepath = get_filepath(
+                                partials_dir, param_label + ".txt");
+                            Tensor3 param_samples =
+                                read_tensor_from_file(filepath);
+                            this->param_label_to_samples[param_label] =
+                                param_samples;
+                        }
                     }
                 }
             }

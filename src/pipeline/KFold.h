@@ -121,6 +121,8 @@ namespace tomcat {
             // Data split in training and test sets. Populated in the creation
             // of the class object.
             std::vector<Split> splits;
+
+            std::vector<std::vector<int>> test_indices_per_fold;
         };
 
     } // namespace model
