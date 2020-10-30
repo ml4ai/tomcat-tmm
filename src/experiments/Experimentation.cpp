@@ -21,7 +21,8 @@ namespace tomcat {
             : gen(gen), experiment_id(experiment_id) {
 
             this->init_model(model_version);
-            this->data_splitter = make_shared<KFold>(training_set, test_set);
+            this->data_splitter =
+                make_shared<DataSplitter>(training_set, test_set);
             this->offline_estimation = make_shared<OfflineEstimation>();
         }
 
@@ -33,7 +34,8 @@ namespace tomcat {
             : gen(gen), experiment_id(experiment_id) {
 
             this->init_model(model_version);
-            this->data_splitter = make_shared<KFold>(data, num_folds, gen);
+            this->data_splitter =
+                make_shared<DataSplitter>(data, num_folds, gen);
             this->offline_estimation = make_shared<OfflineEstimation>();
         }
 
@@ -216,25 +218,27 @@ namespace tomcat {
         }
 
         void Experimentation::train_and_evaluate(const string& output_dir,
-            bool evaluate_on_partials) {
-                fs::create_directories(output_dir);
-                string filepath = fmt::format("{}/evaluations.json", output_dir);
-                ofstream output_file;
-                output_file.open(filepath);
-                Pipeline pipeline(this->experiment_id, output_file);
-                pipeline.set_data_splitter(this->data_splitter);
-                pipeline.set_model_trainer(this->trainer);
-                pipeline.set_model_saver(this->saver);
-                pipeline.set_estimation_process(this->offline_estimation);
-                pipeline.set_aggregator(this->evaluation);
-                pipeline.execute();
-                output_file.close();
+                                                 bool evaluate_on_partials) {
+            fs::create_directories(output_dir);
+            string filepath = fmt::format("{}/evaluations.json", output_dir);
+            ofstream output_file;
+            output_file.open(filepath);
+            Pipeline pipeline(this->experiment_id, output_file);
+            pipeline.set_data_splitter(this->data_splitter);
+            pipeline.set_model_trainer(this->trainer);
+            pipeline.set_model_saver(this->saver);
+            pipeline.set_estimation_process(this->offline_estimation);
+            pipeline.set_aggregator(this->evaluation);
+            pipeline.execute();
+            output_file.close();
 
             if (evaluate_on_partials) {
                 this->evaluate_on_partials(output_dir);
                 // Restore the model's parameters to the aggregation over
                 // partials.
-                this->trainer->update_model_from_partials(true);
+                int last_split_idx =
+                    this->data_splitter->get_splits().size() - 1;
+                this->trainer->update_model_from_partials(last_split_idx, true);
             }
         }
 
@@ -243,31 +247,34 @@ namespace tomcat {
 
             string partials_dir = fmt::format("{}/partials", output_dir);
             if (this->data_splitter->get_splits().size() > 1) {
-                partials_dir = fmt::format("{}/fold{}", partials_dir);
+                partials_dir = fmt::format("{}/fold{{}}", partials_dir);
             }
 
-            for (int i = 0; i < this->trainer->get_num_partials(); i++) {
-                cout << "\nPartial " << (i + 1) << "\n";
+            int split_idx = 0;
+            for (const auto& [training_data, test_data] :
+                 this->data_splitter->get_splits()) {
+                cout << "\nFold " << (split_idx + 1) << "\n";
 
-                const string filename = fmt::format("evaluations{}.json", i);
-                const string experiment_id =
-                    fmt::format("{}_{}", this->experiment_id, i);
+                for (int i = 0; i < this->trainer->get_num_partials(); i++) {
+                    cout << "\nPartial " << (i + 1) << "\n";
 
-                // Since the model is a pointer, updating the parameters here
-                // will affect the estimates over this model.
-                this->trainer->update_model_from_partial(i, true);
+                    const string filename =
+                        fmt::format("evaluations{}.json", i + 1);
+                    const string experiment_id =
+                        fmt::format("{}_{}", this->experiment_id, i + 1);
 
-                int num_fold = 1;
-                for (const auto& [training_data, test_data] :
-                     this->data_splitter->get_splits()) {
+                    // Since the model is a pointer, updating the parameters
+                    // here will affect the estimates over this model.
+                    this->trainer->update_model_from_partial(
+                        i, split_idx, true);
 
                     const string eval_dir =
-                        fmt::format(partials_dir, num_fold++);
+                        fmt::format(partials_dir, split_idx + 1);
                     const string filepath = get_filepath(eval_dir, filename);
                     fs::create_directories(eval_dir);
 
-                    shared_ptr<KFold> data_splitter =
-                        make_shared<KFold>(training_data, test_data);
+                    shared_ptr<DataSplitter> data_splitter =
+                        make_shared<DataSplitter>(training_data, test_data);
 
                     ofstream output_file;
                     output_file.open(filepath);
@@ -278,6 +285,8 @@ namespace tomcat {
                     pipeline.execute();
                     output_file.close();
                 }
+
+                split_idx++;
             }
         }
 

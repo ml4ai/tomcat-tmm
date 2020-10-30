@@ -1,4 +1,4 @@
-#include "KFold.h"
+#include "DataSplitter.h"
 
 #include <algorithm>
 
@@ -12,25 +12,25 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        KFold::KFold(const EvidenceSet& data,
+        DataSplitter::DataSplitter(const EvidenceSet& data,
                      int num_folds,
                      shared_ptr<gsl_rng> random_generator) {
 
             this->split(data, num_folds, random_generator);
         }
 
-        KFold::KFold(const EvidenceSet& training_data,
+        DataSplitter::DataSplitter(const EvidenceSet& training_data,
                      const EvidenceSet& test_data) {
 
             this->splits.push_back(make_pair(training_data, test_data));
         }
 
-        KFold::~KFold() {}
+        DataSplitter::~DataSplitter() {}
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void KFold::split(const EvidenceSet& data,
+        void DataSplitter::split(const EvidenceSet& data,
                           int num_folds,
                           shared_ptr<gsl_rng> random_generator) {
 
@@ -97,7 +97,7 @@ namespace tomcat {
             }
         }
 
-        vector<int> KFold::get_shuffled_indices(
+        vector<int> DataSplitter::get_shuffled_indices(
             int num_data_points,
             shared_ptr<gsl_rng> random_generator) const {
             int* indices = new int[num_data_points];
@@ -111,7 +111,7 @@ namespace tomcat {
             return vector<int>(indices, indices + num_data_points);
         }
 
-        vector<int> KFold::get_fold_sizes(int num_data_points,
+        vector<int> DataSplitter::get_fold_sizes(int num_data_points,
                                                int num_folds) const {
             int fold_size = floor(num_data_points / num_folds);
             int excess = num_data_points % num_folds;
@@ -128,7 +128,7 @@ namespace tomcat {
             return fold_sizes;
         }
 
-        void KFold::get_info(nlohmann::json& json) const {
+        void DataSplitter::get_info(nlohmann::json& json) const {
             json["num_folds"] = this->splits.size();
 
             if (!this->test_indices_per_fold.empty()) {
@@ -146,7 +146,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        const vector<KFold::Split>& KFold::get_splits() const { return splits; }
+        const vector<DataSplitter::Split>& DataSplitter::get_splits() const { return splits; }
 
     } // namespace model
 } // namespace tomcat

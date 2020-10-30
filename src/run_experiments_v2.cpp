@@ -85,7 +85,7 @@ void execute_experiment_2b() {
 
     experimentation.train_using_gibbs(50, 100);
     string model_dir = fmt::format("{}/2b", MODEL_DIR);
-    experimentation.save_model(model_dir);
+    experimentation.save_model(model_dir, true);
 
     vector<MEASURES> measures = {MEASURES::accuracy};
     experimentation.compute_baseline_eval_scores_for(
@@ -94,7 +94,7 @@ void execute_experiment_2b() {
 
     string evaluations_dir = fmt::format("{}/2b", EVAL_DIR);
     experimentation.display_estimates();
-    experimentation.train_and_evaluate(evaluations_dir);
+    experimentation.train_and_evaluate(evaluations_dir, true);
 }
 
 /**
@@ -115,7 +115,7 @@ void execute_experiment_2c_part_a() {
 
     experimentation.train_using_gibbs(50, 100);
     string model_dir = fmt::format("{}/2c", MODEL_DIR);
-    experimentation.save_model(model_dir);
+    experimentation.save_model(model_dir, true);
     experimentation.train_and_save();
 }
 
@@ -146,7 +146,7 @@ void execute_experiment_2c_part_b() {
     experimentation.compute_eval_scores_for(TomcatTA3V2::Q, 0, measures);
 
     string evaluations_dir = fmt::format("{}/2c", EVAL_DIR);
-    experimentation.train_and_evaluate(evaluations_dir);
+    experimentation.train_and_evaluate(evaluations_dir, true);
 }
 
 /**
@@ -185,7 +185,7 @@ void execute_experiment_2d_part_b() {
 
     experimentation.train_using_gibbs(50, 100);
     string model_dir = fmt::format("{}/2d", MODEL_DIR);
-    experimentation.save_model(model_dir);
+    experimentation.save_model(model_dir, true);
 
     vector<MEASURES> measures = {MEASURES::accuracy};
     experimentation.compute_baseline_eval_scores_for(
@@ -194,7 +194,7 @@ void execute_experiment_2d_part_b() {
 
     string evaluations_dir = fmt::format("{}/2d/cv", EVAL_DIR);
     experimentation.display_estimates();
-    experimentation.train_and_evaluate(evaluations_dir);
+    experimentation.train_and_evaluate(evaluations_dir, true);
 }
 
 /**
@@ -225,7 +225,7 @@ void execute_experiment_2d_part_c() {
 
     string evaluations_dir = fmt::format("{}/2d", EVAL_DIR);
     experimentation.display_estimates();
-    experimentation.train_and_evaluate(evaluations_dir);
+    experimentation.train_and_evaluate(evaluations_dir, true);
 }
 
 void execute_experiment(const string& experiment_id) {
@@ -316,9 +316,11 @@ int main(int argc, char* argv[]) {
     EVAL_DIR = "../../data/eval/asist/";
     GEN_DATA_DIR = "../../data/samples/asist";
 
-    //execute_experiment_2b();
-    //execute_experiment_2c_part_a();
-    //execute_experiment_2d_part_a();
+//    execute_experiment_2b();
+    execute_experiment_2c_part_a();
+    execute_experiment_2c_part_b();
+    execute_experiment_2d_part_a();
     DATA_DIR = "../../data/samples/asist/2d";
     execute_experiment_2d_part_b();
+    execute_experiment_2d_part_c();
 }

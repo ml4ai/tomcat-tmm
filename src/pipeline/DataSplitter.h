@@ -19,7 +19,7 @@ namespace tomcat {
          * test data creating a list of this pair of data sets by repeating this
          * logic for all the k folds.
          */
-        class KFold {
+        class DataSplitter {
           public:
             //------------------------------------------------------------------
             // Types, Enums & Constants
@@ -37,25 +37,25 @@ namespace tomcat {
              * @param num_folds: number of splits
              * @param random_generator: random number generator
              */
-            KFold(const EvidenceSet& data,
+            DataSplitter(const EvidenceSet& data,
                   int num_folds,
                   std::shared_ptr<gsl_rng> random_generator);
 
-            KFold(const EvidenceSet& training_data,
+            DataSplitter(const EvidenceSet& training_data,
                   const EvidenceSet& test_data);
 
-            ~KFold();
+            ~DataSplitter();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            KFold(const KFold&) = default;
+            DataSplitter(const DataSplitter&) = default;
 
-            KFold& operator=(const KFold&) = default;
+            DataSplitter& operator=(const DataSplitter&) = default;
 
-            KFold(KFold&&) = default;
+            DataSplitter(DataSplitter&&) = default;
 
-            KFold& operator=(KFold&&) = default;
+            DataSplitter& operator=(DataSplitter&&) = default;
 
             //------------------------------------------------------------------
             // Member functions

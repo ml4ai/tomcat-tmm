@@ -2,10 +2,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"
-#include "pgm/DynamicBayesNet.h"
 
 namespace tomcat {
     namespace model {
@@ -42,14 +42,18 @@ namespace tomcat {
             DBNTrainer& operator=(DBNTrainer&&) = default;
 
             //------------------------------------------------------------------
-            // Pure virtual functions
+            // Virtual functions
             //------------------------------------------------------------------
 
             /**
              * Prepares the trainer to a series of calls to the function fit by
              * performing necessary cleanups.
              */
-            virtual void prepare() = 0;
+            virtual void prepare();
+
+            //------------------------------------------------------------------
+            // Pure virtual functions
+            //------------------------------------------------------------------
 
             /**
              * Estimates the model's parameters from training data. The final
@@ -65,8 +69,6 @@ namespace tomcat {
              */
             virtual void get_info(nlohmann::json& json) const = 0;
 
-
-
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -75,9 +77,12 @@ namespace tomcat {
              * Returns the samples generated for each parameter in the model
              * during the training process.
              *
+             * @param split_idx: Index of the data split.
+             *
              * @return Parameter samples.
              */
-            std::unordered_map<std::string, Tensor3> get_partials() const;
+            std::unordered_map<std::string, Tensor3>
+            get_partials(int split_idx) const;
 
             /**
              * Returns the number of parameter samples stored in the trainer.
@@ -91,24 +96,33 @@ namespace tomcat {
              * during the training process.
              *
              * @param sample_idx: Index of the sample.
+             * @param split_idx: Index of the data split.
              * @param force: whether frozen parameter nodes should be updated.
              */
-            void update_model_from_partial(int sample_idx, bool force);
+            void update_model_from_partial(int sample_idx,
+                                           int split_idx,
+                                           bool force);
 
             /**
              * Updates model using as parameters the average over the
              * parameter samples generated in the trained step.
              *
+             * @param split_idx: Index of the data split.
+             *
              * @param force: whether frozen parameter nodes should be updated.
              */
-            void update_model_from_partials(bool force);
+            void update_model_from_partials(int split_idx, bool force);
 
           protected:
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
 
-            std::unordered_map<std::string, Tensor3> param_label_to_samples;
+            // Vector of mapping between a parameter node's label and the
+            // list of samples generated from it. The vector store this
+            // information for each data split.
+            std::vector<std::unordered_map<std::string, Tensor3>>
+                param_label_to_samples;
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -120,7 +134,6 @@ namespace tomcat {
             virtual std::shared_ptr<DynamicBayesNet> get_model() const = 0;
 
           private:
-
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -131,9 +144,12 @@ namespace tomcat {
              *
              * @param sample_idx: index of the samples to use. If nullptr, an
              * average over the partials are used as parameter value.
+             * @param split_idx: Index of the data split.
              * @param force: whether frozen parameter nodes should be updated.
              */
-            void update_model(std::unique_ptr<int> sample_idx, bool force);
+            void update_model(std::unique_ptr<int> sample_idx,
+                              int split_idx,
+                              bool force);
         };
 
     } // namespace model

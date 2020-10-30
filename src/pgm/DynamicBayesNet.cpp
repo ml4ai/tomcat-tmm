@@ -366,7 +366,7 @@ namespace tomcat {
             boost::filesystem::create_directories(output_dir);
 
             for (const auto& mapping : this->parameter_nodes_map) {
-                string filename = mapping.first + ".txt";
+                string filename = mapping.first;
                 string filepath = get_filepath(output_dir, filename);
                 save_matrix_to_file(filepath, mapping.second->get_assignment());
             }

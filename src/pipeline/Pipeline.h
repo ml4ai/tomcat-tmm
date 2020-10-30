@@ -8,12 +8,12 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "pgm/EvidenceSet.h"
-#include "utils/Definitions.h"
 #include "pipeline/DBNSaver.h"
-#include "pipeline/KFold.h"
+#include "pipeline/DataSplitter.h"
 #include "pipeline/estimation/EstimationProcess.h"
 #include "pipeline/evaluation/EvaluationAggregator.h"
 #include "pipeline/training/DBNTrainer.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -94,7 +94,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
-            void set_data_splitter(const std::shared_ptr<KFold>& data_splitter);
+            void set_data_splitter(const std::shared_ptr<DataSplitter>& data_splitter);
 
             void set_model_trainer(
                 const std::shared_ptr<DBNTrainer>& model_trainer);
@@ -126,7 +126,7 @@ namespace tomcat {
             // Where to display pipeline execution's results.
             std::ostream& output_stream;
 
-            std::shared_ptr<KFold> data_splitter;
+            std::shared_ptr<DataSplitter> data_splitter;
 
             std::shared_ptr<DBNTrainer> model_trainer;
 

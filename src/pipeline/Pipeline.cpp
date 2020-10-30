@@ -31,7 +31,11 @@ namespace tomcat {
                 this->evaluation->clear_evaluations();
             }
 
-            vector<KFold::Split> splits = this->data_splitter->get_splits();
+            if (this->model_trainer) {
+                this->model_trainer->prepare();
+            }
+
+            vector<DataSplitter::Split> splits = this->data_splitter->get_splits();
             int fold = 1;
             for (const auto& [training_data, test_data] : splits) {
                 if (splits.size() > 1) {
@@ -39,7 +43,6 @@ namespace tomcat {
                 }
 
                 if (this->model_trainer) {
-                    this->model_trainer->prepare();
                     this->model_trainer->fit(training_data);
                 }
 
@@ -117,7 +120,7 @@ namespace tomcat {
         // Getters & Setters
         //----------------------------------------------------------------------
         void
-        Pipeline::set_data_splitter(const shared_ptr<KFold>& data_splitter) {
+        Pipeline::set_data_splitter(const shared_ptr<DataSplitter>& data_splitter) {
             this->data_splitter = data_splitter;
         }
 

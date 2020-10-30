@@ -85,10 +85,10 @@ namespace tomcat {
             // Folder where the model's parameters' files are saved.
             std::string input_folder_path;
 
-            // Cross validation step. This is incremented at each call of the
+            // Data split index. This is incremented at each call of the
             // function fit. It can be used to identify a folder with parameters
             // for a specific cross validation step.
-            int cv_step = 0;
+            int split_idx = 0;
 
             // Frozen nodes cannot have their assignments changed.
             bool freeze_loaded_nodes;

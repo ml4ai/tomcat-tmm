@@ -14,7 +14,7 @@
 #include "experiments/TomcatTA3V2.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/DBNSaver.h"
-#include "pipeline/KFold.h"
+#include "pipeline/DataSplitter.h"
 #include "pipeline/Pipeline.h"
 #include "pipeline/estimation/OfflineEstimation.h"
 #include "pipeline/estimation/SumProductEstimator.h"
@@ -180,7 +180,7 @@ namespace tomcat {
 
             std::shared_ptr<Tomcat> tomcat;
 
-            std::shared_ptr<KFold> data_splitter;
+            std::shared_ptr<DataSplitter> data_splitter;
 
             std::shared_ptr<DBNTrainer> trainer;
 

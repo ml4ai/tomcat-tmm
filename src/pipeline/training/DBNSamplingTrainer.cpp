@@ -42,10 +42,7 @@ namespace tomcat {
             this->param_label_to_samples = trainer.param_label_to_samples;
         }
 
-        void DBNSamplingTrainer::prepare() {}
-
         void DBNSamplingTrainer::fit(const EvidenceSet& training_data) {
-            this->param_label_to_samples.clear();
             this->sampler->set_num_in_plate_samples(
                 training_data.get_num_data_points());
             this->sampler->add_data(training_data);
@@ -53,12 +50,15 @@ namespace tomcat {
 
             shared_ptr<DynamicBayesNet> model = this->sampler->get_model();
 
+            this->param_label_to_samples.push_back(
+                unordered_map<string, Tensor3>());
+            int split_idx = this->param_label_to_samples.size() - 1;
             for (const auto& param_label : model->get_parameter_node_labels()) {
-                this->param_label_to_samples[param_label] =
+                this->param_label_to_samples[split_idx][param_label] =
                     this->sampler->get_samples(param_label);
             }
 
-            this->update_model_from_partials(false);
+            this->update_model_from_partials(split_idx, false);
         }
 
         void DBNSamplingTrainer::get_info(nlohmann::json& json) const {

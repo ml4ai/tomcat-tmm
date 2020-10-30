@@ -41,20 +41,25 @@ namespace tomcat {
         void DBNLoader::copy_loader(const DBNLoader& loader) {
             this->model = loader.model;
             this->input_folder_path = loader.input_folder_path;
-            this->cv_step = loader.cv_step;
+            this->split_idx = loader.split_idx;
             this->freeze_loaded_nodes = loader.freeze_loaded_nodes;
             this->param_label_to_samples = loader.param_label_to_samples;
         }
 
-        void DBNLoader::prepare() { this->cv_step = 0; }
+        void DBNLoader::prepare() {
+            DBNTrainer::prepare();
+            this->split_idx = 0;
+        }
 
         void DBNLoader::fit(const EvidenceSet& training_data) {
             // If the name of the folder has a placeholder for the cv step,
             // replace it with the current number.
             string final_folder_path =
-                fmt::format(this->input_folder_path, ++this->cv_step);
-            this->model->load_from(final_folder_path, this->freeze_loaded_nodes);
+                fmt::format(this->input_folder_path, this->split_idx + 1);
+            this->model->load_from(final_folder_path,
+                                   this->freeze_loaded_nodes);
             this->load_partials();
+            this->split_idx++;
         }
 
         void DBNLoader::load_partials() {
@@ -62,17 +67,20 @@ namespace tomcat {
             const string partials_dir =
                 fmt::format("{}/{}", this->input_folder_path, "partials");
             if (fs::exists(partials_dir)) {
+                this->param_label_to_samples.push_back(
+                    unordered_map<string, Tensor3>());
                 for (const auto& file : fs::directory_iterator(partials_dir)) {
                     string filename = file.path().filename().string();
                     if (fs::is_regular_file(file)) {
                         const string param_label = remove_extension(filename);
                         if (this->model->has_parameter_node_with_label(
                                 param_label)) {
-                            const string filepath = get_filepath(
-                                partials_dir, param_label + ".txt");
+                            const string filepath =
+                                get_filepath(partials_dir, param_label);
                             Tensor3 param_samples =
                                 read_tensor_from_file(filepath);
-                            this->param_label_to_samples[param_label] =
+                            this->param_label_to_samples[this->split_idx]
+                                                        [param_label] =
                                 param_samples;
                         }
                     }
