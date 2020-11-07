@@ -30,15 +30,15 @@ int main(int argc, char* argv[]) {
     desc.add_options()("help,h", "Produce this help message")(
         "map_config",
         po::value<string>(&map_config_path)
-            ->default_value("../../data/maps/ta3/falcon_v1.0.json"),
+            ->default_value("../../data/maps/asist/falcon_v1.0.json"),
         "Path to the json file containing the map configuration.")(
         "messages_dir",
         po::value<string>(&messages_dir)
-            ->default_value("../../data/study-1_2020.08"),
+            ->default_value("../../data/asist/study-1_2020.08"),
         "Directory where the files with the messages are stored.")(
         "output_dir",
         po::value<string>(&output_dir)
-            ->default_value("../../data/samples/ta3/falcon"),
+            ->default_value("../../data/samples/asist/falcon"),
         "Directory where the files with evidence extracted from the messages "
         "must be saved.");
 

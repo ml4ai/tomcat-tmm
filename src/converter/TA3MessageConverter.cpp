@@ -89,15 +89,15 @@ namespace tomcat {
             unordered_map<string, Eigen::MatrixXd> observations_per_node;
             for (const auto& filepath : message_filepaths) {
 
-                vector<nlohmann::json> messages =
-                    this->get_sorted_messages_in(filepath.string());
-
-                this->training_condition = NO_OBS;
-                this->time_step = 0;
-                this->mission_started = false;
-                this->init_observations();
-
                 try {
+                    vector<nlohmann::json> messages =
+                        this->get_sorted_messages_in(filepath.string());
+
+                    this->training_condition = NO_OBS;
+                    this->time_step = 0;
+                    this->mission_started = false;
+                    this->init_observations();
+
                     for (auto& message : messages) {
                         for (const auto& [node_label, value] :
                              this->convert_online(message)) {
@@ -246,7 +246,16 @@ namespace tomcat {
                 string message;
                 getline(file_reader, message);
                 try {
-                    messages.push_back(nlohmann::json::parse(message));
+                    nlohmann::json json_message =
+                        nlohmann::json::parse(message);
+                    if (!json_message.contains("header") ||
+                        !json_message["header"].contains("timestamp")) {
+                        throw TomcatModelException("Invalid format. "
+                                                   "Some messages do not "
+                                                   "contain a header timestamp"
+                                                   ".");
+                    }
+                    messages.push_back(json_message);
                 }
                 catch (nlohmann::detail::parse_error& exp) {
                 }
@@ -391,7 +400,8 @@ namespace tomcat {
 
             if (json_message["data"].contains("entered_area_id")) {
                 // Old version of the location monitor. Do not convert.
-                throw TomcatModelException("Old version of the location monitor.");
+                throw TomcatModelException(
+                    "Old version of the location monitor.");
             }
 
             int value = 0;

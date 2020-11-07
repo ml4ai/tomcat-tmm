@@ -309,18 +309,19 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // execute_experiment(experiment_id);
+    //execute_experiment(experiment_id);
 
     DATA_DIR = "../../data/samples/asist/study-1_2020.08/full";
     MODEL_DIR = "../../data/model/asist";
     EVAL_DIR = "../../data/eval/asist/";
     GEN_DATA_DIR = "../../data/samples/asist";
 
+    execute_experiment_2a();
 //    execute_experiment_2b();
-    execute_experiment_2c_part_a();
-    execute_experiment_2c_part_b();
-    execute_experiment_2d_part_a();
-    DATA_DIR = "../../data/samples/asist/2d";
-    execute_experiment_2d_part_b();
-    execute_experiment_2d_part_c();
+//    execute_experiment_2c_part_a();
+//    execute_experiment_2c_part_b();
+//    execute_experiment_2d_part_a();
+//    DATA_DIR = "../../data/samples/asist/2d";
+//    execute_experiment_2d_part_b();
+//    execute_experiment_2d_part_c();
 }

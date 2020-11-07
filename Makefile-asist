@@ -48,18 +48,17 @@ sync:
 	@echo ""
 	./tools/sync_asist_data
 
-# This assumes that the directory $(MESSAGES_DIR) exists as well as the file
-# eval_list.txt in it. This file should contain a list of filenames that must
-# be used for evaluation. If there's nothing in this file, all messages will
-# be converted in training data.
-split: $(MESSAGES_DIR) $(MESSAGES_DIR)/eval_list.txt
+# This assumes that the directory $(MESSAGES_DIR) exists as well as the files
+# rain_list.txt and eval_list.txt. These files should contain a list of
+# trial numbers that should be used for training and evaluation respectively.
+split: $(MESSAGES_DIR) $(MESSAGES_DIR)/train_list.txt \
+       $(MESSAGES_DIR)/eval_list.txt
 	@echo ""
 	./tools/split_data
 
 # Parses messages from the testbed and converts them to matrices of
 # observations. One matrix for each observable node in the model.
-convert: sync split $(MAP_CONFIG_PATH) $(TRAIN_MESSAGES_DIR)\
-		 $(TRAIN_SAMPLES_DIR) $(EVAL_SAMPLES_DIR)
+convert: sync split $(MAP_CONFIG_PATH) $(TRAIN_MESSAGES_DIR)
 	@echo ""
 	@cd $(BUILD_DIR) && make -j TomcatConverter
 	@echo "Converting training data..."

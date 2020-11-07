@@ -194,27 +194,6 @@ def create_training_condition_entry(
     report_entry["VictimType Yellow"] = "n.a."
     report_entry["VictimType Confidence"] = "n.a."
 
-    min_estimate_0 = intervals[0][0][trial_idx][-1]
-    max_estimate_0 = intervals[0][1][trial_idx][-1]
-    mean_estimate_0 = intervals[0][2][trial_idx][-1]
-    min_estimate_1 = intervals[1][0][trial_idx][-1]
-    max_estimate_1 = intervals[1][1][trial_idx][-1]
-    mean_estimate_1 = intervals[1][2][trial_idx][-1]
-    min_estimate_2 = intervals[2][0][trial_idx][-1]
-    max_estimate_2 = intervals[2][1][trial_idx][-1]
-    mean_estimate_2 = intervals[2][2][trial_idx][-1]
-    report_entry["Rationale"] = {
-        "DensityInterval NoTriageNoSignal": "{} [{}, {}]".format(
-            mean_estimate_0, min_estimate_0,
-            max_estimate_0),
-        "DensityInterval TriageNoSignal": "{} [{}, {}]".format(
-            mean_estimate_1, min_estimate_1,
-            max_estimate_1),
-        "DensityInterval TriageSignal": "{} [{}, {}]".format(mean_estimate_2,
-                                                             min_estimate_2,
-                                                             max_estimate_2),
-    }
-
     return report_entry
 
 
@@ -265,16 +244,10 @@ def create_victim_rescue_entries(
             report_entry["VictimType Green"] = "n.a."
             report_entry["VictimType Yellow"] = "n.a."
             report_entry["VictimType Confidence"] = "n.a."
-            min_estimate = intervals[0][trial_idx][t]
-            max_estimate = intervals[1][trial_idx][t]
-            mean_estimate = intervals[2][trial_idx][t]
             report_entry["Rationale"] = {
                 "time_unit": "seconds",
                 "time_step_size": 1,
-                "horizon_of_prediction": horizon,
-                "density_interval": "{} [{}, {}]".format(
-                    mean_estimate, min_estimate,
-                    max_estimate)
+                "horizon_of_prediction": horizon
             }
 
             if victim_type == "Green":
