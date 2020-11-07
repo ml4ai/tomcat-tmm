@@ -81,7 +81,7 @@ report: $(REPORT_PATH)
 
 # The model only needs to be retrained if the executable changed, or if any of
 # the files in $(TRAIN_SAMPLES_DIR) changed.
-$(MODEL_DIR)/*.txt: $(BUILD_DIR)/bin/TomcatASISTFall20 $(TRAIN_SAMPLES_DIR)/*
+$(MODEL_DIR)/*: $(BUILD_DIR)/bin/TomcatASISTFall20 $(TRAIN_SAMPLES_DIR)/*
 	@echo ""
 	@echo "Training model..."
 	@./$< --type 0 --data_dir $(TRAIN_SAMPLES_DIR) --model_dir $(@D)
@@ -89,7 +89,7 @@ $(MODEL_DIR)/*.txt: $(BUILD_DIR)/bin/TomcatASISTFall20 $(TRAIN_SAMPLES_DIR)/*
 # The model only needs to be re-evaluated if the executable changed, or
 # if the model's parameters, saved in the directory $(MODEL_DIR), changed, or
 # if the eval data changed.
-$(EVAL_PATH): $(BUILD_DIR)/bin/TomcatASISTFall20 $(MODEL_DIR)/*.txt \
+$(EVAL_PATH): $(BUILD_DIR)/bin/TomcatASISTFall20 $(MODEL_DIR)/* \
 			  $(EVAL_SAMPLES_DIR)/*
 	@echo ""
 	@echo "Evaluating model..."
@@ -97,7 +97,7 @@ $(EVAL_PATH): $(BUILD_DIR)/bin/TomcatASISTFall20 $(MODEL_DIR)/*.txt \
 		--eval_dir $(EVAL_DIR) --horizon $(HORIZON)
 
 $(REPORT_PATH): $(EVAL_SAMPLES_DIR)/metadata.json tools/create_asist_report.py \
- 			  $(EVAL_PATH) $(PARTIALS_DIR)/*
+ 			  $(EVAL_PATH)
 	@echo ""
 	@python3 tools/create_asist_report.py $(EVAL_PATH) $(PARTIALS_DIR) $< \
 	         $(HORIZON) $@

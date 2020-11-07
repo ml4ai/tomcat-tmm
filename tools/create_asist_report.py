@@ -28,19 +28,13 @@ def create_report(eval_filepath, partials_dir, metadata_filepath,
 
     num_conditions = 3
     training_condition_estimates = []
-    training_condition_intervals = []
     for condition in range(num_conditions):
         training_condition_estimates.append(
             get_estimates(evaluations, 0, "TrainingCondition", condition)
         )
-        density_interval = get_density_interval(partials_dir, 0,
-                                                "TrainingCondition", condition)
-        training_condition_intervals.append(density_interval)
 
     green_estimates = get_estimates(evaluations, horizon, "Green")
-    green_intervals = get_density_interval(partials_dir, horizon, "Green")
     yellow_estimates = get_estimates(evaluations, horizon, "Yellow")
-    yellow_intervals = get_density_interval(partials_dir, horizon, "Yellow")
 
     with open(report_filepath, "w") as report:
         for i, eval_file in enumerate(metadata["files_converted"]):
@@ -52,8 +46,7 @@ def create_report(eval_filepath, partials_dir, metadata_filepath,
                 trial,
                 i,
                 eval_file["initial_timestamp"],
-                training_condition_estimates,
-                training_condition_intervals,
+                training_condition_estimates
             )
             report.write(json.dumps(report_entry) + "\n")
 
@@ -63,7 +56,6 @@ def create_report(eval_filepath, partials_dir, metadata_filepath,
                 i,
                 eval_file["initial_timestamp"],
                 green_estimates,
-                green_intervals,
                 horizon,
                 "Green",
             )
@@ -76,7 +68,6 @@ def create_report(eval_filepath, partials_dir, metadata_filepath,
                 i,
                 eval_file["initial_timestamp"],
                 yellow_estimates,
-                yellow_intervals,
                 horizon,
                 "Yellow",
             )
@@ -114,36 +105,6 @@ def get_estimates(evaluations, horizon, node_label, assignment_index=0):
         [list(map(float, row.split())) for row in estimates.split("\n")]
     )
 
-
-def get_density_interval(partials_dir, horizon, node_label, assignment_index=0):
-    """
-    Extracts minimum and maximum estimates for a given estimator, horizon and node label from a set
-    of evaluations.
-
-    :param partials_dir: directory where partial evaluation files are
-    :param horizon: horizon of inference
-    :param node_label: label of the node for which evaluations were computed
-    :param assignment_index: if estimates where computed for non-binary nodes,
-    this indicates the value for which to
-    extract the estimates
-    :return: tuple (min estimates, max estimates)
-    """
-    all_estimates = []
-    for eval_filename in listdir(partials_dir):
-        eval_filepath = join(partials_dir, eval_filename)
-        if isfile(eval_filepath):
-            evaluations = json.load(open(eval_filepath, "r"))
-            all_estimates.append(
-                get_estimates(evaluations, horizon, node_label,
-                              assignment_index))
-
-    min_estimates = np.min(all_estimates, axis=0)
-    max_estimates = np.max(all_estimates, axis=0)
-    mean_estimates = np.mean(all_estimates, axis=0)
-
-    return min_estimates, max_estimates, mean_estimates
-
-
 def get_template_entry(trial):
     """
     Returns a report entry with pre-filled fields that are common to all kinds
@@ -163,7 +124,7 @@ def get_template_entry(trial):
 
 
 def create_training_condition_entry(
-        trial, trial_idx, initial_timestamp, estimates, intervals
+        trial, trial_idx, initial_timestamp, estimates
 ):
     """
     Creates a report entry for training condition estimates.
@@ -172,7 +133,6 @@ def create_training_condition_entry(
     :param trial_idx: index of the trial in the matrix of evaluation data
     :param initial_timestamp: timestamp when the mission starts
     :param estimates: estimates for training condition
-    :param intervals: min and max estimates for training condition
     :return: report entry
     """
 
@@ -212,7 +172,7 @@ def get_timestamp(initial_timestamp, seconds):
 
 
 def create_victim_rescue_entries(
-        trial, trial_idx, initial_timestamp, estimates, intervals, horizon,
+        trial, trial_idx, initial_timestamp, estimates, horizon,
         victim_type
 ):
     """
@@ -224,7 +184,6 @@ def create_victim_rescue_entries(
     :param trial_idx: index of the trial in the matrix of evaluation data
     :param initial_timestamp: timestamp when the mission starts
     :param estimates: estimates for victim rescue
-    :param intervals: min and max estimates for training condition
     :param horizon: horizon of prediction
     :param victim_type: Green or Yellow
     :return: report entries
