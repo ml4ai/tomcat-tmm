@@ -1,20 +1,51 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 
-set -euo pipefail
+import os
+from subprocess import run
+from pathlib import Path
 
-# Script to download/sync ASIST data.
-# Note: gsutil does not work with Python 3.8 on macOS (as of 2020-10-01), but
-# it does work with Python 3.7.
+# Get the path to the data directory, assuming that the repo directory
+# structure is mirrored.
+gcs_dir = "study-1_2020.08"
+data_dir = (
+    Path(os.path.dirname(os.path.realpath(__file__))).parent / "data" / gcs_dir
+)
 
-# Set the ROOTDIR environment variable, assuming that the directory structure
-# mirrors that of the git repository.
-ROOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" >/dev/null 2>&1 && pwd)"
-export ROOTDIR
 
-GCS_DIR=study-1_2020.08
-DATA_DIR="$ROOTDIR"/data/asist/$GCS_DIR
+os.makedirs(data_dir, exist_ok=True)
 
-mkdir -p $DATA_DIR
-gsutil -m rsync -r \
-    -x ".*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*\.png$|.*\.PNG$|.*\.csv$|.*Competency.*$|.*Condition.*$|Materials/$|TrialMessages.*$" \
-    gs://studies.aptima.com/$GCS_DIR $DATA_DIR
+extensions_to_exclude = (
+    "sav",
+    "pdf",
+    "qsf",
+    "mp4",
+    "m4a",
+    "vtt",
+    "tsv",
+    "png",
+    "PNG",
+    "xlsx",
+    "zip",
+    "csv",
+    "fov",
+    "docx",
+)
+
+# Construct a regex for gsutil rsync exclusion
+exclusion_regex = (
+    "$|".join((f".*\.{ext}" for ext in extensions_to_exclude)) + "$"
+)
+
+run(
+    [
+        "gsutil",
+        "-m",
+        "rsync",
+        "-r",
+        "-x",
+        exclusion_regex,
+        f"gs://studies.aptima.com/{gcs_dir}",
+        data_dir,
+    ],
+    cwd=data_dir,
+)
