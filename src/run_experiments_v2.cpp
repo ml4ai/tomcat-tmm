@@ -46,7 +46,7 @@ void execute_experiment_2a() {
     experimentation.display_estimates();
     experimentation.train_using_gibbs(50, 100);
     string model_dir = fmt::format("{}/2a", MODEL_DIR);
-    experimentation.save_model(model_dir);
+    experimentation.save_model(model_dir, false);
 
     vector<int> horizons = {1, 3, 5, 10, 15, 30, 50, 100};
     Eigen::VectorXd assignment = Eigen::VectorXd::Constant(1, 1);
@@ -228,6 +228,68 @@ void execute_experiment_2d_part_c() {
     experimentation.train_and_evaluate(evaluations_dir, true);
 }
 
+void execute_experiment_2e() {
+    cout << "Experiment 2e\n";
+
+    // Random Seed
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Data
+    EvidenceSet data_set(DATA_DIR);
+    DataSplitter splitter(data_set, 0.4f, gen);
+    EvidenceSet training_set = splitter.get_splits()[0].first;
+    EvidenceSet test_set = splitter.get_splits()[0].second;
+
+    training_set.save(fmt::format("{}/2e/training", GEN_DATA_DIR));
+    test_set.save(fmt::format("{}/2e/test", GEN_DATA_DIR));
+
+    Experimentation experimentation(
+        gen, "2e", Experimentation::MODEL_VERSION::v2, training_set, test_set);
+
+    experimentation.train_using_gibbs(50, 100);
+    string model_dir = fmt::format("{}/2e", MODEL_DIR);
+    experimentation.save_model(model_dir, false);
+
+    vector<MEASURES> measures = {MEASURES::accuracy};
+    experimentation.compute_baseline_eval_scores_for(
+        TomcatTA3V2::Q, 0, measures);
+    experimentation.compute_eval_scores_for(TomcatTA3V2::Q, 0, measures);
+
+    string evaluations_dir = fmt::format("{}/2e", EVAL_DIR);
+    experimentation.display_estimates();
+    experimentation.train_and_evaluate(evaluations_dir, false);
+}
+
+/**
+ * Performs a 10 cross validation on the falcon map using human data to predict
+ * the confidence scale of the player in each mission trial.
+ */
+void execute_experiment_2f() {
+    cout << "Experiment 2f\n";
+
+    // Random Seed
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Data
+    EvidenceSet data(DATA_DIR);
+
+    Experimentation experimentation(
+        gen, "2f", Experimentation::MODEL_VERSION::v2, data, 10);
+
+    experimentation.train_using_gibbs(50, 100);
+    string model_dir = fmt::format("{}/2f", MODEL_DIR);
+    experimentation.save_model(model_dir, false);
+
+    vector<MEASURES> measures = {MEASURES::accuracy};
+    experimentation.compute_baseline_eval_scores_for(
+        TomcatTA3V2::Q, 0, measures);
+    experimentation.compute_eval_scores_for(TomcatTA3V2::Q, 0, measures);
+
+    string evaluations_dir = fmt::format("{}/2f", EVAL_DIR);
+    experimentation.display_estimates();
+    experimentation.train_and_evaluate(evaluations_dir, false);
+}
+
 void execute_experiment(const string& experiment_id) {
     if (experiment_id == "2a") {
         execute_experiment_2a();
@@ -258,6 +320,12 @@ void execute_experiment(const string& experiment_id) {
     }
     else if (experiment_id == "2d_c") {
         execute_experiment_2d_part_c();
+    }
+    else if (experiment_id == "2e") {
+        execute_experiment_2e();
+    }
+    else if (experiment_id == "2f") {
+        execute_experiment_2f();
     }
     else {
         throw TomcatModelException(
@@ -296,10 +364,12 @@ int main(int argc, char* argv[]) {
         "  2d: Executes all parts of this experiment in sequence.\n"
         "  2d_a: Synthetic data generation from the model trained in 2c_a.\n"
         "  2d_b: Evaluation of training condition inference using 10-cv on "
-        "data "
-        "generated in 2d_a.\n"
+        "data generated in 2d_a.\n"
         "  2d_c: Evaluation of training condition inference on data generated "
-        "in 2d_a using model trained in 2c_a.\n");
+        "in 2d_a using model trained in 2c_a.\n"
+        "  2e: Evaluation of training condition inference on test data\n"
+        "  2f: Evaluation of confidence scale inference using 10-cv on "
+        "human data.\n");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -316,7 +386,7 @@ int main(int argc, char* argv[]) {
     EVAL_DIR = "../../data/eval/asist/";
     GEN_DATA_DIR = "../../data/samples/asist";
 
-    execute_experiment_2a();
+    execute_experiment_2f();
 //    execute_experiment_2b();
 //    execute_experiment_2c_part_a();
 //    execute_experiment_2c_part_b();

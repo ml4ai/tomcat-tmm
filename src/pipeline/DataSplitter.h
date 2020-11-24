@@ -41,6 +41,17 @@ namespace tomcat {
                   int num_folds,
                   std::shared_ptr<gsl_rng> random_generator);
 
+            /**
+             * Creates an instance of a KFold data splitter.
+             *
+             * @param data: data to be split
+             * @param test_prop: proportion of samples in the test set
+             * @param random_generator: random number generator
+             */
+            DataSplitter(const EvidenceSet& data,
+                         float test_prop,
+                         std::shared_ptr<gsl_rng> random_generator);
+
             DataSplitter(const EvidenceSet& training_data,
                   const EvidenceSet& test_data);
 
@@ -88,6 +99,18 @@ namespace tomcat {
              */
             void split(const EvidenceSet& data,
                        int num_folds,
+                       std::shared_ptr<gsl_rng> random_generator);
+
+            /**
+             * Creates k data splits comprised of disjoint training and test
+             * set.
+             *
+             * @param data: data to be split
+             * @param test_prop: proportion of samples in the test set
+             * @param random_generator: random number generator
+             */
+            void split(const EvidenceSet& data,
+                       float test_prop,
                        std::shared_ptr<gsl_rng> random_generator);
 
             /**

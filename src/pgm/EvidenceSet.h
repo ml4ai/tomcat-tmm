@@ -188,6 +188,13 @@ namespace tomcat {
              */
             void remove(const std::string& node_label);
 
+            /**
+             * Saves content of the set to a folder.
+             *
+             * @param output_dir: directory where the data must be saved.
+             */
+            void save(const std::string& output_dir) const;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------

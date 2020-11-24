@@ -4,6 +4,7 @@
 
 #include "utils/EigenExtensions.h"
 #include "utils/Tensor3.h"
+#include "utils/FileHandler.h"
 
 namespace tomcat {
     namespace model {
@@ -125,8 +126,19 @@ namespace tomcat {
 
                     string node_label = remove_extension(filename);
                     Tensor3 data = read_tensor_from_file(file.path().string());
-                    this->add_data(node_label, data);
+                    if (!data.is_empty()) {
+                        this->add_data(node_label, data);
+                    }
                 }
+            }
+        }
+
+        void EvidenceSet::save(const string& output_dir) const {
+            fs::create_directories(output_dir);
+            for(auto&[node_label, data] : this->node_label_to_data){
+                string filename = node_label;
+                string filepath = get_filepath(output_dir, filename);
+                save_tensor_to_file(filepath, data);
             }
         }
 

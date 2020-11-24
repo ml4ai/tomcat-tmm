@@ -13,14 +13,21 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         DataSplitter::DataSplitter(const EvidenceSet& data,
-                     int num_folds,
-                     shared_ptr<gsl_rng> random_generator) {
+                                   int num_folds,
+                                   shared_ptr<gsl_rng> random_generator) {
 
             this->split(data, num_folds, random_generator);
         }
 
+        DataSplitter::DataSplitter(const EvidenceSet& data,
+                                   float test_prop,
+                                   shared_ptr<gsl_rng> random_generator) {
+
+            this->split(data, test_prop, random_generator);
+        }
+
         DataSplitter::DataSplitter(const EvidenceSet& training_data,
-                     const EvidenceSet& test_data) {
+                                   const EvidenceSet& test_data) {
 
             this->splits.push_back(make_pair(training_data, test_data));
         }
@@ -31,8 +38,8 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
         void DataSplitter::split(const EvidenceSet& data,
-                          int num_folds,
-                          shared_ptr<gsl_rng> random_generator) {
+                                 int num_folds,
+                                 shared_ptr<gsl_rng> random_generator) {
 
             if (num_folds > data.get_num_data_points()) {
                 throw invalid_argument(
@@ -67,9 +74,9 @@ namespace tomcat {
                                             shuffled_indices.end());
                 }
 
-                vector<int> test_indices(
-                    shuffled_indices.begin() + start_idx,
-                    shuffled_indices.begin() + end_idx + 1);
+                vector<int> test_indices(shuffled_indices.begin() + start_idx,
+                                         shuffled_indices.begin() + end_idx +
+                                             1);
 
                 // We save this to use in the get_info method.
                 this->test_indices_per_fold.push_back(test_indices);
@@ -98,8 +105,7 @@ namespace tomcat {
         }
 
         vector<int> DataSplitter::get_shuffled_indices(
-            int num_data_points,
-            shared_ptr<gsl_rng> random_generator) const {
+            int num_data_points, shared_ptr<gsl_rng> random_generator) const {
             int* indices = new int[num_data_points];
             for (int i = 0; i < num_data_points; i++) {
                 indices[i] = i;
@@ -112,7 +118,7 @@ namespace tomcat {
         }
 
         vector<int> DataSplitter::get_fold_sizes(int num_data_points,
-                                               int num_folds) const {
+                                                 int num_folds) const {
             int fold_size = floor(num_data_points / num_folds);
             int excess = num_data_points % num_folds;
             vector<int> fold_sizes(num_folds);
@@ -126,6 +132,44 @@ namespace tomcat {
             }
 
             return fold_sizes;
+        }
+
+        void DataSplitter::split(const EvidenceSet& data,
+                                 float test_prop,
+                                 shared_ptr<gsl_rng> random_generator) {
+
+            if (test_prop < 0 || test_prop > 1) {
+                throw invalid_argument(
+                    "The proportion of samples in the test set must be "
+                    "between 0 and 1.");
+            }
+
+            vector<int> shuffled_indices = this->get_shuffled_indices(
+                data.get_num_data_points(), random_generator);
+            int test_size = data.get_num_data_points() * test_prop;
+
+            EvidenceSet training;
+            EvidenceSet test;
+            vector<int> training_indices;
+            vector<int> test_indices;
+            test_indices.insert(test_indices.begin(),
+                shuffled_indices.begin(),
+                shuffled_indices.begin() + test_size);
+            training_indices.insert(training_indices.begin(),
+                                    shuffled_indices.begin() + test_size,
+                                    shuffled_indices.end());
+
+            for (auto& node_label : data.get_node_labels()) {
+                Tensor3 node_data = data[node_label];
+                Tensor3 training_data =
+                    node_data.slice(training_indices, 1);
+                Tensor3 test_data = node_data.slice(test_indices, 1);
+
+                training.add_data(node_label, training_data);
+                test.add_data(node_label, test_data);
+            }
+
+            this->splits.push_back(make_pair(training, test));
         }
 
         void DataSplitter::get_info(nlohmann::json& json) const {
@@ -146,7 +190,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        const vector<DataSplitter::Split>& DataSplitter::get_splits() const { return splits; }
+        const vector<DataSplitter::Split>& DataSplitter::get_splits() const {
+            return splits;
+        }
 
     } // namespace model
 } // namespace tomcat
