@@ -14,6 +14,11 @@ MAP_CONFIG_PATH = data/maps/asist/Falcon_v1.0.json
 MESSAGES_DIR = data/asist/$(STUDY_ID)_split
 TRAIN_MESSAGES_DIR = $(MESSAGES_DIR)/train
 EVAL_MESSAGES_DIR = $(MESSAGES_DIR)/eval
+TRAIN_TRIALS_FILE = $(MESSAGES_DIR)/train_list.txt
+EVAL_TRIALS_FILE = $(MESSAGES_DIR)/eval_list.txt
+
+# Check if trials were defined to training and/or evaluation
+SPLIT_DEFINED=$(shell [ -s $(TRAIN_TRIALS_FILE) ] || [ -s $(EVAL_TRIALS_FILE) ] && echo 1 || echo 0 )
 
 # Converted data
 SAMPLES_DIR = data/samples/asist/$(STUDY_ID)
@@ -34,6 +39,8 @@ HORIZON = 1
 # Phony targets
 .PHONY: all
 .PHONY: sync
+.PHONY: create_splits
+.PHONY: test
 .PHONY: split
 .PHONY: convert
 .PHONY: build
@@ -42,17 +49,24 @@ HORIZON = 1
 .PHONY: report
 .PHONY: TomcatASISTFall20
 
-all: sync split convert build train eval report
+all: sync create_splits split convert build train eval report
 
 sync:
 	@echo ""
 	./tools/sync_asist_data
 
-# This assumes that the directory $(MESSAGES_DIR) exists as well as the files
-# rain_list.txt and eval_list.txt. These files should contain a list of
-# trial numbers that should be used for training and evaluation respectively.
-split: $(MESSAGES_DIR) $(MESSAGES_DIR)/train_list.txt \
-       $(MESSAGES_DIR)/eval_list.txt
+create_splits:
+	@mkdir -p $(MESSAGES_DIR)
+	@touch -a $(TRAIN_TRIALS_FILE)
+	@touch -a $(EVAL_TRIALS_FILE)
+
+# This assumes requires that the files train_list.txt and eval_list.txt are
+# pre-filled with some trial numbers.
+split: $(TRAIN_TRIALS_FILE) $(EVAL_TRIALS_FILE)
+ifeq ($(SPLIT_DEFINED), 0)
+	$(error "Fill $(TRAIN_TRIALS_FILE) and $(EVAL_TRIALS_FILE) with \
+	appropriate trial numbers.")
+endif
 	@echo ""
 	./tools/split_data
 

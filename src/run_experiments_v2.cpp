@@ -228,8 +228,11 @@ void execute_experiment_2d_part_c() {
     experimentation.train_and_evaluate(evaluations_dir, true);
 }
 
-void execute_experiment_2e() {
-    cout << "Experiment 2e\n";
+/**
+ * Train in 60% of the data, save model and data sets.
+ */
+void execute_experiment_2e_part_a() {
+    cout << "Experiment 2e part a\n";
 
     // Random Seed
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
@@ -238,6 +241,7 @@ void execute_experiment_2e() {
     EvidenceSet data_set(DATA_DIR);
     DataSplitter splitter(data_set, 0.4f, gen);
     EvidenceSet training_set = splitter.get_splits()[0].first;
+    EvidenceSet validation_set = training_set;
     EvidenceSet test_set = splitter.get_splits()[0].second;
 
     training_set.save(fmt::format("{}/2e/training", GEN_DATA_DIR));
@@ -249,15 +253,41 @@ void execute_experiment_2e() {
     experimentation.train_using_gibbs(50, 100);
     string model_dir = fmt::format("{}/2e", MODEL_DIR);
     experimentation.save_model(model_dir, false);
+    experimentation.train_and_save();
+}
 
-    vector<MEASURES> measures = {MEASURES::accuracy};
-    experimentation.compute_baseline_eval_scores_for(
-        TomcatTA3V2::Q, 0, measures);
-    experimentation.compute_eval_scores_for(TomcatTA3V2::Q, 0, measures);
+/**
+ * Evaluates the model on training and test data from the previous part.
+ */
+void execute_experiment_2e_part_b() {
+    cout << "Experiment 2e part b\n";
 
-    string evaluations_dir = fmt::format("{}/2e", EVAL_DIR);
-    experimentation.display_estimates();
-    experimentation.train_and_evaluate(evaluations_dir, false);
+    // Random Seed
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Data
+    EvidenceSet validation_set(fmt::format("{}/2e/training", GEN_DATA_DIR));
+    EvidenceSet test_set(fmt::format("{}/2e/test", GEN_DATA_DIR));
+
+    vector<EvidenceSet> evidence_sets = {validation_set, test_set};
+    vector<string> evidence_id = {"val", "test"};
+    int i = 0;
+
+    for (auto& evidence_set : evidence_sets) {
+        Experimentation experimentation(
+            gen, "2e", Experimentation::MODEL_VERSION::v2, {}, evidence_set);
+
+        string model_dir = fmt::format("{}/2e", MODEL_DIR);
+        experimentation.load_model_from(model_dir);
+
+        vector<MEASURES> measures = {MEASURES::accuracy};
+        experimentation.compute_eval_scores_for(TomcatTA3V2::Q, 0, measures);
+
+        string evaluations_dir =
+            fmt::format("{}/2e_{}", EVAL_DIR, evidence_id[i++]);
+        experimentation.display_estimates();
+        experimentation.train_and_evaluate(evaluations_dir, false);
+    }
 }
 
 /**
@@ -322,7 +352,14 @@ void execute_experiment(const string& experiment_id) {
         execute_experiment_2d_part_c();
     }
     else if (experiment_id == "2e") {
-        execute_experiment_2e();
+        execute_experiment_2e_part_a();
+        execute_experiment_2e_part_b();
+    }
+    else if (experiment_id == "2e_a") {
+        execute_experiment_2e_part_a();
+    }
+    else if (experiment_id == "2e_b") {
+        execute_experiment_2e_part_b();
     }
     else if (experiment_id == "2f") {
         execute_experiment_2f();
@@ -367,7 +404,10 @@ int main(int argc, char* argv[]) {
         "data generated in 2d_a.\n"
         "  2d_c: Evaluation of training condition inference on data generated "
         "in 2d_a using model trained in 2c_a.\n"
-        "  2e: Evaluation of training condition inference on test data\n"
+        "  2e: Executes all parts of this experiment in sequence.\n"
+        "  2e_a: Model training on 60% of the data.\n"
+        "  2e_b: Evaluation of training condition inference on training "
+        "and test data.\n"
         "  2f: Evaluation of confidence scale inference using 10-cv on "
         "human data.\n");
 
@@ -379,19 +419,11 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    //execute_experiment(experiment_id);
+    execute_experiment(experiment_id);
 
     DATA_DIR = "../../data/samples/asist/study-1_2020.08/full";
     MODEL_DIR = "../../data/model/asist";
     EVAL_DIR = "../../data/eval/asist/";
     GEN_DATA_DIR = "../../data/samples/asist";
 
-    execute_experiment_2f();
-//    execute_experiment_2b();
-//    execute_experiment_2c_part_a();
-//    execute_experiment_2c_part_b();
-//    execute_experiment_2d_part_a();
-//    DATA_DIR = "../../data/samples/asist/2d";
-//    execute_experiment_2d_part_b();
-//    execute_experiment_2d_part_c();
 }
