@@ -27,9 +27,11 @@ namespace tomcat {
              * @param model: DBN
              * @param input_folder_path: folder where the model's parameters
              * are stored
+             * @param freeze_loaded_nodes: whether loaded nodes should be frozen
              */
             DBNLoader(std::shared_ptr<DynamicBayesNet> model,
-                      std::string input_folder_path);
+                      std::string input_folder_path,
+                      bool freeze_loaded_nodes = true);
 
             ~DBNLoader();
 
@@ -53,6 +55,13 @@ namespace tomcat {
 
             void get_info(nlohmann::json& json) const override;
 
+          protected:
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            std::shared_ptr<DynamicBayesNet> get_model() const override;
+
           private:
             //------------------------------------------------------------------
             // Member functions
@@ -63,6 +72,11 @@ namespace tomcat {
              */
             void copy_loader(const DBNLoader& loader);
 
+            /**
+             * Loads parameter samples generated during the training process.
+             */
+            void load_partials();
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
@@ -71,10 +85,13 @@ namespace tomcat {
             // Folder where the model's parameters' files are saved.
             std::string input_folder_path;
 
-            // Cross validation step. This is incremented at each call of the
+            // Data split index. This is incremented at each call of the
             // function fit. It can be used to identify a folder with parameters
             // for a specific cross validation step.
-            int cv_step = 0;
+            int split_idx = 0;
+
+            // Frozen nodes cannot have their assignments changed.
+            bool freeze_loaded_nodes;
         };
 
     } // namespace model

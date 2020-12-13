@@ -20,6 +20,7 @@ ORIGINAL_DATA_DIR="$ROOTDIR"/data/asist/$GCS_DIR
 SPLIT_DATA_DIR="$ORIGINAL_DATA_DIR"_split
 TRAINING_DIR="$SPLIT_DATA_DIR"/train
 EVAL_DIR="$SPLIT_DATA_DIR"/eval
+TRAIN_LIST="$SPLIT_DATA_DIR"/train_list.txt
 EVAL_LIST="$SPLIT_DATA_DIR"/eval_list.txt
 
 # Always clear the directories to avoid links to old files
@@ -31,23 +32,22 @@ if [ ! -f $EVAL_LIST ]; then
    exit 1
 fi
 
-# Create symbolic links in the training directory for all the data files
-files=("$ORIGINAL_DATA_DIR"/*TrialMessages*)
-for file in ${files[@]}
-do
-    [[ -e "$file" ]] && ln -s "$file" $TRAINING_DIR
-done
+# Create symbolic links in the training directory for the files listed in
+# train_list.txt
+while IFS= read -r trial; do
+  for file in $(ls "$ORIGINAL_DATA_DIR" | egrep -i "trial-$trial");
+  do
+    ln -s "$ORIGINAL_DATA_DIR/$file" $TRAINING_DIR
+  done
+done < $TRAIN_LIST
 
 # Create symbolic links in the evaluation directory for the files listed in
-# eval_list.txt and remove symbolic link for these files from the training
-# directory
-while IFS= read -r file; do
-    [[ -e "$ORIGINAL_DATA_DIR/$file".metadata ]] && ln -s \
-    "$ORIGINAL_DATA_DIR/$file".metadata $EVAL_DIR && rm \
-    "$TRAINING_DIR/$file".metadata
-    [[ -e "$ORIGINAL_DATA_DIR/$file".fov ]] && ln -s \
-    "$ORIGINAL_DATA_DIR/$file".fov $EVAL_DIR && rm \
-    "$TRAINING_DIR/$file".fov
+# eval_list.txt
+while IFS= read -r trial; do
+  for file in $(ls "$ORIGINAL_DATA_DIR" | egrep -i "trial-$trial");
+  do
+    ln -s "$ORIGINAL_DATA_DIR/$file" $EVAL_DIR
+  done
 done < $EVAL_LIST
 
 # If no file exists for the filenames listed in eval_list.txt, the exit code

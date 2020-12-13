@@ -4,14 +4,18 @@ import re
 import numpy as np
 from datetime import datetime
 from datetime import timedelta
+from os import listdir
+from os.path import isfile, join
 
 
-def create_report(eval_filepath, metadata_filepath, horizon, report_filepath):
+def create_report(eval_filepath, partials_dir, metadata_filepath,
+                  horizon, report_filepath):
     """
     This function converts a evaluation file to a report in the format defined
     by DARPA for the asist program.
 
     :param eval_filepath: filepath of the file with estimates and evaluation
+    :param partials_dir: directory where evaluations over model's partials are
     :param metadata_filepath: filepath of the metadata file of the evaluation
     data
     :param horizon: inference horizon for victim rescue
@@ -19,18 +23,18 @@ def create_report(eval_filepath, metadata_filepath, horizon, report_filepath):
     :return:
     """
 
-    eval = json.load(open(eval_filepath, "r"))
+    evaluations = json.load(open(eval_filepath, "r"))
     metadata = json.load(open(metadata_filepath, "r"))
 
     num_conditions = 3
     training_condition_estimates = []
     for condition in range(num_conditions):
         training_condition_estimates.append(
-            get_estimates(eval, 0, "TrainingCondition", condition)
+            get_estimates(evaluations, 0, "TrainingCondition", condition)
         )
 
-    green_estimates = get_estimates(eval, horizon, "Green")
-    yellow_estimates = get_estimates(eval, horizon, "Yellow")
+    green_estimates = get_estimates(evaluations, horizon, "Green")
+    yellow_estimates = get_estimates(evaluations, horizon, "Yellow")
 
     with open(report_filepath, "w") as report:
         for i, eval_file in enumerate(metadata["files_converted"]):
@@ -42,7 +46,7 @@ def create_report(eval_filepath, metadata_filepath, horizon, report_filepath):
                 trial,
                 i,
                 eval_file["initial_timestamp"],
-                training_condition_estimates,
+                training_condition_estimates
             )
             report.write(json.dumps(report_entry) + "\n")
 
@@ -93,15 +97,13 @@ def get_estimates(evaluations, horizon, node_label, assignment_index=0):
     estimates = [
         estimator["executions"][0]["estimates"][assignment_index]
         for estimator in evaluations["estimation"]["estimators"]
-        if estimator["name"] == "sum-product"
-           and estimator["inference_horizon"] == horizon
-           and estimator["node_label"] == node_label
-    ][0]
+        if estimator["name"] == "sum-product" and estimator[
+            "inference_horizon"] == horizon and estimator[
+               "node_label"] == node_label][0]
 
     return np.array(
         [list(map(float, row.split())) for row in estimates.split("\n")]
     )
-
 
 def get_template_entry(trial):
     """
@@ -122,7 +124,7 @@ def get_template_entry(trial):
 
 
 def create_training_condition_entry(
-        trial, trial_idx, initial_timestamp, training_condition_estimates
+        trial, trial_idx, initial_timestamp, estimates
 ):
     """
     Creates a report entry for training condition estimates.
@@ -130,24 +132,24 @@ def create_training_condition_entry(
     :param trial: trial number
     :param trial_idx: index of the trial in the matrix of evaluation data
     :param initial_timestamp: timestamp when the mission starts
-    :param training_condition_estimates: estimates for training condition
+    :param estimates: estimates for training condition
     :return: report entry
     """
 
     report_entry = get_template_entry(trial)
-    last_time_step = training_condition_estimates[0].shape[1] - 1
+    last_time_step = estimates[0].shape[1] - 1
     report_entry["Timestamp"] = get_timestamp(
         initial_timestamp, last_time_step
     )
     report_entry[
         "TrainingCondition NoTriageNoSignal"
-    ] = training_condition_estimates[0][trial_idx][-1]
+    ] = estimates[0][trial_idx][-1]
     report_entry[
         "TrainingCondition TriageNoSignal"
-    ] = training_condition_estimates[1][trial_idx][-1]
+    ] = estimates[1][trial_idx][-1]
     report_entry[
         "TrainingCondition TriageSignal"
-    ] = training_condition_estimates[2][trial_idx][-1]
+    ] = estimates[2][trial_idx][-1]
     report_entry["VictimType Green"] = "n.a."
     report_entry["VictimType Yellow"] = "n.a."
     report_entry["VictimType Confidence"] = "n.a."
@@ -170,7 +172,7 @@ def get_timestamp(initial_timestamp, seconds):
 
 
 def create_victim_rescue_entries(
-        trial, trial_idx, initial_timestamp, rescue_estimates, horizon,
+        trial, trial_idx, initial_timestamp, estimates, horizon,
         victim_type
 ):
     """
@@ -181,7 +183,7 @@ def create_victim_rescue_entries(
     :param trial: trial number
     :param trial_idx: index of the trial in the matrix of evaluation data
     :param initial_timestamp: timestamp when the mission starts
-    :param rescue_estimates: estimates for victim rescue
+    :param estimates: estimates for victim rescue
     :param horizon: horizon of prediction
     :param victim_type: Green or Yellow
     :return: report entries
@@ -190,7 +192,7 @@ def create_victim_rescue_entries(
     entries = []
 
     prev_estimate = 0
-    for t, estimate in enumerate(rescue_estimates[trial_idx]):
+    for t, estimate in enumerate(estimates[trial_idx]):
         # Only report the estimation prior to start rescuing
         if (estimate >= 0.5) and (prev_estimate < 0.5):
             report_entry = get_template_entry(trial)
@@ -204,7 +206,7 @@ def create_victim_rescue_entries(
             report_entry["Rationale"] = {
                 "time_unit": "seconds",
                 "time_step_size": 1,
-                "horizon_of_prediction": horizon,
+                "horizon_of_prediction": horizon
             }
 
             if victim_type == "Green":
@@ -220,7 +222,9 @@ def create_victim_rescue_entries(
 
 if __name__ == "__main__":
     eval_filepath = sys.argv[1]
-    metadata_filepath = sys.argv[2]
-    horizon = int(sys.argv[3])
-    report_filepath = sys.argv[4]
-    create_report(eval_filepath, metadata_filepath, horizon, report_filepath)
+    partials_dir = sys.argv[2]
+    metadata_filepath = sys.argv[3]
+    horizon = int(sys.argv[4])
+    report_filepath = sys.argv[5]
+    create_report(eval_filepath, partials_dir, metadata_filepath, horizon,
+                  report_filepath)

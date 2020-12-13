@@ -22,8 +22,8 @@ namespace po = boost::program_options;
 #define MODEL_VERSION Experimentation::MODEL_VERSION
 #define MEASURES Experimentation::MEASURES
 
-string DATA_ROOT_DIR = "../../data/samples";
-string OUTPUT_ROOT_DIR = "../../data/";
+string DATA_DIR = "../../data/samples";
+string EVAL_DIR = "../../data/";
 
 /**
  * Performs a 5 cross validation on the falcon map using human data to predict
@@ -36,13 +36,13 @@ void execute_experiment_1a() {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // Data
-    string data_dir = fmt::format("{}/ta3/falcon/human", DATA_ROOT_DIR);
+    string data_dir = fmt::format("{}/ta3/falcon/human", DATA_DIR);
     EvidenceSet data(data_dir);
 
     Experimentation experimentation(gen, "1a", MODEL_VERSION::v1, data, 5);
 
     experimentation.train_using_gibbs(50, 100);
-    string model_dir = fmt::format("{}/model/ta3/1a", OUTPUT_ROOT_DIR);
+    string model_dir = fmt::format("{}/model/ta3/1a", EVAL_DIR);
     experimentation.save_model(model_dir);
 
     vector<int> horizons = {1, 3, 5, 10, 15, 30, 50, 100};
@@ -61,7 +61,7 @@ void execute_experiment_1a() {
     }
 
     string evaluations_dir =
-        fmt::format("{}/evaluations/ta3/1a", OUTPUT_ROOT_DIR);
+        fmt::format("{}/evaluations/ta3/1a", EVAL_DIR);
     experimentation.display_estimates();
     experimentation.train_and_evaluate(evaluations_dir);
 }
@@ -76,7 +76,7 @@ void execute_experiment_1b_part_a() {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // Data
-    string data_dir = fmt::format("{}/ta3/falcon/human", DATA_ROOT_DIR);
+    string data_dir = fmt::format("{}/ta3/falcon/human", DATA_DIR);
     EvidenceSet training_set(data_dir);
     EvidenceSet test_set;
 
@@ -84,7 +84,7 @@ void execute_experiment_1b_part_a() {
         gen, "1b", Experimentation::MODEL_VERSION::v1, training_set, test_set);
 
     experimentation.train_using_gibbs(50, 100);
-    string model_dir = fmt::format("{}/model/ta3/1b", OUTPUT_ROOT_DIR);
+    string model_dir = fmt::format("{}/model/ta3/1b", EVAL_DIR);
     experimentation.save_model(model_dir);
     experimentation.train_and_save();
 }
@@ -100,14 +100,14 @@ void execute_experiment_1b_part_b() {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // Data
-    string data_dir = fmt::format("{}/ta3/falcon/human", DATA_ROOT_DIR);
+    string data_dir = fmt::format("{}/ta3/falcon/human", DATA_DIR);
     EvidenceSet training_set(data_dir);
     EvidenceSet test_set(data_dir);
 
     Experimentation experimentation(
         gen, "1b", Experimentation::MODEL_VERSION::v1, training_set, test_set);
 
-    string model_dir = fmt::format("{}/model/ta3/1b", OUTPUT_ROOT_DIR);
+    string model_dir = fmt::format("{}/model/ta3/1b", EVAL_DIR);
     experimentation.load_model_from(model_dir);
 
     vector<int> horizons = {1, 3, 5, 10, 15, 30, 50, 100};
@@ -126,7 +126,7 @@ void execute_experiment_1b_part_b() {
     }
 
     string evaluations_dir =
-        fmt::format("{}/evaluations/ta3/1b", OUTPUT_ROOT_DIR);
+        fmt::format("{}/evaluations/ta3/1b", EVAL_DIR);
     experimentation.display_estimates();
     experimentation.train_and_evaluate(evaluations_dir);
 }
@@ -142,10 +142,10 @@ void execute_experiment_1c_part_a() {
 
     Experimentation experimentation(gen, Experimentation::MODEL_VERSION::v1);
 
-    string model_dir = fmt::format("{}/model/ta3/1b", OUTPUT_ROOT_DIR);
+    string model_dir = fmt::format("{}/model/ta3/1b", EVAL_DIR);
     experimentation.load_model_from(model_dir);
     string samples_dir =
-        fmt::format("{}/samples/ta3/falcon/synthetic/1c", OUTPUT_ROOT_DIR);
+        fmt::format("{}/samples/ta3/falcon/synthetic/1c", EVAL_DIR);
     experimentation.generate_synthetic_data(100, samples_dir);
 }
 
@@ -160,14 +160,14 @@ void execute_experiment_1c_part_b() {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // Data
-    string data_dir = fmt::format("{}/ta3/falcon/synthetic/1c", DATA_ROOT_DIR);
+    string data_dir = fmt::format("{}/ta3/falcon/synthetic/1c", DATA_DIR);
     EvidenceSet data(data_dir);
 
     Experimentation experimentation(
         gen, "1c_cv", Experimentation::MODEL_VERSION::v1, data, 5);
 
     experimentation.train_using_gibbs(50, 100);
-    string model_dir = fmt::format("{}/model/ta3/1c", OUTPUT_ROOT_DIR);
+    string model_dir = fmt::format("{}/model/ta3/1c", EVAL_DIR);
     experimentation.save_model(model_dir);
 
     vector<int> horizons = {1, 3, 5, 10, 15, 30, 50, 100};
@@ -186,7 +186,7 @@ void execute_experiment_1c_part_b() {
     }
 
     string evaluations_dir =
-        fmt::format("{}/evaluations/ta3/1c/cv", OUTPUT_ROOT_DIR);
+        fmt::format("{}/evaluations/ta3/1c/cv", EVAL_DIR);
     experimentation.display_estimates();
     experimentation.train_and_evaluate(evaluations_dir);
 }
@@ -203,14 +203,14 @@ void execute_experiment_1c_part_c() {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // Data
-    string data_dir = fmt::format("{}/ta3/falcon/synthetic/1c", DATA_ROOT_DIR);
+    string data_dir = fmt::format("{}/ta3/falcon/synthetic/1c", DATA_DIR);
     EvidenceSet training_set(data_dir);
     EvidenceSet test_set(data_dir);
 
     Experimentation experimentation(
         gen, "1c", Experimentation::MODEL_VERSION::v1, training_set, test_set);
 
-    string model_dir = fmt::format("{}/model/ta3/1b", OUTPUT_ROOT_DIR);
+    string model_dir = fmt::format("{}/model/ta3/1b", EVAL_DIR);
     experimentation.load_model_from(model_dir);
 
     vector<int> horizons = {1, 3, 5, 10, 15, 30, 50, 100};
@@ -229,7 +229,7 @@ void execute_experiment_1c_part_c() {
     }
 
     string evaluations_dir =
-        fmt::format("{}/evaluations/ta3/1c", OUTPUT_ROOT_DIR);
+        fmt::format("{}/evaluations/ta3/1c", EVAL_DIR);
     experimentation.display_estimates();
     experimentation.train_and_evaluate(evaluations_dir);
 }
@@ -248,12 +248,12 @@ void execute_experiment_1d_part_a() {
         Experimentation experimentation(gen,
                                         Experimentation::MODEL_VERSION::v1);
 
-        string model_dir = fmt::format("{}/model/ta3/1b", OUTPUT_ROOT_DIR);
+        string model_dir = fmt::format("{}/model/ta3/1b", EVAL_DIR);
         experimentation.load_model_from(model_dir);
 
         int max_horizon = 100;
         string samples_dir = fmt::format(
-            "{}/samples/ta3/falcon/synthetic/1d/time_{}", OUTPUT_ROOT_DIR, t);
+            "{}/samples/ta3/falcon/synthetic/1d/time_{}", EVAL_DIR, t);
         experimentation.generate_synthetic_data(
             500, samples_dir, t, t + max_horizon);
     }
@@ -273,7 +273,7 @@ void execute_experiment_1d_part_b() {
 
         // Data
         string data_dir =
-            fmt::format("{}/ta3/falcon/synthetic/1d/time_{}", DATA_ROOT_DIR, t);
+            fmt::format("{}/ta3/falcon/synthetic/1d/time_{}", DATA_DIR, t);
         EvidenceSet training_set(data_dir);
         EvidenceSet test_set(data_dir);
         // The samples are the same up to time t so all the predictions at this
@@ -287,7 +287,7 @@ void execute_experiment_1d_part_b() {
                                         training_set,
                                         test_set);
 
-        string model_dir = fmt::format("{}/model/ta3/1b", OUTPUT_ROOT_DIR);
+        string model_dir = fmt::format("{}/model/ta3/1b", EVAL_DIR);
         experimentation.load_model_from(model_dir);
 
         vector<int> horizons = {1, 3, 5, 10, 15, 30, 50, 100};
@@ -305,7 +305,7 @@ void execute_experiment_1d_part_b() {
         }
 
         string evaluations_dir =
-            fmt::format("{}/evaluations/ta3/1d/time_{}", OUTPUT_ROOT_DIR, t);
+            fmt::format("{}/evaluations/ta3/1d/time_{}", EVAL_DIR, t);
         experimentation.train_and_evaluate(evaluations_dir);
     }
 }
@@ -325,11 +325,11 @@ void execute_experiment_1e_part_a() {
                                         Experimentation::MODEL_VERSION::v1);
 
         string model_dir =
-            fmt::format("{}/model/ta3/1a/fold{}", OUTPUT_ROOT_DIR, fold);
+            fmt::format("{}/model/ta3/1a/fold{}", EVAL_DIR, fold);
         experimentation.load_model_from(model_dir);
 
         string samples_dir = fmt::format(
-            "{}/samples/ta3/falcon/synthetic/1e/fold{}", OUTPUT_ROOT_DIR, fold);
+            "{}/samples/ta3/falcon/synthetic/1e/fold{}", EVAL_DIR, fold);
         experimentation.generate_synthetic_data(100, samples_dir);
     }
 }
@@ -348,7 +348,7 @@ void execute_experiment_1e_part_b() {
 
         // Data
         string data_dir = fmt::format(
-            "{}/ta3/falcon/synthetic/1e/fold{}", DATA_ROOT_DIR, fold);
+            "{}/ta3/falcon/synthetic/1e/fold{}", DATA_DIR, fold);
         EvidenceSet training_set(data_dir);
         EvidenceSet test_set(data_dir);
 
@@ -359,7 +359,7 @@ void execute_experiment_1e_part_b() {
                                         test_set);
 
         string model_dir =
-            fmt::format("{}/model/ta3/1a/fold{}", OUTPUT_ROOT_DIR, fold);
+            fmt::format("{}/model/ta3/1a/fold{}", EVAL_DIR, fold);
         experimentation.load_model_from(model_dir);
 
         vector<int> horizons = {1, 3, 5, 10, 15, 30, 50, 100};
@@ -378,7 +378,7 @@ void execute_experiment_1e_part_b() {
         }
 
         string evaluations_dir =
-            fmt::format("{}/evaluations/ta3/1e/fold{}", OUTPUT_ROOT_DIR, fold);
+            fmt::format("{}/evaluations/ta3/1e/fold{}", EVAL_DIR, fold);
         experimentation.display_estimates();
         experimentation.train_and_evaluate(evaluations_dir);
     }
@@ -443,10 +443,10 @@ int main(int argc, char* argv[]) {
     po::options_description desc("Allowed options");
     desc.add_options()("help,h", "Produce this help message")(
         "input_dir",
-        po::value<string>(&DATA_ROOT_DIR)->default_value("../../data/samples/"),
+        po::value<string>(&DATA_DIR)->default_value("../../data/samples/"),
         "Directory where input data is.")(
         "output_dir",
-        po::value<string>(&OUTPUT_ROOT_DIR)->default_value("../../data/"),
+        po::value<string>(&EVAL_DIR)->default_value("../../data/"),
         "Output directory for generated data, model and evaluation.")(
         "experiment_id",
         po::value<string>(&experiment_id)->default_value("1a"),

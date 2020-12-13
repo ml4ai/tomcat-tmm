@@ -37,11 +37,16 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void prepare() override;
-
             void fit(const EvidenceSet& training_data) override;
 
             void get_info(nlohmann::json& json) const override;
+
+          protected:
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            std::shared_ptr<DynamicBayesNet> get_model() const override;
 
           private:
             //------------------------------------------------------------------

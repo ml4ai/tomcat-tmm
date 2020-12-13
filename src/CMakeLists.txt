@@ -69,7 +69,7 @@ add_library(
   distribution/Gaussian.cpp
   pipeline/training/DBNSamplingTrainer.cpp
   pgm/EvidenceSet.cpp
-  pipeline/KFold.cpp
+        pipeline/DataSplitter.cpp
   pipeline/training/DBNTrainer.cpp
   pipeline/training/DBNLoader.cpp
   pipeline/DBNSaver.cpp

@@ -21,6 +21,7 @@ namespace tomcat {
             inline static const std::string THETA_PBAE = "Theta_PBAE"; // Transition
             inline static const std::string PBAE = "PBAE";
             inline static const std::string Q = TA3MessageConverter::Q;
+            //TA3MessageConverter::Q;
             inline static const std::string BEEP = TA3MessageConverter::BEEP;
 
             //------------------------------------------------------------------

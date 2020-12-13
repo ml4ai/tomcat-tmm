@@ -366,13 +366,14 @@ namespace tomcat {
             boost::filesystem::create_directories(output_dir);
 
             for (const auto& mapping : this->parameter_nodes_map) {
-                string filename = mapping.first + ".txt";
+                string filename = mapping.first;
                 string filepath = get_filepath(output_dir, filename);
                 save_matrix_to_file(filepath, mapping.second->get_assignment());
             }
         }
 
-        void DynamicBayesNet::load_from(const string& input_dir) {
+        void DynamicBayesNet::load_from(const string& input_dir,
+                                        bool freeze_nodes) {
             // Parameters of the model should be in files with the same name as
             // the parameters timed names. (eg. (Theta_S0,0).txt)
             for (const auto& file :
@@ -399,7 +400,10 @@ namespace tomcat {
                         Eigen::MatrixXd assignment =
                             read_matrix_from_file(file.path().string());
                         parameter_node->set_assignment(assignment);
-                        parameter_node->freeze();
+
+                        if (freeze_nodes) {
+                            parameter_node->freeze();
+                        }
                     }
                 }
             }
@@ -435,6 +439,34 @@ namespace tomcat {
             return this->label_to_nodes.at(node_label)[0]
                 ->get_metadata()
                 ->get_cardinality();
+        }
+
+        bool DynamicBayesNet::has_node_with_label(
+            const std::string& node_label) const {
+            return EXISTS(node_label, this->label_to_nodes);
+        }
+
+        bool DynamicBayesNet::has_parameter_node_with_label(
+            const std::string& node_label) const {
+            if (EXISTS(node_label, this->label_to_nodes)) {
+                return this->label_to_nodes.at(node_label)[0]
+                    ->get_metadata()
+                    ->is_parameter();
+            }
+
+            return false;
+        }
+
+        vector<string> DynamicBayesNet::get_parameter_node_labels() const {
+            vector<string> labels;
+
+            for (const auto& node_template : this->node_templates) {
+                if (node_template.get_metadata()->is_parameter()) {
+                    labels.push_back(node_template.get_metadata()->get_label());
+                }
+            }
+
+            return labels;
         }
 
         //----------------------------------------------------------------------

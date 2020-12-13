@@ -19,7 +19,7 @@ namespace tomcat {
          * test data creating a list of this pair of data sets by repeating this
          * logic for all the k folds.
          */
-        class KFold {
+        class DataSplitter {
           public:
             //------------------------------------------------------------------
             // Types, Enums & Constants
@@ -37,25 +37,36 @@ namespace tomcat {
              * @param num_folds: number of splits
              * @param random_generator: random number generator
              */
-            KFold(const EvidenceSet& data,
+            DataSplitter(const EvidenceSet& data,
                   int num_folds,
                   std::shared_ptr<gsl_rng> random_generator);
 
-            KFold(const EvidenceSet& training_data,
+            /**
+             * Creates an instance of a KFold data splitter.
+             *
+             * @param data: data to be split
+             * @param test_prop: proportion of samples in the test set
+             * @param random_generator: random number generator
+             */
+            DataSplitter(const EvidenceSet& data,
+                         float test_prop,
+                         std::shared_ptr<gsl_rng> random_generator);
+
+            DataSplitter(const EvidenceSet& training_data,
                   const EvidenceSet& test_data);
 
-            ~KFold();
+            ~DataSplitter();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            KFold(const KFold&) = default;
+            DataSplitter(const DataSplitter&) = default;
 
-            KFold& operator=(const KFold&) = default;
+            DataSplitter& operator=(const DataSplitter&) = default;
 
-            KFold(KFold&&) = default;
+            DataSplitter(DataSplitter&&) = default;
 
-            KFold& operator=(KFold&&) = default;
+            DataSplitter& operator=(DataSplitter&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -91,6 +102,18 @@ namespace tomcat {
                        std::shared_ptr<gsl_rng> random_generator);
 
             /**
+             * Creates k data splits comprised of disjoint training and test
+             * set.
+             *
+             * @param data: data to be split
+             * @param test_prop: proportion of samples in the test set
+             * @param random_generator: random number generator
+             */
+            void split(const EvidenceSet& data,
+                       float test_prop,
+                       std::shared_ptr<gsl_rng> random_generator);
+
+            /**
              * Returns a list of shuffled indices of the data points.
              *
              * @param num_data_points: number of data points that will be
@@ -121,6 +144,8 @@ namespace tomcat {
             // Data split in training and test sets. Populated in the creation
             // of the class object.
             std::vector<Split> splits;
+
+            std::vector<std::vector<int>> test_indices_per_fold;
         };
 
     } // namespace model

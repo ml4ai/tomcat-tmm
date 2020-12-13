@@ -39,9 +39,8 @@ namespace tomcat {
             this->random_generator = trainer.random_generator;
             this->sampler = trainer.sampler;
             this->num_samples = trainer.num_samples;
+            this->param_label_to_samples = trainer.param_label_to_samples;
         }
-
-        void DBNSamplingTrainer::prepare() {}
 
         void DBNSamplingTrainer::fit(const EvidenceSet& training_data) {
             this->sampler->set_num_in_plate_samples(
@@ -50,33 +49,26 @@ namespace tomcat {
             this->sampler->sample(this->random_generator, this->num_samples);
 
             shared_ptr<DynamicBayesNet> model = this->sampler->get_model();
-            unordered_map<string, Tensor3> node_label_to_samples;
 
-            for (const auto& node : model->get_parameter_nodes()) {
-                shared_ptr<RandomVariableNode> rv_node =
-                    dynamic_pointer_cast<RandomVariableNode>(node);
-                if (!rv_node->is_frozen()) {
-                    string node_label = node->get_metadata()->get_label();
-                    if (!EXISTS(node_label, node_label_to_samples)) {
-                        node_label_to_samples[node_label] =
-                            this->sampler->get_samples(node_label);
-                    }
-
-                    int time_step = rv_node->get_time_step();
-                    Eigen::MatrixXd samples =
-                        node_label_to_samples[node_label](time_step, 2)
-                            .transpose();
-                    Eigen::MatrixXd mean_value(1, samples.cols());
-                    mean_value = samples.colwise().mean();
-                    rv_node->set_assignment(mean_value);
-                }
+            this->param_label_to_samples.push_back(
+                unordered_map<string, Tensor3>());
+            int split_idx = this->param_label_to_samples.size() - 1;
+            for (const auto& param_label : model->get_parameter_node_labels()) {
+                this->param_label_to_samples[split_idx][param_label] =
+                    this->sampler->get_samples(param_label);
             }
+
+            this->update_model_from_partials(split_idx, false);
         }
 
         void DBNSamplingTrainer::get_info(nlohmann::json& json) const {
             json["type"] = "sampling";
             json["num_samples"] = this->num_samples;
             this->sampler->get_info(json["algorithm"]);
+        }
+
+        shared_ptr<DynamicBayesNet> DBNSamplingTrainer::get_model() const {
+            return this->sampler->get_model();
         }
 
     } // namespace model

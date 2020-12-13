@@ -172,8 +172,10 @@ namespace tomcat {
              *
              * @param input_dir: directory where the files with the parameters'
              * values are saved
+             * @param freeze_nodes: if true nodes that had their assignments
+             * set will be frozen
              */
-            void load_from(const std::string& input_dir);
+            void load_from(const std::string& input_dir, bool freeze_nodes);
 
             /**
              * Returns edges of the unrolled DBN
@@ -197,6 +199,34 @@ namespace tomcat {
              * @return Cardinality of the template node.
              */
             int get_cardinality_of(const std::string& node_label) const;
+
+            /**
+             * Checks if the models has any node with a given label.
+             *
+             * @param node_label: node's label
+             *
+             * @return True if a node with the given label is part of the
+             * model.
+             */
+            bool has_node_with_label(const std::string& node_label) const;
+
+            /**
+             * Checks if the models has any parameter node with a given label.
+             *
+             * @param node_label: node's label
+             *
+             * @return True if a node with any parameter node with a given
+             * label is part of the model.
+             */
+            bool
+            has_parameter_node_with_label(const std::string& node_label) const;
+
+            /**
+             * Return the labels of the parameter nodes in the DBN.
+             *
+             * @return Parameter nodes' labels.
+             */
+            std::vector<std::string> get_parameter_node_labels() const;
 
             // --------------------------------------------------------
             // Getters & Setters

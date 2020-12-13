@@ -12,7 +12,7 @@
 #include "experiments/TomcatTA3V2.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/DBNSaver.h"
-#include "pipeline/KFold.h"
+#include "pipeline/DataSplitter.h"
 #include "pipeline/Pipeline.h"
 #include "pipeline/estimation/OnlineEstimation.h"
 #include "pipeline/estimation/SumProductEstimator.h"
@@ -36,8 +36,8 @@ void run_tomcat(const string& model_dir,
     EvidenceSet test_data;     // Empty (it comes online)
 
     // Data split
-    shared_ptr<KFold> data_splitter =
-        make_shared<KFold>(training_data, test_data);
+    shared_ptr<DataSplitter> data_splitter =
+        make_shared<DataSplitter>(training_data, test_data);
 
     // Training
     shared_ptr<DBNTrainer> loader =

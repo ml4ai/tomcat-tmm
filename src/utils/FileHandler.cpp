@@ -74,7 +74,7 @@ namespace tomcat {
                 }
                 stringstream ss(line);
 
-                if (file_reader.eof() || ss.eof()) {
+                if (file_reader.eof() || ss.eof() || line.empty()) {
                     if (started_reading_matrix) {
                         if (d2 != 0 && d3 != 0) {
                             if (d2 != rows || d3 != cols) {

@@ -31,11 +31,22 @@ namespace tomcat {
                 this->evaluation->clear_evaluations();
             }
 
-            vector<KFold::Split> splits = this->data_splitter->get_splits();
-            for (const auto& [training_data, test_data] : splits) {
+            if (this->model_trainer) {
                 this->model_trainer->prepare();
-                this->model_trainer->fit(training_data);
-                if (this->model_saver != nullptr) {
+            }
+
+            vector<DataSplitter::Split> splits = this->data_splitter->get_splits();
+            int fold = 1;
+            for (const auto& [training_data, test_data] : splits) {
+                if (splits.size() > 1) {
+                    cout << "Fold " << fold << "\n";
+                }
+
+                if (this->model_trainer) {
+                    this->model_trainer->fit(training_data);
+                }
+
+                if (this->model_saver) {
                     this->model_saver->save();
                 }
 
@@ -44,12 +55,14 @@ namespace tomcat {
                 this->estimation_process->estimate(test_data);
                 this->estimation_process->keep_estimates();
 
-                if (this->evaluation != nullptr) {
+                if (this->evaluation) {
                     this->evaluation->evaluate(test_data);
                 }
+
+                fold++;
             }
 
-            if (this->evaluation != nullptr) {
+            if (this->evaluation) {
                 this->evaluation->aggregate();
             }
 
@@ -60,19 +73,19 @@ namespace tomcat {
         }
 
         void Pipeline::check() {
-            if (this->data_splitter == nullptr) {
+            if (!this->data_splitter) {
                 throw TomcatModelException(
                     "A data splitter was not provided to the pipeline.");
             }
 
-            if (this->model_trainer == nullptr) {
-                throw TomcatModelException(
-                    "A model trainer was not provided to the pipeline.");
-            }
-
-            if (this->estimation_process == nullptr) {
-                LOG_WARNING("No estimation was provided to the pipeline.");
-            }
+//            if (this->model_trainer) {
+//                LOG_WARNING(
+//                    "A model trainer was not provided to the pipeline.");
+//            }
+//
+//            if (this->estimation_process) {
+//                LOG_WARNING("No estimation was provided to the pipeline.");
+//            }
         }
 
         void Pipeline::display_results(
@@ -92,7 +105,9 @@ namespace tomcat {
             json["execution_end"] = final_timestamp;
             json["duration_in_seconds"] = duration_in_seconds;
             this->data_splitter->get_info(json["data_split"]);
-            this->model_trainer->get_info(json["training"]);
+            if (this->model_trainer) {
+                this->model_trainer->get_info(json["training"]);
+            }
             this->estimation_process->get_info(json["estimation"]);
             if (this->evaluation) {
                 this->evaluation->get_info(json["evaluation"]);
@@ -104,8 +119,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
-        void Pipeline::set_data_splitter(
-            const shared_ptr<KFold>& data_splitter) {
+        void
+        Pipeline::set_data_splitter(const shared_ptr<DataSplitter>& data_splitter) {
             this->data_splitter = data_splitter;
         }
 
@@ -114,8 +129,8 @@ namespace tomcat {
             this->model_trainer = model_trainer;
         }
 
-        void Pipeline::set_model_saver(
-            const shared_ptr<DBNSaver>& model_saver) {
+        void
+        Pipeline::set_model_saver(const shared_ptr<DBNSaver>& model_saver) {
             this->model_saver = model_saver;
         }
 
