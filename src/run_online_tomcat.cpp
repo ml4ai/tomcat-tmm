@@ -25,8 +25,8 @@ namespace po = boost::program_options;
 void run_tomcat(const string& model_dir,
                 const string& map_config_filepath,
                 const string& broker_address,
-                int broker_port,
-                int timeout) {
+                unsigned int broker_port,
+                unsigned int timeout) {
     // Model
     TomcatTA3V2 tomcat;
     tomcat.init();
@@ -61,6 +61,7 @@ void run_tomcat(const string& model_dir,
                                          horizon,
                                          TomcatTA3::SG,
                                          Eigen::VectorXd::Constant(1, 1));
+    estimator->set_show_progress(false);
     online_estimation->add_estimator(estimator);
     estimator =
         make_shared<SumProductEstimator>(tomcat.get_model(),
@@ -80,37 +81,37 @@ int main(int argc, char* argv[]) {
     string model_dir;
     string map_config_filepath;
     string broker_address;
-    unsigned int broker_port;
-    unsigned int timeout;
 
     po::options_description desc("Allowed options");
     desc.add_options()("help,h", "Produce this help message")(
         "model_dir",
         po::value<string>(&model_dir)
-            ->default_value("../../data/model/ta3/asist"),
+            ->default_value("../../data/model/asist"),
         "Directory where the parameters of a pre-trained model are stored.")(
         "map_config",
         po::value<string>(&map_config_filepath)
-            ->default_value("../../data/maps/ta3/falcon_v1.0.json"),
+            ->default_value("../../data/maps/asist/falcon_v1.0.json"),
         "Filepath of the .json file containing the mission map configuration.")(
         "broker_address",
         po::value<string>(&broker_address)->default_value("localhost"),
         "Address of the message broker.\n")(
-        "broker_address",
-        po::value<unsigned int>(&broker_port)->default_value(1883),
+        "broker_port",
+        po::value<unsigned int>()->default_value(1883),
         "Port of the message broker.\n")(
         "timeout",
-        po::value<unsigned int>(&timeout)->default_value(20),
+        po::value<unsigned int>()->default_value(20),
         "Number of seconds to wait for a message before closing connection "
         "with the message broker.\n");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
-    if (vm.count("help") || !vm.count("experiment_id")) {
+    if (vm.count("help") || !vm.count("model_dir")) {
         cout << desc << "\n";
         return 1;
     }
+    unsigned int broker_port = vm["broker_port"].as<unsigned int>();
+    unsigned int timeout = vm["broker_port"].as<unsigned int>();
 
     run_tomcat(
         model_dir, map_config_filepath, broker_address, broker_port, timeout);

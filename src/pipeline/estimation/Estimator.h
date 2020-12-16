@@ -190,6 +190,8 @@ namespace tomcat {
 
             const std::shared_ptr<DynamicBayesNet>& get_model() const;
 
+            void set_show_progress(bool show_progress);
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -228,6 +230,10 @@ namespace tomcat {
             // determines up to how much further in the future predictions are
             // made.
             int inference_horizon;
+
+            // Whether a progress bar must be shown as the estimations are
+            // happening
+            bool show_progress = true;
         };
 
     } // namespace model

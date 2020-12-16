@@ -107,5 +107,9 @@ namespace tomcat {
         const shared_ptr<DynamicBayesNet>& Estimator::get_model() const {
             return model;
         }
+
+        void Estimator::set_show_progress(bool show_progress) {
+            this->show_progress = show_progress;
+        }
     } // namespace model
 } // namespace tomcat

@@ -65,7 +65,11 @@ namespace tomcat {
 
             int total_time = this->next_time_step + new_data.get_time_steps();
             cout << "Sum-Product (h = " << this->inference_horizon << ")";
-            boost::progress_display progress(total_time);
+
+            unique_ptr<boost::progress_display> progress;
+            if (this->show_progress) {
+                progress = make_unique<boost::progress_display>(total_time);
+            }
             for (int t = this->next_time_step; t < total_time; t++) {
 
                 this->compute_forward_messages(this->factor_graph, t, new_data);
@@ -114,7 +118,9 @@ namespace tomcat {
                     }
                 }
 
-                ++progress;
+                if (this->show_progress) {
+                    ++(*progress);
+                }
             }
 
             this->next_time_step += new_data.get_time_steps();
@@ -176,16 +182,17 @@ namespace tomcat {
                                 time_step,
                                 MessageNode::Direction::forward);
 
-//                        LOG("Forward");
-//                        cout << MessageNode::get_name(
-//                                    parent_node->get_label(),
-//                                    parent_incoming_messages_time_step)
-//                             << " -> "
-//                             << MessageNode::get_name(node->get_label(),
-//                                                      time_step)
-//                             << "\n";
-//                        LOG(message);
-//                        LOG("");
+                        //                        LOG("Forward");
+                        //                        cout << MessageNode::get_name(
+                        //                                    parent_node->get_label(),
+                        //                                    parent_incoming_messages_time_step)
+                        //                             << " -> "
+                        //                             <<
+                        //                             MessageNode::get_name(node->get_label(),
+                        //                                                      time_step)
+                        //                             << "\n";
+                        //                        LOG(message);
+                        //                        LOG("");
 
                         node->set_incoming_message_from(
                             parent_node->get_label(),
@@ -248,16 +255,19 @@ namespace tomcat {
                                     time_step,
                                     MessageNode::Direction::backwards);
 
-//                            LOG("Backward");
-//                            cout << MessageNode::get_name(node->get_label(),
-//                                                          time_step)
-//                                 << " -> "
-//                                 << MessageNode::get_name(
-//                                        child_node->get_label(), time_step)
-//
-//                                 << "\n";
-//                            LOG(message);
-//                            LOG("");
+                            //                            LOG("Backward");
+                            //                            cout <<
+                            //                            MessageNode::get_name(node->get_label(),
+                            //                                                          time_step)
+                            //                                 << " -> "
+                            //                                 <<
+                            //                                 MessageNode::get_name(
+                            //                                        child_node->get_label(),
+                            //                                        time_step)
+                            //
+                            //                                 << "\n";
+                            //                            LOG(message);
+                            //                            LOG("");
 
                             node->set_incoming_message_from(
                                 child_node->get_label(),
