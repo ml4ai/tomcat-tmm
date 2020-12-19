@@ -1,15 +1,21 @@
-#include "gtest/gtest.h"
+#define BOOST_TEST_MODULE TomcatModelTest
+
+#include "boost/test/included/unit_test.hpp"
 #include "pgm/ConstantNode.h"
 
 using namespace tomcat::model;
 using namespace std;
 
-TEST(DistributionTest, SamplingFromDirichlet) {
+BOOST_AUTO_TEST_SUITE(node_test)
+
+BOOST_AUTO_TEST_CASE(constant_node) {
     ConstantNode node(1);
-    ASSERT_EQ(node.get_assignment()(0, 0), 1);
+    BOOST_TEST(node.get_assignment()(0, 0) == 1);
 }
 
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+BOOST_AUTO_TEST_CASE(constant_node2) {
+    ConstantNode node(2);
+    BOOST_TEST(node.get_assignment()(0, 0) == 2);
 }
+
+BOOST_AUTO_TEST_SUITE_END()

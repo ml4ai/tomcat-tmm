@@ -1,10 +1,6 @@
-# Google testing API.
-find_package(GTest CONFIG REQUIRED)
-
 set(TEST_LIBS
         tomcat_model_lib
-        ${EXTERNAL_LIBS}
-        GTest::gtest)
+        ${EXTERNAL_LIBS})
 
 message(${TEST_LIBS})
 
