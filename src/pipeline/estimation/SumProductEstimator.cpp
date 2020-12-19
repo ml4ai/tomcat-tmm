@@ -64,10 +64,10 @@ namespace tomcat {
             const EvidenceSet& new_data) {
 
             int total_time = this->next_time_step + new_data.get_time_steps();
-            cout << "Sum-Product (h = " << this->inference_horizon << ")";
-
             unique_ptr<boost::progress_display> progress;
+
             if (this->show_progress) {
+                cout << "Sum-Product (h = " << this->inference_horizon << ")";
                 progress = make_unique<boost::progress_display>(total_time);
             }
             for (int t = this->next_time_step; t < total_time; t++) {
