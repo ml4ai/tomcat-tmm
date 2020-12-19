@@ -123,7 +123,7 @@ namespace tomcat {
 
             const std::shared_ptr<DynamicBayesNet>& get_model() const;
 
-            void set_max_time_step_to_sample(int maxTimeStepToSample);
+            void set_max_time_step_to_sample(int time_step);
 
           protected:
             //------------------------------------------------------------------

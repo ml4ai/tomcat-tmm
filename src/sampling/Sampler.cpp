@@ -162,8 +162,8 @@ namespace tomcat {
             return model;
         }
 
-        void Sampler::set_max_time_step_to_sample(int maxTimeStepToSample) {
-            this->max_time_step_to_sample = maxTimeStepToSample;
+        void Sampler::set_max_time_step_to_sample(int time_step) {
+            this->max_time_step_to_sample = time_step;
         }
 
     } // namespace model
