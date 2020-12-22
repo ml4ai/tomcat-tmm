@@ -29,7 +29,14 @@ __build_tmm() {
                 NJOBS=$(sysctl -n hw.ncpu)
             fi
 
-            if ! cmake ${ROOT}; then exit 1; fi
+            if [[ $CI -eq 1  && $OSTYPE == "darwin"* ]]; then
+                if ! cmake ${ROOT} -DICU_ROOT=/usr/local/opt/icu4c; then
+                    exit 1
+                fi
+            else
+                if ! cmake ${ROOT}; then exit 1; fi
+            fi
+
 
             if ! make -j $NJOBS; then exit 1; fi
         popd > /dev/null
