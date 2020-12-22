@@ -59,7 +59,7 @@ set(EXTERNAL_LIBS
         fmt::fmt
         nlohmann_json::nlohmann_json
         ${Mosquitto_LIBRARIES}
-        ICU::data
+        ${ICU_LIBRARIES}
         )
 
 ## Include these directories in all the targets of this project
