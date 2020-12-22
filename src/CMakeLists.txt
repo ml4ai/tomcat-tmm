@@ -4,7 +4,8 @@ file(GLOB_RECURSE tomcat_model_sources CONFIGURE_DEPENDS
 
 # Model library
 add_library(tomcat_model_lib STATIC ${tomcat_model_sources})
-target_include_directories(tomcat_model_lib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(tomcat_model_lib PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR} ${Boost_INCLUDE_DIR} ${GSL_INCLUDE_DIRS})
 
 set(ALL_LIBS tomcat_model_lib ${EXTERNAL_LIBS})
 

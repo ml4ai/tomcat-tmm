@@ -58,8 +58,8 @@ set(EXTERNAL_LIBS
         nlohmann_json::nlohmann_json
         ${Mosquitto_LIBRARIES})
 
-# Include these directories in all the targets of this project
-include_directories(${Boost_INCLUDE_DIR} ${GSL_INCLUDE_DIRS})
+## Include these directories in all the targets of this project
+#include_directories(${Boost_INCLUDE_DIR} ${GSL_INCLUDE_DIRS})
 
 add_subdirectory(src)
 add_subdirectory(test)
