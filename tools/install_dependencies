@@ -35,21 +35,6 @@ __install_dependencies_using_homebrew() {
 
     echo "Installing ToMCAT dependencies using Homebrew."
 
-    # =========================================================================
-    # 2020-10-21: There seems to be a problem with Homebrew on the Github
-    # Actions macOS runner:
-    # https://github.com/actions/virtual-environments/issues/1811. This block
-    # of code is a *temporary* workaround, and should be removed soon. Probably
-    # by December 2020 at the latest. - Adarsh
-    # -------------------------------------------------------------------------
-    if (( CI )); then
-        brew uninstall openssl@1.0.2t
-        brew uninstall python@2.7.17
-        brew untap local/openssl
-        brew untap local/python2
-    fi
-    # ==========================================================================
-
     if ! brew update --verbose; then
         echo "The command 'brew update' failed. Exiting now."
         exit 1
@@ -146,9 +131,15 @@ __install_dependencies() {
             echo "Both the MacPorts (https://www.macports.org) and Homebrew"
             echo "(https://brew) package managers have been found. We assume you"
             echo "are a power user and can set your PATH environment variable as"
-            echo "needed to switch between the two. We will proceed with installing"
-            echo "the dependencies using MacPorts."
-            __install_dependencies_using_macports
+            echo "needed to switch between the two."
+            if (( ${IGNORE_MACPORTS:-0} )); then
+                echo "The IGNORE_MACPORTS environment variable has been set to"\
+                     "1, so we will install the dependencies using Homebrew."
+                __install_dependencies_using_homebrew
+            else
+                echo "We will proceed with installing the dependencies using MacPorts."
+                __install_dependencies_using_macports
+            fi
         fi
 
     elif [ -x "$(command -v apt-get)" ]; then

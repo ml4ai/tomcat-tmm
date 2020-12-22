@@ -16,4 +16,50 @@ set(CMAKE_CXX_FLAGS
 
 cmake_policy(SET CMP0074 NEW)
 
+# External libraries shared by src and test
+
+# fmt is an open-source C++ formatting library
+find_package(FMT REQUIRED)
+
+# Eigen is a C++ library used for matrix and vector operations.
+find_package(Eigen3 REQUIRED NO_MODULE)
+
+# GSL is a C library used for sampling from a determined distribution.
+find_package(GSL REQUIRED)
+
+# Boost is used for several requirements in the project.
+find_package(
+        Boost 1.69
+        COMPONENTS 
+        chrono
+        date_time
+        filesystem
+        program_options
+        thread
+        REQUIRED)
+
+# Json library is being used for writing evaluations to an output stream
+find_package(nlohmann_json REQUIRED)
+
+# Finding the Mosquitto header and library
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
+        "${CMAKE_SOURCE_DIR}/../../../tools/cmake")
+
+find_package(Mosquitto 1.5 REQUIRED)
+
+set(EXTERNAL_LIBS
+        ${Boost_LIBRARIES}
+        Eigen3::Eigen
+        GSL::gsl
+        GSL::gslcblas
+        fmt::fmt
+        nlohmann_json::nlohmann_json
+        ${Mosquitto_LIBRARIES}
+        )
+
+enable_testing()
+
 add_subdirectory(src)
+add_subdirectory(test)
+
+
