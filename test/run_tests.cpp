@@ -8,14 +8,18 @@
 #include "eigen3/Eigen/Dense"
 #include <gsl/gsl_rng.h>
 
+#include "distribution/Categorical.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 #include "pgm/NodeMetadata.h"
 #include "pgm/RandomVariableNode.h"
 #include "pgm/cpd/CPD.h"
 #include "pgm/cpd/CategoricalCPD.h"
+#include "pgm/cpd/DirichletCPD.h"
 #include "pipeline/estimation/SumProductEstimator.h"
+#include "pipeline/training/DBNSamplingTrainer.h"
 #include "sampling/AncestralSampler.h"
+#include "sampling/GibbsSampler.h"
 #include "utils/Definitions.h"
 
 using namespace tomcat::model;
@@ -30,8 +34,10 @@ struct ModelConfig {
      */
 
     typedef shared_ptr<NodeMetadata> NodeMetadataPtr;
-    typedef shared_ptr<CategoricalCPD> CPDPtr;
+    typedef shared_ptr<CPD> CPDPtr;
+    typedef shared_ptr<Categorical> CatPtr;
     typedef shared_ptr<DynamicBayesNet> DBNPtr;
+    typedef shared_ptr<RandomVariableNode> RVNodePtr;
     typedef vector<NodeMetadataPtr> ParentsMetadata;
 
     // Node names
@@ -40,6 +46,14 @@ struct ModelConfig {
     inline static const string SG = "Green";
     inline static const string SY = "Yellow";
     inline static const string PBAE = "PBAE";
+    inline static const string THETA_Q = "Theta_TrainingCondition";
+    inline static const string THETA_STATE = "Theta_State";
+    inline static const string THETA_STATE_GIVEN_Q_PBAE_STATE =
+        "Theta_State_gv_Q_PBAE_State";
+    inline static const string PI_SG_GIVEN_STATE = "Pi_Green_gv_State";
+    inline static const string PI_SY_GIVEN_STATE = "Pi_Yellow_gv_State";
+    inline static const string PI_PBAE = "Pi_PBAE";
+    inline static const string PI_PBAE_GIVEN_PBAE = "Pi_PBAE_gv_PBAE";
 
     struct NodeMetadataCollection {
         NodeMetadataPtr q_metadata;
@@ -47,34 +61,103 @@ struct ModelConfig {
         NodeMetadataPtr green_metadata;
         NodeMetadataPtr yellow_metadata;
         NodeMetadataPtr pbae_metadata;
+
+        // Parameter nodes
+        NodeMetadataPtr theta_q_metadata;
+        NodeMetadataPtr theta_state_metadata;
+        vector<NodeMetadataPtr> theta_state_given_q_pbae_state_metadata;
+        vector<NodeMetadataPtr> pi_green_given_state_metadata;
+        vector<NodeMetadataPtr> pi_yellow_given_state_metadata;
+        NodeMetadataPtr pi_pbae_metadata;
+        vector<NodeMetadataPtr> pi_pbae_given_pbae_metadata;
+    };
+
+    struct CPDTableCollection {
+        MatrixXd q_prior_cpd_table;
+        MatrixXd state_prior_cpd_table;
+        MatrixXd state_given_q_pbae_state_cpd_table;
+        MatrixXd green_given_state_cpd_table;
+        MatrixXd yellow_given_state_cpd_table;
+        MatrixXd pbae_prior_cpd_table;
+        MatrixXd pbae_given_pbae_cpd_table;
     };
 
     struct CPDCollection {
         CPDPtr q_prior_cpd;
         CPDPtr state_prior_cpd;
-        CPDPtr pbae_prior_cpd;
         CPDPtr state_given_q_pbae_state_cpd;
-        CPDPtr pbae_given_pbae_cpd;
         CPDPtr green_given_state_cpd;
         CPDPtr yellow_given_state_cpd;
+        CPDPtr pbae_prior_cpd;
+        CPDPtr pbae_given_pbae_cpd;
+
+        CPDPtr theta_q_prior_cpd;
+        CPDPtr theta_state_prior_cpd;
+        vector<CPDPtr> theta_state_given_q_pbae_state_prior_cpd;
+        CPDPtr pi_pbae_prior_cpd;
+        vector<CPDPtr> pi_pbae_given_pbae_prior_cpd;
+        vector<CPDPtr> pi_green_given_state_prior_cpd;
+        vector<CPDPtr> pi_yellow_given_state_prior_cpd;
+    };
+
+    struct RVNodeCollection {
+        RVNodePtr q;
+        RVNodePtr state;
+        RVNodePtr pbae;
+        RVNodePtr green;
+        RVNodePtr yellow;
+
+        // Parameter nodes
+        RVNodePtr theta_q;
+        RVNodePtr theta_state;
+        vector<RVNodePtr> theta_state_given_q_pbae_state;
+        RVNodePtr pi_pbae;
+        vector<RVNodePtr> pi_pbae_given_pbae;
+        vector<RVNodePtr> pi_green_given_state;
+        vector<RVNodePtr> pi_yellow_given_state;
     };
 
     ModelConfig() {}
 
-    DBNPtr create_pre_trained_model() {
+    DBNPtr create_model(bool deterministic, bool trainable) {
         NodeMetadataCollection node_metadatas = this->create_node_metadatas();
-        CPDCollection cpds = this->create_pre_trained_cpds(node_metadatas);
-        return this->create_model(node_metadatas, cpds);
-    }
+        this->create_connections(node_metadatas);
+        RVNodeCollection nodes = this->create_nodes(node_metadatas);
+        CPDCollection cpds = this->create_cpds(nodes, deterministic);
 
-    DBNPtr create_deterministic_model() {
-        NodeMetadataCollection node_metadatas = this->create_node_metadatas();
-        CPDCollection cpds = this->create_deterministic_cpds(node_metadatas);
-        return this->create_model(node_metadatas, cpds);
+        this->assign_cpds_to_nodes(nodes, cpds);
+
+        if (!trainable) {
+            this->freeze_parameters(nodes);
+        }
+
+        DBNPtr model;
+        model = make_shared<DynamicBayesNet>();
+        model->add_node_template(*nodes.q);
+        model->add_node_template(*nodes.state);
+        model->add_node_template(*nodes.pbae);
+        model->add_node_template(*nodes.green);
+        model->add_node_template(*nodes.yellow);
+        model->add_node_template(*nodes.theta_q);
+        model->add_node_template(*nodes.theta_state);
+        for (int i = 0; i < 18; i++) {
+            model->add_node_template(*nodes.theta_state_given_q_pbae_state[i]);
+        }
+        model->add_node_template(*nodes.pi_pbae);
+        for (int i = 0; i < 2; i++) {
+            model->add_node_template(*nodes.pi_pbae_given_pbae[i]);
+        }
+        for (int i = 0; i < 3; i++) {
+            model->add_node_template(*nodes.pi_green_given_state[i]);
+            model->add_node_template(*nodes.pi_yellow_given_state[i]);
+        }
+
+        return model;
     }
 
     NodeMetadataCollection create_node_metadatas() {
         NodeMetadataCollection metadatas;
+
         metadatas.q_metadata = make_shared<NodeMetadata>(
             NodeMetadata::create_multiple_time_link_metadata(
                 Q, false, false, true, 1, 1, 3));
@@ -95,10 +178,115 @@ struct ModelConfig {
             NodeMetadata::create_multiple_time_link_metadata(
                 PBAE, true, false, true, 0, 1, 2));
 
+        // Parameter nodes
+        metadatas.theta_q_metadata = make_shared<NodeMetadata>(
+            NodeMetadata::create_multiple_time_link_metadata(
+                THETA_Q, false, true, false, 1, 3));
+
+        metadatas.theta_state_metadata = make_shared<NodeMetadata>(
+            NodeMetadata::create_multiple_time_link_metadata(
+                THETA_STATE, false, true, false, 1, 3));
+
+        for (int i = 0; i < 18; i++) {
+            stringstream label;
+            label << THETA_STATE_GIVEN_Q_PBAE_STATE << '_' << i;
+
+            metadatas.theta_state_given_q_pbae_state_metadata.push_back(
+                make_shared<NodeMetadata>(
+                    NodeMetadata::create_multiple_time_link_metadata(
+                        label.str(), false, true, false, 1, 3)));
+        }
+
+        for (int i = 0; i < 3; i++) {
+            stringstream label_green;
+            stringstream label_yellow;
+            label_green << PI_SG_GIVEN_STATE << '_' << i;
+            label_yellow << PI_SY_GIVEN_STATE << '_' << i;
+
+            metadatas.pi_green_given_state_metadata.push_back(
+                make_shared<NodeMetadata>(
+                    NodeMetadata::create_multiple_time_link_metadata(
+                        label_green.str(), false, true, false, 1, 2)));
+
+            metadatas.pi_yellow_given_state_metadata.push_back(
+                make_shared<NodeMetadata>(
+                    NodeMetadata::create_multiple_time_link_metadata(
+                        label_yellow.str(), false, true, false, 1, 2)));
+        }
+
+        metadatas.pi_pbae_metadata = make_shared<NodeMetadata>(
+            NodeMetadata::create_multiple_time_link_metadata(
+                PI_PBAE, false, true, false, 1, 2));
+
+        for (int i = 0; i < 2; i++) {
+            stringstream label;
+            label << PI_PBAE_GIVEN_PBAE << '_' << i;
+
+            metadatas.pi_pbae_given_pbae_metadata.push_back(
+                make_shared<NodeMetadata>(
+                    NodeMetadata::create_multiple_time_link_metadata(
+                        label.str(), false, true, false, 1, 2)));
+        }
+
         return metadatas;
     }
 
-    void create_connections(NodeMetadataCollection node_metadatas) {
+    RVNodeCollection create_nodes(NodeMetadataCollection& node_metadatas) {
+        RVNodeCollection nodes;
+
+        nodes.q = make_shared<RandomVariableNode>(node_metadatas.q_metadata);
+        nodes.state =
+            make_shared<RandomVariableNode>(node_metadatas.state_metadata);
+        nodes.pbae =
+            make_shared<RandomVariableNode>(node_metadatas.pbae_metadata);
+        nodes.green =
+            make_shared<RandomVariableNode>(node_metadatas.green_metadata);
+        nodes.yellow =
+            make_shared<RandomVariableNode>(node_metadatas.yellow_metadata);
+
+        nodes.theta_q =
+            make_shared<RandomVariableNode>(node_metadatas.theta_q_metadata);
+        nodes.theta_state = make_shared<RandomVariableNode>(
+            node_metadatas.theta_state_metadata);
+
+        // One parameter node for each combination of training condition, PBAE
+        // and previous state.
+        for (int i = 0; i < 18; i++) {
+            nodes.theta_state_given_q_pbae_state.push_back(
+                make_shared<RandomVariableNode>(
+                    node_metadatas.theta_state_given_q_pbae_state_metadata[i]));
+        }
+        nodes.pi_pbae =
+            make_shared<RandomVariableNode>(node_metadatas.pi_pbae_metadata);
+
+        // One parameter node for each previous PBAE
+        for (int i = 0; i < 2; i++) {
+            nodes.pi_pbae_given_pbae.push_back(make_shared<RandomVariableNode>(
+                node_metadatas.pi_pbae_given_pbae_metadata[i]));
+        }
+
+        for (int i = 0; i < 3; i++) {
+            nodes.pi_green_given_state.push_back(
+                make_shared<RandomVariableNode>(
+                    node_metadatas.pi_green_given_state_metadata[i]));
+            nodes.pi_yellow_given_state.push_back(
+                make_shared<RandomVariableNode>(
+                    node_metadatas.pi_yellow_given_state_metadata[i]));
+        }
+
+        return nodes;
+    }
+
+    void create_connections(NodeMetadataCollection& node_metadatas) {
+        node_metadatas.q_metadata->add_parent_link(
+            node_metadatas.theta_q_metadata, false);
+        node_metadatas.state_metadata->add_parent_link(
+            node_metadatas.theta_state_metadata, false);
+        for (int i = 0; i < 18; i++) {
+            node_metadatas.state_metadata->add_parent_link(
+                node_metadatas.theta_state_given_q_pbae_state_metadata[i],
+                true);
+        }
         node_metadatas.state_metadata->add_parent_link(
             node_metadatas.q_metadata, true);
         node_metadatas.state_metadata->add_parent_link(
@@ -106,163 +294,263 @@ struct ModelConfig {
         node_metadatas.state_metadata->add_parent_link(
             node_metadatas.pbae_metadata, true);
         node_metadatas.pbae_metadata->add_parent_link(
+            node_metadatas.pi_pbae_metadata, false);
+        for (int i = 0; i < 2; i++) {
+            node_metadatas.pbae_metadata->add_parent_link(
+                node_metadatas.pi_pbae_given_pbae_metadata[i], true);
+        }
+        node_metadatas.pbae_metadata->add_parent_link(
             node_metadatas.pbae_metadata, true);
+        for (int i = 0; i < 3; i++) {
+            node_metadatas.green_metadata->add_parent_link(
+                node_metadatas.pi_green_given_state_metadata[i], false);
+            node_metadatas.yellow_metadata->add_parent_link(
+                node_metadatas.pi_yellow_given_state_metadata[i], false);
+        }
         node_metadatas.green_metadata->add_parent_link(
             node_metadatas.state_metadata, false);
         node_metadatas.yellow_metadata->add_parent_link(
             node_metadatas.state_metadata, false);
     }
 
-    CPDCollection
-    create_deterministic_cpds(NodeMetadataCollection node_metadatas) {
+    CPDCollection create_cpds(RVNodeCollection& nodes, bool deterministic) {
         CPDCollection cpds;
+        CPDTableCollection tables = this->create_cpd_tables(deterministic);
 
-        MatrixXd q_prior_cpd_table(1, 3);
-        q_prior_cpd_table << 1, 0, 0;
-        cpds.q_prior_cpd =
-            make_shared<CategoricalCPD>(CategoricalCPD({}, q_prior_cpd_table));
+        // Training condition
+        MatrixXd theta_q_prior_cpd_table = MatrixXd::Ones(1, 3);
+        cpds.theta_q_prior_cpd = make_shared<DirichletCPD>(
+            DirichletCPD({}, theta_q_prior_cpd_table));
 
-        MatrixXd state_prior_cpd_table(1, 3);
-        state_prior_cpd_table << 1, 0, 0;
-        cpds.state_prior_cpd = make_shared<CategoricalCPD>(
-            CategoricalCPD({}, state_prior_cpd_table));
+        vector<CatPtr> cat_distributions = {
+            make_shared<Categorical>(nodes.theta_q)};
+        nodes.theta_q->set_assignment(tables.q_prior_cpd_table);
+        CategoricalCPD cpd({}, cat_distributions);
+        cpds.q_prior_cpd = make_shared<CategoricalCPD>(move(cpd));
 
-        MatrixXd pbae_prior_cpd_table(1, 2);
-        pbae_prior_cpd_table << 0, 1;
-        cpds.pbae_prior_cpd = make_shared<CategoricalCPD>(
-            CategoricalCPD({}, pbae_prior_cpd_table));
+        // State at time step 0
+        MatrixXd theta_state_prior_cpd_table = MatrixXd::Ones(1, 3);
+        cpds.theta_state_prior_cpd = make_shared<DirichletCPD>(
+            DirichletCPD({}, theta_state_prior_cpd_table));
 
-        // Next state is given by Q + PBAE + Previous State MOD 3
-        MatrixXd state_given_q_pbae_state_cpd_table(18, 3);
-        state_given_q_pbae_state_cpd_table << 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1,
-            0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0,
-            1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1;
-        ParentsMetadata state_parents_metadata = {
-            node_metadatas.q_metadata,
-            node_metadatas.pbae_metadata,
-            node_metadatas.state_metadata};
-        cpds.state_given_q_pbae_state_cpd = make_shared<CategoricalCPD>(
-            state_parents_metadata, state_given_q_pbae_state_cpd_table);
+        cat_distributions = {make_shared<Categorical>(nodes.theta_state)};
+        nodes.theta_state->set_assignment(tables.state_prior_cpd_table);
+        cpd = CategoricalCPD({}, cat_distributions);
+        cpds.state_prior_cpd = make_shared<CategoricalCPD>(move(cpd));
 
-        // Next PBAE is given by previous PBAE + 1 MOD 2
-        MatrixXd pbae_given_pbae_cpd_table(2, 2);
-        pbae_given_pbae_cpd_table << 0, 1, 1, 0;
-        ParentsMetadata pbae_parents_metadata = {node_metadatas.pbae_metadata};
-        cpds.pbae_given_pbae_cpd = make_shared<CategoricalCPD>(
-            pbae_parents_metadata, pbae_given_pbae_cpd_table);
+        // State given TC, PBAE and State
+        MatrixXd theta_state_given_q_pbae_state_prior_cpd_table =
+            MatrixXd::Ones(1, 3);
+        for (int i = 0; i < 18; i++) {
+            cpds.theta_state_given_q_pbae_state_prior_cpd.push_back(
+                make_shared<DirichletCPD>(
+                    DirichletCPD({}, theta_state_prior_cpd_table)));
+        }
 
-        // Green is given by State + 1 MOD 2
-        MatrixXd green_given_state_cpd_table(3, 2);
-        green_given_state_cpd_table << 0, 1, 1, 0, 0, 1;
-        ParentsMetadata green_parents_metadata = {
-            node_metadatas.state_metadata};
-        cpds.green_given_state_cpd = make_shared<CategoricalCPD>(
-            green_parents_metadata, green_given_state_cpd_table);
+        cat_distributions.clear();
+        for (int i = 0; i < 18; i++) {
+            nodes.theta_state_given_q_pbae_state[i]->set_assignment(
+                tables.state_given_q_pbae_state_cpd_table.row(i));
+            cat_distributions.push_back(make_shared<Categorical>(
+                nodes.theta_state_given_q_pbae_state[i]));
+        }
+        cpd = CategoricalCPD({nodes.q->get_metadata(),
+                              nodes.pbae->get_metadata(),
+                              nodes.state->get_metadata()},
+                             cat_distributions);
+        cpds.state_given_q_pbae_state_cpd =
+            make_shared<CategoricalCPD>(move(cpd));
 
-        // Yellow is given by State + 2 MOD 2
-        MatrixXd yellow_given_state_cpd_table(3, 2);
-        yellow_given_state_cpd_table << 1, 0, 0, 1, 1, 0;
-        ParentsMetadata yellow_parents_metadata = {
-            node_metadatas.state_metadata};
-        cpds.yellow_given_state_cpd = make_shared<CategoricalCPD>(
-            yellow_parents_metadata, yellow_given_state_cpd_table);
+        // PBAE at time 0
+        MatrixXd pi_pbae_prior_cpd_table = MatrixXd::Ones(1, 2);
+        cpds.pi_pbae_prior_cpd = make_shared<DirichletCPD>(
+            DirichletCPD({}, pi_pbae_prior_cpd_table));
+
+        cat_distributions = {make_shared<Categorical>(nodes.pi_pbae)};
+        nodes.pi_pbae->set_assignment(tables.pbae_prior_cpd_table);
+        cpd = CategoricalCPD({}, cat_distributions);
+        cpds.pbae_prior_cpd = make_shared<CategoricalCPD>(move(cpd));
+
+        // PBAE given previous PBAE
+        MatrixXd pi_pbae_given_pbae_prior_cpd_table = MatrixXd::Ones(1, 2);
+        for (int i = 0; i < 2; i++) {
+            cpds.pi_pbae_given_pbae_prior_cpd.push_back(
+                make_shared<DirichletCPD>(
+                    DirichletCPD({}, pi_pbae_given_pbae_prior_cpd_table)));
+        }
+
+        cat_distributions.clear();
+        for (int i = 0; i < 2; i++) {
+            nodes.pi_pbae_given_pbae[i]->set_assignment(
+                tables.pbae_given_pbae_cpd_table.row(i));
+            cat_distributions.push_back(
+                make_shared<Categorical>(nodes.pi_pbae_given_pbae[i]));
+        }
+        cpd = CategoricalCPD({nodes.pbae->get_metadata()}, cat_distributions);
+        cpds.pbae_given_pbae_cpd = make_shared<CategoricalCPD>(move(cpd));
+
+        // Green given State
+        MatrixXd pi_green_given_state_prior_cpd_table = MatrixXd::Ones(1, 2);
+        for (int i = 0; i < 3; i++) {
+            cpds.pi_green_given_state_prior_cpd.push_back(
+                make_shared<DirichletCPD>(
+                    DirichletCPD({}, pi_green_given_state_prior_cpd_table)));
+        }
+
+        cat_distributions.clear();
+        for (int i = 0; i < 3; i++) {
+            nodes.pi_green_given_state[i]->set_assignment(
+                tables.green_given_state_cpd_table.row(i));
+            cat_distributions.push_back(
+                make_shared<Categorical>(nodes.pi_green_given_state[i]));
+        }
+        cpd = CategoricalCPD({nodes.state->get_metadata()}, cat_distributions);
+        cpds.green_given_state_cpd = make_shared<CategoricalCPD>(move(cpd));
+
+        // Yellow given State
+        MatrixXd pi_yellow_given_state_prior_cpd_table = MatrixXd::Ones(1, 2);
+        for (int i = 0; i < 3; i++) {
+            cpds.pi_yellow_given_state_prior_cpd.push_back(
+                make_shared<DirichletCPD>(
+                    DirichletCPD({}, pi_yellow_given_state_prior_cpd_table)));
+        }
+
+        cat_distributions.clear();
+        for (int i = 0; i < 3; i++) {
+            nodes.pi_yellow_given_state[i]->set_assignment(
+                tables.yellow_given_state_cpd_table.row(i));
+            cat_distributions.push_back(
+                make_shared<Categorical>(nodes.pi_yellow_given_state[i]));
+        }
+        cpd = CategoricalCPD({nodes.state->get_metadata()}, cat_distributions);
+        cpds.yellow_given_state_cpd = make_shared<CategoricalCPD>(move(cpd));
 
         return cpds;
     }
 
-    CPDCollection
-    create_pre_trained_cpds(NodeMetadataCollection node_metadatas) {
-        CPDCollection cpds;
+    CPDTableCollection create_cpd_tables(bool deterministic) {
+        CPDTableCollection tables;
 
-        MatrixXd q_prior_cpd_table(1, 3);
-        q_prior_cpd_table << 0.5, 0.3, 0.2;
-        cpds.q_prior_cpd =
-            make_shared<CategoricalCPD>(CategoricalCPD({}, q_prior_cpd_table));
+        // Training condition
+        tables.q_prior_cpd_table = MatrixXd(1, 3);
+        if (deterministic) {
+            tables.q_prior_cpd_table << 1, 0, 0;
+        }
+        else {
+            tables.q_prior_cpd_table << 0.5, 0.3, 0.2;
+        }
 
-        MatrixXd state_prior_cpd_table(1, 3);
-        state_prior_cpd_table << 0.3, 0.5, 0.2;
-        cpds.state_prior_cpd = make_shared<CategoricalCPD>(
-            CategoricalCPD({}, state_prior_cpd_table));
+        tables.state_prior_cpd_table = MatrixXd(1, 3);
+        if (deterministic) {
+            tables.state_prior_cpd_table << 1, 0, 0;
+        }
+        else {
+            tables.state_prior_cpd_table << 0.3, 0.5, 0.2;
+        }
 
-        MatrixXd pbae_prior_cpd_table(1, 2);
-        pbae_prior_cpd_table << 0.3, 0.7;
-        cpds.pbae_prior_cpd = make_shared<CategoricalCPD>(
-            CategoricalCPD({}, pbae_prior_cpd_table));
+        tables.state_given_q_pbae_state_cpd_table = MatrixXd(18, 3);
+        if (deterministic) {
+            tables.state_given_q_pbae_state_cpd_table << 1, 0, 0, 0, 1, 0, 0, 0,
+                1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0,
+                1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1,
+                0, 0, 0, 1;
+        }
+        else {
+            tables.state_given_q_pbae_state_cpd_table << 0.5, 0.3, 0.2, 0.3,
+                0.5, 0.2, 0.3, 0.2, 0.5, 0.3, 0.5, 0.2, 0.3, 0.2, 0.5, 0.5, 0.3,
+                0.2, 0.3, 0.5, 0.2, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2, 0.3, 0.2, 0.5,
+                0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2, 0.3,
+                0.5, 0.2, 0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.3, 0.2, 0.5;
+        }
 
-        // Next state is given by Q + PBAE + Previous State MOD 3
-        MatrixXd state_given_q_pbae_state_cpd_table(18, 3);
-        state_given_q_pbae_state_cpd_table << 0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.3,
-            0.2, 0.5, 0.3, 0.5, 0.2, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2, 0.3, 0.5,
-            0.2, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2,
-            0.3, 0.5, 0.2, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.5,
-            0.3, 0.2, 0.3, 0.5, 0.2, 0.3, 0.2, 0.5;
-        ParentsMetadata state_parents_metadata = {
-            node_metadatas.q_metadata,
-            node_metadatas.pbae_metadata,
-            node_metadatas.state_metadata};
-        cpds.state_given_q_pbae_state_cpd = make_shared<CategoricalCPD>(
-            state_parents_metadata, state_given_q_pbae_state_cpd_table);
+        tables.pbae_prior_cpd_table = MatrixXd(1, 2);
+        if (deterministic) {
+            tables.pbae_prior_cpd_table << 0, 1;
+        }
+        else {
+            tables.pbae_prior_cpd_table << 0.3, 0.7;
+        }
 
-        // Next PBAE is given by previous PBAE + 1 MOD 2
-        MatrixXd pbae_given_pbae_cpd_table(2, 2);
-        pbae_given_pbae_cpd_table << 0.3, 0.7, 0.7, 0.3;
-        ParentsMetadata pbae_parents_metadata = {node_metadatas.pbae_metadata};
-        cpds.pbae_given_pbae_cpd = make_shared<CategoricalCPD>(
-            pbae_parents_metadata, pbae_given_pbae_cpd_table);
+        tables.pbae_given_pbae_cpd_table = MatrixXd(2, 2);
+        if (deterministic) {
+            tables.pbae_given_pbae_cpd_table << 0, 1, 1, 0;
+        }
+        else {
+            tables.pbae_given_pbae_cpd_table << 0.3, 0.7, 0.7, 0.3;
+        }
 
-        // P(Green == State + 1 MOD 2) = 0.7
-        MatrixXd green_given_state_cpd_table(3, 2);
-        green_given_state_cpd_table << 0.3, 0.7, 0.7, 0.3, 0.3, 0.7;
-        ParentsMetadata green_parents_metadata = {
-            node_metadatas.state_metadata};
-        cpds.green_given_state_cpd = make_shared<CategoricalCPD>(
-            green_parents_metadata, green_given_state_cpd_table);
+        tables.green_given_state_cpd_table = MatrixXd(3, 2);
+        if (deterministic) {
+            tables.green_given_state_cpd_table << 0, 1, 1, 0, 0, 1;
+        }
+        else {
+            tables.green_given_state_cpd_table << 0.3, 0.7, 0.7, 0.3, 0.3, 0.7;
+        }
 
-        // P(Yellow == State + 2 MOD 2) = 0.7
-        MatrixXd yellow_given_state_cpd_table(3, 2);
-        yellow_given_state_cpd_table << 0.7, 0.3, 0.3, 0.7, 0.7, 0.3;
-        ParentsMetadata yellow_parents_metadata = {
-            node_metadatas.state_metadata};
-        cpds.yellow_given_state_cpd = make_shared<CategoricalCPD>(
-            yellow_parents_metadata, yellow_given_state_cpd_table);
+        tables.yellow_given_state_cpd_table = MatrixXd(3, 2);
+        if (deterministic) {
+            tables.yellow_given_state_cpd_table << 1, 0, 0, 1, 1, 0;
+        }
+        else {
+            tables.yellow_given_state_cpd_table << 0.7, 0.3, 0.3, 0.7, 0.7, 0.3;
+        }
 
-        return cpds;
+        return tables;
     }
 
-    DBNPtr create_model(NodeMetadataCollection node_metadatas,
-                        CPDCollection cpds) {
-        this->create_connections(node_metadatas);
+    void assign_cpds_to_nodes(RVNodeCollection& nodes, CPDCollection& cpds) {
+        nodes.theta_q->add_cpd_template(cpds.theta_q_prior_cpd);
+        nodes.q->add_cpd_template(cpds.q_prior_cpd);
 
-        // RV Nodes
-        RandomVariableNode q(node_metadatas.q_metadata);
-        q.add_cpd_template(cpds.q_prior_cpd);
-        RandomVariableNode state(node_metadatas.state_metadata);
-        state.add_cpd_template(cpds.state_prior_cpd);
-        state.add_cpd_template(cpds.state_given_q_pbae_state_cpd);
-        RandomVariableNode pbae(node_metadatas.pbae_metadata);
-        pbae.add_cpd_template(cpds.pbae_prior_cpd);
-        pbae.add_cpd_template(cpds.pbae_given_pbae_cpd);
-        RandomVariableNode green(node_metadatas.green_metadata);
-        green.add_cpd_template(cpds.green_given_state_cpd);
-        RandomVariableNode yellow(node_metadatas.yellow_metadata);
-        yellow.add_cpd_template(cpds.yellow_given_state_cpd);
+        nodes.theta_state->add_cpd_template(cpds.theta_state_prior_cpd);
+        for (int i = 0; i < 18; i++) {
+            nodes.theta_state_given_q_pbae_state[i]->add_cpd_template(
+                cpds.theta_state_given_q_pbae_state_prior_cpd[i]);
+        }
+        nodes.state->add_cpd_template(cpds.state_prior_cpd);
+        nodes.state->add_cpd_template(cpds.state_given_q_pbae_state_cpd);
 
-        DBNPtr model;
-        model = make_shared<DynamicBayesNet>();
-        model->add_node_template(q);
-        model->add_node_template(state);
-        model->add_node_template(pbae);
-        model->add_node_template(green);
-        model->add_node_template(yellow);
+        nodes.pi_pbae->add_cpd_template(cpds.pi_pbae_prior_cpd);
+        for (int i = 0; i < 2; i++) {
+            nodes.pi_pbae_given_pbae[i]->add_cpd_template(
+                cpds.pi_pbae_given_pbae_prior_cpd[i]);
+        }
+        nodes.pbae->add_cpd_template(cpds.pbae_prior_cpd);
+        nodes.pbae->add_cpd_template(cpds.pbae_given_pbae_cpd);
 
-        return model;
+        for (int i = 0; i < 3; i++) {
+            nodes.pi_green_given_state[i]->add_cpd_template(
+                cpds.pi_green_given_state_prior_cpd[i]);
+            nodes.pi_yellow_given_state[i]->add_cpd_template(
+                cpds.pi_yellow_given_state_prior_cpd[i]);
+        }
+        nodes.green->add_cpd_template(cpds.green_given_state_cpd);
+        nodes.yellow->add_cpd_template(cpds.yellow_given_state_cpd);
+    }
+
+    void freeze_parameters(RVNodeCollection& nodes) {
+        nodes.theta_q->freeze();
+        nodes.theta_state->freeze();
+        for (int i = 0; i < 18; i++) {
+            nodes.theta_state_given_q_pbae_state[i]->freeze();
+        }
+        nodes.pi_pbae->freeze();
+        for (int i = 0; i < 2; i++) {
+            nodes.pi_pbae_given_pbae[i]->freeze();
+        }
+        for (int i = 0; i < 3; i++) {
+            nodes.pi_green_given_state[i]->freeze();
+            nodes.pi_yellow_given_state[i]->freeze();
+        }
     }
 };
 
-BOOST_AUTO_TEST_SUITE(ancestral_sampling)
+// Data generation
+
+BOOST_AUTO_TEST_SUITE(data_generation)
 
 BOOST_FIXTURE_TEST_CASE(complete, ModelConfig) {
-    DBNPtr model = create_deterministic_model();
+    DBNPtr model = create_model(true, false);
 
     model->unroll(4, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
@@ -298,7 +586,7 @@ BOOST_FIXTURE_TEST_CASE(complete, ModelConfig) {
 }
 
 BOOST_FIXTURE_TEST_CASE(truncated, ModelConfig) {
-    DBNPtr model = create_deterministic_model();
+    DBNPtr model = create_model(true, false);
 
     model->unroll(10, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
@@ -335,7 +623,7 @@ BOOST_FIXTURE_TEST_CASE(truncated, ModelConfig) {
 }
 
 BOOST_FIXTURE_TEST_CASE(heterogeneous, ModelConfig) {
-    DBNPtr model = create_pre_trained_model();
+    DBNPtr model = create_model(false, false);
 
     model->unroll(10, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
@@ -393,7 +681,7 @@ BOOST_FIXTURE_TEST_CASE(heterogeneous, ModelConfig) {
 }
 
 BOOST_FIXTURE_TEST_CASE(homogeneous, ModelConfig) {
-    DBNPtr model = create_pre_trained_model();
+    DBNPtr model = create_model(false, false);
 
     model->unroll(10, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
@@ -459,10 +747,105 @@ BOOST_FIXTURE_TEST_CASE(homogeneous, ModelConfig) {
 
 BOOST_AUTO_TEST_SUITE_END()
 
+// Model training
+
+BOOST_AUTO_TEST_SUITE(model_training)
+
+BOOST_FIXTURE_TEST_CASE(gibbs_sampling, ModelConfig) {
+    DBNPtr oracle = create_model(false, false);
+    oracle->unroll(20, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Generate a bunch of samples to train a model from the scratch.
+    AncestralSampler sampler(oracle);
+    sampler.sample(gen, 1000);
+
+    DBNPtr model = create_model(false, true);
+    model->unroll(20, true);
+
+    shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
+    shared_ptr<GibbsSampler> gibbs_sampler =
+        make_shared<GibbsSampler>(model, 200);
+    DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
+
+    double tolerance = 0.15;
+    CPDTableCollection tables = this->create_cpd_tables(false);
+
+    // Check parameter learning when Q is not provided.
+    EvidenceSet data;
+    data.add_data(SG, sampler.get_samples(SG));
+    data.add_data(SY, sampler.get_samples(SY));
+    data.add_data(STATE, sampler.get_samples(STATE));
+    data.add_data(PBAE, sampler.get_samples(PBAE));
+
+    trainer.prepare();
+    trainer.fit(data);
+    model->get_nodes_by_label(THETA_Q)[0]->get_assignment();
+    MatrixXd estimated_theta_q =
+        model->get_nodes_by_label(THETA_Q)[0]->get_assignment();
+    BOOST_TEST(estimated_theta_q.isApprox(tables.q_prior_cpd_table, tolerance));
+
+    MatrixXd estimated_theta_state =
+        model->get_nodes_by_label(THETA_STATE)[0]->get_assignment();
+    BOOST_TEST(estimated_theta_state.isApprox(tables.state_prior_cpd_table,
+                                              tolerance));
+
+    MatrixXd estimated_pi_pbae =
+        model->get_nodes_by_label(PI_PBAE)[0]->get_assignment();
+    BOOST_TEST(
+        estimated_pi_pbae.isApprox(tables.pbae_prior_cpd_table, tolerance));
+
+    for (int i = 0; i < 18; i++) {
+        stringstream label;
+        label << THETA_STATE_GIVEN_Q_PBAE_STATE << '_' << i;
+        MatrixXd estimated_theta_state_given_q_pbae_state =
+            model->get_nodes_by_label(label.str())[0]->get_assignment();
+        BOOST_TEST(estimated_theta_state_given_q_pbae_state.isApprox(
+            tables.state_given_q_pbae_state_cpd_table.row(i), tolerance));
+
+        if (!estimated_theta_state_given_q_pbae_state.isApprox(
+                tables.state_given_q_pbae_state_cpd_table.row(i), tolerance)) {
+            cout << estimated_theta_state_given_q_pbae_state << endl;
+            cout << tables.state_given_q_pbae_state_cpd_table.row(i) << endl
+                 << endl;
+        }
+    }
+
+    for (int i = 0; i < 2; i++) {
+        stringstream label;
+        label << PI_PBAE_GIVEN_PBAE << '_' << i;
+        MatrixXd estimated_pi_pbae_given_pbae =
+            model->get_nodes_by_label(label.str())[0]->get_assignment();
+        BOOST_TEST(estimated_pi_pbae_given_pbae.isApprox(
+            tables.pbae_given_pbae_cpd_table.row(i), tolerance));
+    }
+
+    for (int i = 0; i < 3; i++) {
+        stringstream label_green;
+        stringstream label_yellow;
+        label_green << PI_SG_GIVEN_STATE << '_' << i;
+        label_yellow << PI_SY_GIVEN_STATE << '_' << i;
+
+        MatrixXd estimated_pi_sg_given_state =
+            model->get_nodes_by_label(label_green.str())[0]->get_assignment();
+        BOOST_TEST(estimated_pi_sg_given_state.isApprox(
+            tables.green_given_state_cpd_table.row(i), tolerance));
+
+        MatrixXd estimated_pi_sy_given_state =
+            model->get_nodes_by_label(label_yellow.str())[0]->get_assignment();
+        BOOST_TEST(estimated_pi_sy_given_state.isApprox(
+            tables.yellow_given_state_cpd_table.row(i), tolerance));
+    }
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+// Inference
+
 BOOST_AUTO_TEST_SUITE(estimation)
 
 BOOST_FIXTURE_TEST_CASE(sum_product, ModelConfig) {
-    DBNPtr deterministic_model = create_deterministic_model();
+    DBNPtr deterministic_model = create_model(true, false);
     deterministic_model->unroll(4, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
@@ -470,7 +853,7 @@ BOOST_FIXTURE_TEST_CASE(sum_product, ModelConfig) {
     AncestralSampler sampler(deterministic_model);
     sampler.sample(gen, 1);
 
-    DBNPtr pre_trained_model = create_pre_trained_model();
+    DBNPtr pre_trained_model = create_model(false, false);
     pre_trained_model->unroll(4, true);
     SumProductEstimator green_estimator_h1(
         pre_trained_model, 1, SG, VectorXd::Constant(1, 1));
