@@ -57,8 +57,9 @@ set(EXTERNAL_LIBS
         ${Mosquitto_LIBRARIES}
         )
 
-## Include these directories in all the targets of this project
-#include_directories(${Boost_INCLUDE_DIR} ${GSL_INCLUDE_DIRS})
+enable_testing()
 
 add_subdirectory(src)
 add_subdirectory(test)
+
+
