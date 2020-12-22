@@ -32,3 +32,22 @@ target_link_libraries(TomcatConverter PRIVATE ${ALL_LIBS})
 add_executable(TomcatASISTFall20 asist/run_experiments_fall20.cpp)
 target_include_directories(TomcatASISTFall20 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(TomcatASISTFall20 PRIVATE ${ALL_LIBS})
+
+option(CODE_COVERAGE "Enable coverage reporting" OFF)
+
+# Todo make code coverage work on Linux as well.
+if(APPLE AND CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    # Add required flags (GCC & LLVM/Clang)
+    message("Building with code coverage")
+    target_compile_options(
+            runMission
+            -O0 # no optimization
+            -g # generate debug info
+            --coverage # sets all required flags
+    )
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
+        target_link_options(TomcatModelV2 PUBLIC --coverage)
+    else()
+        target_link_libraries(TomcatModelV2 PUBLIC --coverage)
+    endif()
+endif()
