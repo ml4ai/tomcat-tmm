@@ -131,9 +131,15 @@ __install_dependencies() {
             echo "Both the MacPorts (https://www.macports.org) and Homebrew"
             echo "(https://brew) package managers have been found. We assume you"
             echo "are a power user and can set your PATH environment variable as"
-            echo "needed to switch between the two. We will proceed with installing"
-            echo "the dependencies using MacPorts."
-            __install_dependencies_using_macports
+            echo "needed to switch between the two."
+            if [[ ${FORCE_HOMEBREW:-0} -eq 1 ]]; then
+                echo "The FORCE_HOMEBREW environment variable has been set to"\
+                     "1, so we will install the dependencies using Homebrew."
+                __install_dependencies_using_homebrew
+            else
+                echo "We will proceed with installing the dependencies using MacPorts."
+                __install_dependencies_using_macports
+            fi
         fi
 
     elif [ -x "$(command -v apt-get)" ]; then
