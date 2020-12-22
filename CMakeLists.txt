@@ -35,6 +35,7 @@ find_package(
         date_time
         filesystem
         program_options
+        thread
         REQUIRED)
 
 # Json library is being used for writing evaluations to an output stream
