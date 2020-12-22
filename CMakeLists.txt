@@ -49,6 +49,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
 
 find_package(Mosquitto 1.5 REQUIRED)
 
+find_package(ICU COMPONENTS data REQUIRED)
+
 set(EXTERNAL_LIBS
         ${Boost_LIBRARIES}
         Eigen3::Eigen
@@ -56,7 +58,9 @@ set(EXTERNAL_LIBS
         GSL::gslcblas
         fmt::fmt
         nlohmann_json::nlohmann_json
-        ${Mosquitto_LIBRARIES})
+        ${Mosquitto_LIBRARIES}
+        ICU::data
+        )
 
 ## Include these directories in all the targets of this project
 #include_directories(${Boost_INCLUDE_DIR} ${GSL_INCLUDE_DIRS})
