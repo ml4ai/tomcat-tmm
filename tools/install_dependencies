@@ -9,7 +9,7 @@ export ROOT
 
 echo "Installing ToMCAT Team Mind dependencies."
 
-COMMON_MACOS_DEPS="cmake nlohmann-json gsl mosquitto"
+COMMON_MACOS_DEPS="cmake boost nlohmann-json gsl mosquitto"
 __install_dependencies_using_macports() {
     echo "'port' executable detected, assuming that MacPorts"
     echo "(https://www.macports.org) is installed and is the package manager."
@@ -20,7 +20,7 @@ __install_dependencies_using_macports() {
 
     if ! sudo port selfupdate; then exit 1; fi
 
-    local macports_deps="libfmt eigen3 boost"
+    local macports_deps="libfmt eigen3"
     for dep in $COMMON_MACOS_DEPS $macports_deps; do
         if ! sudo port -N install $dep; then
             echo "Unable to install $dep using MacPorts. Exiting."
@@ -40,7 +40,7 @@ __install_dependencies_using_homebrew() {
         exit 1
     fi
 
-    local homebrew_deps="fmt eigen"
+    local homebrew_deps="fmt eigen icu4c"
     for dep in $COMMON_MACOS_DEPS $homebrew_deps; do
         brew install $dep
         # We do not require exit codes for Homebrew installs to be 0 since
@@ -52,7 +52,6 @@ __install_dependencies_using_homebrew() {
             exit 1
         fi
     done
-    brew install boost --with-icu4c
 }
 
 __install_dependencies_using_apt() {
