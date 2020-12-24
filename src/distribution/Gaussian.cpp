@@ -96,6 +96,18 @@ namespace tomcat {
 
         Eigen::VectorXd
         Gaussian::sample(shared_ptr<gsl_rng> random_generator,
+                         const Eigen::VectorXd& weights) const {
+
+            Eigen::VectorXd parameters =
+                this->get_parameters(0) * weights;
+            double mean = parameters(PARAMETER_INDEX::mean);
+            double variance = parameters(PARAMETER_INDEX::variance);
+
+            return this->sample_from_gsl(random_generator, mean, variance);
+        }
+
+        Eigen::VectorXd
+        Gaussian::sample(shared_ptr<gsl_rng> random_generator,
                          int parameter_idx,
                          const Eigen::VectorXd& weights) const {
 
@@ -113,6 +125,15 @@ namespace tomcat {
             const Eigen::VectorXd& sufficient_statistics) const {
             throw invalid_argument(
                 "Not implemented yet.");
+        }
+
+        double Gaussian::get_pdf(const Eigen::VectorXd& value) const {
+
+            Eigen::VectorXd parameters = this->get_parameters(0);
+            double mean = parameters(PARAMETER_INDEX::mean);
+            double variance = parameters(PARAMETER_INDEX::variance);
+
+            return gsl_ran_gaussian_pdf(value(0) - mean, sqrt(variance));
         }
 
         double Gaussian::get_pdf(const Eigen::VectorXd& value,

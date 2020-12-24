@@ -2,6 +2,8 @@
 
 #include <iterator>
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <eigen3/Eigen/Dense>
@@ -9,11 +11,13 @@
 #include <gsl/gsl_rng.h>
 
 #include "distribution/Distribution.h"
-#include "utils/Definitions.h"
 #include "pgm/Node.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
+
+        class RandomVariableNode;
 
         //------------------------------------------------------------------
         // Structs
@@ -169,6 +173,62 @@ namespace tomcat {
                    bool equal_samples = false) const;
 
             /**
+             * Generates a sample for the node that owns this CPD from its
+             * posterior distribution.
+             *
+             * @param random_generator: random number generator
+             * @param indexing_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param assignment_idx: Index of the node assignment to
+             * consider. This is relevant for in-plate nodes that can have
+             * multiple assignments at a time.
+             * @param posterior_weights: posterior weights given by the product
+             * of p(children(node)|node)
+             *
+             * @return Sample from the node's posterior.
+             */
+            Eigen::VectorXd sample_from_posterior(
+                std::shared_ptr<gsl_rng> random_generator,
+                std::vector<std::shared_ptr<Node>> indexing_nodes,
+                int assignment_idx,
+                Eigen::VectorXd posterior_weights) const;
+
+            /**
+             * Returns the index of the distribution indexed by the current
+             * parent nodes' assignments.
+             *
+             * @param indexing_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param parents_assignment_idx: Index of the parents'
+             * assignments to use. If some parent node is an in-plate node,
+             * it can have multiple assignments at a time.
+             *
+             * @return Index of the distribution indexed by the current parent
+             * nodes' assignments.
+             */
+            int get_indexed_distribution_idx(
+                std::vector<std::shared_ptr<Node>> indexing_nodes,
+                int parents_assignment_idx) const;
+
+            /**
+             * Returns p(child_assignments | parent_node)
+             *
+             * @param indexing_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param sampled_node: random variable for with the posterior is
+             * being computed
+             * @param cpd_owner_assignments: assignment of the child node that
+             * owns this CPD
+             *
+             * @return Posterior weights of the node that owns this CPD for one
+             * of its parent nodes.
+             */
+            Eigen::MatrixXd get_posterior_weights(
+                std::vector<std::shared_ptr<Node>> indexing_nodes,
+                std::shared_ptr<RandomVariableNode> sampled_node,
+                Eigen::MatrixXd cpd_owner_assignment) const;
+
+            /**
              * Draws a sample from the distribution associated with the parent
              * nodes' assignments scaled by some weights.
              *
@@ -210,6 +270,19 @@ namespace tomcat {
              * Update the sufficient statistics of parameter nodes the cpd
              * depend on with assignments of the cpd's owner.
              *
+             * @param indexing_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param cpd_owner_assignment: assignment of the node that owns
+             * this CPD
+             */
+            void update_sufficient_statistics2(
+                const std::vector<std::shared_ptr<Node>>& indexing_nodes,
+                const Eigen::MatrixXd& cpd_owner_assignment);
+
+            /**
+             * Update the sufficient statistics of parameter nodes the cpd
+             * depend on with assignments of the cpd's owner.
+             *
              * @param parent_nodes: timed instance of the parent nodes of the
              * cpd's owner in an unrolled DBN
              * @param cpd_owner_assignments
@@ -238,6 +311,12 @@ namespace tomcat {
              * @return CPD table
              */
             Eigen::MatrixXd get_table() const;
+
+            /**
+             * Erases from memory weights cached to accelerate sampling from
+             * the posterior distribution.
+             */
+            void reset_posterior_weight_cache();
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -386,6 +465,16 @@ namespace tomcat {
             // Data members
             //------------------------------------------------------------------
             TableOrderingMap parent_label_to_indexing;
+
+            // This map helps to accelerate the computation of posterior
+            // weights. It stores weight indexes for previously processed
+            // distribution index and child assignment. In a DBN, timed
+            // instances of a node share the same CPD. When calculating the
+            // posterior weights for any of these timed-instance nodes, they
+            // can look up this map to see if a node with similar
+            // configuration already computed the posterior weights previously.
+            mutable std::unordered_map<std::string, Eigen::VectorXd>
+                posterior_weight_mapping;
         };
 
     } // namespace model

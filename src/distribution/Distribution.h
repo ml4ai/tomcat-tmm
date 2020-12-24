@@ -94,6 +94,18 @@ namespace tomcat {
                    int parameter_idx = 0) const = 0;
 
             /**
+             * Generates a weighted sample from the distribution.
+             *
+             * @param random_generator: random number generator
+             * @param weights: weights
+             *
+             * @return Weighted sample.
+             */
+            virtual Eigen::VectorXd
+            sample(std::shared_ptr<gsl_rng> random_generator,
+            const Eigen::VectorXd& weights) const = 0;
+
+            /**
              * Draws a sample from the distribution scaled by a vector of
              * weights.
              *
@@ -132,6 +144,15 @@ namespace tomcat {
                 std::shared_ptr<gsl_rng> random_generator,
                 int parameter_idx,
                 const Eigen::VectorXd& sufficient_statistics) const = 0;
+
+            /**
+             * Returns the PDF/PMF for a given value.
+             *
+             * @param value: value
+             *
+             * @return PDF/PMF
+             */
+            virtual double get_pdf(const Eigen::VectorXd& value) const = 0;
 
             /**
              * Returns the PDF/PMFs for a given value.

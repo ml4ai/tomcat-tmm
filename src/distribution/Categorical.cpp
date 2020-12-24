@@ -25,8 +25,8 @@ namespace tomcat {
         }
 
         Categorical::Categorical(const Eigen::VectorXd&& probabilities) {
-            this->probabilities = make_shared<ConstantNode>(
-                ConstantNode(move(probabilities)));
+            this->probabilities =
+                make_shared<ConstantNode>(ConstantNode(move(probabilities)));
         }
 
         Categorical::~Categorical() {}
@@ -110,9 +110,26 @@ namespace tomcat {
         unsigned int
         Categorical::get_sample_index(const unsigned int* sample_array,
                                       size_t array_size) const {
-            return distance(
-                sample_array,
-                find(sample_array, sample_array + array_size, 1));
+            return distance(sample_array,
+                            find(sample_array, sample_array + array_size, 1));
+        }
+
+        Eigen::VectorXd
+        Categorical::sample(shared_ptr<gsl_rng> random_generator,
+                            const Eigen::VectorXd& weights) const {
+
+            // Parameter nodes are never in-plate. Therefore, their
+            // assignment matrix is always comprised by a single row.
+            Eigen::VectorXd probabilities =
+                this->probabilities->get_assignment().row(0);
+
+            Eigen::VectorXd weighted_probabilities =
+                probabilities.array() * weights.array();
+
+            // The weighted probabilities do not need to be normalized
+            // because GSL already does that.
+            return this->sample_from_gsl(random_generator,
+                                         weighted_probabilities);
         }
 
         Eigen::VectorXd
@@ -141,6 +158,13 @@ namespace tomcat {
             const Eigen::VectorXd& sufficient_statistics) const {
             throw invalid_argument(
                 "No conjugate prior with a categorical distribution.");
+        }
+
+        double Categorical::get_pdf(const Eigen::VectorXd& value) const {
+            Eigen::VectorXd probabilities =
+                this->probabilities->get_assignment().row(0);
+
+            return probabilities((int) value(0));
         }
 
         double Categorical::get_pdf(const Eigen::VectorXd& value,

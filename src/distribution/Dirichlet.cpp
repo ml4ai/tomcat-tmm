@@ -81,6 +81,14 @@ namespace tomcat {
 
         Eigen::VectorXd
         Dirichlet::sample(shared_ptr<gsl_rng> random_generator,
+                          const Eigen::VectorXd& weights) const {
+            Eigen::VectorXd alpha = this->get_alpha(0) * weights;
+
+            return this->sample_from_gsl(random_generator, alpha);
+        }
+
+        Eigen::VectorXd
+        Dirichlet::sample(shared_ptr<gsl_rng> random_generator,
                           int parameter_idx,
                           const Eigen::VectorXd& weights) const {
             Eigen::VectorXd alpha = this->get_alpha(parameter_idx) * weights;
@@ -97,6 +105,15 @@ namespace tomcat {
             alpha = alpha + sufficient_statistics;
 
             return this->sample_from_gsl(random_generator, alpha);
+        }
+
+        double Dirichlet::get_pdf(const Eigen::VectorXd& value) const {
+            Eigen::VectorXd alpha = this->get_alpha(0);
+            int k = alpha.size();
+            const double* alpha_ptr = alpha.data();
+            const double* value_ptr = value.data();
+
+            return gsl_ran_dirichlet_pdf(k, alpha_ptr, value_ptr);
         }
 
         double Dirichlet::get_pdf(const Eigen::VectorXd& value,

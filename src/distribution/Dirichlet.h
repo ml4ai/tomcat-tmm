@@ -65,6 +65,19 @@ namespace tomcat {
             Eigen::VectorXd sample(std::shared_ptr<gsl_rng> random_generator,
                                    int parameter_idx) const override;
 
+            /**
+             * Generates a sample from a Dirichlet distribution with scaled
+             * parameters.
+             *
+             * @param random_generator: random number generator
+             * @param weights: weights used to scale the parameters
+             *
+             * @return Sample from a scaled Dirichlet distribution.
+             */
+            Eigen::VectorXd
+            sample(std::shared_ptr<gsl_rng> random_generator,
+                   const Eigen::VectorXd& weights) const override;
+
             Eigen::VectorXd sample(std::shared_ptr<gsl_rng> random_generator,
                                    int parameter_idx,
                                    const Eigen::VectorXd& weights) const override;
@@ -73,6 +86,8 @@ namespace tomcat {
                 std::shared_ptr<gsl_rng> random_generator,
                 int parameter_idx,
                 const Eigen::VectorXd& sufficient_statistics) const override;
+
+            double get_pdf(const Eigen::VectorXd& value) const override;
 
             double get_pdf(const Eigen::VectorXd& value,
                            int parameter_idx) const override;

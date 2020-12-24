@@ -62,7 +62,7 @@ namespace tomcat {
                             rv_node->get_time_step() <=
                                 this->max_time_step_to_sample) {
                             // TODO - change this if we need to have a parameter
-                            // that depends on other parameters.
+                            //  that depends on other parameters.
                             parameter_nodes.push_back(node);
                             latent_nodes.push_back(node);
                         }
@@ -83,6 +83,7 @@ namespace tomcat {
             LOG("Burn-in");
             boost::progress_display progress(this->burn_in_period);
 
+            // O(s*max{nct^2*min{kd, k^p(p-1) + d}, npk})
             for (int i = 0; i < this->burn_in_period + num_samples; i++) {
                 if (i >= burn_in_period && discard) {
                     discard = false;
@@ -90,13 +91,22 @@ namespace tomcat {
                     progress.restart(num_samples);
                 }
 
+                // O(min{nct^2kd, nct^2(k^p(p-1) + d)})
                 for (auto& node : data_nodes) {
+                    // O(min{ctkd, ct(k^p(p-1) + d)})
                     this->sample_data_node(random_generator, node, discard);
                 }
 
-                for (auto& node : parameter_nodes) {
+                for (auto& node : parameter_nodes) { // O(npk)
                     this->sample_parameter_node(
-                        random_generator, node, discard);
+                        random_generator, node, discard); // O(1)
+                }
+
+                for (auto& node : data_nodes) { // O(n)
+                    // Reset cached weight posterior mapping because the
+                    // parameter nodes have new assignments.
+                    dynamic_pointer_cast<RandomVariableNode>(node)
+                        ->reset_posterior_weight_cache(); // O(1)
                 }
 
                 ++progress;
@@ -147,32 +157,22 @@ namespace tomcat {
                                        shared_ptr<Node> node,
                                        bool discard) {
 
-            vector<shared_ptr<Node>> parent_nodes =
-                this->model->get_parent_nodes_of(node, true);
             shared_ptr<RandomVariableNode> rv_node =
                 dynamic_pointer_cast<RandomVariableNode>(node);
 
             if (!rv_node->is_frozen()) {
-                Eigen::MatrixXd weights = this->get_weights_for(node);
 
-                Eigen::MatrixXd sample;
-                if (weights.size() == 0) {
-                    sample = rv_node->sample(
-                        random_generator, parent_nodes, node->get_size());
-                }
-                else {
-                    sample = rv_node->sample(random_generator,
-                                             parent_nodes,
-                                             node->get_size(),
-                                             weights);
-                }
+                // O(min{ctkd, ct(k^p(p-1) + d)})
+                Eigen::MatrixXd sample =
+                    rv_node->sample_from_posterior(random_generator);
+
                 rv_node->set_assignment(sample);
                 if (!discard) {
                     this->keep_sample(rv_node, sample);
                 }
             }
 
-            rv_node->update_parents_sufficient_statistics(parent_nodes);
+            rv_node->update_parents_sufficient_statistics(); // O(dp)
         }
 
         Eigen::MatrixXd

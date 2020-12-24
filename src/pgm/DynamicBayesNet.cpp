@@ -39,7 +39,7 @@ namespace tomcat {
                 this->create_vertices_from_nodes();
                 this->create_edges();
                 this->update_cpd_templates_dependencies();
-                this->set_nodes_cpd();
+                this->set_nodes_parents_children_and_cpd();
             }
         }
 
@@ -215,10 +215,14 @@ namespace tomcat {
             }
         }
 
-        void DynamicBayesNet::set_nodes_cpd() {
+        void DynamicBayesNet::set_nodes_parents_children_and_cpd() {
             for (auto& node : this->nodes) {
                 vector<shared_ptr<Node>> parent_nodes =
                     this->get_parent_nodes_of(node, true);
+
+                shared_ptr<RandomVariableNode> rv_node =
+                    dynamic_pointer_cast<RandomVariableNode>(node);
+
                 vector<string> parent_labels;
                 parent_labels.reserve(parent_nodes.size());
 
@@ -227,11 +231,16 @@ namespace tomcat {
                     parent_labels.push_back(label);
                 }
 
-                shared_ptr<RandomVariableNode> rv_node =
-                    dynamic_pointer_cast<RandomVariableNode>(node);
+
                 shared_ptr<CPD> cpd = rv_node->get_cpd_for(parent_labels);
                 rv_node->set_cpd(cpd);
                 rv_node->reset_cpd_updated_status();
+
+                rv_node->set_parents(parent_nodes);
+
+                vector<shared_ptr<Node>> child_nodes =
+                    this->get_child_nodes_of(node);
+                rv_node->set_children(child_nodes);
             }
         }
 

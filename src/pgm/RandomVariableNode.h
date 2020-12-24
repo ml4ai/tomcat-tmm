@@ -2,8 +2,8 @@
 
 #include "Node.h"
 
-#include "utils/Definitions.h"
 #include "pgm/cpd/CPD.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -24,7 +24,9 @@ namespace tomcat {
          * assignment of this node can change as we sample from it's posterior
          * distribution over the other nodes' assignments in the unrolled DBN.
          */
-        class RandomVariableNode : public Node {
+        class RandomVariableNode
+            : public Node,
+              public std::enable_shared_from_this<RandomVariableNode> {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -121,7 +123,37 @@ namespace tomcat {
                    bool equal_samples = false) const;
 
             /**
-             * Generate samples from this node's CPD scaled by some weights
+             * Generates a sample for the node from its posterior distribution.
+             * If the node is an in-plate node, multiple samples will be
+             * generated for the node (one per row). The number of total
+             * samples are defined by the number of elements in-plate.
+             *
+             * Note: This method changes this node assignment temporarily while
+             * calculating the weights, therefore it's not const. The final
+             * state of the this object is unchanged though.
+             *
+             * @param random_generator: random number generator
+             *
+             * @return Sample for the node from its posterior
+             */
+            Eigen::MatrixXd
+            sample_from_posterior(std::shared_ptr<gsl_rng> random_generator);
+
+            /**
+             * Returns p(children(node)|node). The posterior of a node is
+             * given by p(node|parents(node)) * p(children(node)|node). We
+             * call the second term, the posterior weights here.
+             *
+             * Note: This method changes this node assignment temporarily while
+             * calculating the weights, therefore it's not const. The final
+             * state of the this object is unchanged though.
+             *
+             * @return Posterior weights
+             */
+            Eigen::MatrixXd get_posterior_weights();
+
+            /**
+             * Generates samples from this node's CPD scaled by some weights
              * given its parents assignments. If the node belongs to a plate,
              * multiple samples are generated: one for each in-plate copy.
              * Otherwise a single sample is returned.
@@ -169,6 +201,13 @@ namespace tomcat {
              * Update sufficient statistics of parent parameter nodes with this
              * node's assignment(s).
              *
+             */
+            void update_parents_sufficient_statistics();
+
+            /**
+             * Update sufficient statistics of parent parameter nodes with this
+             * node's assignment(s).
+             *
              * @param parent_nodes: list of parent nodes' timed instances
              */
             void update_parents_sufficient_statistics(
@@ -185,10 +224,16 @@ namespace tomcat {
             void add_to_sufficient_statistics(const Eigen::VectorXd& sample);
 
             /**
-             * Clear the values stored as sufficient statistics in the node's
-             * CPD.
+             * Clears the values stored as sufficient statistics in the
+             * parameter node CPD.
              */
             void reset_sufficient_statistics();
+
+            /**
+             * Clears the values stored in memory to accelerate the computation
+             * of posterior weights for sampling.
+             */
+            void reset_posterior_weight_cache();
 
             /**
              * Prevents node's assignment to be changed.
@@ -235,9 +280,18 @@ namespace tomcat {
 
             bool is_frozen() const;
 
+            const std::shared_ptr<CPD>& get_cpd() const;
+
             void set_cpd(const std::shared_ptr<CPD>& cpd);
 
-            const std::shared_ptr<CPD>& get_cpd() const;
+            const std::vector<std::shared_ptr<Node>>& get_parents() const;
+
+            const std::vector<std::shared_ptr<Node>>& get_children() const;
+
+            void set_parents(const std::vector<std::shared_ptr<Node>>& parents);
+
+            void
+            set_children(const std::vector<std::shared_ptr<Node>>& children);
 
           private:
             //------------------------------------------------------------------
@@ -302,6 +356,10 @@ namespace tomcat {
              * constant node.
              */
             bool frozen = false;
+
+            std::vector<std::shared_ptr<Node>> parents;
+
+            std::vector<std::shared_ptr<Node>> children;
         };
 
     } // namespace model

@@ -1,5 +1,7 @@
 #include "CPD.h"
 
+#include "pgm/RandomVariableNode.h"
+
 namespace tomcat {
     namespace model {
 
@@ -90,6 +92,7 @@ namespace tomcat {
             this->parent_label_to_indexing = cpd.parent_label_to_indexing;
             this->parent_node_order = cpd.parent_node_order;
             this->distributions = cpd.distributions;
+            this->posterior_weight_mapping = cpd.posterior_weight_mapping;
         }
 
         void CPD::update_dependencies(Node::NodeMap& parameter_nodes_map,
@@ -211,6 +214,113 @@ namespace tomcat {
             return labels_to_nodes;
         }
 
+        Eigen::VectorXd
+        CPD::sample_from_posterior(shared_ptr<gsl_rng> random_generator,
+                                   vector<shared_ptr<Node>> indexing_nodes,
+                                   int assignment_idx,
+                                   Eigen::VectorXd posterior_weights) const {
+            int distribution_idx = this->get_indexed_distribution_idx(
+                indexing_nodes, assignment_idx);
+            shared_ptr<Distribution> distribution =
+                this->distributions[distribution_idx];
+            return distribution->sample(random_generator, posterior_weights);
+        }
+
+        int CPD::get_indexed_distribution_idx(
+            vector<shared_ptr<Node>> indexing_nodes,
+            int parents_assignment_idx) const {
+            int distribution_idx = 0;
+
+            for (auto& indexing_node : indexing_nodes) {
+                int assignment_idx = parents_assignment_idx;
+
+                if (!indexing_node->get_metadata()->is_in_plate()) {
+                    // Index nodes are parents of the noe that owns this CPD.
+                    // An off-plate parent node has only a single assignment at
+                    // a time, which is used in combination with any other
+                    // in-plate parent node, across all of its assignment
+                    // indices.
+                    assignment_idx = 0;
+                }
+
+                string label = indexing_node->get_metadata()->get_label();
+                ParentIndexing indexing =
+                    this->parent_label_to_indexing.at(label);
+                int assignment =
+                    indexing_node->get_assignment()(assignment_idx, 0);
+                distribution_idx +=
+                    assignment * indexing.right_cumulative_cardinality;
+            }
+
+            return distribution_idx;
+        }
+
+        Eigen::MatrixXd
+        CPD::get_posterior_weights(vector<shared_ptr<Node>> indexing_nodes,
+                                   shared_ptr<RandomVariableNode> sampled_node,
+                                   Eigen::MatrixXd cpd_owner_assignment) const {
+            Eigen::MatrixXd saved_assignment = sampled_node->get_assignment();
+            int rows = sampled_node->get_size();
+            int cols = sampled_node->get_metadata()->get_cardinality();
+
+            // Set sampled node's assignment equals to zero so we can get the
+            // index of the first distribution indexed by this node and the
+            // other parent nodes the child (owner of this CPD) may have.
+            sampled_node->set_assignment(Eigen::MatrixXd::Zero(rows, 1));
+            string parent_label = sampled_node->get_metadata()->get_label();
+            int offset = this->parent_label_to_indexing.at(parent_label)
+                             .right_cumulative_cardinality;
+            Eigen::MatrixXd weights(rows, cols);
+
+            // O(k^p(p-1) + d) with posterior weight caching
+            // O(kd) without
+            for (int i = 0; i < rows; i++) { // O(min{kd, k^p(p-1) + d})
+                int distribution_idx =
+                    this->get_indexed_distribution_idx(indexing_nodes, i);
+
+                stringstream weight_mapping_key_ss;
+                weight_mapping_key_ss << parent_label << "#" << distribution_idx
+                                      << "#" << cpd_owner_assignment.row(i);
+                const string weight_mapping_key = weight_mapping_key_ss.str();
+                if (EXISTS(weight_mapping_key,
+                           this->posterior_weight_mapping)) {
+                    // The same combination of parent and child
+                    // assignments were previously computed. Just copy
+                    // the values from the appropriate row of the matrix
+                    // of weights.
+                    weights.row(i) =
+                        this->posterior_weight_mapping.at(weight_mapping_key);
+                }
+                else {
+                    // For each possible assignment of parent_node, we
+                    // compute the pdf of the child node given the
+                    // parent_node's assignment and its other possible
+                    // parents assignments.
+                    int k = distribution_idx;
+                    for (int j = 0; j < cols; j++) { // O(k)
+                        shared_ptr<Distribution> distribution =
+                            this->distributions[k];
+                        weights(i, j) =
+                            distribution->get_pdf(cpd_owner_assignment.row(i));
+
+                        // The next distribution index can be computed
+                        // directly by summing the number of possible
+                        // assignments in the nodes to the right of the
+                        // parent_node in the order defined for indexing the
+                        // CPD.
+                        k += offset;
+                    }
+                    this->posterior_weight_mapping[weight_mapping_key] =
+                        weights.row(i);
+                }
+            }
+
+            // Restore the sampled node's assignment to its original state.
+            sampled_node->set_assignment(saved_assignment);
+
+            return weights;
+        }
+
         Eigen::MatrixXd
         CPD::sample(shared_ptr<gsl_rng> random_generator,
                     const vector<shared_ptr<Node>>& parent_nodes,
@@ -301,6 +411,22 @@ namespace tomcat {
             return pdfs;
         }
 
+        void CPD::update_sufficient_statistics2(
+            const vector<shared_ptr<Node>>& indexing_nodes,
+            const Eigen::MatrixXd& cpd_owner_assignment) {
+
+            int n = cpd_owner_assignment.rows();
+            for (int i = 0; i < n; i++) { // O(dp)
+                // O (p)
+                int distribution_idx =
+                    this->get_indexed_distribution_idx(indexing_nodes, i);
+                shared_ptr<Distribution> distribution =
+                    this->distributions[distribution_idx];
+                distribution->update_sufficient_statistics(
+                    cpd_owner_assignment.row(i));
+            }
+        }
+
         void CPD::update_sufficient_statistics(
             const vector<shared_ptr<Node>>& parent_nodes,
             const Eigen::MatrixXd& cpd_owner_assignments) {
@@ -320,11 +446,16 @@ namespace tomcat {
                         Eigen::VectorXd::Constant(assignment.size(), NO_OBS)) {
                     this->distributions[distribution_idx]
                         ->update_sufficient_statistics(assignment);
-                } else {
+                }
+                else {
                     LOG(assignment);
                 }
                 sample_index++;
             }
+        }
+
+        void CPD::reset_posterior_weight_cache() {
+            this->posterior_weight_mapping.clear();
         }
 
         void CPD::reset_updated_status() { this->updated = false; }
