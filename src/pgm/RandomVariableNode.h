@@ -224,6 +224,17 @@ namespace tomcat {
             void add_to_sufficient_statistics(const Eigen::VectorXd& sample);
 
             /**
+             * Adds a set of values to the sufficient statistics of a
+             * parameter node's CPD.
+             *
+             * @param values: Values to add to the sufficient statistics. The
+             * update_parents_sufficient_statistics will call this function for
+             * parameter nodes at some point.
+             */
+            void
+            add_to_sufficient_statistics(const std::vector<double>& values);
+
+            /**
              * Clears the values stored as sufficient statistics in the
              * parameter node CPD.
              */

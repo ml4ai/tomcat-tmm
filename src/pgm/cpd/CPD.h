@@ -210,6 +210,10 @@ namespace tomcat {
                 std::vector<std::shared_ptr<Node>> indexing_nodes,
                 int parents_assignment_idx) const;
 
+            std::vector<int> get_indexed_distribution_indices(
+                std::vector<std::shared_ptr<Node>> indexing_nodes,
+                int num_indices) const;
+
             /**
              * Returns p(child_assignments | parent_node)
              *
@@ -336,6 +340,14 @@ namespace tomcat {
              */
             virtual void
             add_to_sufficient_statistics(const Eigen::VectorXd& sample) = 0;
+
+            /**
+             * Adds a set of values to the sufficient statistics of this CPD.
+             *
+             * @param sample: Sample to add to the sufficient statistics.
+             */
+            virtual void
+            add_to_sufficient_statistics(const std::vector<double>& values) = 0;
 
             /**
              * Samples using conjugacy properties and sufficient statistics

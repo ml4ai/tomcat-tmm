@@ -104,6 +104,12 @@ namespace tomcat {
                 "Not implemented yet.");
         }
 
+        void GaussianCPD::add_to_sufficient_statistics(
+            const vector<double>& values) {
+            throw invalid_argument(
+                "Not implemented yet.");
+        }
+
         Eigen::MatrixXd GaussianCPD::sample_from_conjugacy(
             shared_ptr<gsl_rng> random_generator,
             const vector<shared_ptr<Node>>& parent_nodes,

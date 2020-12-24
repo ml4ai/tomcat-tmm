@@ -102,6 +102,12 @@ namespace tomcat {
                 "No conjugate prior with a categorical distribution.");
         }
 
+        void CategoricalCPD::add_to_sufficient_statistics(
+            const vector<double>& values) {
+            throw invalid_argument(
+                "No conjugate prior with a categorical distribution.");
+        }
+
         Eigen::MatrixXd CategoricalCPD::sample_from_conjugacy(
             shared_ptr<gsl_rng> random_generator,
             const vector<shared_ptr<Node>>& parent_nodes,

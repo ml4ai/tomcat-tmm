@@ -1,8 +1,8 @@
 #pragma once
 
-#include "utils/Definitions.h"
-#include "pgm/Node.h"
 #include "distribution/Distribution.h"
+#include "pgm/Node.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -61,7 +61,11 @@ namespace tomcat {
             // Member functions
             //------------------------------------------------------------------
 
-            void update_sufficient_statistics(const Eigen::VectorXd& sample) override;
+            void update_sufficient_statistics(
+                const Eigen::VectorXd& sample) override;
+
+            void update_sufficient_statistics(
+                const std::vector<double>& values) override;
 
             Eigen::VectorXd get_values() const override;
 

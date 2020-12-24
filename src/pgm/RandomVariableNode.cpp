@@ -129,6 +129,8 @@ namespace tomcat {
             Eigen::MatrixXd sample(rows, cols);
             // O(min{ctkd, ct(k^p(p-1) + d)})
             Eigen::MatrixXd weights = this->get_posterior_weights();
+//            Eigen::MatrixXd weights = Eigen::MatrixXd::Ones(rows,
+//                this->get_metadata()->get_cardinality());
             if (this->get_metadata()->is_in_plate()) {
                 // This assumes this node was previously initialized  and
                 // therefore, the number of instances in-plate can be
@@ -234,6 +236,11 @@ namespace tomcat {
         void RandomVariableNode::add_to_sufficient_statistics(
             const Eigen::VectorXd& sample) {
             this->cpd->add_to_sufficient_statistics(sample);
+        }
+
+        void RandomVariableNode::add_to_sufficient_statistics(
+            const vector<double>& values) {
+            this->cpd->add_to_sufficient_statistics(values);
         }
 
         void RandomVariableNode::reset_sufficient_statistics() {

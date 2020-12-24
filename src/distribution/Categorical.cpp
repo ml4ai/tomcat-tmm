@@ -164,7 +164,7 @@ namespace tomcat {
             Eigen::VectorXd probabilities =
                 this->probabilities->get_assignment().row(0);
 
-            return probabilities((int) value(0));
+            return probabilities((int)value(0));
         }
 
         double Categorical::get_pdf(const Eigen::VectorXd& value,
@@ -200,6 +200,17 @@ namespace tomcat {
                         dynamic_cast<RandomVariableNode*>(
                             this->probabilities.get())) {
                     rv_node->add_to_sufficient_statistics(sample);
+                }
+            }
+        }
+
+        void Categorical::update_sufficient_statistics(
+            const vector<double>& values) {
+            if (this->probabilities->get_metadata()->is_parameter()) {
+                if (RandomVariableNode* rv_node =
+                    dynamic_cast<RandomVariableNode*>(
+                        this->probabilities.get())) {
+                    rv_node->add_to_sufficient_statistics(values);
                 }
             }
         }

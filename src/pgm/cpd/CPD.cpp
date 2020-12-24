@@ -226,6 +226,25 @@ namespace tomcat {
             return distribution->sample(random_generator, posterior_weights);
         }
 
+        vector<int> CPD::get_indexed_distribution_indices(
+            vector<shared_ptr<Node>> indexing_nodes, int num_indices) const {
+
+            Eigen::MatrixXd indices = Eigen::MatrixXd::Zero(num_indices, 1);
+            for (auto& indexing_node : indexing_nodes) {
+                const string& label =
+                    indexing_node->get_metadata()->get_label();
+                const ParentIndexing& indexing =
+                    this->parent_label_to_indexing.at(label);
+                indices =
+                    indices.array() + indexing_node->get_assignment().array() *
+                                          indexing.right_cumulative_cardinality;
+            }
+
+            vector<int> vec(indices.data(), indices.data() + num_indices);
+
+            return vec;
+        }
+
         int CPD::get_indexed_distribution_idx(
             vector<shared_ptr<Node>> indexing_nodes,
             int parents_assignment_idx) const {
@@ -260,27 +279,33 @@ namespace tomcat {
                                    shared_ptr<RandomVariableNode> sampled_node,
                                    Eigen::MatrixXd cpd_owner_assignment) const {
             Eigen::MatrixXd saved_assignment = sampled_node->get_assignment();
-            int rows = sampled_node->get_size();
+
+            int rows = cpd_owner_assignment.rows();
             int cols = sampled_node->get_metadata()->get_cardinality();
+
+            string sampled_node_label =
+                sampled_node->get_metadata()->get_label();
+            int offset = this->parent_label_to_indexing.at(sampled_node_label)
+                             .right_cumulative_cardinality;
+            Eigen::MatrixXd weights(rows, cols);
 
             // Set sampled node's assignment equals to zero so we can get the
             // index of the first distribution indexed by this node and the
             // other parent nodes the child (owner of this CPD) may have.
             sampled_node->set_assignment(Eigen::MatrixXd::Zero(rows, 1));
-            string parent_label = sampled_node->get_metadata()->get_label();
-            int offset = this->parent_label_to_indexing.at(parent_label)
-                             .right_cumulative_cardinality;
-            Eigen::MatrixXd weights(rows, cols);
+            vector<int> distribution_indices =
+                this->get_distribution_indices(indexing_nodes, rows);
 
             // O(k^p(p-1) + d) with posterior weight caching
             // O(kd) without
             for (int i = 0; i < rows; i++) { // O(min{kd, k^p(p-1) + d})
-                int distribution_idx =
-                    this->get_indexed_distribution_idx(indexing_nodes, i);
+                int distribution_idx = distribution_indices[i];
+                // this->get_indexed_distribution_idx(indexing_nodes, i);
 
                 stringstream weight_mapping_key_ss;
-                weight_mapping_key_ss << parent_label << "#" << distribution_idx
-                                      << "#" << cpd_owner_assignment.row(i);
+                weight_mapping_key_ss << sampled_node_label << "#"
+                                      << distribution_idx << "#"
+                                      << cpd_owner_assignment.row(i);
                 const string weight_mapping_key = weight_mapping_key_ss.str();
                 if (EXISTS(weight_mapping_key,
                            this->posterior_weight_mapping)) {
@@ -416,14 +441,26 @@ namespace tomcat {
             const Eigen::MatrixXd& cpd_owner_assignment) {
 
             int n = cpd_owner_assignment.rows();
-            for (int i = 0; i < n; i++) { // O(dp)
-                // O (p)
-                int distribution_idx =
-                    this->get_indexed_distribution_idx(indexing_nodes, i);
-                shared_ptr<Distribution> distribution =
+            vector<int> distribution_indices =
+                this->get_indexed_distribution_indices(indexing_nodes, n);
+            unordered_map<int, vector<double>> values_per_distribution;
+
+            for (int i = 0; i < n; i++) { // O(d)
+                int distribution_idx = distribution_indices[i];
+                double value = cpd_owner_assignment(i, 0);
+
+                if (!EXISTS(distribution_idx, values_per_distribution)) {
+                    values_per_distribution[distribution_idx] = {};
+                }
+
+                values_per_distribution[distribution_idx].push_back(value);
+            }
+
+            for (auto& [distribution_idx, values] :
+                 values_per_distribution) { // O(d)
+                const shared_ptr<Distribution>& distribution =
                     this->distributions[distribution_idx];
-                distribution->update_sufficient_statistics(
-                    cpd_owner_assignment.row(i));
+                distribution->update_sufficient_statistics(values);
             }
         }
 

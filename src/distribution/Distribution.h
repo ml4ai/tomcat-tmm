@@ -194,6 +194,16 @@ namespace tomcat {
             update_sufficient_statistics(const Eigen::VectorXd& sample) = 0;
 
             /**
+             * Update the sufficient statistics in the parameter nodes given the
+             * collection of values informed.
+             *
+             * @param values: Values from the data node that depends on
+             * the parameter being updated
+             */
+            virtual void
+            update_sufficient_statistics(const std::vector<double>& values) = 0;
+
+            /**
              * Returns assignments of the node(s) the distribution depends on. A
              * node can have multiple assignments. Only the first one is
              * returned by this function.

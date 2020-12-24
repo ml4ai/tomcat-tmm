@@ -111,6 +111,13 @@ namespace tomcat {
             this->sufficient_statistics(sample(0)) += 1;
         }
 
+        void DirichletCPD::add_to_sufficient_statistics(
+            const vector<double>& values) {
+            for(int value : values) {
+                this->sufficient_statistics(value) += 1;
+            }
+        }
+
         Eigen::MatrixXd DirichletCPD::sample_from_conjugacy(
             shared_ptr<gsl_rng> random_generator,
             const vector<shared_ptr<Node>>& parent_nodes,
