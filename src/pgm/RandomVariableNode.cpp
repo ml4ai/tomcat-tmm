@@ -247,10 +247,6 @@ namespace tomcat {
             this->cpd->reset_sufficient_statistics();
         }
 
-        void RandomVariableNode::reset_posterior_weight_cache() {
-            this->cpd->reset_posterior_weight_cache();
-        }
-
         void RandomVariableNode::freeze() { RandomVariableNode::frozen = true; }
 
         void RandomVariableNode::unfreeze() {

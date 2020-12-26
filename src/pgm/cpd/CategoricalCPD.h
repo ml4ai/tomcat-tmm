@@ -1,8 +1,9 @@
 #pragma once
 
-#include "utils/Definitions.h"
 #include "distribution/Categorical.h"
 #include "pgm/cpd/CPD.h"
+#include "utils/Definitions.h"
+#include "pgm/RandomVariableNode.h"
 
 namespace tomcat {
     namespace model {
@@ -132,6 +133,11 @@ namespace tomcat {
 
             void reset_sufficient_statistics() override;
 
+            Eigen::MatrixXd get_posterior_weights(
+                const std::vector<std::shared_ptr<Node>>& indexing_nodes,
+                const std::shared_ptr<RandomVariableNode>& sampled_node,
+                const Eigen::MatrixXd& cpd_owner_assignment) const override;
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -158,7 +164,6 @@ namespace tomcat {
              * @param matrix: matrix of probabilities
              */
             void init_from_matrix(const Eigen::MatrixXd& matrix);
-
         };
 
     } // namespace model

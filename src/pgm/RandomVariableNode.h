@@ -241,12 +241,6 @@ namespace tomcat {
             void reset_sufficient_statistics();
 
             /**
-             * Clears the values stored in memory to accelerate the computation
-             * of posterior weights for sampling.
-             */
-            void reset_posterior_weight_cache();
-
-            /**
              * Prevents node's assignment to be changed.
              */
             void freeze();

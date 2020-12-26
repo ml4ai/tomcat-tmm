@@ -102,13 +102,6 @@ namespace tomcat {
                         random_generator, node, discard); // O(1)
                 }
 
-                for (auto& node : data_nodes) { // O(n)
-                    // Reset cached weight posterior mapping because the
-                    // parameter nodes have new assignments.
-                    dynamic_pointer_cast<RandomVariableNode>(node)
-                        ->reset_posterior_weight_cache(); // O(1)
-                }
-
                 ++progress;
                 if (!discard) {
                     this->iteration++;
