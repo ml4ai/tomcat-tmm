@@ -131,7 +131,7 @@ namespace tomcat {
             void reset_sufficient_statistics() override;
 
             Eigen::MatrixXd get_posterior_weights(
-                const std::vector<std::shared_ptr<Node>>& indexing_nodes,
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const Eigen::MatrixXd& cpd_owner_assignment) const override;
 

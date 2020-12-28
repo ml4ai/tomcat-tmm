@@ -114,7 +114,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd CategoricalCPD::get_posterior_weights(
-            const vector<shared_ptr<Node>>& indexing_nodes,
+            const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
             const Eigen::MatrixXd& cpd_owner_assignment) const {
 
@@ -127,7 +127,7 @@ namespace tomcat {
             Eigen::MatrixXd saved_assignment = sampled_node->get_assignment();
             sampled_node->set_assignment(Eigen::MatrixXd::Zero(rows, 1));
             vector<int> distribution_indices =
-                this->get_indexed_distribution_indices(indexing_nodes, rows);
+                this->get_indexed_distribution_indices(index_nodes, rows);
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
 

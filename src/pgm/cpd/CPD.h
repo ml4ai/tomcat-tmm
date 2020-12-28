@@ -156,28 +156,23 @@ namespace tomcat {
              * nodes' assignments.
              *
              * @param random_generator: random number random_generator
-             * @param parent_nodes: timed instance of the parent nodes of the
-             * cpd's owner in an unrolled DBN
-             * @param num_samples: number of samples to generate. If the parent
-             * nodes have multiple assignments, each sample will use one of them
-             * to determine the distribution which it's sampled from.
-             * @param equal_samples: whether the samples generated must be the
-             * same
+             * @param index_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param num_samples: number of samples to generate.
              *
              * @return A sample from one of the distributions in the CPD.
              */
             Eigen::MatrixXd
             sample(std::shared_ptr<gsl_rng> random_generator,
-                   const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                   int num_samples,
-                   bool equal_samples = false) const;
+                   const std::vector<std::shared_ptr<Node>>& index_nodes,
+                   int num_samples) const;
 
             /**
              * Generates a sample for the node that owns this CPD from its
              * posterior distribution.
              *
              * @param random_generator: random number generator
-             * @param indexing_nodes: concrete objects of the nodes used to
+             * @param index_nodes: concrete objects of the nodes used to
              * index the CPD
              * @param assignment_idx: Index of the node assignment to
              * consider. This is relevant for in-plate nodes that can have
@@ -189,7 +184,7 @@ namespace tomcat {
              */
             Eigen::VectorXd sample_from_posterior(
                 std::shared_ptr<gsl_rng> random_generator,
-                std::vector<std::shared_ptr<Node>> indexing_nodes,
+                std::vector<std::shared_ptr<Node>> index_nodes,
                 int assignment_idx,
                 Eigen::VectorXd posterior_weights) const;
 
@@ -197,7 +192,7 @@ namespace tomcat {
              * Returns the indices of the distributions indexed by the current
              * indexing nodes' assignments.
              *
-             * @param indexing_nodes: concrete objects of the nodes used to
+             * @param index_nodes: concrete objects of the nodes used to
              * index the CPD
              * @param num_indices: number of assignments of the indexing
              * nodes to consider.
@@ -206,24 +201,24 @@ namespace tomcat {
              * indexing nodes' assignments.
              */
             std::vector<int> get_indexed_distribution_indices(
-                std::vector<std::shared_ptr<Node>> indexing_nodes,
+                std::vector<std::shared_ptr<Node>> index_nodes,
                 int num_indices) const;
 
             int get_indexed_distribution_idx(
-                std::vector<std::shared_ptr<Node>> indexing_nodes,
+                std::vector<std::shared_ptr<Node>> index_nodes,
                 int parents_assignment_idx) const;
 
             /**
              * Update the sufficient statistics of parameter nodes the cpd
              * depend on with assignments of the cpd's owner.
              *
-             * @param indexing_nodes: concrete objects of the nodes used to
+             * @param index_nodes: concrete objects of the nodes used to
              * index the CPD
              * @param cpd_owner_assignment: assignment of the node that owns
              * this CPD
              */
             void update_sufficient_statistics(
-                const std::vector<std::shared_ptr<Node>>& indexing_nodes,
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const Eigen::MatrixXd& cpd_owner_assignment);
 
             /**
@@ -254,7 +249,7 @@ namespace tomcat {
             /**
              * Returns p(cpd_owner_assignments | sampled_node)
              *
-             * @param indexing_nodes: concrete objects of the nodes used to
+             * @param index_nodes: concrete objects of the nodes used to
              * index the CPD
              * @param sampled_node: random variable for with the posterior is
              * being computed
@@ -265,7 +260,7 @@ namespace tomcat {
              * of its parent nodes.
              */
             virtual Eigen::MatrixXd get_posterior_weights(
-                const std::vector<std::shared_ptr<Node>>& indexing_nodes,
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const Eigen::MatrixXd& cpd_owner_assignment) const;
 

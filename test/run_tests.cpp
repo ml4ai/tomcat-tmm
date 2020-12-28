@@ -717,7 +717,6 @@ BOOST_FIXTURE_TEST_CASE(heterogeneous, ModelConfig) {
     int num_samples = 10;
 
     AncestralSampler sampler(model);
-    sampler.set_num_in_plate_samples(1);
     sampler.sample(gen, num_samples);
 
     MatrixXd tcs = sampler.get_samples(TC)(0, 0);
@@ -782,7 +781,6 @@ BOOST_FIXTURE_TEST_CASE(homogeneous, ModelConfig) {
     int num_samples = 10;
 
     AncestralSampler sampler(model);
-    sampler.set_num_in_plate_samples(1);
     sampler.set_equal_samples_time_step_limit(equal_samples_until);
     sampler.sample(gen, num_samples);
 

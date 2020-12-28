@@ -149,7 +149,7 @@ namespace tomcat {
             // The number of samples generated for in-plate nodes. If data is
             // provided for some node, the number of data points has to be the
             // same as the number of in-plate samples.
-            int num_in_plate_samples = 1;
+            int num_in_plate_samples = -1;
 
             EvidenceSet data;
 

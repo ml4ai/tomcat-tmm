@@ -103,24 +103,16 @@ namespace tomcat {
             void clone_cpd_templates();
 
             /**
-             * Generate samples from this node's CPD given its parents
-             * assignments. If the node belongs to a plate, multiple samples are
-             * generated: one for each in-plate copy. Otherwise a single sample
-             * is returned.
+             * Generates samples from this node's CPD given its parents'
+             * assignments.
              *
              * @param random_generator: random number generator
-             * @param parent_nodes: list of parent nodes' timed instances
              * @param num_samples: number of samples to generate
-             * @param equal_samples: whether the samples generated must be the
-             * same
              *
              * @return Samples from the node's CPD.
              */
-            Eigen::MatrixXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-                   const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                   int num_samples,
-                   bool equal_samples = false) const;
+            Eigen::MatrixXd sample(std::shared_ptr<gsl_rng> random_generator,
+                                   int num_samples) const;
 
             /**
              * Generates a sample for the node from its posterior distribution.

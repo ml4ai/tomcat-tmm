@@ -112,12 +112,10 @@ namespace tomcat {
 
         Eigen::MatrixXd
         RandomVariableNode::sample(shared_ptr<gsl_rng> random_generator,
-                                   const vector<shared_ptr<Node>>& parent_nodes,
-                                   int num_samples,
-                                   bool equal_samples) const {
+                                   int num_samples) const {
 
             return this->cpd->sample(
-                random_generator, parent_nodes, num_samples, equal_samples);
+                random_generator, this->parents, num_samples);
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(

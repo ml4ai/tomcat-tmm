@@ -105,53 +105,23 @@ namespace tomcat {
             this->updated = true;
         }
 
-        Eigen::MatrixXd
-        CPD::sample(shared_ptr<gsl_rng> random_generator,
-                    const vector<shared_ptr<Node>>& parent_nodes,
-                    int num_samples,
-                    bool equal_samples) const {
+        Eigen::MatrixXd CPD::sample(shared_ptr<gsl_rng> random_generator,
+                                    const vector<shared_ptr<Node>>& index_nodes,
+                                    int num_samples) const {
 
             vector<int> distribution_indices =
-                this->get_indexed_distribution_indices(parent_nodes,
+                this->get_indexed_distribution_indices(index_nodes,
                                                        num_samples);
 
             int sample_size = this->distributions[0]->get_sample_size();
 
             Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
-            int sample_index = 0;
-            for (const auto& distribution_idx : distribution_indices) {
-                if (distribution_idx == NO_OBS) {
-                    // This happens if the mission ended sooner for a specific
-                    // data point but not for the others. All the samples from
-                    // nodes in time step greater than the end of the mission
-                    // for that particular data point will be set to NO_OBS to
-                    // avoid updating the sufficient statistics of the parameter
-                    // nodes.
-                    samples.row(sample_index) =
-                        Eigen::VectorXd::Constant(1, 1, NO_OBS);
-                }
-                else {
-                    Eigen::VectorXd assignment =
-                        this->distributions[distribution_idx]->sample(
-                            random_generator, sample_index);
-                    samples.row(sample_index) = move(assignment);
-                }
-                sample_index++;
-
-                if (equal_samples) {
-                    // We generate one sample and replicate to the others. See
-                    // below.
-                    break;
-                }
-            }
-
-            // Sample replication if requested. We use the distribution_indices
-            // size because, even if the number of samples is greater than one,
-            // if the node is a parent of an in-plate node, it always yields a
-            // single sample. This information is encoded in the distribution
-            // indices size.
-            for (; sample_index < distribution_indices.size(); sample_index++) {
-                samples.row(sample_index) = samples.row(0);
+            for (int i = 0; i < num_samples; i++) {
+                int distribution_idx = distribution_indices[i];
+                Eigen::VectorXd sample =
+                    this->distributions[distribution_idx]->sample(
+                        random_generator, i);
+                samples.row(i) = move(sample);
             }
 
             return samples;
@@ -159,28 +129,37 @@ namespace tomcat {
 
         Eigen::VectorXd
         CPD::sample_from_posterior(shared_ptr<gsl_rng> random_generator,
-                                   vector<shared_ptr<Node>> indexing_nodes,
+                                   vector<shared_ptr<Node>> index_nodes,
                                    int assignment_idx,
                                    Eigen::VectorXd posterior_weights) const {
-            int distribution_idx = this->get_indexed_distribution_idx(
-                indexing_nodes, assignment_idx);
+            int distribution_idx =
+                this->get_indexed_distribution_idx(index_nodes, assignment_idx);
             shared_ptr<Distribution> distribution =
                 this->distributions[distribution_idx];
             return distribution->sample(random_generator, posterior_weights);
         }
 
         vector<int> CPD::get_indexed_distribution_indices(
-            vector<shared_ptr<Node>> indexing_nodes, int num_indices) const {
+            vector<shared_ptr<Node>> index_nodes, int num_indices) const {
 
             Eigen::MatrixXd indices = Eigen::MatrixXd::Zero(num_indices, 1);
-            for (auto& indexing_node : indexing_nodes) {
-                const string& label =
-                    indexing_node->get_metadata()->get_label();
+            for (auto& index_node : index_nodes) {
+                const string& label = index_node->get_metadata()->get_label();
                 const ParentIndexing& indexing =
                     this->parent_label_to_indexing.at(label);
-                indices =
-                    indices.array() + indexing_node->get_assignment().array() *
-                                          indexing.right_cumulative_cardinality;
+
+                if (index_node->get_assignment().rows() > num_indices) {
+                    indices = indices.array() +
+                              index_node->get_assignment()
+                                      .block(0, 0, num_indices, 1)
+                                      .array() *
+                                  indexing.right_cumulative_cardinality;
+                }
+                else {
+                    indices = indices.array() +
+                              index_node->get_assignment().array() *
+                                  indexing.right_cumulative_cardinality;
+                }
             }
 
             vector<int> vec(indices.data(), indices.data() + num_indices);
@@ -188,15 +167,15 @@ namespace tomcat {
             return vec;
         }
 
-        int CPD::get_indexed_distribution_idx(
-            vector<shared_ptr<Node>> indexing_nodes,
-            int parents_assignment_idx) const {
+        int
+        CPD::get_indexed_distribution_idx(vector<shared_ptr<Node>> index_nodes,
+                                          int parents_assignment_idx) const {
             int distribution_idx = 0;
 
-            for (auto& indexing_node : indexing_nodes) {
+            for (auto& index_node : index_nodes) {
                 int assignment_idx = parents_assignment_idx;
 
-                if (!indexing_node->get_metadata()->is_in_plate()) {
+                if (!index_node->get_metadata()->is_in_plate()) {
                     // Index nodes are parents of the noe that owns this CPD.
                     // An off-plate parent node has only a single assignment at
                     // a time, which is used in combination with any other
@@ -205,11 +184,11 @@ namespace tomcat {
                     assignment_idx = 0;
                 }
 
-                string label = indexing_node->get_metadata()->get_label();
+                string label = index_node->get_metadata()->get_label();
                 ParentIndexing indexing =
                     this->parent_label_to_indexing.at(label);
                 int assignment =
-                    indexing_node->get_assignment()(assignment_idx, 0);
+                    index_node->get_assignment()(assignment_idx, 0);
                 distribution_idx +=
                     assignment * indexing.right_cumulative_cardinality;
             }
@@ -218,7 +197,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd CPD::get_posterior_weights(
-            const vector<shared_ptr<Node>>& indexing_nodes,
+            const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
             const Eigen::MatrixXd& cpd_owner_assignment) const {
 
@@ -231,7 +210,7 @@ namespace tomcat {
             Eigen::MatrixXd saved_assignment = sampled_node->get_assignment();
             sampled_node->set_assignment(Eigen::MatrixXd::Zero(rows, 1));
             vector<int> distribution_indices =
-                this->get_indexed_distribution_indices(indexing_nodes, rows);
+                this->get_indexed_distribution_indices(index_nodes, rows);
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
 
@@ -260,12 +239,12 @@ namespace tomcat {
         }
 
         void CPD::update_sufficient_statistics(
-            const vector<shared_ptr<Node>>& indexing_nodes,
+            const vector<shared_ptr<Node>>& index_nodes,
             const Eigen::MatrixXd& cpd_owner_assignment) {
 
             int n = cpd_owner_assignment.rows();
             vector<int> distribution_indices =
-                this->get_indexed_distribution_indices(indexing_nodes, n);
+                this->get_indexed_distribution_indices(index_nodes, n);
             unordered_map<int, vector<double>> values_per_distribution;
 
             for (int i = 0; i < n; i++) { // O(d)
