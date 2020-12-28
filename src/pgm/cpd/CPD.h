@@ -174,19 +174,15 @@ namespace tomcat {
              * @param random_generator: random number generator
              * @param index_nodes: concrete objects of the nodes used to
              * index the CPD
-             * @param assignment_idx: Index of the node assignment to
-             * consider. This is relevant for in-plate nodes that can have
-             * multiple assignments at a time.
              * @param posterior_weights: posterior weights given by the product
              * of p(children(node)|node)
              *
              * @return Sample from the node's posterior.
              */
-            Eigen::VectorXd sample_from_posterior(
-                std::shared_ptr<gsl_rng> random_generator,
-                std::vector<std::shared_ptr<Node>> index_nodes,
-                int assignment_idx,
-                Eigen::VectorXd posterior_weights) const;
+            Eigen::MatrixXd sample_from_posterior(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                const Eigen::MatrixXd& posterior_weights) const;
 
             /**
              * Returns the indices of the distributions indexed by the current

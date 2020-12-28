@@ -127,16 +127,27 @@ namespace tomcat {
             return samples;
         }
 
-        Eigen::VectorXd
-        CPD::sample_from_posterior(shared_ptr<gsl_rng> random_generator,
-                                   vector<shared_ptr<Node>> index_nodes,
-                                   int assignment_idx,
-                                   Eigen::VectorXd posterior_weights) const {
-            int distribution_idx =
-                this->get_indexed_distribution_idx(index_nodes, assignment_idx);
-            shared_ptr<Distribution> distribution =
-                this->distributions[distribution_idx];
-            return distribution->sample(random_generator, posterior_weights);
+        Eigen::MatrixXd CPD::sample_from_posterior(
+            const shared_ptr<gsl_rng>& random_generator,
+            const vector<shared_ptr<Node>>& index_nodes,
+            const Eigen::MatrixXd& posterior_weights) const {
+
+            int num_indices = posterior_weights.rows();
+            vector<int> distribution_indices =
+                this->get_indexed_distribution_indices(index_nodes,
+                                                       num_indices);
+
+            int cols = this->distributions[0]->get_sample_size();
+            Eigen::MatrixXd sample(num_indices, cols);
+            for (int i = 0; i < num_indices; i++) {
+                int distribution_idx = distribution_indices[i];
+                const shared_ptr<Distribution>& distribution =
+                    this->distributions[distribution_idx];
+                sample.row(i) = distribution->sample(random_generator,
+                                                      posterior_weights.row(i));
+            }
+
+            return sample;
         }
 
         vector<int> CPD::get_indexed_distribution_indices(
@@ -149,6 +160,12 @@ namespace tomcat {
                     this->parent_label_to_indexing.at(label);
 
                 if (index_node->get_assignment().rows() > num_indices) {
+                    // Ancestral sampling may generate less samples for a
+                    // child than the number of samples for its parents in
+                    // the case of homogeneous world, for instance. This
+                    // only considers samples of the parent nodes (index nodes)
+                    // up to a
+                    // certain row (num_indices).
                     indices = indices.array() +
                               index_node->get_assignment()
                                       .block(0, 0, num_indices, 1)

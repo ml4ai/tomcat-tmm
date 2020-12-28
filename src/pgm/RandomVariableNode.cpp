@@ -121,28 +121,9 @@ namespace tomcat {
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
             shared_ptr<gsl_rng> random_generator) {
 
-            // Get p(children(node)|node)
-            int rows = this->get_size();
-            int cols = this->get_metadata()->get_sample_size();
-            Eigen::MatrixXd sample(rows, cols);
-            // O(min{ctkd, ct(k^p(p-1) + d)})
             Eigen::MatrixXd weights = this->get_posterior_weights();
-            //            Eigen::MatrixXd weights = Eigen::MatrixXd::Ones(rows,
-            //                this->get_metadata()->get_cardinality());
-            if (this->get_metadata()->is_in_plate()) {
-                // This assumes this node was previously initialized  and
-                // therefore, the number of instances in-plate can be
-                // determined by its size (the number of rows in its
-                // assignment matrix).
-                for (int i = 0; i < rows; i++) { // O(d)
-                    sample.row(i) = this->cpd->sample_from_posterior(
-                        random_generator, this->parents, i, weights.row(i));
-                }
-            }
-            else {
-                sample.row(0) = this->cpd->sample_from_posterior(
-                    random_generator, this->parents, 0, weights.row(0));
-            }
+            Eigen::MatrixXd sample = this->cpd->sample_from_posterior(
+                random_generator, this->parents, weights);
 
             return sample;
         }
