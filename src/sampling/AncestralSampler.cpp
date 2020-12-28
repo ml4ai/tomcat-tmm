@@ -58,8 +58,9 @@ namespace tomcat {
             }
 
             for (auto& node : nodes_to_sample) {
-                this->sampled_node_labels.insert(
-                    node->get_metadata()->get_label());
+                const string& node_label = node->get_metadata()->get_label();
+                this->sampled_node_labels.insert(node_label);
+
                 const vector<shared_ptr<Node>>& parent_nodes =
                     this->model->get_parent_nodes_of(node, true);
                 int real_num_samples = num_samples;
@@ -87,7 +88,8 @@ namespace tomcat {
                     equal_samples = true;
                 }
 
-                // Generate a sample for the node given its parents' assignments.
+                // Generate a sample for the node given its parents'
+                // assignments.
                 Eigen::MatrixXd assignment = rv_node->sample(random_generator,
                                                              parent_nodes,
                                                              real_num_samples,

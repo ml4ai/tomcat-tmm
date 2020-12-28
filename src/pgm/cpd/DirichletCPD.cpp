@@ -80,8 +80,7 @@ namespace tomcat {
         }
 
         unique_ptr<CPD> DirichletCPD::clone() const {
-            unique_ptr<DirichletCPD> new_cpd =
-                make_unique<DirichletCPD>(*this);
+            unique_ptr<DirichletCPD> new_cpd = make_unique<DirichletCPD>(*this);
             new_cpd->clone_distributions();
             new_cpd->sufficient_statistics = this->sufficient_statistics;
             return new_cpd;
@@ -107,13 +106,8 @@ namespace tomcat {
         }
 
         void DirichletCPD::add_to_sufficient_statistics(
-            const Eigen::VectorXd& sample) {
-            this->sufficient_statistics(sample(0)) += 1;
-        }
-
-        void DirichletCPD::add_to_sufficient_statistics(
             const vector<double>& values) {
-            for(int value : values) {
+            for (int value : values) {
                 this->sufficient_statistics(value) += 1;
             }
         }
@@ -124,7 +118,8 @@ namespace tomcat {
             int num_samples) const {
 
             vector<int> distribution_indices =
-                this->get_distribution_indices(parent_nodes, num_samples);
+                this->get_indexed_distribution_indices(parent_nodes,
+                                                       num_samples);
 
             int sample_size = this->distributions[0]->get_sample_size();
 
@@ -144,7 +139,8 @@ namespace tomcat {
         }
 
         void DirichletCPD::reset_sufficient_statistics() {
-            this->sufficient_statistics = Eigen::VectorXd::Zero(this->sufficient_statistics.size());
+            this->sufficient_statistics =
+                Eigen::VectorXd::Zero(this->sufficient_statistics.size());
         }
 
     } // namespace model

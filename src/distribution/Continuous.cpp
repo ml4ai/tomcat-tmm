@@ -41,19 +41,6 @@ namespace tomcat {
         }
 
         void Continuous::update_sufficient_statistics(
-            const Eigen::VectorXd& sample) {
-            for (auto& parameter : this->parameters) {
-                if (parameter->get_metadata()->is_parameter()) {
-                    if (RandomVariableNode* rv_node =
-                            dynamic_cast<RandomVariableNode*>(
-                                parameter.get())) {
-                        rv_node->add_to_sufficient_statistics(sample);
-                    }
-                }
-            }
-        }
-
-        void Continuous::update_sufficient_statistics(
             const vector<double>& values) {
             for (auto& parameter : this->parameters) {
                 if (parameter->get_metadata()->is_parameter()) {

@@ -96,12 +96,6 @@ namespace tomcat {
         }
 
         void CategoricalCPD::add_to_sufficient_statistics(
-            const Eigen::VectorXd& sample) {
-            throw invalid_argument(
-                "No conjugate prior with a categorical distribution.");
-        }
-
-        void CategoricalCPD::add_to_sufficient_statistics(
             const vector<double>& values) {
             throw invalid_argument(
                 "No conjugate prior with a categorical distribution.");
@@ -133,7 +127,7 @@ namespace tomcat {
             Eigen::MatrixXd saved_assignment = sampled_node->get_assignment();
             sampled_node->set_assignment(Eigen::MatrixXd::Zero(rows, 1));
             vector<int> distribution_indices =
-                this->get_distribution_indices(indexing_nodes, rows);
+                this->get_indexed_distribution_indices(indexing_nodes, rows);
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
 

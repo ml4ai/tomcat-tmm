@@ -83,20 +83,12 @@ namespace tomcat {
             sample(std::shared_ptr<gsl_rng> random_generator,
                    const Eigen::VectorXd& weights) const override;
 
-            Eigen::VectorXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-                   int parameter_idx,
-                   const Eigen::VectorXd& weights) const override;
-
             Eigen::VectorXd sample_from_conjugacy(
                 std::shared_ptr<gsl_rng> random_generator,
                 int parameter_idx,
                 const Eigen::VectorXd& sufficient_statistics) const override;
 
             double get_pdf(const Eigen::VectorXd& value) const override;
-
-            double get_pdf(const Eigen::VectorXd& value,
-                           int parameter_idx) const override;
 
             std::unique_ptr<Distribution> clone() const override;
 

@@ -105,25 +105,6 @@ namespace tomcat {
             sample(std::shared_ptr<gsl_rng> random_generator,
             const Eigen::VectorXd& weights) const = 0;
 
-            /**
-             * Draws a sample from the distribution scaled by a vector of
-             * weights.
-             *
-             * @param random_generator: random number random_generator
-             * @param parameter_idx: the index of the parameter assignment
-             * to use in case the distribution depend on parameter nodes with
-             * multiple assignments. If the parameter has single assignment,
-             * that is the one being used regardless of the value informed in
-             * this argument.
-             * @param weights: values to scale the parameters of the
-             * distribution
-             *
-             * @return A sample from the distribution.
-             */
-            virtual Eigen::VectorXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-                   int parameter_idx,
-                   const Eigen::VectorXd& weights) const = 0;
 
             /**
              * Draws a sample from a posterior computed by conjugacy using
@@ -155,20 +136,6 @@ namespace tomcat {
             virtual double get_pdf(const Eigen::VectorXd& value) const = 0;
 
             /**
-             * Returns the PDF/PMFs for a given value.
-             *
-             * @param value: possible sample from the distribution
-             * @param parameter_idx: the index of the parameter assignment
-             * to use in case the distribution depend on parameter nodes with
-             * multiple assignments. If the parameter has single assignment,
-             * that is the one being used regardless of the value informed in
-             * this argument.
-             * @return PDFs for the values.
-             */
-            virtual double get_pdf(const Eigen::VectorXd& value,
-                                   int parameter_idx) const = 0;
-
-            /**
              * Creates a new unique pointer from a concrete instance of a
              * distribution.
              *
@@ -182,16 +149,6 @@ namespace tomcat {
              * @return Sample size.
              */
             virtual int get_sample_size() const = 0;
-
-            /**
-             * Update the sufficient statistics in the parameter nodes given the
-             * assignment informed.
-             *
-             * @param assignment: Assignment from the data node that depends on
-             * the parameter being updated
-             */
-            virtual void
-            update_sufficient_statistics(const Eigen::VectorXd& sample) = 0;
 
             /**
              * Update the sufficient statistics in the parameter nodes given the

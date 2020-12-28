@@ -123,9 +123,6 @@ namespace tomcat {
             std::string get_description() const override;
 
             void add_to_sufficient_statistics(
-                const Eigen::VectorXd& sample) override;
-
-            void add_to_sufficient_statistics(
                 const std::vector<double>& values) override;
 
             Eigen::MatrixXd sample_from_conjugacy(

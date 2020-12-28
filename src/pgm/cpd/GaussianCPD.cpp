@@ -99,12 +99,6 @@ namespace tomcat {
         }
 
         void GaussianCPD::add_to_sufficient_statistics(
-            const Eigen::VectorXd& sample) {
-            throw invalid_argument(
-                "Not implemented yet.");
-        }
-
-        void GaussianCPD::add_to_sufficient_statistics(
             const vector<double>& values) {
             throw invalid_argument(
                 "Not implemented yet.");

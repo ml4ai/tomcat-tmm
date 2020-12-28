@@ -153,28 +153,6 @@ namespace tomcat {
             Eigen::MatrixXd get_posterior_weights();
 
             /**
-             * Generates samples from this node's CPD scaled by some weights
-             * given its parents assignments. If the node belongs to a plate,
-             * multiple samples are generated: one for each in-plate copy.
-             * Otherwise a single sample is returned.
-             *
-             * @param random_generator: random number generator
-             * @param parent_nodes: list of parent nodes' timed instances
-             * @param num_samples: number of samples to generate
-             * @param weights: scale coefficients to the underlying distribution
-             * @param equal_samples: whether the samples generated must be the
-             * same
-             *
-             * @return Samples from the node's CPD.
-             */
-            Eigen::MatrixXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-                   const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                   int num_samples,
-                   Eigen::MatrixXd weights,
-                   bool equal_samples = false) const;
-
-            /**
              * Samples a node using conjugacy properties and sufficient
              * statistics stored in the node's CPD.
              *
@@ -187,41 +165,11 @@ namespace tomcat {
                 int num_samples) const;
 
             /**
-             * Get pdfs for the node's assignments given its parents'
-             * assignments.
-             *
-             * @param parent_nodes: list of parent nodes' timed instances
-             *
-             * @return Pdfs relative to the node's assignments.
-             */
-            Eigen::VectorXd get_pdfs(
-                const std::vector<std::shared_ptr<Node>>& parent_nodes) const;
-
-            /**
              * Update sufficient statistics of parent parameter nodes with this
              * node's assignment(s).
              *
              */
             void update_parents_sufficient_statistics();
-
-            /**
-             * Update sufficient statistics of parent parameter nodes with this
-             * node's assignment(s).
-             *
-             * @param parent_nodes: list of parent nodes' timed instances
-             */
-            void update_parents_sufficient_statistics(
-                const std::vector<std::shared_ptr<Node>>& parent_nodes);
-
-            /**
-             * Adds a value to the sufficient statistics of a parameter node's
-             * CPD.
-             *
-             * @param sample: Sample to add to the sufficient statistics. The
-             * update_parents_sufficient_statistics will call this function for
-             * parameter nodes at some point.
-             */
-            void add_to_sufficient_statistics(const Eigen::VectorXd& sample);
 
             /**
              * Adds a set of values to the sufficient statistics of a

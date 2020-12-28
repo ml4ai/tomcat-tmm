@@ -129,8 +129,8 @@ namespace tomcat {
             Eigen::MatrixXd sample(rows, cols);
             // O(min{ctkd, ct(k^p(p-1) + d)})
             Eigen::MatrixXd weights = this->get_posterior_weights();
-//            Eigen::MatrixXd weights = Eigen::MatrixXd::Ones(rows,
-//                this->get_metadata()->get_cardinality());
+            //            Eigen::MatrixXd weights = Eigen::MatrixXd::Ones(rows,
+            //                this->get_metadata()->get_cardinality());
             if (this->get_metadata()->is_in_plate()) {
                 // This assumes this node was previously initialized  and
                 // therefore, the number of instances in-plate can be
@@ -193,20 +193,6 @@ namespace tomcat {
             return (log_weights.array().colwise() / sum_per_row.array());
         }
 
-        Eigen::MatrixXd
-        RandomVariableNode::sample(shared_ptr<gsl_rng> random_generator,
-                                   const vector<shared_ptr<Node>>& parent_nodes,
-                                   int num_samples,
-                                   Eigen::MatrixXd weights,
-                                   bool equal_samples) const {
-
-            return this->cpd->sample(random_generator,
-                                     parent_nodes,
-                                     num_samples,
-                                     weights,
-                                     equal_samples);
-        }
-
         Eigen::MatrixXd RandomVariableNode::sample_from_conjugacy(
             shared_ptr<gsl_rng> random_generator,
             const vector<shared_ptr<Node>>& parent_nodes,
@@ -215,27 +201,9 @@ namespace tomcat {
                 random_generator, parent_nodes, num_samples);
         }
 
-        Eigen::VectorXd RandomVariableNode::get_pdfs(
-            const vector<shared_ptr<Node>>& parent_nodes) const {
-
-            return this->cpd->get_pdfs(parent_nodes, *this);
-        }
-
         void RandomVariableNode::update_parents_sufficient_statistics() {
-            this->cpd->update_sufficient_statistics2(this->parents,
-                                                     this->assignment);
-        }
-
-        void RandomVariableNode::update_parents_sufficient_statistics(
-            const vector<shared_ptr<Node>>& parent_nodes) {
-
-            this->cpd->update_sufficient_statistics(parent_nodes,
+            this->cpd->update_sufficient_statistics(this->parents,
                                                     this->assignment);
-        }
-
-        void RandomVariableNode::add_to_sufficient_statistics(
-            const Eigen::VectorXd& sample) {
-            this->cpd->add_to_sufficient_statistics(sample);
         }
 
         void RandomVariableNode::add_to_sufficient_statistics(
