@@ -70,13 +70,13 @@ namespace tomcat {
              * @param max_time_step: generate data up to this time step.
              * @param excluding: labels of nodes which samples must not be saved
              */
-            void
-            generate_synthetic_data(std::shared_ptr<gsl_rng> random_generator,
-                                    int num_samples,
-                                    const std::string& output_folder,
-                                    int equal_until = -1,
-                                    int max_time_step = -1,
-                                    std::unordered_set<std::string> excluding = {});
+            void generate_synthetic_data(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                int num_samples,
+                const std::string& output_folder,
+                int equal_until = -1,
+                int max_time_step = -1,
+                const std::unordered_set<std::string>& excluding = {});
 
             //------------------------------------------------------------------
             // Getters & Setters
@@ -100,8 +100,8 @@ namespace tomcat {
              * @return Random variable node.
              */
             std::shared_ptr<RandomVariableNode>
-            create_node(std::shared_ptr<NodeMetadata> metadata,
-                        std::vector<std::shared_ptr<CPD>> cpds) const;
+            create_node(const std::shared_ptr<NodeMetadata>& metadata,
+                        const std::vector<std::shared_ptr<CPD>>& cpds) const;
 
             //------------------------------------------------------------------
             // Data members
