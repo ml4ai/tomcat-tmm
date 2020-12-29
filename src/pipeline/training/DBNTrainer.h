@@ -147,7 +147,7 @@ namespace tomcat {
              * @param split_idx: Index of the data split.
              * @param force: whether frozen parameter nodes should be updated.
              */
-            void update_model(std::unique_ptr<int> sample_idx,
+            void update_model(const std::unique_ptr<int>& sample_idx,
                               int split_idx,
                               bool force);
         };

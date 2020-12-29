@@ -17,10 +17,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void DBNTrainer::prepare() {
-            this->param_label_to_samples.clear();
-        }
-
+        void DBNTrainer::prepare() { this->param_label_to_samples.clear(); }
 
         unordered_map<string, Tensor3>
         DBNTrainer::get_partials(int split_idx) const {
@@ -46,7 +43,7 @@ namespace tomcat {
             this->update_model(make_unique<int>(sample_idx), split_idx, force);
         }
 
-        void DBNTrainer::update_model(unique_ptr<int> sample_idx,
+        void DBNTrainer::update_model(const unique_ptr<int>& sample_idx,
                                       int split_idx,
                                       bool force) {
             shared_ptr<DynamicBayesNet> model = this->get_model();
