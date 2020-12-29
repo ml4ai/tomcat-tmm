@@ -420,12 +420,5 @@ int main(int argc, char* argv[]) {
     }
 
     execute_experiment(experiment_id);
-//
-//    DATA_DIR = "../../data/samples/asist/study-1_2020.08/full";
-//    MODEL_DIR = "../../data/model/asist";
-//    EVAL_DIR = "../../data/eval/asist/";
-//    GEN_DATA_DIR = "../../data/samples/asist";
-//
-//    execute_experiment("2c");
 
 }
