@@ -12,16 +12,18 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        DataSplitter::DataSplitter(const EvidenceSet& data,
-                                   int num_folds,
-                                   shared_ptr<gsl_rng> random_generator) {
+        DataSplitter::DataSplitter(
+            const EvidenceSet& data,
+            int num_folds,
+            const shared_ptr<gsl_rng>& random_generator) {
 
             this->split(data, num_folds, random_generator);
         }
 
-        DataSplitter::DataSplitter(const EvidenceSet& data,
-                                   float test_prop,
-                                   shared_ptr<gsl_rng> random_generator) {
+        DataSplitter::DataSplitter(
+            const EvidenceSet& data,
+            float test_prop,
+            const shared_ptr<gsl_rng>& random_generator) {
 
             this->split(data, test_prop, random_generator);
         }
@@ -39,7 +41,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void DataSplitter::split(const EvidenceSet& data,
                                  int num_folds,
-                                 shared_ptr<gsl_rng> random_generator) {
+                                 const shared_ptr<gsl_rng>& random_generator) {
 
             if (num_folds > data.get_num_data_points()) {
                 throw invalid_argument(
@@ -105,7 +107,8 @@ namespace tomcat {
         }
 
         vector<int> DataSplitter::get_shuffled_indices(
-            int num_data_points, shared_ptr<gsl_rng> random_generator) const {
+            int num_data_points,
+            const shared_ptr<gsl_rng>& random_generator) const {
             int* indices = new int[num_data_points];
             for (int i = 0; i < num_data_points; i++) {
                 indices[i] = i;
@@ -136,7 +139,7 @@ namespace tomcat {
 
         void DataSplitter::split(const EvidenceSet& data,
                                  float test_prop,
-                                 shared_ptr<gsl_rng> random_generator) {
+                                 const shared_ptr<gsl_rng>& random_generator) {
 
             if (test_prop < 0 || test_prop > 1) {
                 throw invalid_argument(
@@ -153,16 +156,15 @@ namespace tomcat {
             vector<int> training_indices;
             vector<int> test_indices;
             test_indices.insert(test_indices.begin(),
-                shuffled_indices.begin(),
-                shuffled_indices.begin() + test_size);
+                                shuffled_indices.begin(),
+                                shuffled_indices.begin() + test_size);
             training_indices.insert(training_indices.begin(),
                                     shuffled_indices.begin() + test_size,
                                     shuffled_indices.end());
 
             for (auto& node_label : data.get_node_labels()) {
                 Tensor3 node_data = data[node_label];
-                Tensor3 training_data =
-                    node_data.slice(training_indices, 1);
+                Tensor3 training_data = node_data.slice(training_indices, 1);
                 Tensor3 test_data = node_data.slice(test_indices, 1);
 
                 training.add_data(node_label, training_data);

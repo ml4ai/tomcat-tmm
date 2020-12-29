@@ -38,8 +38,8 @@ namespace tomcat {
              * @param random_generator: random number generator
              */
             DataSplitter(const EvidenceSet& data,
-                  int num_folds,
-                  std::shared_ptr<gsl_rng> random_generator);
+                         int num_folds,
+                         const std::shared_ptr<gsl_rng>& random_generator);
 
             /**
              * Creates an instance of a KFold data splitter.
@@ -50,10 +50,10 @@ namespace tomcat {
              */
             DataSplitter(const EvidenceSet& data,
                          float test_prop,
-                         std::shared_ptr<gsl_rng> random_generator);
+                         const std::shared_ptr<gsl_rng>& random_generator);
 
             DataSplitter(const EvidenceSet& training_data,
-                  const EvidenceSet& test_data);
+                         const EvidenceSet& test_data);
 
             ~DataSplitter();
 
@@ -99,7 +99,7 @@ namespace tomcat {
              */
             void split(const EvidenceSet& data,
                        int num_folds,
-                       std::shared_ptr<gsl_rng> random_generator);
+                       const std::shared_ptr<gsl_rng>& random_generator);
 
             /**
              * Creates k data splits comprised of disjoint training and test
@@ -111,7 +111,7 @@ namespace tomcat {
              */
             void split(const EvidenceSet& data,
                        float test_prop,
-                       std::shared_ptr<gsl_rng> random_generator);
+                       const std::shared_ptr<gsl_rng>& random_generator);
 
             /**
              * Returns a list of shuffled indices of the data points.
@@ -124,7 +124,7 @@ namespace tomcat {
              */
             std::vector<int> get_shuffled_indices(
                 int num_data_points,
-                std::shared_ptr<gsl_rng> random_generator) const;
+                const std::shared_ptr<gsl_rng>& random_generator) const;
 
             /**
              * Returns the number of data points in each fold.
@@ -135,7 +135,8 @@ namespace tomcat {
              *
              * @return Number of data points in each one of the folds.
              */
-            std::vector<int> get_fold_sizes(int num_data_points, int num_folds) const;
+            std::vector<int> get_fold_sizes(int num_data_points,
+                                            int num_folds) const;
 
             //------------------------------------------------------------------
             // Data members
