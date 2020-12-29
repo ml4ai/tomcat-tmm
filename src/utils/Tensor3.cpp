@@ -213,7 +213,7 @@ namespace tomcat {
             return ss.str();
         }
 
-        Tensor3 Tensor3::sum(vector<Tensor3> tensors) {
+        Tensor3 Tensor3::sum(const vector<Tensor3>& tensors) {
             Tensor3 new_tensor;
 
             if (!tensors.empty()) {
@@ -227,14 +227,14 @@ namespace tomcat {
             return new_tensor;
         }
 
-        Tensor3 Tensor3::mean(vector<Tensor3> tensors) {
+        Tensor3 Tensor3::mean(const vector<Tensor3>& tensors) {
             Tensor3 new_tensor = Tensor3::sum(tensors);
             new_tensor = new_tensor / tensors.size();
 
             return new_tensor;
         }
 
-        Tensor3 Tensor3::std(vector<Tensor3> tensors) {
+        Tensor3 Tensor3::std(const vector<Tensor3>& tensors) {
             Tensor3 new_tensor;
 
             if (!tensors.empty()) {
@@ -300,7 +300,7 @@ namespace tomcat {
             return slice(indices, axis);
         }
 
-        Tensor3 Tensor3::slice(vector<int> indices, int axis) const {
+        Tensor3 Tensor3::slice(const vector<int>& indices, int axis) const {
             Tensor3 sliced_tensor;
 
             switch (axis) {
