@@ -23,7 +23,7 @@ namespace tomcat {
              * @param threshold: Probability threshold for predicting or
              * inferring the occurrence of an assignment as true
              */
-            Accuracy(std::shared_ptr<Estimator> estimator,
+            Accuracy(const std::shared_ptr<Estimator>& estimator,
                      double threshold = 0.5,
                      bool use_last_estimate = false);
 

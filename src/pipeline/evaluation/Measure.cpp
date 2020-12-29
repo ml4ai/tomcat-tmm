@@ -10,7 +10,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Measure::Measure() {}
 
-        Measure::Measure(shared_ptr<Estimator> estimator,
+        Measure::Measure(const shared_ptr<Estimator>& estimator,
                          double threshold,
                          bool use_last_estimate)
             : estimator(estimator), threshold(threshold),
@@ -42,16 +42,12 @@ namespace tomcat {
 
             // Preserve the first time steps with no observed values for the
             // estimate in analysis.
-            Eigen::MatrixXd no_obs =
-                Eigen::MatrixXd::Constant(probabilities.rows(),
-                                          probabilities.cols(),
-                                          NO_OBS);
-            no_obs = (probabilities.array() == NO_OBS)
-                         .select(no_obs, zeros);
+            Eigen::MatrixXd no_obs = Eigen::MatrixXd::Constant(
+                probabilities.rows(), probabilities.cols(), NO_OBS);
+            no_obs = (probabilities.array() == NO_OBS).select(no_obs, zeros);
 
             Eigen::MatrixXd discrete_estimates =
-                (probabilities.array() > this->threshold)
-                    .select(ones, no_obs);
+                (probabilities.array() > this->threshold).select(ones, no_obs);
 
             // For a given assignment, transform the test data into 0s and 1s.
             // Where 1 is assigned to the coefficients equal to the assignment

@@ -100,7 +100,7 @@ namespace tomcat {
              *
              * @param measure: measure
              */
-            void add_measure(std::shared_ptr<Measure> measure);
+            void add_measure(const std::shared_ptr<Measure>& measure);
 
             /**
              * Evaluates the nodes and store the results for future aggregation.
