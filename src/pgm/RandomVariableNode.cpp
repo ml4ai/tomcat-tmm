@@ -13,7 +13,7 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         RandomVariableNode::RandomVariableNode(
-            shared_ptr<NodeMetadata>& metadata, int time_step)
+            const shared_ptr<NodeMetadata>& metadata, int time_step)
             : Node(metadata), time_step(time_step) {}
 
         RandomVariableNode::RandomVariableNode(
@@ -101,7 +101,7 @@ namespace tomcat {
         }
 
         void RandomVariableNode::update_cpd_templates_dependencies(
-            NodeMap& parameter_nodes_map, int time_step) {
+            const NodeMap& parameter_nodes_map, int time_step) {
             for (auto& mapping : this->cpd_templates) {
                 if (!mapping.second->is_updated()) {
                     mapping.second->update_dependencies(parameter_nodes_map,
@@ -111,7 +111,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd
-        RandomVariableNode::sample(shared_ptr<gsl_rng> random_generator,
+        RandomVariableNode::sample(const shared_ptr<gsl_rng>& random_generator,
                                    int num_samples) const {
 
             return this->cpd->sample(
@@ -119,7 +119,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
-            shared_ptr<gsl_rng> random_generator) {
+            const shared_ptr<gsl_rng>& random_generator) {
 
             Eigen::MatrixXd weights = this->get_posterior_weights();
             Eigen::MatrixXd sample = this->cpd->sample_from_posterior(
@@ -173,7 +173,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_conjugacy(
-            shared_ptr<gsl_rng> random_generator,
+            const shared_ptr<gsl_rng>& random_generator,
             const vector<shared_ptr<Node>>& parent_nodes,
             int num_samples) const {
             return this->cpd->sample_from_conjugacy(
@@ -200,7 +200,7 @@ namespace tomcat {
             RandomVariableNode::frozen = false;
         }
 
-        void RandomVariableNode::add_cpd_template(shared_ptr<CPD>& cpd) {
+        void RandomVariableNode::add_cpd_template(const shared_ptr<CPD>& cpd) {
             this->cpd_templates[cpd->get_id()] = cpd;
         }
 
@@ -224,11 +224,13 @@ namespace tomcat {
         }
 
         string RandomVariableNode::get_unique_key_from_labels(
-            vector<string> labels) const {
+            const vector<string>& labels) const {
+
+            vector<string> mutable_labels = labels;
             stringstream ss;
-            sort(labels.begin(), labels.end());
-            copy(labels.begin(),
-                 labels.end(),
+            sort(mutable_labels.begin(), mutable_labels.end());
+            copy(mutable_labels.begin(),
+                 mutable_labels.end(),
                  ostream_iterator<string>(ss, ","));
             return ss.str();
         }
@@ -242,7 +244,8 @@ namespace tomcat {
             this->time_step = time_step;
         }
 
-        void RandomVariableNode::set_assignment(Eigen::MatrixXd assignment) {
+        void
+        RandomVariableNode::set_assignment(const Eigen::MatrixXd& assignment) {
             if (!this->frozen) {
                 this->assignment = assignment;
             }

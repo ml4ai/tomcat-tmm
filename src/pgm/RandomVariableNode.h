@@ -41,7 +41,7 @@ namespace tomcat {
              * @param time_step: node's time step in an unrolled DBN (0 by
              * default)
              */
-            RandomVariableNode(std::shared_ptr<NodeMetadata>& metadata,
+            RandomVariableNode(const std::shared_ptr<NodeMetadata>& metadata,
                                int time_step = 0);
 
             /**
@@ -94,8 +94,8 @@ namespace tomcat {
              * parameter node if the latter is shared among nodes over several
              * time steps.
              */
-            void update_cpd_templates_dependencies(NodeMap& parameter_nodes_map,
-                                                   int time_step);
+            void update_cpd_templates_dependencies(
+                const NodeMap& parameter_nodes_map, int time_step);
 
             /**
              * Create new references for the CPD templates of the node.
@@ -111,8 +111,9 @@ namespace tomcat {
              *
              * @return Samples from the node's CPD.
              */
-            Eigen::MatrixXd sample(std::shared_ptr<gsl_rng> random_generator,
-                                   int num_samples) const;
+            Eigen::MatrixXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   int num_samples) const;
 
             /**
              * Generates a sample for the node from its posterior distribution.
@@ -128,8 +129,8 @@ namespace tomcat {
              *
              * @return Sample for the node from its posterior
              */
-            Eigen::MatrixXd
-            sample_from_posterior(std::shared_ptr<gsl_rng> random_generator);
+            Eigen::MatrixXd sample_from_posterior(
+                const std::shared_ptr<gsl_rng>& random_generator);
 
             /**
              * Returns p(children(node)|node). The posterior of a node is
@@ -152,7 +153,7 @@ namespace tomcat {
              * @return
              */
             Eigen::MatrixXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 const std::vector<std::shared_ptr<Node>>& parent_nodes,
                 int num_samples) const;
 
@@ -195,7 +196,7 @@ namespace tomcat {
              *
              * @param cpd: CPD
              */
-            void add_cpd_template(std::shared_ptr<CPD>& cpd);
+            void add_cpd_template(const std::shared_ptr<CPD>& cpd);
 
             /**
              * Adds CPD to the list of possible CPDs of the node.
@@ -221,7 +222,7 @@ namespace tomcat {
 
             void set_time_step(int time_step);
 
-            void set_assignment(Eigen::MatrixXd assignment);
+            void set_assignment(const Eigen::MatrixXd& assignment);
 
             bool is_frozen() const;
 
@@ -263,8 +264,8 @@ namespace tomcat {
              * @return Unique string formed by a list of random variable node's
              * labels
              */
-            std::string
-            get_unique_key_from_labels(std::vector<std::string> labels) const;
+            std::string get_unique_key_from_labels(
+                const std::vector<std::string>& labels) const;
 
             // -----------------------------------------------------------------
             // Data members

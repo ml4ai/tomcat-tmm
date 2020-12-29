@@ -141,7 +141,7 @@ namespace tomcat {
              *
              */
             void set_data_for(const std::string& node_label,
-                              const Tensor3 data);
+                              const Tensor3& data);
 
             /**
              * For a given node's data, returns a logical matrix flagging the

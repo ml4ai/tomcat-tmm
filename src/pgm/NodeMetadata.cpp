@@ -6,13 +6,13 @@ namespace tomcat {
     namespace model {
 
         using namespace std;
-        
+
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
         NodeMetadata::NodeMetadata() {}
 
-        NodeMetadata::NodeMetadata(string label,
+        NodeMetadata::NodeMetadata(const string& label,
                                    bool replicable,
                                    bool parameter,
                                    bool single_time_link,
@@ -21,9 +21,9 @@ namespace tomcat {
                                    int sample_size,
                                    int cardinality)
             : label(label), replicable(replicable), parameter(parameter),
-              single_time_link(single_time_link),
-              in_plate(in_plate), initial_time_step(initial_time_step),
-              sample_size(sample_size), cardinality(cardinality) {}
+              single_time_link(single_time_link), in_plate(in_plate),
+              initial_time_step(initial_time_step), sample_size(sample_size),
+              cardinality(cardinality) {}
 
         //----------------------------------------------------------------------
         // Destructor
@@ -33,8 +33,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Operator overload
         //----------------------------------------------------------------------
-        ostream& operator<<(ostream& os,
-                                 const NodeMetadata& metadata) {
+        ostream& operator<<(ostream& os, const NodeMetadata& metadata) {
 
             os << metadata.get_description();
 
@@ -71,9 +70,8 @@ namespace tomcat {
             return ss.str();
         }
 
-        void
-        NodeMetadata::add_parent_link(shared_ptr<NodeMetadata> parent_node,
-                                      bool time_crossing) {
+        void NodeMetadata::add_parent_link(
+            const shared_ptr<NodeMetadata>& parent_node, bool time_crossing) {
             // TODO - 1. error if parent node is a parameter node and time
             //  crossing
             //  is true. 2. Parameter cannot be replicable if child nodes are

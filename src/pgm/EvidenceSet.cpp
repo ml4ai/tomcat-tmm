@@ -181,7 +181,7 @@ namespace tomcat {
         }
 
         void EvidenceSet::set_data_for(const string& node_label,
-                                       const Tensor3 data) {
+                                       const Tensor3& data) {
             if (!EXISTS(node_label, this->node_label_to_data)) {
                 throw TomcatModelException("The node " + node_label +
                                            "does not belong to the DBN Data.");

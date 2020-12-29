@@ -129,7 +129,7 @@ namespace tomcat {
              * @return
              */
             std::vector<std::shared_ptr<Node>>
-            get_nodes_by_label(const std::string& node_abel) const;
+            get_nodes_by_label(const std::string& node_label) const;
 
             /**
              * Returns timed node objects in topological order.

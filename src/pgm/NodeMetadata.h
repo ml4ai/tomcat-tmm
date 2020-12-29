@@ -3,8 +3,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 #include "utils/Definitions.h"
 
@@ -69,7 +69,7 @@ namespace tomcat {
              * @return Valid instance of a metadata object for the node
              */
             static NodeMetadata
-            create_multiple_time_link_metadata(std::string label,
+            create_multiple_time_link_metadata(const std::string& label,
                                                bool replicable,
                                                bool parameter,
                                                bool in_plate,
@@ -104,7 +104,7 @@ namespace tomcat {
              * @return Valid instance of a metadata object for the node
              */
             static NodeMetadata
-            create_single_time_link_metadata(std::string label,
+            create_single_time_link_metadata(const std::string& label,
                                              bool parameter,
                                              bool in_plate,
                                              int time_step,
@@ -152,8 +152,9 @@ namespace tomcat {
              *  in the previous or in the same time step as the node defined by
              *  the metadata.
              */
-            void add_parent_link(std::shared_ptr<NodeMetadata> parent_node,
-                                 bool time_crossing);
+            void
+            add_parent_link(const std::shared_ptr<NodeMetadata>& parent_node,
+                            bool time_crossing);
 
             /**
              * Returns the node's unique id in an unrolled DBN for an arbitrary
@@ -203,7 +204,7 @@ namespace tomcat {
              * checks in it, and to make this class consistent, proper public
              * static methods are provided to create valid instances.
              */
-            NodeMetadata(std::string label,
+            NodeMetadata(const std::string& label,
                          bool replicable,
                          bool parameter,
                          bool single_time_link,
@@ -281,7 +282,6 @@ namespace tomcat {
             // information is stored to avoid unnecessary CPD updates when
             // unrolling a DBN.
             bool replicable_parameter_parent = false;
-
         };
 
     } // namespace model

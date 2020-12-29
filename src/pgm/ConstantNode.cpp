@@ -6,24 +6,25 @@ namespace tomcat {
     namespace model {
 
         using namespace std;
-        
+
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        ConstantNode::ConstantNode(double value, string label) {
+        ConstantNode::ConstantNode(double value, const string& label) {
             this->assignment = Eigen::MatrixXd(1, 1);
-            this->assignment(0,0) = value;
+            this->assignment(0, 0) = value;
             this->create_default_metadata(label, 1);
         }
 
-        ConstantNode::ConstantNode(const Eigen::VectorXd& values, string label) {
+        ConstantNode::ConstantNode(const Eigen::VectorXd& values,
+                                   const string& label) {
             this->assignment = Eigen::MatrixXd(1, values.size());
             this->assignment.row(0) = values;
             this->create_default_metadata(label, values.size());
         }
 
         ConstantNode::ConstantNode(const Eigen::VectorXd&& values,
-                                   string label) {
+                                   const string& label) {
             this->assignment = Eigen::MatrixXd(1, values.size());
             this->assignment.row(0) = move(values);
             this->create_default_metadata(label, this->assignment.size());
@@ -48,20 +49,18 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void ConstantNode::create_default_metadata(string& label,
+        void ConstantNode::create_default_metadata(const string& label,
                                                    int sample_size) {
             NodeMetadata metadata =
                 NodeMetadata::create_single_time_link_metadata(
                     label, true, false, 0, sample_size, 1);
-            this->metadata =
-                make_shared<NodeMetadata>(move(metadata));
+            this->metadata = make_shared<NodeMetadata>(move(metadata));
         }
 
         unique_ptr<Node> ConstantNode::clone() const {
             unique_ptr<ConstantNode> new_node =
                 make_unique<ConstantNode>(*this);
-            new_node->metadata =
-                make_shared<NodeMetadata>(*this->metadata);
+            new_node->metadata = make_shared<NodeMetadata>(*this->metadata);
             return new_node;
         }
 

@@ -39,7 +39,7 @@ namespace tomcat {
              *
              * @param metadata: node's metadata
              */
-            Node(std::shared_ptr<NodeMetadata> metadata);
+            Node(const std::shared_ptr<NodeMetadata>& metadata);
 
             virtual ~Node();
 

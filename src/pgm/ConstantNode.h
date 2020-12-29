@@ -20,25 +20,27 @@ namespace tomcat {
              * @param value: node's numerical assignment
              * @param label: node's label
              */
-            ConstantNode(double value, std::string label = "unlabeled");
+            ConstantNode(double value, const std::string& label = "unlabeled");
 
             /**
-             * Creates a constant node with a multidimensional value assigned to it.
+             * Creates a constant node with a multidimensional value assigned to
+             * it.
              *
              * @param values: node's constant assignment
              * * @param label: node's label
              */
             ConstantNode(const Eigen::VectorXd& values,
-                         std::string label = "unlabeled");
+                         const std::string& label = "unlabeled");
 
             /**
-             * Creates a constant node with a multidimensional value assigned to it.
+             * Creates a constant node with a multidimensional value assigned to
+             * it.
              *
              * @param values: node's constant assignment
              * * @param label: node's label
              */
             ConstantNode(const Eigen::VectorXd&& values,
-                         std::string label = "unlabeled");
+                         const std::string& label = "unlabeled");
 
             ~ConstantNode();
 
@@ -62,7 +64,7 @@ namespace tomcat {
 
             std::string get_timed_name() const override;
 
-            //std::string get_timed_name(int time_step) const override;
+            // std::string get_timed_name(int time_step) const override;
 
           private:
             //------------------------------------------------------------------
@@ -73,10 +75,11 @@ namespace tomcat {
              * Creates a default metadata for a constant node.
              *
              * @param label: node's label
-             * @param sample_size: dimensionality of the value stored in the node.
+             * @param sample_size: dimensionality of the value stored in the
+             * node.
              */
-            void create_default_metadata(std::string& label, int sample_size);
-
+            void create_default_metadata(const std::string& label,
+                                         int sample_size);
         };
 
     } // namespace model
