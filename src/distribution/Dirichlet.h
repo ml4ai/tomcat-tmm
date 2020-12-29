@@ -98,6 +98,13 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
+             * Initializes and a constant vector alpha if all parameter nodes
+             * are constant to avoid looping over them every time alpha is
+             * requested.
+             */
+            void init_constant_alpha();
+
+            /**
              * Returns the parameter vectors \f$\alpha\f$s formed by the
              * assignments of the nodes in the list of parameters.
              *
@@ -120,6 +127,11 @@ namespace tomcat {
             Eigen::VectorXd
             sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
                             const Eigen::VectorXd& parameters) const;
+
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+            Eigen::MatrixXd constant_alpha;
         };
 
     } // namespace model

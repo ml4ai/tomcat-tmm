@@ -9,6 +9,8 @@
 #include <gsl/gsl_rng.h>
 
 #include "distribution/Categorical.h"
+#include "distribution/Dirichlet.h"
+#include "pgm/ConstantNode.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 #include "pgm/NodeMetadata.h"
@@ -886,7 +888,6 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling, ModelConfig) {
         << tables.tc_prior << "]";
     bool check = is_equal(estimated_theta_tc, tables.tc_prior, tolerance);
     BOOST_TEST(check, msg.str());
-
 
     MatrixXd estimated_pi_pbae =
         model->get_nodes_by_label(PI_PBAE)[0]->get_assignment();
