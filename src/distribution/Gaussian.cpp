@@ -12,10 +12,12 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Gaussian::Gaussian(shared_ptr<Node>& mean, shared_ptr<Node>& variance)
+        Gaussian::Gaussian(const shared_ptr<Node>& mean,
+                           const shared_ptr<Node>& variance)
             : Continuous({mean, variance}) {}
 
-        Gaussian::Gaussian(shared_ptr<Node>&& mean, shared_ptr<Node>&& variance)
+        Gaussian::Gaussian(shared_ptr<Node>&& mean,
+                           shared_ptr<Node>&& variance)
             : Continuous({move(mean), move(variance)}) {}
 
         Gaussian::Gaussian(const Eigen::VectorXd& parameters) {

@@ -12,7 +12,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Dirichlet::Dirichlet(vector<shared_ptr<Node>>& alpha)
+        Dirichlet::Dirichlet(const vector<shared_ptr<Node>>& alpha)
             : Continuous(alpha) {}
 
         Dirichlet::Dirichlet(vector<shared_ptr<Node>>&& alpha)
