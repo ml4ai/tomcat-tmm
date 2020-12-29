@@ -29,7 +29,7 @@ namespace tomcat {
              *
              * @param model: DBN
              */
-            GibbsSampler(std::shared_ptr<DynamicBayesNet> model,
+            GibbsSampler(const std::shared_ptr<DynamicBayesNet>& model,
                          int burn_in_period);
 
             ~GibbsSampler();
@@ -48,7 +48,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void sample_latent(std::shared_ptr<gsl_rng> random_generator,
+            void sample_latent(const std::shared_ptr<gsl_rng>& random_generator,
                                int num_samples) override;
 
             Tensor3 get_samples(const std::string& node_label) const override;

@@ -17,7 +17,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Sampler::Sampler() {}
 
-        Sampler::Sampler(shared_ptr<DynamicBayesNet> model) : model(model) {}
+        Sampler::Sampler(const shared_ptr<DynamicBayesNet>& model) : model
+        (model) {}
 
         Sampler::~Sampler() {}
 
@@ -30,7 +31,7 @@ namespace tomcat {
             this->sampled_node_labels = sampler.sampled_node_labels;
         }
 
-        void Sampler::sample(shared_ptr<gsl_rng> random_generator,
+        void Sampler::sample(const shared_ptr<gsl_rng>& random_generator,
                              int num_samples) {
             this->freeze_observable_nodes();
             this->sample_latent(random_generator, num_samples);

@@ -16,7 +16,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        GibbsSampler::GibbsSampler(shared_ptr<DynamicBayesNet> model,
+        GibbsSampler::GibbsSampler(const shared_ptr<DynamicBayesNet>& model,
                                    int burn_in_period)
             : Sampler(model), burn_in_period(burn_in_period) {}
 
@@ -44,8 +44,9 @@ namespace tomcat {
             this->iteration = sampler.iteration;
         }
 
-        void GibbsSampler::sample_latent(shared_ptr<gsl_rng> random_generator,
-                                         int num_samples) {
+        void
+        GibbsSampler::sample_latent(const shared_ptr<gsl_rng>& random_generator,
+                                    int num_samples) {
             // We will proceed from the root to the leaves so that child nodes
             // can update the sufficient statistics of parameter nodes correctly
             // given that parent nodes were already sampled.
@@ -83,7 +84,6 @@ namespace tomcat {
             LOG("Burn-in");
             boost::progress_display progress(this->burn_in_period);
 
-            // O(s*max{nct^2*min{kd, k^p(p-1) + d}, npk})
             for (int i = 0; i < this->burn_in_period + num_samples; i++) {
                 if (i >= burn_in_period && discard) {
                     discard = false;
@@ -91,15 +91,13 @@ namespace tomcat {
                     progress.restart(num_samples);
                 }
 
-                // O(min{nct^2kd, nct^2(k^p(p-1) + d)})
                 for (auto& node : data_nodes) {
-                    // O(min{ctkd, ct(k^p(p-1) + d)})
                     this->sample_data_node(random_generator, node, discard);
                 }
 
-                for (auto& node : parameter_nodes) { // O(npk)
+                for (auto& node : parameter_nodes) {
                     this->sample_parameter_node(
-                        random_generator, node, discard); // O(1)
+                        random_generator, node, discard);
                 }
 
                 ++progress;

@@ -8,7 +8,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        AncestralSampler::AncestralSampler(shared_ptr<DynamicBayesNet> model)
+        AncestralSampler::AncestralSampler(
+            const shared_ptr<DynamicBayesNet>& model)
             : Sampler(model) {}
 
         AncestralSampler::~AncestralSampler() {}
@@ -29,9 +30,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void
-        AncestralSampler::sample_latent(shared_ptr<gsl_rng> random_generator,
-                                        int num_samples) {
+        void AncestralSampler::sample_latent(
+            const shared_ptr<gsl_rng>& random_generator, int num_samples) {
             vector<shared_ptr<Node>> nodes_to_sample;
 
             // We start by sampling nodes in the root and keep moving forward
