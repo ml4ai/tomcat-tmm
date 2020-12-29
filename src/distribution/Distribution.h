@@ -74,8 +74,9 @@ namespace tomcat {
              * parameter node if the latter is shared among nodes over several
              * time steps.
              */
-            virtual void update_dependencies(Node::NodeMap& parameter_nodes_map,
-                                             int time_step) = 0;
+            virtual void
+            update_dependencies(const Node::NodeMap& parameter_nodes_map,
+                                int time_step) = 0;
 
             /**
              * Draws a sample from the distribution.
@@ -90,7 +91,7 @@ namespace tomcat {
              * @return A sample from the distribution.
              */
             virtual Eigen::VectorXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
                    int parameter_idx = 0) const = 0;
 
             /**
@@ -102,9 +103,8 @@ namespace tomcat {
              * @return Weighted sample.
              */
             virtual Eigen::VectorXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-            const Eigen::VectorXd& weights) const = 0;
-
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   const Eigen::VectorXd& weights) const = 0;
 
             /**
              * Draws a sample from a posterior computed by conjugacy using
@@ -122,7 +122,7 @@ namespace tomcat {
              * @return A sample from the posterior distribution
              */
             virtual Eigen::VectorXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 int parameter_idx,
                 const Eigen::VectorXd& sufficient_statistics) const = 0;
 

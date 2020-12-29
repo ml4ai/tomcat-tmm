@@ -13,7 +13,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Categorical::Categorical(shared_ptr<Node>& probabilities)
+        Categorical::Categorical(const shared_ptr<Node>& probabilities)
             : probabilities(probabilities) {}
 
         Categorical::Categorical(shared_ptr<Node>&& probabilities)
@@ -46,13 +46,12 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void
-        Categorical::update_dependencies(Node::NodeMap& parameter_nodes_map,
-                                         int time_step) {
+        void Categorical::update_dependencies(
+            const Node::NodeMap& parameter_nodes_map, int time_step) {
 
             string parameter_timed_name;
-            const NodeMetadata* metadata =
-                this->probabilities->get_metadata().get();
+            const shared_ptr<NodeMetadata>& metadata =
+                this->probabilities->get_metadata();
             if (metadata->is_replicable()) {
                 parameter_timed_name = metadata->get_timed_name(time_step);
             }
@@ -62,12 +61,13 @@ namespace tomcat {
             }
 
             if (parameter_nodes_map.count(parameter_timed_name) > 0) {
-                this->probabilities = parameter_nodes_map[parameter_timed_name];
+                this->probabilities =
+                    parameter_nodes_map.at(parameter_timed_name);
             }
         }
 
         Eigen::VectorXd
-        Categorical::sample(shared_ptr<gsl_rng> random_generator,
+        Categorical::sample(const shared_ptr<gsl_rng>& random_generator,
                             int parameter_idx) const {
             Eigen::MatrixXd probabilities =
                 this->probabilities->get_assignment();
@@ -78,9 +78,9 @@ namespace tomcat {
                                          probabilities.row(parameter_idx));
         }
 
-        Eigen::VectorXd
-        Categorical::sample_from_gsl(shared_ptr<gsl_rng> random_generator,
-                                     const Eigen::VectorXd& parameters) const {
+        Eigen::VectorXd Categorical::sample_from_gsl(
+            const shared_ptr<gsl_rng>& random_generator,
+            const Eigen::VectorXd& parameters) const {
 
             Eigen::VectorXd checked_parameters;
             // If for some reason, all the probabilities are zero, sample from a
@@ -115,7 +115,7 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        Categorical::sample(shared_ptr<gsl_rng> random_generator,
+        Categorical::sample(const shared_ptr<gsl_rng>& random_generator,
                             const Eigen::VectorXd& weights) const {
 
             // Parameter nodes are never in-plate. Therefore, their
@@ -133,7 +133,7 @@ namespace tomcat {
         }
 
         Eigen::VectorXd Categorical::sample_from_conjugacy(
-            shared_ptr<gsl_rng> random_generator,
+            const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,
             const Eigen::VectorXd& sufficient_statistics) const {
             throw invalid_argument(

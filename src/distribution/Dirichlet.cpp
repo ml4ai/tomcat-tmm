@@ -43,8 +43,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        Eigen::VectorXd Dirichlet::sample(shared_ptr<gsl_rng> random_generator,
-                                          int parameter_idx) const {
+        Eigen::VectorXd
+        Dirichlet::sample(const shared_ptr<gsl_rng>& random_generator,
+                          int parameter_idx) const {
             Eigen::VectorXd alpha = this->get_alpha(parameter_idx);
 
             return this->sample_from_gsl(random_generator, alpha);
@@ -64,7 +65,7 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        Dirichlet::sample_from_gsl(shared_ptr<gsl_rng> random_generator,
+        Dirichlet::sample_from_gsl(const shared_ptr<gsl_rng>& random_generator,
                                    const Eigen::VectorXd& parameters) const {
             int k = this->parameters.size();
             double* sample_ptr = new double[k];
@@ -79,7 +80,7 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        Dirichlet::sample(shared_ptr<gsl_rng> random_generator,
+        Dirichlet::sample(const shared_ptr<gsl_rng>& random_generator,
                           const Eigen::VectorXd& weights) const {
             Eigen::VectorXd alpha = this->get_alpha(0) * weights;
 
@@ -87,7 +88,7 @@ namespace tomcat {
         }
 
         Eigen::VectorXd Dirichlet::sample_from_conjugacy(
-            shared_ptr<gsl_rng> random_generator,
+            const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,
             const Eigen::VectorXd& sufficient_statistics) const {
 

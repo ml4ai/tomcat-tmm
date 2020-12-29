@@ -23,7 +23,7 @@ namespace tomcat {
              * @param probabilities: node which the assignment defines the set
              * of probabilities of the distribution
              */
-            Categorical(std::shared_ptr<Node>& probabilities);
+            Categorical(const std::shared_ptr<Node>& probabilities);
 
             /**
              * Creates an instance of a categorical distribution for node
@@ -68,11 +68,12 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void update_dependencies(Node::NodeMap& parameter_nodes_map,
+            void update_dependencies(const Node::NodeMap& parameter_nodes_map,
                                      int time_step) override;
 
-            Eigen::VectorXd sample(std::shared_ptr<gsl_rng> random_generator,
-                                   int parameter_idx) const override;
+            Eigen::VectorXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   int parameter_idx) const override;
 
             /**
              * Generates a sample from a categorical distribution with scaled
@@ -84,11 +85,11 @@ namespace tomcat {
              * @return Sample from a scaled categorical distribution.
              */
             Eigen::VectorXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const Eigen::VectorXd& weights) const override;
 
             Eigen::VectorXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 int parameter_idx,
                 const Eigen::VectorXd& sufficient_statistics) const override;
 
@@ -118,7 +119,7 @@ namespace tomcat {
              * @return A sample from a categorical distribution.
              */
             Eigen::VectorXd
-            sample_from_gsl(std::shared_ptr<gsl_rng> random_generator,
+            sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
                             const Eigen::VectorXd& parameters) const;
 
             /**

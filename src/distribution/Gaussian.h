@@ -28,8 +28,8 @@ namespace tomcat {
              * @param parameters: nodes which the assignments define the mean
              * and the variance of the distribution
              */
-            Gaussian(std::shared_ptr<Node>& mean,
-                     std::shared_ptr<Node>& variance);
+            Gaussian(const std::shared_ptr<Node>& mean,
+                     const std::shared_ptr<Node>& variance);
 
             /**
              * Creates an instance of a Gaussian distribution for node
@@ -67,8 +67,9 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            Eigen::VectorXd sample(std::shared_ptr<gsl_rng> random_generator,
-                                   int parameter_idx) const override;
+            Eigen::VectorXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   int parameter_idx) const override;
 
             /**
              * Generates a sample from a Gaussian distribution with scaled
@@ -80,11 +81,11 @@ namespace tomcat {
              * @return Sample from a scaled Gaussian distribution.
              */
             Eigen::VectorXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const Eigen::VectorXd& weights) const override;
 
             Eigen::VectorXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 int parameter_idx,
                 const Eigen::VectorXd& sufficient_statistics) const override;
 
@@ -124,7 +125,7 @@ namespace tomcat {
              * @return A sample from a Gaussian distribution.
              */
             Eigen::VectorXd
-            sample_from_gsl(std::shared_ptr<gsl_rng> random_generator,
+            sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
                             double mean,
                             double variance) const;
         };

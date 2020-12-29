@@ -1,7 +1,7 @@
 #pragma once
 
-#include "utils/Definitions.h"
 #include "distribution/Continuous.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -26,7 +26,7 @@ namespace tomcat {
              * @param parameters: nodes which the assignments define the set
              * of parameters of the distribution
              */
-            Dirichlet(std::vector<std::shared_ptr<Node>>& alpha);
+            Dirichlet(const std::vector<std::shared_ptr<Node>>& alpha);
 
             /**
              * Creates an instance of a Dirichlet distribution for node
@@ -62,8 +62,9 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            Eigen::VectorXd sample(std::shared_ptr<gsl_rng> random_generator,
-                                   int parameter_idx) const override;
+            Eigen::VectorXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   int parameter_idx) const override;
 
             /**
              * Generates a sample from a Dirichlet distribution with scaled
@@ -75,11 +76,11 @@ namespace tomcat {
              * @return Sample from a scaled Dirichlet distribution.
              */
             Eigen::VectorXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const Eigen::VectorXd& weights) const override;
 
-           Eigen::VectorXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+            Eigen::VectorXd sample_from_conjugacy(
+                const std::shared_ptr<gsl_rng>& random_generator,
                 int parameter_idx,
                 const Eigen::VectorXd& sufficient_statistics) const override;
 
@@ -117,7 +118,7 @@ namespace tomcat {
              * @return A sample from a Dirichlet distribution.
              */
             Eigen::VectorXd
-            sample_from_gsl(std::shared_ptr<gsl_rng> random_generator,
+            sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
                             const Eigen::VectorXd& parameters) const;
         };
 
