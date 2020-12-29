@@ -14,7 +14,7 @@ namespace tomcat {
                                int time_step,
                                const Eigen::MatrixXd& potential_function,
                                const CPD::TableOrderingMap& ordering_map,
-                               const string cpd_main_node_label)
+                               const string& cpd_main_node_label)
             : MessageNode(compose_label(label), time_step),
               original_potential_function(
                   ordering_map, potential_function, cpd_main_node_label) {

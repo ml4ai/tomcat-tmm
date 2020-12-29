@@ -77,7 +77,7 @@ namespace tomcat {
                        int time_step,
                        const Eigen::MatrixXd& potential_function,
                        const CPD::TableOrderingMap& ordering_map,
-                       const std::string cpd_node_label);
+                       const std::string& cpd_node_label);
 
             ~FactorNode();
 
