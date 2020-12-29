@@ -10,7 +10,7 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         CategoricalCPD::CategoricalCPD(
-            vector<shared_ptr<NodeMetadata>>& parent_node_order,
+            const vector<shared_ptr<NodeMetadata>>& parent_node_order,
             const vector<shared_ptr<Categorical>>& distributions)
             : CPD(parent_node_order) {
             this->init_from_distributions(distributions);
@@ -24,7 +24,7 @@ namespace tomcat {
         }
 
         CategoricalCPD::CategoricalCPD(
-            vector<shared_ptr<NodeMetadata>>& parent_node_order,
+            const vector<shared_ptr<NodeMetadata>>& parent_node_order,
             const Eigen::MatrixXd& probabilities)
             : CPD(parent_node_order) {
             this->init_from_matrix(probabilities);
@@ -102,7 +102,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd CategoricalCPD::sample_from_conjugacy(
-            shared_ptr<gsl_rng> random_generator,
+            const shared_ptr<gsl_rng>& random_generator,
             const vector<shared_ptr<Node>>& parent_nodes,
             int num_samples) const {
             throw invalid_argument(

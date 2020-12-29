@@ -12,7 +12,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         CPD::CPD() {}
 
-        CPD::CPD(vector<shared_ptr<NodeMetadata>>& parent_node_order)
+        CPD::CPD(const vector<shared_ptr<NodeMetadata>>& parent_node_order)
             : parent_node_order(parent_node_order) {
             this->init_id();
             this->fill_indexing_mapping();
@@ -24,8 +24,8 @@ namespace tomcat {
             this->fill_indexing_mapping();
         }
 
-        CPD::CPD(vector<shared_ptr<NodeMetadata>>& parent_node_order,
-                 vector<shared_ptr<Distribution>>& distributions)
+        CPD::CPD(const vector<shared_ptr<NodeMetadata>>& parent_node_order,
+                 const vector<shared_ptr<Distribution>>& distributions)
             : parent_node_order(parent_node_order),
               distributions(distributions) {
             this->init_id();
@@ -94,7 +94,7 @@ namespace tomcat {
             this->distributions = cpd.distributions;
         }
 
-        void CPD::update_dependencies(Node::NodeMap& parameter_nodes_map,
+        void CPD::update_dependencies(const Node::NodeMap& parameter_nodes_map,
                                       int time_step) {
 
             for (auto& distribution : this->distributions) {
@@ -105,7 +105,7 @@ namespace tomcat {
             this->updated = true;
         }
 
-        Eigen::MatrixXd CPD::sample(shared_ptr<gsl_rng> random_generator,
+        Eigen::MatrixXd CPD::sample(const shared_ptr<gsl_rng>& random_generator,
                                     const vector<shared_ptr<Node>>& index_nodes,
                                     int num_samples) const {
 
@@ -144,14 +144,15 @@ namespace tomcat {
                 const shared_ptr<Distribution>& distribution =
                     this->distributions[distribution_idx];
                 sample.row(i) = distribution->sample(random_generator,
-                                                      posterior_weights.row(i));
+                                                     posterior_weights.row(i));
             }
 
             return sample;
         }
 
         vector<int> CPD::get_indexed_distribution_indices(
-            vector<shared_ptr<Node>> index_nodes, int num_indices) const {
+            const vector<shared_ptr<Node>>& index_nodes,
+            int num_indices) const {
 
             Eigen::MatrixXd indices = Eigen::MatrixXd::Zero(num_indices, 1);
             for (auto& index_node : index_nodes) {
@@ -182,35 +183,6 @@ namespace tomcat {
             vector<int> vec(indices.data(), indices.data() + num_indices);
 
             return vec;
-        }
-
-        int
-        CPD::get_indexed_distribution_idx(vector<shared_ptr<Node>> index_nodes,
-                                          int parents_assignment_idx) const {
-            int distribution_idx = 0;
-
-            for (auto& index_node : index_nodes) {
-                int assignment_idx = parents_assignment_idx;
-
-                if (!index_node->get_metadata()->is_in_plate()) {
-                    // Index nodes are parents of the noe that owns this CPD.
-                    // An off-plate parent node has only a single assignment at
-                    // a time, which is used in combination with any other
-                    // in-plate parent node, across all of its assignment
-                    // indices.
-                    assignment_idx = 0;
-                }
-
-                string label = index_node->get_metadata()->get_label();
-                ParentIndexing indexing =
-                    this->parent_label_to_indexing.at(label);
-                int assignment =
-                    index_node->get_assignment()(assignment_idx, 0);
-                distribution_idx +=
-                    assignment * indexing.right_cumulative_cardinality;
-            }
-
-            return distribution_idx;
         }
 
         Eigen::MatrixXd CPD::get_posterior_weights(

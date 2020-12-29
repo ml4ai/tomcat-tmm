@@ -60,7 +60,8 @@ namespace tomcat {
              * @param distributions: list of categorical distributions
              */
             CategoricalCPD(
-                std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order,
+                const std::vector<std::shared_ptr<NodeMetadata>>&
+                    parent_node_order,
                 const std::vector<std::shared_ptr<Categorical>>& distributions);
 
             /**
@@ -83,9 +84,9 @@ namespace tomcat {
              * nodes' assignments for correct distribution indexing
              * @param probabilities: matrix containing probabilities
              */
-            CategoricalCPD(
-                std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order,
-                const Eigen::MatrixXd& probabilities);
+            CategoricalCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+                               parent_node_order,
+                           const Eigen::MatrixXd& probabilities);
 
             /**
              * Creates an instance of a Categorical CPD by transforming a
@@ -124,7 +125,7 @@ namespace tomcat {
                 const std::vector<double>& values) override;
 
             Eigen::MatrixXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 const std::vector<std::shared_ptr<Node>>& parent_nodes,
                 int num_samples) const override;
 

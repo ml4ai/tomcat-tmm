@@ -75,7 +75,8 @@ namespace tomcat {
              *
              * @param parent_node_order: evaluation order of the parent
              */
-            CPD(std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order);
+            CPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+                    parent_node_order);
 
             /**
              * Creates an abstract representation of a conditional probability
@@ -93,8 +94,10 @@ namespace tomcat {
              * @param distributions: distributions of the CPD
              * nodes' assignments for correct distribution indexing
              */
-            CPD(std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order,
-                std::vector<std::shared_ptr<Distribution>>& distributions);
+            CPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+                    parent_node_order,
+                const std::vector<std::shared_ptr<Distribution>>&
+                    distributions);
 
             /**
              * Creates an abstract representation of a conditional probability
@@ -148,7 +151,7 @@ namespace tomcat {
              * parameter node if the latter is shared among nodes over several
              * time steps.
              */
-            void update_dependencies(Node::NodeMap& parameter_nodes_map,
+            void update_dependencies(const Node::NodeMap& parameter_nodes_map,
                                      int time_step);
 
             /**
@@ -163,7 +166,7 @@ namespace tomcat {
              * @return A sample from one of the distributions in the CPD.
              */
             Eigen::MatrixXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const std::vector<std::shared_ptr<Node>>& index_nodes,
                    int num_samples) const;
 
@@ -197,12 +200,8 @@ namespace tomcat {
              * indexing nodes' assignments.
              */
             std::vector<int> get_indexed_distribution_indices(
-                std::vector<std::shared_ptr<Node>> index_nodes,
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
                 int num_indices) const;
-
-            int get_indexed_distribution_idx(
-                std::vector<std::shared_ptr<Node>> index_nodes,
-                int parents_assignment_idx) const;
 
             /**
              * Update the sufficient statistics of parameter nodes the cpd
@@ -287,7 +286,7 @@ namespace tomcat {
              * @return
              */
             virtual Eigen::MatrixXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 const std::vector<std::shared_ptr<Node>>& parent_nodes,
                 int num_samples) const = 0;
 

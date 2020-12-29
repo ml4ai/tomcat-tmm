@@ -10,7 +10,7 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         DirichletCPD::DirichletCPD(
-            vector<shared_ptr<NodeMetadata>>& parent_node_order,
+            const vector<shared_ptr<NodeMetadata>>& parent_node_order,
             const vector<shared_ptr<Dirichlet>>& distributions)
             : CPD(parent_node_order) {
 
@@ -26,7 +26,7 @@ namespace tomcat {
         }
 
         DirichletCPD::DirichletCPD(
-            vector<shared_ptr<NodeMetadata>>& parent_node_order,
+            const vector<shared_ptr<NodeMetadata>>& parent_node_order,
             const Eigen::MatrixXd& alphas)
             : CPD(parent_node_order) {
             this->init_from_matrix(alphas);
@@ -113,7 +113,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd DirichletCPD::sample_from_conjugacy(
-            shared_ptr<gsl_rng> random_generator,
+            const shared_ptr<gsl_rng>& random_generator,
             const vector<shared_ptr<Node>>& parent_nodes,
             int num_samples) const {
 
