@@ -18,8 +18,8 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         OnlineEstimation::OnlineEstimation(
-            MessageBrokerConfiguration config,
-            std::shared_ptr<MessageConverter> message_converter)
+            const MessageBrokerConfiguration& config,
+            const std::shared_ptr<MessageConverter>& message_converter)
             : config(config), message_converter(message_converter) {}
 
         OnlineEstimation::~OnlineEstimation() {}

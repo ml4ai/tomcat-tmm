@@ -24,7 +24,8 @@ namespace tomcat {
             }
         }
 
-        void EstimationProcess::add_estimator(shared_ptr<Estimator> estimator) {
+        void EstimationProcess::add_estimator(
+            const shared_ptr<Estimator>& estimator) {
             this->estimators.push_back(estimator);
         }
 
@@ -51,7 +52,8 @@ namespace tomcat {
             this->estimators = estimation.estimators;
         }
 
-        void EstimationProcess::estimate(shared_ptr<Estimator> estimator, const EvidenceSet& test_data) {
+        void EstimationProcess::estimate(const shared_ptr<Estimator>& estimator,
+                                         const EvidenceSet& test_data) {
             EvidenceSet new_test_data = test_data;
             string node_label = estimator->get_estimates().label;
             // Remove data from nodes that only have one instance in the

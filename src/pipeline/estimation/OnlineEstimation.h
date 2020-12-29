@@ -62,8 +62,8 @@ namespace tomcat {
              * from the message bus to data
              */
             OnlineEstimation(
-                MessageBrokerConfiguration config,
-                std::shared_ptr<MessageConverter> message_converter);
+                const MessageBrokerConfiguration& config,
+                const std::shared_ptr<MessageConverter>& message_converter);
 
             ~OnlineEstimation();
 

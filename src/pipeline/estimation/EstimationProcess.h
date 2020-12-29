@@ -61,7 +61,7 @@ namespace tomcat {
              *
              * @param estimator: Estimator
              */
-            void add_estimator(std::shared_ptr<Estimator> estimator);
+            void add_estimator(const std::shared_ptr<Estimator>& estimator);
 
             /**
              * Aks estimators to save the estimates computed. In a cross
@@ -128,7 +128,7 @@ namespace tomcat {
              * @param test_data: test data used to compute the estimations for
              * the model
              */
-            void estimate(std::shared_ptr<Estimator> estimator,
+            void estimate(const std::shared_ptr<Estimator>& estimator,
                           const EvidenceSet& test_data);
 
             //------------------------------------------------------------------

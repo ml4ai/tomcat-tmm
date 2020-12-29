@@ -16,7 +16,7 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         SumProductEstimator::SumProductEstimator(
-            shared_ptr<DynamicBayesNet> model,
+            const shared_ptr<DynamicBayesNet>& model,
             int inference_horizon,
             const std::string& node_label,
             const Eigen::VectorXd& assignment)

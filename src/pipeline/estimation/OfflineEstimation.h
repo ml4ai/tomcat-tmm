@@ -56,7 +56,7 @@ namespace tomcat {
              * @param test_data: data to estimate values over
              */
             void
-            run_estimation_thread(std::shared_ptr<Estimator> estimator,
+            run_estimation_thread(const std::shared_ptr<Estimator>& estimator,
                                   const EvidenceSet& test_data);
         };
 
