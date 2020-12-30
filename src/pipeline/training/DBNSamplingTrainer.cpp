@@ -53,9 +53,14 @@ namespace tomcat {
             this->param_label_to_samples.push_back(
                 unordered_map<string, Tensor3>());
             int split_idx = this->param_label_to_samples.size() - 1;
-            for (const auto& param_label : model->get_parameter_node_labels()) {
-                this->param_label_to_samples[split_idx][param_label] =
-                    this->sampler->get_samples(param_label);
+            for (const auto& param_node : model->get_parameter_nodes()) {
+                if (!dynamic_pointer_cast<RandomVariableNode>(param_node)
+                         ->is_frozen()) {
+                    const string& param_label =
+                        param_node->get_metadata()->get_label();
+                    this->param_label_to_samples[split_idx][param_label] =
+                        this->sampler->get_samples(param_label);
+                }
             }
 
             this->update_model_from_partials(split_idx, false);

@@ -1,10 +1,12 @@
 #include "GibbsSampler.h"
 
+#include <thread>
 #include <unordered_set>
 
 // This is deprecated. The new version is in boost/timer/progress_display.hpp
 // but only available for boost 1.72
 #include <boost/progress.hpp>
+#include <gsl/gsl_rng.h>
 
 #include "AncestralSampler.h"
 
@@ -17,8 +19,12 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         GibbsSampler::GibbsSampler(const shared_ptr<DynamicBayesNet>& model,
-                                   int burn_in_period)
-            : Sampler(model), burn_in_period(burn_in_period) {}
+                                   int burn_in_period,
+                                   int num_jobs)
+            : Sampler(model), burn_in_period(burn_in_period),
+              num_jobs(num_jobs) {
+            this->keep_sample_mutex = make_unique<mutex>();
+        }
 
         GibbsSampler::~GibbsSampler() {}
 
@@ -42,22 +48,38 @@ namespace tomcat {
             this->burn_in_period = sampler.burn_in_period;
             this->node_label_to_samples = sampler.node_label_to_samples;
             this->iteration = sampler.iteration;
+            this->keep_sample_mutex = make_unique<mutex>();
         }
 
         void
         GibbsSampler::sample_latent(const shared_ptr<gsl_rng>& random_generator,
                                     int num_samples) {
-            // We will proceed from the root to the leaves so that child nodes
+            this->reset();
+            // List of all nodes sampled: parameter and data nodes.
+            vector<shared_ptr<Node>> sampled_nodes;
+            vector<shared_ptr<Node>> parameter_nodes;
+
+            // We divide data nodes in two categories: data nodes at even and
+            // odd time steps. This guarantees that nodes in each of these
+            // categories can be sampled in parallel as nodes from a time
+            // step can only depend on nodes from previous, current
+            // or subsequent time steps.
+            vector<vector<shared_ptr<Node>>> even_time_data_nodes_per_job(
+                this->num_jobs);
+            vector<vector<shared_ptr<Node>>> odd_time_data_nodes_per_job(
+                this->num_jobs);
+            int time_steps = this->model->get_time_steps();
+            int time_steps_per_job =
+                ceil(time_steps / (double)(2 * this->num_jobs));
+
+            // We proceed from the root to the leaves so that child nodes
             // can update the sufficient statistics of parameter nodes correctly
             // given that parent nodes were already sampled.
-            this->reset();
-            vector<shared_ptr<Node>> data_nodes;
-            vector<shared_ptr<Node>> parameter_nodes;
-            vector<shared_ptr<Node>> latent_nodes;
             for (auto& node : this->model->get_nodes_topological_order()) {
+                shared_ptr<RandomVariableNode> rv_node =
+                    dynamic_pointer_cast<RandomVariableNode>(node);
+
                 if (node->get_metadata()->is_parameter()) {
-                    shared_ptr<RandomVariableNode> rv_node =
-                        dynamic_pointer_cast<RandomVariableNode>(node);
                     if (!rv_node->is_frozen()) {
                         if (this->max_time_step_to_sample < 0 ||
                             rv_node->get_time_step() <=
@@ -65,24 +87,51 @@ namespace tomcat {
                             // TODO - change this if we need to have a parameter
                             //  that depends on other parameters.
                             parameter_nodes.push_back(node);
-                            latent_nodes.push_back(node);
+                            sampled_nodes.push_back(node);
                         }
                     }
                 }
                 else {
-                    // Observable nodes (frozen) need to be processed to update
-                    // the sufficient statistics of the distribution they depend
-                    // on.
-                    data_nodes.push_back(node);
-                    latent_nodes.push_back(node);
+                    // We don't check if a data node is frozen to insert it
+                    // on the list because even the frozen ones (observable
+                    // nodes) need to be processed to update the sufficient
+                    // statistics of the parameter nodes their CPDs depend on.
+                    sampled_nodes.push_back(node);
+
+                    int job = 0;
+                    int time_step = rv_node->get_time_step();
+                    if (time_step % 2 == 0) {
+                        job = time_step / (2 * time_steps_per_job);
+                        even_time_data_nodes_per_job[job].push_back(node);
+                    }
+                    else {
+                        job = (time_step - 1) / (2 * time_steps_per_job);
+                        odd_time_data_nodes_per_job[job].push_back(node);
+                    }
                 }
             }
 
             this->fill_initial_samples(random_generator);
-            this->init_samples_storage(num_samples, latent_nodes);
+            this->init_samples_storage(num_samples, sampled_nodes);
             bool discard = true;
             LOG("Burn-in");
             boost::progress_display progress(this->burn_in_period);
+
+            vector<shared_ptr<gsl_rng>> random_generators_per_job;
+            if (this->num_jobs == 1) {
+                // Use the main thread random generator
+                random_generators_per_job.push_back(random_generator);
+            }
+            else {
+                // Use the main thread random generator to generate individual
+                // random number generators with different seeds per thread
+                for (int job = 0; job < this->num_jobs; job++) {
+                    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+                    long int seed = gsl_rng_uniform_int(gen.get(), 1000);
+                    gsl_rng_set(gen.get(), seed);
+                    random_generators_per_job.push_back(move(gen));
+                }
+            }
 
             for (int i = 0; i < this->burn_in_period + num_samples; i++) {
                 if (i >= burn_in_period && discard) {
@@ -91,9 +140,14 @@ namespace tomcat {
                     progress.restart(num_samples);
                 }
 
-                for (auto& node : data_nodes) {
-                    this->sample_data_node(random_generator, node, discard);
-                }
+                this->sample_data_nodes_in_parallel(
+                    random_generators_per_job,
+                    even_time_data_nodes_per_job,
+                    discard);
+
+                this->sample_data_nodes_in_parallel(random_generators_per_job,
+                                                    odd_time_data_nodes_per_job,
+                                                    discard);
 
                 for (auto& node : parameter_nodes) {
                     this->sample_parameter_node(
@@ -143,10 +197,52 @@ namespace tomcat {
             }
         }
 
+        void GibbsSampler::sample_data_nodes_in_parallel(
+            const std::vector<std::shared_ptr<gsl_rng>>&
+                random_generators_per_job,
+            const std::vector<std::vector<std::shared_ptr<Node>>>&
+                nodes_per_job,
+            bool discard) {
+
+            if (this->num_jobs == 1) {
+                // Avoid overhead of creating a new thread and use the main one.
+                this->run_data_node_thread(random_generators_per_job.at(0),
+                                           nodes_per_job.at(0),
+                                           discard);
+            }
+            else {
+                vector<thread> data_node_threads;
+                for (int job = 0; job < this->num_jobs; job++) {
+                    thread data_node_thread(&GibbsSampler::run_data_node_thread,
+                                            this,
+                                            random_generators_per_job.at(job),
+                                            nodes_per_job.at(job),
+                                            discard);
+                    data_node_threads.push_back(move(data_node_thread));
+                }
+
+                for (auto& data_node_thread : data_node_threads) {
+                    data_node_thread.join();
+                }
+            }
+        }
+
+        void GibbsSampler::run_data_node_thread(
+            const std::shared_ptr<gsl_rng>& random_generator,
+            const std::vector<std::shared_ptr<Node>>& nodes,
+            bool discard) {
+
+            for (auto& node : nodes) {
+                this->sample_data_node(random_generator, node, discard);
+            }
+        }
+
         void GibbsSampler::sample_data_node(
             const shared_ptr<gsl_rng>& random_generator,
             const shared_ptr<Node>& node,
             bool discard) {
+
+            //            cout << this_thread::get_id() << endl;
 
             shared_ptr<RandomVariableNode> rv_node =
                 dynamic_pointer_cast<RandomVariableNode>(node);
@@ -168,6 +264,8 @@ namespace tomcat {
         GibbsSampler::keep_sample(const shared_ptr<RandomVariableNode>& node,
                                   const Eigen::MatrixXd& sample) {
             if (sample.rows() == 1) {
+                scoped_lock lock(*this->keep_sample_mutex);
+
                 string node_label = node->get_metadata()->get_label();
                 this->sampled_node_labels.insert(node_label);
                 int time_step = node->get_time_step();

@@ -2,6 +2,9 @@
 
 #include "sampling/Sampler.h"
 
+#include <memory>
+#include <mutex>
+
 #include "utils/Definitions.h"
 
 namespace tomcat {
@@ -28,9 +31,14 @@ namespace tomcat {
              * number generator.
              *
              * @param model: DBN
+             * @param burn_in_period: number of passes before samples are stored
+             * @param num_jobs: number of threads created for parallel
+             * sampling. If 1, no parallel processing is performed and  the code
+             * runs in the main thread.
              */
             GibbsSampler(const std::shared_ptr<DynamicBayesNet>& model,
-                         int burn_in_period);
+                         int burn_in_period,
+                         int num_jobs = 1);
 
             ~GibbsSampler();
 
@@ -84,6 +92,35 @@ namespace tomcat {
             void init_samples_storage(
                 int num_samples,
                 const std::vector<std::shared_ptr<Node>>& latent_nodes);
+
+            /**
+             * Sample a collection of independent data nodes in parallel.
+             *
+             * @param random_generators_per_job: random number generators to
+             * use in each job
+             * @param nodes_per_job: list of data nodes to process in each job
+             * @param discard: whether samples generated must be discarded or
+             * not
+             */
+            void sample_data_nodes_in_parallel(
+                const std::vector<std::shared_ptr<gsl_rng>>&
+                    random_generators_per_job,
+                const std::vector<std::vector<std::shared_ptr<Node>>>&
+                    nodes_per_job,
+                bool discard);
+
+            /**
+             * Samples a series of data nodes from their posterior distribution.
+             *
+             * @param random_generator: random number generator
+             * @param nodes: data nodes to be processed
+             * @param discard: indicates whether the samples should be discarded
+             * or stored
+             */
+            void run_data_node_thread(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::vector<std::shared_ptr<Node>>& nodes,
+                bool discard);
 
             /**
              * Samples from the posterior distribution of a data node
@@ -155,6 +192,13 @@ namespace tomcat {
             std::unordered_map<std::string, Tensor3> node_label_to_samples;
 
             int iteration = 0;
+
+            // Mutex to handle race condition when multiple threads try to
+            // store samples at the same time.
+            std::unique_ptr<std::mutex> keep_sample_mutex;
+
+            // Number of threads created for parallel sampling.
+            int num_jobs = 1;
         };
 
     } // namespace model

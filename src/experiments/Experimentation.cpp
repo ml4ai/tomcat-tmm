@@ -91,10 +91,13 @@ namespace tomcat {
                                                    final_input_dir);
         }
 
-        void Experimentation::train_using_gibbs(int burn_in, int num_samples) {
+        void Experimentation::train_using_gibbs(int burn_in,
+                                                int num_samples,
+                                                int num_jobs) {
             this->trainer = make_shared<DBNSamplingTrainer>(
                 this->gen,
-                make_shared<GibbsSampler>(this->tomcat->get_model(), burn_in),
+                make_shared<GibbsSampler>(
+                    this->tomcat->get_model(), burn_in, num_jobs),
                 num_samples);
         }
 

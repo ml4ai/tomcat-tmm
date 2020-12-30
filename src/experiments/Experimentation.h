@@ -105,7 +105,8 @@ namespace tomcat {
 
             void load_model_from(const std::string& input_dir);
 
-            void train_using_gibbs(int burn_in, int num_samples);
+            void
+            train_using_gibbs(int burn_in, int num_samples, int num_jobs = 4);
 
             void save_model(const std::string& output_dir,
                             bool save_partials = false);

@@ -16,12 +16,14 @@ namespace tomcat {
             : parent_node_order(parent_node_order) {
             this->init_id();
             this->fill_indexing_mapping();
+            this->sufficient_statistics_mutex = make_unique<mutex>();
         }
 
         CPD::CPD(vector<shared_ptr<NodeMetadata>>&& parent_node_order)
             : parent_node_order(move(parent_node_order)) {
             this->init_id();
             this->fill_indexing_mapping();
+            this->sufficient_statistics_mutex = make_unique<mutex>();
         }
 
         CPD::CPD(const vector<shared_ptr<NodeMetadata>>& parent_node_order,
@@ -30,6 +32,7 @@ namespace tomcat {
               distributions(distributions) {
             this->init_id();
             this->fill_indexing_mapping();
+            this->sufficient_statistics_mutex = make_unique<mutex>();
         }
 
         CPD::CPD(vector<shared_ptr<NodeMetadata>>&& parent_node_order,
@@ -38,6 +41,7 @@ namespace tomcat {
               distributions(move(distributions)) {
             this->init_id();
             this->fill_indexing_mapping();
+            this->sufficient_statistics_mutex = make_unique<mutex>();
         }
 
         CPD::~CPD() {}
@@ -92,6 +96,7 @@ namespace tomcat {
             this->parent_label_to_indexing = cpd.parent_label_to_indexing;
             this->parent_node_order = cpd.parent_node_order;
             this->distributions = cpd.distributions;
+            this->sufficient_statistics_mutex = make_unique<mutex>();
         }
 
         void CPD::update_dependencies(const Node::NodeMap& parameter_nodes_map,
