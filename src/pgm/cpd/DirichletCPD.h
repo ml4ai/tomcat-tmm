@@ -1,8 +1,8 @@
 #pragma once
 
-#include "utils/Definitions.h"
 #include "distribution/Dirichlet.h"
 #include "pgm/cpd/CPD.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -62,7 +62,8 @@ namespace tomcat {
              * @param distributions: list of Dirichlet distributions
              */
             DirichletCPD(
-                std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order,
+                const std::vector<std::shared_ptr<NodeMetadata>>&
+                    parent_node_order,
                 const std::vector<std::shared_ptr<Dirichlet>>& distributions);
 
             /**
@@ -85,9 +86,9 @@ namespace tomcat {
              * nodes' assignments for correct distribution indexing
              * @param cpd_table: matrix containing a \f$\alpha\f$s
              */
-            DirichletCPD(
-                std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order,
-                const Eigen::MatrixXd& alphas);
+            DirichletCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+                             parent_node_order,
+                         const Eigen::MatrixXd& alphas);
 
             /**
              * Creates an instance of a Dirichlet CPD table by transforming a
@@ -123,10 +124,10 @@ namespace tomcat {
             std::string get_description() const override;
 
             void add_to_sufficient_statistics(
-                const Eigen::VectorXd& sample) override;
+                const std::vector<double>& values) override;
 
             Eigen::MatrixXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 const std::vector<std::shared_ptr<Node>>& parent_nodes,
                 int num_samples) const override;
 

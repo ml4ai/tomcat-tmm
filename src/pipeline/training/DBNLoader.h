@@ -29,8 +29,8 @@ namespace tomcat {
              * are stored
              * @param freeze_loaded_nodes: whether loaded nodes should be frozen
              */
-            DBNLoader(std::shared_ptr<DynamicBayesNet> model,
-                      std::string input_folder_path,
+            DBNLoader(const std::shared_ptr<DynamicBayesNet>& model,
+                      const std::string& input_folder_path,
                       bool freeze_loaded_nodes = true);
 
             ~DBNLoader();

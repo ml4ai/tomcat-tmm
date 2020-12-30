@@ -12,8 +12,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Gaussian::Gaussian(shared_ptr<Node>& mean,
-                           shared_ptr<Node>& variance)
+        Gaussian::Gaussian(const shared_ptr<Node>& mean,
+                           const shared_ptr<Node>& variance)
             : Continuous({mean, variance}) {}
 
         Gaussian::Gaussian(shared_ptr<Node>&& mean,
@@ -24,8 +24,7 @@ namespace tomcat {
             ConstantNode mean(parameters[PARAMETER_INDEX::mean]);
             ConstantNode variance(parameters[PARAMETER_INDEX::variance]);
 
-            this->parameters.push_back(
-                make_shared<ConstantNode>(move(mean)));
+            this->parameters.push_back(make_shared<ConstantNode>(move(mean)));
             this->parameters.push_back(
                 make_shared<ConstantNode>(move(variance)));
         }
@@ -48,7 +47,7 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
         Eigen::VectorXd
-        Gaussian::sample(shared_ptr<gsl_rng> random_generator,
+        Gaussian::sample(const shared_ptr<gsl_rng>& random_generator,
                          int parameter_idx) const {
 
             Eigen::VectorXd parameters = this->get_parameters(parameter_idx);
@@ -81,7 +80,7 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        Gaussian::sample_from_gsl(shared_ptr<gsl_rng> random_generator,
+        Gaussian::sample_from_gsl(const shared_ptr<gsl_rng>& random_generator,
                                   double mean,
                                   double variance) const {
 
@@ -95,12 +94,10 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        Gaussian::sample(shared_ptr<gsl_rng> random_generator,
-                         int parameter_idx,
+        Gaussian::sample(const shared_ptr<gsl_rng>& random_generator,
                          const Eigen::VectorXd& weights) const {
 
-            Eigen::VectorXd parameters =
-                this->get_parameters(parameter_idx) * weights;
+            Eigen::VectorXd parameters = this->get_parameters(0) * weights;
             double mean = parameters(PARAMETER_INDEX::mean);
             double variance = parameters(PARAMETER_INDEX::variance);
 
@@ -108,17 +105,15 @@ namespace tomcat {
         }
 
         Eigen::VectorXd Gaussian::sample_from_conjugacy(
-            shared_ptr<gsl_rng> random_generator,
+            const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,
             const Eigen::VectorXd& sufficient_statistics) const {
-            throw invalid_argument(
-                "Not implemented yet.");
+            throw invalid_argument("Not implemented yet.");
         }
 
-        double Gaussian::get_pdf(const Eigen::VectorXd& value,
-                                 int parameter_idx) const {
+        double Gaussian::get_pdf(const Eigen::VectorXd& value) const {
 
-            Eigen::VectorXd parameters = this->get_parameters(parameter_idx);
+            Eigen::VectorXd parameters = this->get_parameters(0);
             double mean = parameters(PARAMETER_INDEX::mean);
             double variance = parameters(PARAMETER_INDEX::variance);
 

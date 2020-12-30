@@ -1,7 +1,7 @@
 #include "DBNSaver.h"
 
-#include <fmt/format.h>
 #include <boost/filesystem.hpp>
+#include <fmt/format.h>
 
 #include "utils/FileHandler.h"
 
@@ -14,9 +14,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        DBNSaver::DBNSaver(shared_ptr<DynamicBayesNet> model,
-                           shared_ptr<DBNTrainer> trainer,
-                           string output_folder_path,
+        DBNSaver::DBNSaver(const shared_ptr<DynamicBayesNet>& model,
+                           const shared_ptr<DBNTrainer>& trainer,
+                           const string& output_folder_path,
                            bool include_partials)
             : model(model), trainer(trainer),
               output_folder_path(output_folder_path),
@@ -43,10 +43,8 @@ namespace tomcat {
             this->cv_step++;
         }
 
-        void DBNSaver::save_partials(const string& model_dir)
-        const {
-            const string partials_dir =
-                fmt::format("{}/partials", model_dir);
+        void DBNSaver::save_partials(const string& model_dir) const {
+            const string partials_dir = fmt::format("{}/partials", model_dir);
             fs::create_directories(partials_dir);
 
             unordered_map<string, Tensor3> partials =

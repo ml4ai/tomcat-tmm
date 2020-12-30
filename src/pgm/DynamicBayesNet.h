@@ -129,7 +129,7 @@ namespace tomcat {
              * @return
              */
             std::vector<std::shared_ptr<Node>>
-            get_nodes_by_label(const std::string& node_abel) const;
+            get_nodes_by_label(const std::string& node_label) const;
 
             /**
              * Returns timed node objects in topological order.
@@ -297,10 +297,11 @@ namespace tomcat {
                           int target_time_step);
 
             /**
-             * For each one of the nodes, define it's concrete CPD from the list
-             * of possible CPDs in its metadata.
+             * For each one of the nodes, this method sets its parents,
+             * children and concrete CPD from the list of possible CPDs in
+             * the node's metadata.
              */
-            void set_nodes_cpd();
+            void set_nodes_parents_children_and_cpd();
 
             /**
              * Replaces node objects in the CPDs that depend on other nodes with

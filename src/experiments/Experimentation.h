@@ -55,7 +55,7 @@ namespace tomcat {
              * @param test_set: data used to evaluate the predictions and
              * inferences
              */
-            Experimentation(std::shared_ptr<gsl_rng> gen,
+            Experimentation(const std::shared_ptr<gsl_rng>& gen,
                             const std::string& experiment_id,
                             MODEL_VERSION model_version,
                             const EvidenceSet& training_set,
@@ -70,7 +70,7 @@ namespace tomcat {
              * @param data: data to be split using cross validation
              * @param num_folds: number of folds in the cross validation
              */
-            Experimentation(std::shared_ptr<gsl_rng> gen,
+            Experimentation(const std::shared_ptr<gsl_rng>& gen,
                             const std::string& experiment_id,
                             MODEL_VERSION model_version,
                             const EvidenceSet& data,
@@ -82,7 +82,7 @@ namespace tomcat {
              * @param gen: random number generator
              * @param model_version: version of the ToMCAT model
              */
-            Experimentation(std::shared_ptr<gsl_rng> gen,
+            Experimentation(const std::shared_ptr<gsl_rng>& gen,
                             MODEL_VERSION model_version);
 
             ~Experimentation();
@@ -113,24 +113,24 @@ namespace tomcat {
             void compute_baseline_estimates_for(
                 const std::string& node_label,
                 int inference_horizon,
-                Eigen::VectorXd assignment = Eigen::VectorXd(0));
+                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
 
             void compute_estimates_for(
                 const std::string& node_label,
                 int inference_horizon,
-                Eigen::VectorXd assignment = Eigen::VectorXd(0));
+                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
 
             void compute_baseline_eval_scores_for(
                 const std::string& node_label,
                 int inference_horizon,
-                std::vector<MEASURES> measures,
-                Eigen::VectorXd assignment = Eigen::VectorXd(0));
+                const std::vector<MEASURES>& measures,
+                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
 
             void compute_eval_scores_for(
                 const std::string& node_label,
                 int inference_horizon,
-                std::vector<MEASURES> measures,
-                Eigen::VectorXd assignment = Eigen::VectorXd(0));
+                const std::vector<MEASURES>& measures,
+                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
 
             void train_and_evaluate(const std::string& output_dir,
                                     bool evaluate_on_partials = false);
@@ -161,11 +161,12 @@ namespace tomcat {
 
             bool should_eval_last_only(const std::string& node_label);
 
-            void compute_eval_scores_for(const std::string& node_label,
-                                         int inference_horizon,
-                                         std::vector<MEASURES> measures,
-                                         Eigen::VectorXd assignment,
-                                         std::shared_ptr<Estimator> estimator);
+            void compute_eval_scores_for(
+                const std::string& node_label,
+                int inference_horizon,
+                const std::vector<MEASURES>& measures,
+                const Eigen::VectorXd& assignment,
+                const std::shared_ptr<Estimator>& estimator);
 
             /**
              * Run evaluation for each one of the models defined by each one of

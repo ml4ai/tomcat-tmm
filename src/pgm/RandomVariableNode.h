@@ -2,8 +2,8 @@
 
 #include "Node.h"
 
-#include "utils/Definitions.h"
 #include "pgm/cpd/CPD.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -24,7 +24,9 @@ namespace tomcat {
          * assignment of this node can change as we sample from it's posterior
          * distribution over the other nodes' assignments in the unrolled DBN.
          */
-        class RandomVariableNode : public Node {
+        class RandomVariableNode
+            : public Node,
+              public std::enable_shared_from_this<RandomVariableNode> {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -39,7 +41,7 @@ namespace tomcat {
              * @param time_step: node's time step in an unrolled DBN (0 by
              * default)
              */
-            RandomVariableNode(std::shared_ptr<NodeMetadata>& metadata,
+            RandomVariableNode(const std::shared_ptr<NodeMetadata>& metadata,
                                int time_step = 0);
 
             /**
@@ -92,8 +94,8 @@ namespace tomcat {
              * parameter node if the latter is shared among nodes over several
              * time steps.
              */
-            void update_cpd_templates_dependencies(NodeMap& parameter_nodes_map,
-                                                   int time_step);
+            void update_cpd_templates_dependencies(
+                const NodeMap& parameter_nodes_map, int time_step);
 
             /**
              * Create new references for the CPD templates of the node.
@@ -101,46 +103,47 @@ namespace tomcat {
             void clone_cpd_templates();
 
             /**
-             * Generate samples from this node's CPD given its parents
-             * assignments. If the node belongs to a plate, multiple samples are
-             * generated: one for each in-plate copy. Otherwise a single sample
-             * is returned.
+             * Generates samples from this node's CPD given its parents'
+             * assignments.
              *
              * @param random_generator: random number generator
-             * @param parent_nodes: list of parent nodes' timed instances
              * @param num_samples: number of samples to generate
-             * @param equal_samples: whether the samples generated must be the
-             * same
              *
              * @return Samples from the node's CPD.
              */
             Eigen::MatrixXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-                   const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                   int num_samples,
-                   bool equal_samples = false) const;
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   int num_samples) const;
 
             /**
-             * Generate samples from this node's CPD scaled by some weights
-             * given its parents assignments. If the node belongs to a plate,
-             * multiple samples are generated: one for each in-plate copy.
-             * Otherwise a single sample is returned.
+             * Generates a sample for the node from its posterior distribution.
+             * If the node is an in-plate node, multiple samples will be
+             * generated for the node (one per row). The number of total
+             * samples are defined by the number of elements in-plate.
+             *
+             * Note: This method changes this node assignment temporarily while
+             * calculating the weights, therefore it's not const. The final
+             * state of the this object is unchanged though.
              *
              * @param random_generator: random number generator
-             * @param parent_nodes: list of parent nodes' timed instances
-             * @param num_samples: number of samples to generate
-             * @param weights: scale coefficients to the underlying distribution
-             * @param equal_samples: whether the samples generated must be the
-             * same
              *
-             * @return Samples from the node's CPD.
+             * @return Sample for the node from its posterior
              */
-            Eigen::MatrixXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-                   const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                   int num_samples,
-                   Eigen::MatrixXd weights,
-                   bool equal_samples = false) const;
+            Eigen::MatrixXd sample_from_posterior(
+                const std::shared_ptr<gsl_rng>& random_generator);
+
+            /**
+             * Returns p(children(node)|node). The posterior of a node is
+             * given by p(node|parents(node)) * p(children(node)|node). We
+             * call the second term, the posterior weights here.
+             *
+             * Note: This method changes this node assignment temporarily while
+             * calculating the weights, therefore it's not const. The final
+             * state of the this object is unchanged though.
+             *
+             * @return Posterior weights
+             */
+            Eigen::MatrixXd get_posterior_weights();
 
             /**
              * Samples a node using conjugacy properties and sufficient
@@ -150,43 +153,31 @@ namespace tomcat {
              * @return
              */
             Eigen::MatrixXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 const std::vector<std::shared_ptr<Node>>& parent_nodes,
                 int num_samples) const;
-
-            /**
-             * Get pdfs for the node's assignments given its parents'
-             * assignments.
-             *
-             * @param parent_nodes: list of parent nodes' timed instances
-             *
-             * @return Pdfs relative to the node's assignments.
-             */
-            Eigen::VectorXd get_pdfs(
-                const std::vector<std::shared_ptr<Node>>& parent_nodes) const;
 
             /**
              * Update sufficient statistics of parent parameter nodes with this
              * node's assignment(s).
              *
-             * @param parent_nodes: list of parent nodes' timed instances
              */
-            void update_parents_sufficient_statistics(
-                const std::vector<std::shared_ptr<Node>>& parent_nodes);
+            void update_parents_sufficient_statistics();
 
             /**
-             * Adds a value to the sufficient statistics of a parameter node's
-             * CPD.
+             * Adds a set of values to the sufficient statistics of a
+             * parameter node's CPD.
              *
-             * @param sample: Sample to add to the sufficient statistics. The
+             * @param values: Values to add to the sufficient statistics. The
              * update_parents_sufficient_statistics will call this function for
              * parameter nodes at some point.
              */
-            void add_to_sufficient_statistics(const Eigen::VectorXd& sample);
+            void
+            add_to_sufficient_statistics(const std::vector<double>& values);
 
             /**
-             * Clear the values stored as sufficient statistics in the node's
-             * CPD.
+             * Clears the values stored as sufficient statistics in the
+             * parameter node CPD.
              */
             void reset_sufficient_statistics();
 
@@ -205,7 +196,7 @@ namespace tomcat {
              *
              * @param cpd: CPD
              */
-            void add_cpd_template(std::shared_ptr<CPD>& cpd);
+            void add_cpd_template(const std::shared_ptr<CPD>& cpd);
 
             /**
              * Adds CPD to the list of possible CPDs of the node.
@@ -231,13 +222,22 @@ namespace tomcat {
 
             void set_time_step(int time_step);
 
-            void set_assignment(Eigen::MatrixXd assignment);
+            void set_assignment(const Eigen::MatrixXd& assignment);
 
             bool is_frozen() const;
 
+            const std::shared_ptr<CPD>& get_cpd() const;
+
             void set_cpd(const std::shared_ptr<CPD>& cpd);
 
-            const std::shared_ptr<CPD>& get_cpd() const;
+            const std::vector<std::shared_ptr<Node>>& get_parents() const;
+
+            const std::vector<std::shared_ptr<Node>>& get_children() const;
+
+            void set_parents(const std::vector<std::shared_ptr<Node>>& parents);
+
+            void
+            set_children(const std::vector<std::shared_ptr<Node>>& children);
 
           private:
             //------------------------------------------------------------------
@@ -264,8 +264,8 @@ namespace tomcat {
              * @return Unique string formed by a list of random variable node's
              * labels
              */
-            std::string
-            get_unique_key_from_labels(std::vector<std::string> labels) const;
+            std::string get_unique_key_from_labels(
+                const std::vector<std::string>& labels) const;
 
             // -----------------------------------------------------------------
             // Data members
@@ -302,6 +302,10 @@ namespace tomcat {
              * constant node.
              */
             bool frozen = false;
+
+            std::vector<std::shared_ptr<Node>> parents;
+
+            std::vector<std::shared_ptr<Node>> children;
         };
 
     } // namespace model

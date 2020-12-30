@@ -10,8 +10,8 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         GaussianCPD::GaussianCPD(
-            vector<shared_ptr<NodeMetadata>>& parent_node_order,
-            vector<shared_ptr<Gaussian>>& distributions)
+            const vector<shared_ptr<NodeMetadata>>& parent_node_order,
+            const vector<shared_ptr<Gaussian>>& distributions)
             : CPD(parent_node_order) {
 
             this->distributions.reserve(distributions.size());
@@ -32,7 +32,7 @@ namespace tomcat {
         }
 
         GaussianCPD::GaussianCPD(
-            vector<shared_ptr<NodeMetadata>>& parent_node_order,
+            const vector<shared_ptr<NodeMetadata>>& parent_node_order,
             const Eigen::MatrixXd& parameters)
             : CPD(parent_node_order) {
             this->init_from_matrix(parameters);
@@ -73,8 +73,7 @@ namespace tomcat {
         }
 
         unique_ptr<CPD> GaussianCPD::clone() const {
-            unique_ptr<GaussianCPD> new_cpd =
-                make_unique<GaussianCPD>(*this);
+            unique_ptr<GaussianCPD> new_cpd = make_unique<GaussianCPD>(*this);
             new_cpd->clone_distributions();
             return new_cpd;
         }
@@ -99,22 +98,19 @@ namespace tomcat {
         }
 
         void GaussianCPD::add_to_sufficient_statistics(
-            const Eigen::VectorXd& sample) {
-            throw invalid_argument(
-                "Not implemented yet.");
+            const vector<double>& values) {
+            throw invalid_argument("Not implemented yet.");
         }
 
         Eigen::MatrixXd GaussianCPD::sample_from_conjugacy(
-            shared_ptr<gsl_rng> random_generator,
+            const shared_ptr<gsl_rng>& random_generator,
             const vector<shared_ptr<Node>>& parent_nodes,
             int num_samples) const {
-            throw invalid_argument(
-                "Not implemented yet.");
+            throw invalid_argument("Not implemented yet.");
         }
 
         void GaussianCPD::reset_sufficient_statistics() {
-            throw invalid_argument(
-                "Not implemented yet.");
+            throw invalid_argument("Not implemented yet.");
         }
 
     } // namespace model

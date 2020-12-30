@@ -1,6 +1,7 @@
 #define BOOST_TEST_MODULE TomcatModelTest
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "boost/test/included/unit_test.hpp"
@@ -8,6 +9,8 @@
 #include <gsl/gsl_rng.h>
 
 #include "distribution/Categorical.h"
+#include "distribution/Dirichlet.h"
+#include "pgm/ConstantNode.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 #include "pgm/NodeMetadata.h"
@@ -716,7 +719,6 @@ BOOST_FIXTURE_TEST_CASE(heterogeneous, ModelConfig) {
     int num_samples = 10;
 
     AncestralSampler sampler(model);
-    sampler.set_num_in_plate_samples(1);
     sampler.sample(gen, num_samples);
 
     MatrixXd tcs = sampler.get_samples(TC)(0, 0);
@@ -781,7 +783,6 @@ BOOST_FIXTURE_TEST_CASE(homogeneous, ModelConfig) {
     int num_samples = 10;
 
     AncestralSampler sampler(model);
-    sampler.set_num_in_plate_samples(1);
     sampler.set_equal_samples_time_step_limit(equal_samples_until);
     sampler.sample(gen, num_samples);
 
@@ -882,62 +883,85 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling, ModelConfig) {
     model->get_nodes_by_label(THETA_TC)[0]->get_assignment();
     MatrixXd estimated_theta_tc =
         model->get_nodes_by_label(THETA_TC)[0]->get_assignment();
-    BOOST_TEST(is_equal(estimated_theta_tc, tables.tc_prior, tolerance));
+    stringstream msg;
+    msg << "Estimated: [" << estimated_theta_tc << "]; Expected: ["
+        << tables.tc_prior << "]";
+    bool check = is_equal(estimated_theta_tc, tables.tc_prior, tolerance);
+    BOOST_TEST(check, msg.str());
 
     MatrixXd estimated_pi_pbae =
         model->get_nodes_by_label(PI_PBAE)[0]->get_assignment();
-    BOOST_TEST(is_equal(estimated_pi_pbae, tables.pbae_prior, tolerance));
+    msg = stringstream();
+    msg << "Estimated: [" << estimated_pi_pbae << "]; Expected: ["
+        << tables.pbae_prior << "]";
+    check = is_equal(estimated_pi_pbae, tables.pbae_prior, tolerance);
+    BOOST_TEST(check, msg.str());
 
     MatrixXd estimated_theta_state =
         model->get_nodes_by_label(THETA_STATE)[0]->get_assignment();
-    BOOST_TEST(is_equal(estimated_theta_state, tables.state_prior, tolerance));
+    msg = stringstream();
+    msg << "Estimated: [" << estimated_theta_state << "]; Expected: ["
+        << tables.state_prior << "]";
+    check = is_equal(estimated_theta_state, tables.state_prior, tolerance);
+    BOOST_TEST(check, msg.str());
 
     for (int i = 0; i < NUM_PI_PBAE_GIVEN_PBAE; i++) {
         stringstream label;
         label << PI_PBAE_GIVEN_PBAE << '_' << i;
         MatrixXd estimated_pi_pbae_given_pbae =
             model->get_nodes_by_label(label.str())[0]->get_assignment();
-        BOOST_TEST(is_equal(estimated_pi_pbae_given_pbae,
-                            tables.pbae_given_pbae.row(i),
-                            tolerance));
+        msg = stringstream();
+        msg << "Estimated: [" << estimated_pi_pbae_given_pbae
+            << "]; Expected: [" << tables.pbae_given_pbae.row(i) << "]";
+        check = is_equal(estimated_pi_pbae_given_pbae,
+                         tables.pbae_given_pbae.row(i),
+                         tolerance);
+        BOOST_TEST(check, msg.str());
     }
 
     for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
         stringstream label;
         label << THETA_STATE_GIVEN_TC_PBAE_STATE << '_' << i;
-        MatrixXd estimated_THETA_STATE_GIVEN_TC_PBAE_STATE =
+        MatrixXd estimated_theta_state_given_tc_pbae_state =
             model->get_nodes_by_label(label.str())[0]->get_assignment();
-        BOOST_TEST(is_equal(estimated_THETA_STATE_GIVEN_TC_PBAE_STATE,
-                            tables.state_given_tc_pbae_state.row(i),
-                            tolerance));
-
-        if (!estimated_THETA_STATE_GIVEN_TC_PBAE_STATE.isApprox(
-                tables.state_given_tc_pbae_state.row(i), tolerance)) {
-            cout << estimated_THETA_STATE_GIVEN_TC_PBAE_STATE << endl;
-            cout << tables.state_given_tc_pbae_state.row(i) << endl << endl;
-        }
+        msg = stringstream();
+        msg << "Estimated: [" << estimated_theta_state_given_tc_pbae_state
+            << "]; Expected: [" << tables.state_given_tc_pbae_state.row(i)
+            << "]";
+        check = is_equal(estimated_theta_state_given_tc_pbae_state,
+                         tables.state_given_tc_pbae_state.row(i),
+                         tolerance);
+        BOOST_TEST(check, msg.str());
     }
 
     for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
         stringstream label;
         label << PI_GREEN_GIVEN_STATE << '_' << i;
 
-        MatrixXd estimated_pi_GREEN_given_state =
+        MatrixXd estimated_pi_green_given_state =
             model->get_nodes_by_label(label.str())[0]->get_assignment();
-        BOOST_TEST(is_equal(estimated_pi_GREEN_given_state,
-                            tables.green_given_state.row(i),
-                            tolerance));
+        msg = stringstream();
+        msg << "Estimated: [" << estimated_pi_green_given_state
+            << "]; Expected: [" << tables.green_given_state.row(i) << "]";
+        check = is_equal(estimated_pi_green_given_state,
+                         tables.green_given_state.row(i),
+                         tolerance);
+        BOOST_TEST(check, msg.str());
     }
 
     for (int i = 0; i < NUM_PI_YELLOW_GIVEN_STATE; i++) {
         stringstream label;
         label << PI_YELLOW_GIVEN_STATE << '_' << i;
 
-        MatrixXd estimated_pi_YELLOW_given_state =
+        MatrixXd estimated_pi_yellow_given_state =
             model->get_nodes_by_label(label.str())[0]->get_assignment();
-        BOOST_TEST(is_equal(estimated_pi_YELLOW_given_state,
-                            tables.yellow_given_state.row(i),
-                            tolerance));
+        msg = stringstream();
+        msg << "Estimated: [" << estimated_pi_yellow_given_state
+            << "]; Expected: [" << tables.yellow_given_state.row(i) << "]";
+        check = is_equal(estimated_pi_yellow_given_state,
+                         tables.yellow_given_state.row(i),
+                         tolerance);
+        BOOST_TEST(check, msg.str());
     }
 }
 

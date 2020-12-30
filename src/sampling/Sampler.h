@@ -32,7 +32,7 @@ namespace tomcat {
              *
              * @param model: unrolled DBN
              */
-            Sampler(std::shared_ptr<DynamicBayesNet> model);
+            Sampler(const std::shared_ptr<DynamicBayesNet>& model);
 
             virtual ~Sampler();
 
@@ -61,7 +61,7 @@ namespace tomcat {
              * @param random_generator: random number generator
              * @param num_samples: number of samples to generate
              */
-            void sample(std::shared_ptr<gsl_rng> random_generator,
+            void sample(const std::shared_ptr<gsl_rng>& random_generator,
                         int num_samples);
 
             /**
@@ -106,7 +106,7 @@ namespace tomcat {
              * @param num_samples: number of samples to generate
              */
             virtual void
-            sample_latent(std::shared_ptr<gsl_rng> random_generator,
+            sample_latent(const std::shared_ptr<gsl_rng>& random_generator,
                           int num_samples) = 0;
 
             /**
@@ -149,7 +149,7 @@ namespace tomcat {
             // The number of samples generated for in-plate nodes. If data is
             // provided for some node, the number of data points has to be the
             // same as the number of in-plate samples.
-            int num_in_plate_samples = 1;
+            int num_in_plate_samples = -1;
 
             EvidenceSet data;
 

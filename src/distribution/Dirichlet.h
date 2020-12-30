@@ -1,7 +1,7 @@
 #pragma once
 
-#include "utils/Definitions.h"
 #include "distribution/Continuous.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -26,7 +26,7 @@ namespace tomcat {
              * @param parameters: nodes which the assignments define the set
              * of parameters of the distribution
              */
-            Dirichlet(std::vector<std::shared_ptr<Node>>& alpha);
+            Dirichlet(const std::vector<std::shared_ptr<Node>>& alpha);
 
             /**
              * Creates an instance of a Dirichlet distribution for node
@@ -62,20 +62,29 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            Eigen::VectorXd sample(std::shared_ptr<gsl_rng> random_generator,
-                                   int parameter_idx) const override;
+            Eigen::VectorXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   int parameter_idx) const override;
 
-            Eigen::VectorXd sample(std::shared_ptr<gsl_rng> random_generator,
-                                   int parameter_idx,
-                                   const Eigen::VectorXd& weights) const override;
+            /**
+             * Generates a sample from a Dirichlet distribution with scaled
+             * parameters.
+             *
+             * @param random_generator: random number generator
+             * @param weights: weights used to scale the parameters
+             *
+             * @return Sample from a scaled Dirichlet distribution.
+             */
+            Eigen::VectorXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   const Eigen::VectorXd& weights) const override;
 
             Eigen::VectorXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 int parameter_idx,
                 const Eigen::VectorXd& sufficient_statistics) const override;
 
-            double get_pdf(const Eigen::VectorXd& value,
-                           int parameter_idx) const override;
+            double get_pdf(const Eigen::VectorXd& value) const override;
 
             std::unique_ptr<Distribution> clone() const override;
 
@@ -87,6 +96,13 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Initializes and a constant vector alpha if all parameter nodes
+             * are constant to avoid looping over them every time alpha is
+             * requested.
+             */
+            void init_constant_alpha();
 
             /**
              * Returns the parameter vectors \f$\alpha\f$s formed by the
@@ -109,8 +125,13 @@ namespace tomcat {
              * @return A sample from a Dirichlet distribution.
              */
             Eigen::VectorXd
-            sample_from_gsl(std::shared_ptr<gsl_rng> random_generator,
+            sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
                             const Eigen::VectorXd& parameters) const;
+
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+            Eigen::MatrixXd constant_alpha;
         };
 
     } // namespace model

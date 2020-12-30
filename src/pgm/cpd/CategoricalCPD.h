@@ -1,8 +1,9 @@
 #pragma once
 
-#include "utils/Definitions.h"
 #include "distribution/Categorical.h"
+#include "pgm/RandomVariableNode.h"
 #include "pgm/cpd/CPD.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -59,7 +60,8 @@ namespace tomcat {
              * @param distributions: list of categorical distributions
              */
             CategoricalCPD(
-                std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order,
+                const std::vector<std::shared_ptr<NodeMetadata>>&
+                    parent_node_order,
                 const std::vector<std::shared_ptr<Categorical>>& distributions);
 
             /**
@@ -82,9 +84,9 @@ namespace tomcat {
              * nodes' assignments for correct distribution indexing
              * @param probabilities: matrix containing probabilities
              */
-            CategoricalCPD(
-                std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order,
-                const Eigen::MatrixXd& probabilities);
+            CategoricalCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+                               parent_node_order,
+                           const Eigen::MatrixXd& probabilities);
 
             /**
              * Creates an instance of a Categorical CPD by transforming a
@@ -120,14 +122,19 @@ namespace tomcat {
             std::string get_description() const override;
 
             void add_to_sufficient_statistics(
-                const Eigen::VectorXd& sample) override;
+                const std::vector<double>& values) override;
 
             Eigen::MatrixXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 const std::vector<std::shared_ptr<Node>>& parent_nodes,
                 int num_samples) const override;
 
             void reset_sufficient_statistics() override;
+
+            Eigen::MatrixXd get_posterior_weights(
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                const std::shared_ptr<RandomVariableNode>& sampled_node,
+                const Eigen::MatrixXd& cpd_owner_assignment) const override;
 
           protected:
             //------------------------------------------------------------------
@@ -155,7 +162,6 @@ namespace tomcat {
              * @param matrix: matrix of probabilities
              */
             void init_from_matrix(const Eigen::MatrixXd& matrix);
-
         };
 
     } // namespace model

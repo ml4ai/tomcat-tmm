@@ -13,7 +13,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Categorical::Categorical(shared_ptr<Node>& probabilities)
+        Categorical::Categorical(const shared_ptr<Node>& probabilities)
             : probabilities(probabilities) {}
 
         Categorical::Categorical(shared_ptr<Node>&& probabilities)
@@ -25,8 +25,8 @@ namespace tomcat {
         }
 
         Categorical::Categorical(const Eigen::VectorXd&& probabilities) {
-            this->probabilities = make_shared<ConstantNode>(
-                ConstantNode(move(probabilities)));
+            this->probabilities =
+                make_shared<ConstantNode>(ConstantNode(move(probabilities)));
         }
 
         Categorical::~Categorical() {}
@@ -46,13 +46,12 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void
-        Categorical::update_dependencies(Node::NodeMap& parameter_nodes_map,
-                                         int time_step) {
+        void Categorical::update_dependencies(
+            const Node::NodeMap& parameter_nodes_map, int time_step) {
 
             string parameter_timed_name;
-            const NodeMetadata* metadata =
-                this->probabilities->get_metadata().get();
+            const shared_ptr<NodeMetadata>& metadata =
+                this->probabilities->get_metadata();
             if (metadata->is_replicable()) {
                 parameter_timed_name = metadata->get_timed_name(time_step);
             }
@@ -62,12 +61,13 @@ namespace tomcat {
             }
 
             if (parameter_nodes_map.count(parameter_timed_name) > 0) {
-                this->probabilities = parameter_nodes_map[parameter_timed_name];
+                this->probabilities =
+                    parameter_nodes_map.at(parameter_timed_name);
             }
         }
 
         Eigen::VectorXd
-        Categorical::sample(shared_ptr<gsl_rng> random_generator,
+        Categorical::sample(const shared_ptr<gsl_rng>& random_generator,
                             int parameter_idx) const {
             Eigen::MatrixXd probabilities =
                 this->probabilities->get_assignment();
@@ -78,9 +78,9 @@ namespace tomcat {
                                          probabilities.row(parameter_idx));
         }
 
-        Eigen::VectorXd
-        Categorical::sample_from_gsl(shared_ptr<gsl_rng> random_generator,
-                                     const Eigen::VectorXd& parameters) const {
+        Eigen::VectorXd Categorical::sample_from_gsl(
+            const shared_ptr<gsl_rng>& random_generator,
+            const Eigen::VectorXd& parameters) const {
 
             Eigen::VectorXd checked_parameters;
             // If for some reason, all the probabilities are zero, sample from a
@@ -110,45 +110,41 @@ namespace tomcat {
         unsigned int
         Categorical::get_sample_index(const unsigned int* sample_array,
                                       size_t array_size) const {
-            return distance(
-                sample_array,
-                find(sample_array, sample_array + array_size, 1));
+            return distance(sample_array,
+                            find(sample_array, sample_array + array_size, 1));
         }
 
         Eigen::VectorXd
-        Categorical::sample(shared_ptr<gsl_rng> random_generator,
-                            int parameter_idx,
+        Categorical::sample(const shared_ptr<gsl_rng>& random_generator,
                             const Eigen::VectorXd& weights) const {
 
-            Eigen::MatrixXd probabilities =
-                this->probabilities->get_assignment();
-
-            parameter_idx = probabilities.rows() == 1 ? 0 : parameter_idx;
+            // Parameter nodes are never in-plate. Therefore, their
+            // assignment matrix is always comprised by a single row.
+            Eigen::VectorXd probabilities =
+                this->probabilities->get_assignment().row(0);
 
             Eigen::VectorXd weighted_probabilities =
-                probabilities.row(parameter_idx).transpose().array() *
-                weights.array();
+                probabilities.array() * weights.array();
 
-            // weighted_probs does not need to be normalized because GSL already
-            // does that.
+            // The weighted probabilities do not need to be normalized
+            // because GSL already does that.
             return this->sample_from_gsl(random_generator,
                                          weighted_probabilities);
         }
 
         Eigen::VectorXd Categorical::sample_from_conjugacy(
-            shared_ptr<gsl_rng> random_generator,
+            const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,
             const Eigen::VectorXd& sufficient_statistics) const {
             throw invalid_argument(
                 "No conjugate prior with a categorical distribution.");
         }
 
-        double Categorical::get_pdf(const Eigen::VectorXd& value,
-                                    int parameter_idx) const {
-            Eigen::MatrixXd probabilities =
-                this->probabilities->get_assignment();
-            parameter_idx = probabilities.rows() == 1 ? 0 : parameter_idx;
-            return probabilities(parameter_idx, value(0));
+        double Categorical::get_pdf(const Eigen::VectorXd& value) const {
+            Eigen::VectorXd probabilities =
+                this->probabilities->get_assignment().row(0);
+
+            return probabilities((int)value(0));
         }
 
         unique_ptr<Distribution> Categorical::clone() const {
@@ -170,12 +166,12 @@ namespace tomcat {
         int Categorical::get_sample_size() const { return 1; }
 
         void Categorical::update_sufficient_statistics(
-            const Eigen::VectorXd& sample) {
+            const vector<double>& values) {
             if (this->probabilities->get_metadata()->is_parameter()) {
                 if (RandomVariableNode* rv_node =
                         dynamic_cast<RandomVariableNode*>(
                             this->probabilities.get())) {
-                    rv_node->add_to_sufficient_statistics(sample);
+                    rv_node->add_to_sufficient_statistics(values);
                 }
             }
         }

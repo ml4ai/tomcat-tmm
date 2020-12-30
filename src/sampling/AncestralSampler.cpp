@@ -8,7 +8,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        AncestralSampler::AncestralSampler(shared_ptr<DynamicBayesNet> model)
+        AncestralSampler::AncestralSampler(
+            const shared_ptr<DynamicBayesNet>& model)
             : Sampler(model) {}
 
         AncestralSampler::~AncestralSampler() {}
@@ -29,9 +30,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void
-        AncestralSampler::sample_latent(shared_ptr<gsl_rng> random_generator,
-                                        int num_samples) {
+        void AncestralSampler::sample_latent(
+            const shared_ptr<gsl_rng>& random_generator, int num_samples) {
             vector<shared_ptr<Node>> nodes_to_sample;
 
             // We start by sampling nodes in the root and keep moving forward
@@ -58,43 +58,40 @@ namespace tomcat {
             }
 
             for (auto& node : nodes_to_sample) {
-                this->sampled_node_labels.insert(
-                    node->get_metadata()->get_label());
-                const vector<shared_ptr<Node>>& parent_nodes =
-                    this->model->get_parent_nodes_of(node, true);
-                int real_num_samples = num_samples;
-
-                if (node->get_metadata()->is_in_plate()) {
-                    // Number of in-plate samples should match the number of
-                    // data points (num_in_plate_samples). If no data was
-                    // provided or there's just one data point was provided,
-                    // which will cause num_in_plate_samples to be equals to 1,
-                    // then we can generate multiple samples.
-                    real_num_samples = this->num_in_plate_samples == 1
-                                           ? num_samples
-                                           : this->num_in_plate_samples;
-                }
+                const string& node_label = node->get_metadata()->get_label();
+                this->sampled_node_labels.insert(node_label);
 
                 shared_ptr<RandomVariableNode> rv_node =
                     dynamic_pointer_cast<RandomVariableNode>(node);
 
-                // Check whether the samples must be the same. It's possible to
-                // request samples to be equal up to a time step. That's what we
-                // call homogeneous samples up to a time t.
-                bool equal_samples = false;
-                if (rv_node->get_time_step() <=
-                    this->equal_samples_time_step_limit) {
-                    equal_samples = true;
+                // If data was provided for in-plate nodes. We have to
+                // respect the number of data points given since the nodes
+                // will be frozen for more sampling. The maximum number of
+                // samples we'll be able to generate for other nodes will be
+                // the number of in-plate nodes.
+                int max_num_samples = num_samples;
+                if (node->get_metadata()->is_in_plate()) {
+                    if (this->num_in_plate_samples > 0) {
+                        max_num_samples = this->num_in_plate_samples;
+                    }
                 }
 
-                // Generate a sample for the node given its parents' assignments.
-                Eigen::MatrixXd assignment = rv_node->sample(random_generator,
-                                                             parent_nodes,
-                                                             real_num_samples,
-                                                             equal_samples);
+                Eigen::MatrixXd sample;
+                if (rv_node->get_time_step() <=
+                    this->equal_samples_time_step_limit) {
+                    // If samples up to a time t are required to have the same
+                    // values, we generate a single sample following the
+                    // ancestral sampling procedure and replicate it.
+
+                    sample = rv_node->sample(random_generator, 1);
+                    sample = sample.replicate(max_num_samples, 1);
+                }
+                else {
+                    sample = rv_node->sample(random_generator, max_num_samples);
+                }
 
                 // A sample is stored as an assignment of the node.
-                rv_node->set_assignment(assignment);
+                rv_node->set_assignment(sample);
             }
         }
 

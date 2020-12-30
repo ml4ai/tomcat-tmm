@@ -2,6 +2,8 @@
 
 #include <iterator>
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <eigen3/Eigen/Dense>
@@ -9,11 +11,13 @@
 #include <gsl/gsl_rng.h>
 
 #include "distribution/Distribution.h"
-#include "utils/Definitions.h"
 #include "pgm/Node.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
+
+        class RandomVariableNode;
 
         //------------------------------------------------------------------
         // Structs
@@ -71,7 +75,8 @@ namespace tomcat {
              *
              * @param parent_node_order: evaluation order of the parent
              */
-            CPD(std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order);
+            CPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+                    parent_node_order);
 
             /**
              * Creates an abstract representation of a conditional probability
@@ -89,8 +94,10 @@ namespace tomcat {
              * @param distributions: distributions of the CPD
              * nodes' assignments for correct distribution indexing
              */
-            CPD(std::vector<std::shared_ptr<NodeMetadata>>& parent_node_order,
-                std::vector<std::shared_ptr<Distribution>>& distributions);
+            CPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+                    parent_node_order,
+                const std::vector<std::shared_ptr<Distribution>>&
+                    distributions);
 
             /**
              * Creates an abstract representation of a conditional probability
@@ -144,7 +151,7 @@ namespace tomcat {
              * parameter node if the latter is shared among nodes over several
              * time steps.
              */
-            void update_dependencies(Node::NodeMap& parameter_nodes_map,
+            void update_dependencies(const Node::NodeMap& parameter_nodes_map,
                                      int time_step);
 
             /**
@@ -152,71 +159,62 @@ namespace tomcat {
              * nodes' assignments.
              *
              * @param random_generator: random number random_generator
-             * @param parent_nodes: timed instance of the parent nodes of the
-             * cpd's owner in an unrolled DBN
-             * @param num_samples: number of samples to generate. If the parent
-             * nodes have multiple assignments, each sample will use one of them
-             * to determine the distribution which it's sampled from.
-             * @param equal_samples: whether the samples generated must be the
-             * same
+             * @param index_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param num_samples: number of samples to generate.
              *
              * @return A sample from one of the distributions in the CPD.
              */
             Eigen::MatrixXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-                   const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                   int num_samples,
-                   bool equal_samples = false) const;
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   const std::vector<std::shared_ptr<Node>>& index_nodes,
+                   int num_samples) const;
 
             /**
-             * Draws a sample from the distribution associated with the parent
-             * nodes' assignments scaled by some weights.
+             * Generates a sample for the node that owns this CPD from its
+             * posterior distribution.
              *
-             * @param random_generator: random number random_generator
-             * @param parent_to_nodes: timed instance of the parent nodes of the
-             * cpd's owner in an unrolled DBN
-             * @param num_samples: number of samples to generate. If the parent
-             * nodes have multiple assignments, each sample will use one of them
-             * to determine the distribution which it's sampled from.
-             * @param weights: Scale coefficients for the distributions
-             * @param equal_samples: whether the samples generated must be the
-             * same
+             * @param random_generator: random number generator
+             * @param index_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param posterior_weights: posterior weights given by the product
+             * of p(children(node)|node)
              *
-             * @return A sample from one of the distributions in the CPD.
+             * @return Sample from the node's posterior.
              */
-            Eigen::MatrixXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-                   const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                   int num_samples,
-                   Eigen::MatrixXd weights,
-                   bool equal_samples = false) const;
+            Eigen::MatrixXd sample_from_posterior(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                const Eigen::MatrixXd& posterior_weights) const;
 
             /**
-             * Returns pdfs for assignments of a given node from the
-             * distributions associated with its parent nodes' assignments.
+             * Returns the indices of the distributions indexed by the current
+             * indexing nodes' assignments.
              *
-             * @param parent_nodes: timed instance of the parent nodes of the
-             * cpd's owner in an unrolled DBN
-             * @param node: node containing the assignments to be used to
-             * compute the pdfs
+             * @param index_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param num_indices: number of assignments of the indexing
+             * nodes to consider.
              *
-             * @return A sample from one of the distributions in the CPD.
+             * @return Indices of the distributions indexed by the current
+             * indexing nodes' assignments.
              */
-            Eigen::VectorXd
-            get_pdfs(const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                     const Node& node) const;
+            std::vector<int> get_indexed_distribution_indices(
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                int num_indices) const;
 
             /**
              * Update the sufficient statistics of parameter nodes the cpd
              * depend on with assignments of the cpd's owner.
              *
-             * @param parent_nodes: timed instance of the parent nodes of the
-             * cpd's owner in an unrolled DBN
-             * @param cpd_owner_assignments
+             * @param index_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param cpd_owner_assignment: assignment of the node that owns
+             * this CPD
              */
             void update_sufficient_statistics(
-                const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                const Eigen::MatrixXd& cpd_owner_assignments);
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                const Eigen::MatrixXd& cpd_owner_assignment);
 
             /**
              * Marks the CPD as not updated to force dependency update on a
@@ -240,6 +238,28 @@ namespace tomcat {
             Eigen::MatrixXd get_table() const;
 
             //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
+            /**
+             * Returns p(cpd_owner_assignments | sampled_node)
+             *
+             * @param index_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param sampled_node: random variable for with the posterior is
+             * being computed
+             * @param cpd_owner_assignments: assignment of the child node that
+             * owns this CPD
+             *
+             * @return Posterior weights of the node that owns this CPD for one
+             * of its parent nodes.
+             */
+            virtual Eigen::MatrixXd get_posterior_weights(
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                const std::shared_ptr<RandomVariableNode>& sampled_node,
+                const Eigen::MatrixXd& cpd_owner_assignment) const;
+
+            //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
 
@@ -251,12 +271,12 @@ namespace tomcat {
             virtual std::unique_ptr<CPD> clone() const = 0;
 
             /**
-             * Adds a value to the sufficient statistics of this CPD.
+             * Adds a set of values to the sufficient statistics of this CPD.
              *
              * @param sample: Sample to add to the sufficient statistics.
              */
             virtual void
-            add_to_sufficient_statistics(const Eigen::VectorXd& sample) = 0;
+            add_to_sufficient_statistics(const std::vector<double>& values) = 0;
 
             /**
              * Samples using conjugacy properties and sufficient statistics
@@ -266,7 +286,7 @@ namespace tomcat {
              * @return
              */
             virtual Eigen::MatrixXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 const std::vector<std::shared_ptr<Node>>& parent_nodes,
                 int num_samples) const = 0;
 
@@ -295,26 +315,6 @@ namespace tomcat {
              * @param cpd: CPD
              */
             void copy_cpd(const CPD& cpd);
-
-            /**
-             * Returns the index of the distribution (row in the table) given
-             * parents' assignments.
-             *
-             * A CPD is comprised of a table where each row represents a certain
-             * distribution. The number of rows is given by the size of the
-             * cartesian product of parent nodes' cardinalities, and each row
-             * represents a combination of the values these parent nodes can
-             * assume.
-             *
-             * @param parent_labels_to_nodes: mapping between parent node's
-             * labels and node objects.
-             * @param num_samples: number of samples to generate. If the parent
-             * nodes have multiple assignments, each sample will use one of them
-             * to determine the distribution which it's sampled from.
-             */
-            std::vector<int> get_distribution_indices(
-                const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                int num_samples) const;
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -354,6 +354,9 @@ namespace tomcat {
             // of the nodes it depends on
             bool updated = false;
 
+            // Maps an indexing node's label to its indexing struct.
+            TableOrderingMap parent_label_to_indexing;
+
           private:
             //------------------------------------------------------------------
             // Member functions
@@ -371,21 +374,6 @@ namespace tomcat {
              * table given parent node's assignments.
              */
             void fill_indexing_mapping();
-
-            /**
-             * Indexes a list of random variable nodes by their label.
-             *
-             * @param nodes: list of random variable nodes
-             *
-             * @return Mapping between a node's label and its object.
-             */
-            Node::NodeMap map_labels_to_nodes(
-                const std::vector<std::shared_ptr<Node>>& nodes) const;
-
-            //------------------------------------------------------------------
-            // Data members
-            //------------------------------------------------------------------
-            TableOrderingMap parent_label_to_indexing;
         };
 
     } // namespace model

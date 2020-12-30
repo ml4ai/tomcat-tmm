@@ -9,8 +9,8 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         DBNSamplingTrainer::DBNSamplingTrainer(
-            shared_ptr<gsl_rng> random_generator,
-            shared_ptr<Sampler> sampler,
+            const shared_ptr<gsl_rng>& random_generator,
+            const shared_ptr<Sampler>& sampler,
             int num_samples)
             : random_generator(random_generator), sampler(sampler),
               num_samples(num_samples) {}

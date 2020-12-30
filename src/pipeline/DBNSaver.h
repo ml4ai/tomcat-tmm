@@ -31,9 +31,9 @@ namespace tomcat {
              * generated during the training process will also be saved under a
              * subdirectory.
              */
-            DBNSaver(std::shared_ptr<DynamicBayesNet> model,
-                     std::shared_ptr<DBNTrainer> trainer,
-                     std::string output_folder_path,
+            DBNSaver(const std::shared_ptr<DynamicBayesNet>& model,
+                     const std::shared_ptr<DBNTrainer>& trainer,
+                     const std::string& output_folder_path,
                      bool include_partials);
 
             ~DBNSaver();

@@ -15,8 +15,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        DBNLoader::DBNLoader(shared_ptr<DynamicBayesNet> model,
-                             string input_folder_path,
+        DBNLoader::DBNLoader(const shared_ptr<DynamicBayesNet>& model,
+                             const string& input_folder_path,
                              bool freeze_loaded_nodes)
             : model(model), input_folder_path(input_folder_path),
               freeze_loaded_nodes(freeze_loaded_nodes) {}

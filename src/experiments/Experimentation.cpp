@@ -13,7 +13,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Experimentation::Experimentation(shared_ptr<gsl_rng> gen,
+        Experimentation::Experimentation(const shared_ptr<gsl_rng>& gen,
                                          const string& experiment_id,
                                          MODEL_VERSION model_version,
                                          const EvidenceSet& training_set,
@@ -26,7 +26,7 @@ namespace tomcat {
             this->offline_estimation = make_shared<OfflineEstimation>();
         }
 
-        Experimentation::Experimentation(shared_ptr<gsl_rng> gen,
+        Experimentation::Experimentation(const shared_ptr<gsl_rng>& gen,
                                          const string& experiment_id,
                                          MODEL_VERSION model_version,
                                          const EvidenceSet& data,
@@ -39,7 +39,7 @@ namespace tomcat {
             this->offline_estimation = make_shared<OfflineEstimation>();
         }
 
-        Experimentation::Experimentation(shared_ptr<gsl_rng> gen,
+        Experimentation::Experimentation(const shared_ptr<gsl_rng>& gen,
                                          MODEL_VERSION model_version)
             : gen(gen) {
             this->init_model(model_version);
@@ -115,7 +115,7 @@ namespace tomcat {
         void Experimentation::compute_baseline_estimates_for(
             const string& node_label,
             int inference_horizon,
-            Eigen::VectorXd assignment) {
+            const Eigen::VectorXd& assignment) {
 
             this->display_estimates();
             shared_ptr<Estimator> estimator =
@@ -127,10 +127,10 @@ namespace tomcat {
             this->offline_estimation->add_estimator(estimator);
         }
 
-        void
-        Experimentation::compute_estimates_for(const string& node_label,
-                                               int inference_horizon,
-                                               Eigen::VectorXd assignment) {
+        void Experimentation::compute_estimates_for(
+            const string& node_label,
+            int inference_horizon,
+            const Eigen::VectorXd& assignment) {
 
             this->display_estimates();
             shared_ptr<Estimator> estimator =
@@ -144,8 +144,8 @@ namespace tomcat {
         void Experimentation::compute_baseline_eval_scores_for(
             const string& node_label,
             int inference_horizon,
-            vector<MEASURES> measures,
-            Eigen::VectorXd assignment) {
+            const vector<MEASURES>& measures,
+            const Eigen::VectorXd& assignment) {
 
             shared_ptr<Estimator> estimator =
                 make_shared<TrainingFrequencyEstimator>(
@@ -161,9 +161,9 @@ namespace tomcat {
         void Experimentation::compute_eval_scores_for(
             const string& node_label,
             int inference_horizon,
-            vector<MEASURES> measures,
-            Eigen::VectorXd assignment,
-            shared_ptr<Estimator> estimator) {
+            const vector<MEASURES>& measures,
+            const Eigen::VectorXd& assignment,
+            const shared_ptr<Estimator>& estimator) {
 
             if (!measures.empty()) {
                 this->init_evaluation();
@@ -201,11 +201,11 @@ namespace tomcat {
                        .size() == 1;
         }
 
-        void
-        Experimentation::compute_eval_scores_for(const string& node_label,
-                                                 int inference_horizon,
-                                                 vector<MEASURES> measures,
-                                                 Eigen::VectorXd assignment) {
+        void Experimentation::compute_eval_scores_for(
+            const string& node_label,
+            int inference_horizon,
+            const vector<MEASURES>& measures,
+            const Eigen::VectorXd& assignment) {
 
             shared_ptr<Estimator> estimator =
                 make_shared<SumProductEstimator>(this->tomcat->get_model(),

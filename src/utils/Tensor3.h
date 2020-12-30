@@ -177,7 +177,7 @@ namespace tomcat {
              *
              * @return: Element-wise sum of a list of tensors.
              */
-            static Tensor3 sum(std::vector<Tensor3> tensors);
+            static Tensor3 sum(const std::vector<Tensor3>& tensors);
 
             /**
              * Computes the element-wise mean of a list of tensors.
@@ -186,7 +186,7 @@ namespace tomcat {
              *
              * @return: Element-wise mean of a list of tensors.
              */
-            static Tensor3 mean(std::vector<Tensor3> tensors);
+            static Tensor3 mean(const std::vector<Tensor3>& tensors);
 
             /**
              * Computes the element-wise standard deviation of a list of
@@ -196,7 +196,7 @@ namespace tomcat {
              *
              * @return: Element-wise standard deviation of a list of tensors.
              */
-            static Tensor3 std(std::vector<Tensor3> tensors);
+            static Tensor3 std(const std::vector<Tensor3>& tensors);
 
             //------------------------------------------------------------------
             // Member functions
@@ -266,7 +266,7 @@ namespace tomcat {
              *
              * @return Sliced copy of the original tensor.
              */
-            Tensor3 slice(std::vector<int> indices, int axis) const;
+            Tensor3 slice(const std::vector<int>& indices, int axis) const;
 
             /**
              * Returns the mean of all the values in the tensor.

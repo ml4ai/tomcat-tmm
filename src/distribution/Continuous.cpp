@@ -12,7 +12,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Continuous::Continuous() {}
 
-        Continuous::Continuous(vector<shared_ptr<Node>>& parameters)
+        Continuous::Continuous(const vector<shared_ptr<Node>>& parameters)
             : parameters(parameters) {}
 
         Continuous::Continuous(vector<shared_ptr<Node>>&& parameters)
@@ -20,12 +20,13 @@ namespace tomcat {
 
         Continuous::~Continuous() {}
 
-        void Continuous::update_dependencies(Node::NodeMap& parameter_nodes_map,
-                                             int time_step) {
+        void Continuous::update_dependencies(
+            const Node::NodeMap& parameter_nodes_map, int time_step) {
 
             for (auto& parameter : this->parameters) {
                 string parameter_timed_name;
-                const NodeMetadata* metadata = parameter->get_metadata().get();
+                const shared_ptr<NodeMetadata>& metadata =
+                    parameter->get_metadata();
                 if (metadata->is_replicable()) {
                     parameter_timed_name = metadata->get_timed_name(time_step);
                 }
@@ -35,19 +36,19 @@ namespace tomcat {
                 }
 
                 if (parameter_nodes_map.count(parameter_timed_name) > 0) {
-                    parameter = parameter_nodes_map[parameter_timed_name];
+                    parameter = parameter_nodes_map.at(parameter_timed_name);
                 }
             }
         }
 
-        void Continuous::update_sufficient_statistics(
-            const Eigen::VectorXd& sample) {
+        void
+        Continuous::update_sufficient_statistics(const vector<double>& values) {
             for (auto& parameter : this->parameters) {
                 if (parameter->get_metadata()->is_parameter()) {
                     if (RandomVariableNode* rv_node =
                             dynamic_cast<RandomVariableNode*>(
                                 parameter.get())) {
-                        rv_node->add_to_sufficient_statistics(sample);
+                        rv_node->add_to_sufficient_statistics(values);
                     }
                 }
             }
@@ -58,8 +59,7 @@ namespace tomcat {
 
             int i = 0;
             for (const auto& parameter_node : this->parameters) {
-                parameter_vector(i) =
-                    parameter_node->get_assignment()(0, i);
+                parameter_vector(i) = parameter_node->get_assignment()(0, i);
             }
 
             return parameter_vector;

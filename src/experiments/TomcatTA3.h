@@ -7,10 +7,10 @@
 
 #include "Tomcat.h"
 
+#include "converter/TA3MessageConverter.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/NodeMetadata.h"
 #include "utils/Definitions.h"
-#include "converter/TA3MessageConverter.h"
 
 namespace tomcat {
     namespace model {
@@ -136,10 +136,10 @@ namespace tomcat {
              * @return CPD
              */
             virtual std::shared_ptr<CPD> create_state_transition_cpd(
-                std::vector<std::shared_ptr<NodeMetadata>>
+                const std::vector<std::shared_ptr<NodeMetadata>>&
                     parent_nodes_metadata,
-                std::vector<std::shared_ptr<RandomVariableNode>> theta_s_nodes)
-                const;
+                const std::vector<std::shared_ptr<RandomVariableNode>>&
+                    theta_s_nodes) const;
 
             /**
              * Creates prior distributions for the node Room given the current
@@ -147,8 +147,8 @@ namespace tomcat {
              *
              * @return CPD
              */
-            virtual std::shared_ptr<CPD>
-            create_room_cpd(std::shared_ptr<NodeMetadata> state_metadata) const;
+            virtual std::shared_ptr<CPD> create_room_cpd(
+                const std::shared_ptr<NodeMetadata>& state_metadata) const;
 
             /**
              * Creates prior distribution for the node SG given the current
@@ -156,8 +156,8 @@ namespace tomcat {
              *
              * @return CPD
              */
-            virtual std::shared_ptr<CPD>
-            create_sg_cpd(std::shared_ptr<NodeMetadata> state_metadata) const;
+            virtual std::shared_ptr<CPD> create_sg_cpd(
+                const std::shared_ptr<NodeMetadata>& state_metadata) const;
 
             /**
              * Creates prior distribution for the node SY given the current
@@ -165,8 +165,8 @@ namespace tomcat {
              *
              * @return CPD
              */
-            virtual std::shared_ptr<CPD>
-            create_sy_cpd(std::shared_ptr<NodeMetadata> state_metadata) const;
+            virtual std::shared_ptr<CPD> create_sy_cpd(
+                const std::shared_ptr<NodeMetadata>& state_metadata) const;
         };
 
     } // namespace model

@@ -8,7 +8,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        F1Score::F1Score(shared_ptr<Estimator> estimator, double threshold)
+        F1Score::F1Score(const shared_ptr<Estimator>& estimator,
+                         double threshold)
             : Measure(estimator, threshold) {
 
             if (estimator->get_inference_horizon() == 0 and

@@ -3,6 +3,7 @@
 #include <gsl/gsl_randist.h>
 
 #include "pgm/ConstantNode.h"
+#include "pgm/RandomVariableNode.h"
 
 namespace tomcat {
     namespace model {
@@ -12,13 +13,20 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Dirichlet::Dirichlet(vector<shared_ptr<Node>>& alpha)
-            : Continuous(alpha) {}
+        Dirichlet::Dirichlet(const vector<shared_ptr<Node>>& alpha)
+            : Continuous(alpha) {
+            this->init_constant_alpha();
+        }
 
         Dirichlet::Dirichlet(vector<shared_ptr<Node>>&& alpha)
-            : Continuous(move(alpha)) {}
+            : Continuous(move(alpha)) {
+            this->init_constant_alpha();
+        }
 
         Dirichlet::Dirichlet(const Eigen::VectorXd& alpha) {
+            this->constant_alpha = Eigen::MatrixXd(1, alpha.size());
+            this->constant_alpha.row(0) = alpha;
+
             for (int i = 0; i < alpha.size(); i++) {
                 ConstantNode parameter_node(alpha(i));
                 this->parameters.push_back(
@@ -33,18 +41,38 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Dirichlet::Dirichlet(const Dirichlet& dirichlet) {
             this->parameters = dirichlet.parameters;
+            this->constant_alpha = dirichlet.constant_alpha;
         }
 
         Dirichlet& Dirichlet::operator=(const Dirichlet& dirichlet) {
             this->parameters = dirichlet.parameters;
+            this->constant_alpha = dirichlet.constant_alpha;
             return *this;
         }
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+        void Dirichlet::init_constant_alpha() {
+            for (auto& parameter : this->parameters) {
+                if (!dynamic_pointer_cast<ConstantNode>(parameter)) {
+                    // Alpha can only be constant if all the parameter nodes
+                    // that composes it are constant.
+                    return;
+                }
+            }
+
+            int rows = this->parameters[0]->get_assignment().rows();
+            int cols = this->parameters.size();
+            this->constant_alpha = Eigen::MatrixXd(rows, cols);
+            for (int i = 0; i < cols; i++) {
+                this->constant_alpha.col(i) =
+                    this->parameters[i]->get_assignment().col(0);
+            }
+        }
+
         Eigen::VectorXd
-        Dirichlet::sample(shared_ptr<gsl_rng> random_generator,
+        Dirichlet::sample(const shared_ptr<gsl_rng>& random_generator,
                           int parameter_idx) const {
             Eigen::VectorXd alpha = this->get_alpha(parameter_idx);
 
@@ -52,20 +80,27 @@ namespace tomcat {
         }
 
         Eigen::VectorXd Dirichlet::get_alpha(int parameter_idx) const {
-            Eigen::VectorXd alpha(this->parameters.size());
-
-            for (int i = 0; i < alpha.size(); i++) {
-                Eigen::MatrixXd alphas = this->parameters[i]->get_assignment();
-                parameter_idx = alphas.rows() == 1 ? 0 : parameter_idx;
-
-                alpha(i) = alphas(parameter_idx, 0);
+            if (this->constant_alpha.size() > 0) {
+                parameter_idx =
+                    this->constant_alpha.rows() == 1 ? 0 : parameter_idx;
+                return this->constant_alpha.row(parameter_idx);
             }
+            else {
+                Eigen::VectorXd alpha(this->parameters.size());
 
-            return alpha;
+                for (int i = 0; i < alpha.size(); i++) {
+                    int rows = this->parameters[i]->get_assignment().rows();
+                    parameter_idx = rows == 1 ? 0 : parameter_idx;
+                    alpha(i) =
+                        this->parameters[i]->get_assignment()(parameter_idx, 0);
+                }
+
+                return alpha;
+            }
         }
 
         Eigen::VectorXd
-        Dirichlet::sample_from_gsl(shared_ptr<gsl_rng> random_generator,
+        Dirichlet::sample_from_gsl(const shared_ptr<gsl_rng>& random_generator,
                                    const Eigen::VectorXd& parameters) const {
             int k = this->parameters.size();
             double* sample_ptr = new double[k];
@@ -80,16 +115,15 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        Dirichlet::sample(shared_ptr<gsl_rng> random_generator,
-                          int parameter_idx,
+        Dirichlet::sample(const shared_ptr<gsl_rng>& random_generator,
                           const Eigen::VectorXd& weights) const {
-            Eigen::VectorXd alpha = this->get_alpha(parameter_idx) * weights;
+            Eigen::VectorXd alpha = this->get_alpha(0) * weights;
 
             return this->sample_from_gsl(random_generator, alpha);
         }
 
         Eigen::VectorXd Dirichlet::sample_from_conjugacy(
-            shared_ptr<gsl_rng> random_generator,
+            const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,
             const Eigen::VectorXd& sufficient_statistics) const {
 
@@ -99,9 +133,8 @@ namespace tomcat {
             return this->sample_from_gsl(random_generator, alpha);
         }
 
-        double Dirichlet::get_pdf(const Eigen::VectorXd& value,
-                                  int parameter_idx) const {
-            Eigen::VectorXd alpha = this->get_alpha(parameter_idx);
+        double Dirichlet::get_pdf(const Eigen::VectorXd& value) const {
+            Eigen::VectorXd alpha = this->get_alpha(0);
             int k = alpha.size();
             const double* alpha_ptr = alpha.data();
             const double* value_ptr = value.data();

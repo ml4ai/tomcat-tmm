@@ -17,8 +17,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
-            DBNSamplingTrainer(std::shared_ptr<gsl_rng> random_generator,
-                               std::shared_ptr<Sampler> sampler,
+            DBNSamplingTrainer(const std::shared_ptr<gsl_rng>& random_generator,
+                               const std::shared_ptr<Sampler>& sampler,
                                int num_samples);
 
             ~DBNSamplingTrainer();

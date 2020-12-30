@@ -30,25 +30,25 @@ namespace tomcat {
         }
 
         shared_ptr<RandomVariableNode>
-        Tomcat::create_node(shared_ptr<NodeMetadata> metadata,
-                    vector<std::shared_ptr<CPD>> cpds) const {
+        Tomcat::create_node(const shared_ptr<NodeMetadata>& metadata,
+                            const vector<std::shared_ptr<CPD>>& cpds) const {
             shared_ptr<RandomVariableNode> node =
                 make_shared<RandomVariableNode>(metadata);
 
-            for(auto& cpd : cpds){
+            for (auto& cpd : cpds) {
                 node->add_cpd_template(cpd);
             }
 
             return node;
         }
 
-        void
-        Tomcat::generate_synthetic_data(shared_ptr<gsl_rng> random_generator,
-                                        int num_samples,
-                                        const string& output_folder,
-                                        int equal_until,
-                                        int max_time_step,
-                                        unordered_set<string> excluding) {
+        void Tomcat::generate_synthetic_data(
+            const shared_ptr<gsl_rng>& random_generator,
+            int num_samples,
+            const string& output_folder,
+            int equal_until,
+            int max_time_step,
+            const unordered_set<string>& excluding) {
 
             AncestralSampler sampler(model);
             sampler.set_num_in_plate_samples(1);

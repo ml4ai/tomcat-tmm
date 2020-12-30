@@ -11,7 +11,7 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         TrainingFrequencyEstimator::TrainingFrequencyEstimator(
-            shared_ptr<DynamicBayesNet> model,
+            const shared_ptr<DynamicBayesNet>& model,
             int inference_horizon,
             const std::string& node_label,
             const Eigen::VectorXd& assignment)

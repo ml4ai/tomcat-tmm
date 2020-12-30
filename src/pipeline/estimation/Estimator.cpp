@@ -12,7 +12,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Estimator::Estimator() {}
 
-        Estimator::Estimator(shared_ptr<DynamicBayesNet> model,
+        Estimator::Estimator(const shared_ptr<DynamicBayesNet>& model,
                              int inference_horizon,
                              const std::string& node_label,
                              const Eigen::VectorXd& assignment)

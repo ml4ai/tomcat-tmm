@@ -1,8 +1,8 @@
 #pragma once
 
-#include "utils/Definitions.h"
-#include "pgm/Node.h"
 #include "distribution/Distribution.h"
+#include "pgm/Node.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -29,7 +29,7 @@ namespace tomcat {
              * @param parameters: nodes which the assignments define the set
              * of parameters of the distribution
              */
-            Continuous(std::vector<std::shared_ptr<Node>>& parameters);
+            Continuous(const std::vector<std::shared_ptr<Node>>& parameters);
 
             /**
              * Creates an abstract representation of a continuous probability
@@ -61,7 +61,8 @@ namespace tomcat {
             // Member functions
             //------------------------------------------------------------------
 
-            void update_sufficient_statistics(const Eigen::VectorXd& sample) override;
+            void update_sufficient_statistics(
+                const std::vector<double>& values) override;
 
             Eigen::VectorXd get_values() const override;
 
@@ -69,7 +70,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void update_dependencies(Node::NodeMap& parameter_nodes_map,
+            void update_dependencies(const Node::NodeMap& parameter_nodes_map,
                                      int time_step) override;
 
             //------------------------------------------------------------------

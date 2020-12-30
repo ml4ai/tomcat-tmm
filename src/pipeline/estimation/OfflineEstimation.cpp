@@ -44,7 +44,8 @@ namespace tomcat {
         }
 
         void OfflineEstimation::run_estimation_thread(
-            shared_ptr<Estimator> estimator, const EvidenceSet& test_data) {
+            const shared_ptr<Estimator>& estimator,
+            const EvidenceSet& test_data) {
 
             EstimationProcess::estimate(estimator, test_data);
         }

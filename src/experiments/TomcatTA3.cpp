@@ -78,7 +78,8 @@ namespace tomcat {
                 this->create_theta_s_prior_cpds();
             vector<shared_ptr<RandomVariableNode>> theta_s_nodes(NUM_STATES);
             for (int i = 0; i < NUM_STATES; i++) {
-                theta_s_nodes[i] = this->create_node(theta_s_metadatas[i], {theta_s_cpds[i]});
+                theta_s_nodes[i] =
+                    this->create_node(theta_s_metadatas[i], {theta_s_cpds[i]});
                 nodes[theta_s_metadatas[i]->get_label()] = theta_s_nodes[i];
             }
 
@@ -116,7 +117,8 @@ namespace tomcat {
             return nodes;
         }
 
-        vector<shared_ptr<NodeMetadata>> TomcatTA3::create_theta_s_metadatas() const {
+        vector<shared_ptr<NodeMetadata>>
+        TomcatTA3::create_theta_s_metadatas() const {
             vector<shared_ptr<NodeMetadata>> theta_s_metadatas(NUM_STATES);
             for (int i = 0; i < NUM_STATES; i++) {
                 stringstream parameter_label;
@@ -211,9 +213,10 @@ namespace tomcat {
         }
 
         std::shared_ptr<CPD> TomcatTA3::create_state_transition_cpd(
-            std::vector<std::shared_ptr<NodeMetadata>> parent_nodes_metadata,
-            std::vector<std::shared_ptr<RandomVariableNode>> theta_s_nodes) const {
-
+            const std::vector<std::shared_ptr<NodeMetadata>>&
+                parent_nodes_metadata,
+            const std::vector<std::shared_ptr<RandomVariableNode>>&
+                theta_s_nodes) const {
             // This CPD table is not constant, it depends on parameter nodes.
             vector<shared_ptr<Categorical>> cpd_table;
             cpd_table.reserve(theta_s_nodes.size());
@@ -228,8 +231,7 @@ namespace tomcat {
         }
 
         std::shared_ptr<CPD> TomcatTA3::create_room_cpd(
-            std::shared_ptr<NodeMetadata> state_metadata) const {
-
+            const std::shared_ptr<NodeMetadata>& state_metadata) const {
             Eigen::MatrixXd cpd_table(NUM_STATES, 2);
             cpd_table << 1, EPSILON, EPSILON, 1, EPSILON, 1, EPSILON, 1;
             CategoricalCPD cpd_temp({state_metadata}, cpd_table);
@@ -239,8 +241,8 @@ namespace tomcat {
             return cpd;
         }
 
-        std::shared_ptr<CPD>
-        TomcatTA3::create_sg_cpd(std::shared_ptr<NodeMetadata> state_metadata) const {
+        std::shared_ptr<CPD> TomcatTA3::create_sg_cpd(
+            const std::shared_ptr<NodeMetadata>& state_metadata) const {
             Eigen::MatrixXd cpd_table(NUM_STATES, 2);
             cpd_table << 1, EPSILON, 1, EPSILON, EPSILON, 1, 1, EPSILON;
             CategoricalCPD cpd_temp({state_metadata}, cpd_table);
@@ -251,7 +253,7 @@ namespace tomcat {
         }
 
         std::shared_ptr<CPD> TomcatTA3::create_sy_cpd(
-            std::shared_ptr<NodeMetadata> state_metadata) const {
+            const std::shared_ptr<NodeMetadata>& state_metadata) const {
             Eigen::MatrixXd cpd_table(NUM_STATES, 2);
             cpd_table << 1, EPSILON, 1, EPSILON, 1, EPSILON, EPSILON, 1;
             CategoricalCPD cpd_temp({state_metadata}, cpd_table);

@@ -28,7 +28,8 @@ namespace tomcat {
             }
         }
 
-        void EvaluationAggregator::add_measure(shared_ptr<Measure> measure) {
+        void
+        EvaluationAggregator::add_measure(const shared_ptr<Measure>& measure) {
             this->measures.push_back(measure);
             this->evaluations_per_measure.push_back({});
             this->aggregations_per_measure.push_back({});

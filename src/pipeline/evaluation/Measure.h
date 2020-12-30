@@ -79,7 +79,7 @@ namespace tomcat {
              * time step should be used if the inference horizon of the
              * estimator is 0
              */
-            Measure(std::shared_ptr<Estimator> estimator,
+            Measure(const std::shared_ptr<Estimator>& estimator,
                     double threshold = 0.5,
                     bool use_last_estimate = false);
 

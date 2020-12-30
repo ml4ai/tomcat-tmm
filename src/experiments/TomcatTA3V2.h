@@ -17,11 +17,13 @@ namespace tomcat {
 
             // Hidden variable labels
             inline static const std::string THETA_Q_PRIOR = "Theta_Q_Prior";
-            inline static const std::string THETA_PBAE_PRIOR = "Theta_PBAE_Prior";
-            inline static const std::string THETA_PBAE = "Theta_PBAE"; // Transition
+            inline static const std::string THETA_PBAE_PRIOR =
+                "Theta_PBAE_Prior";
+            inline static const std::string THETA_PBAE =
+                "Theta_PBAE"; // Transition
             inline static const std::string PBAE = "PBAE";
             inline static const std::string Q = TA3MessageConverter::Q;
-            //TA3MessageConverter::Q;
+            // TA3MessageConverter::Q;
             inline static const std::string BEEP = TA3MessageConverter::BEEP;
 
             //------------------------------------------------------------------
@@ -137,7 +139,8 @@ namespace tomcat {
             std::shared_ptr<CPD> create_theta_q_prior_cpd() const;
 
             /**
-             * Creates prior distribution for the parameter node Theta_PBAE_Prior.
+             * Creates prior distribution for the parameter node
+             * Theta_PBAE_Prior.
              *
              * @return CPD
              */
@@ -148,7 +151,8 @@ namespace tomcat {
              *
              * @return CPD
              */
-            std::vector<std::shared_ptr<CPD>> create_theta_pbae_prior_cpds() const;
+            std::vector<std::shared_ptr<CPD>>
+            create_theta_pbae_prior_cpds() const;
 
             /**
              * Creates prior distribution for the node Q.
@@ -158,7 +162,7 @@ namespace tomcat {
              * @return CPD
              */
             std::shared_ptr<CPD> create_training_condition_prior_cpd(
-                std::shared_ptr<RandomVariableNode> theta_q_node) const;
+                const std::shared_ptr<RandomVariableNode>& theta_q_node) const;
 
             /**
              * Creates prior distribution for the node Player's Belief About the
@@ -169,7 +173,8 @@ namespace tomcat {
              * @return CPD
              */
             std::shared_ptr<CPD> create_pbae_prior_cpd(
-                std::shared_ptr<RandomVariableNode> theta_pbae_node) const;
+                const std::shared_ptr<RandomVariableNode>& theta_pbae_node)
+                const;
 
             /**
              * Creates prior distributions for the node Beep given the current
@@ -179,8 +184,8 @@ namespace tomcat {
              *
              * @return CPD
              */
-            std::shared_ptr<CPD>
-            create_beep_cpd(std::shared_ptr<NodeMetadata> pbae_metadata) const;
+            std::shared_ptr<CPD> create_beep_cpd(
+                const std::shared_ptr<NodeMetadata>& pbae_metadata) const;
         };
 
     } // namespace model

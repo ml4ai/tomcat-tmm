@@ -71,8 +71,8 @@ namespace tomcat {
                 parameter_label << THETA_PBAE << i;
                 shared_ptr<NodeMetadata> parameter_metadata =
                     nodes[parameter_label.str()]->get_metadata();
-                nodes[PBAE]->get_metadata()->add_parent_link(
-                    parameter_metadata, true);
+                nodes[PBAE]->get_metadata()->add_parent_link(parameter_metadata,
+                                                             true);
             }
             nodes[PBAE]->get_metadata()->add_parent_link(
                 nodes[PBAE]->get_metadata(), true); // PBAE_{t-1} -> PBAE_t
@@ -224,9 +224,9 @@ namespace tomcat {
 
         shared_ptr<NodeMetadata>
         TomcatTA3V2::create_theta_q_prior_metadata() const {
-            shared_ptr<NodeMetadata> metadata = make_shared<
-                NodeMetadata>(NodeMetadata::create_single_time_link_metadata(
-                THETA_Q_PRIOR, true, false, 1, NUM_TRAINING_CONDITIONS));
+            shared_ptr<NodeMetadata> metadata = make_shared<NodeMetadata>(
+                NodeMetadata::create_single_time_link_metadata(
+                    THETA_Q_PRIOR, true, false, 1, NUM_TRAINING_CONDITIONS));
 
             return metadata;
         }
@@ -336,7 +336,7 @@ namespace tomcat {
         }
 
         shared_ptr<CPD> TomcatTA3V2::create_training_condition_prior_cpd(
-            std::shared_ptr<RandomVariableNode> theta_q_node) const {
+            const std::shared_ptr<RandomVariableNode>& theta_q_node) const {
 
             // This CPD table is not constant, it depends on the parameter node
             // Theta_Q.
@@ -350,7 +350,7 @@ namespace tomcat {
         }
 
         shared_ptr<CPD> TomcatTA3V2::create_pbae_prior_cpd(
-            std::shared_ptr<RandomVariableNode> theta_pbae_node) const {
+            const std::shared_ptr<RandomVariableNode>& theta_pbae_node) const {
 
             // This CPD table is not constant, it depends on the parameter node
             // Theta_Q.
@@ -364,7 +364,7 @@ namespace tomcat {
         }
 
         shared_ptr<CPD> TomcatTA3V2::create_beep_cpd(
-            std::shared_ptr<NodeMetadata> pbae_metadata) const {
+            const std::shared_ptr<NodeMetadata>& pbae_metadata) const {
             Eigen::MatrixXd cpd_table =
                 Eigen::MatrixXd::Identity(NUM_BEEP_STATES, NUM_BEEP_STATES);
             CategoricalCPD cpd_temp({pbae_metadata}, cpd_table);

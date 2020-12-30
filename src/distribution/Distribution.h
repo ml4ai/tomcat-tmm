@@ -74,8 +74,9 @@ namespace tomcat {
              * parameter node if the latter is shared among nodes over several
              * time steps.
              */
-            virtual void update_dependencies(Node::NodeMap& parameter_nodes_map,
-                                             int time_step) = 0;
+            virtual void
+            update_dependencies(const Node::NodeMap& parameter_nodes_map,
+                                int time_step) = 0;
 
             /**
              * Draws a sample from the distribution.
@@ -90,27 +91,19 @@ namespace tomcat {
              * @return A sample from the distribution.
              */
             virtual Eigen::VectorXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
                    int parameter_idx = 0) const = 0;
 
             /**
-             * Draws a sample from the distribution scaled by a vector of
-             * weights.
+             * Generates a weighted sample from the distribution.
              *
-             * @param random_generator: random number random_generator
-             * @param parameter_idx: the index of the parameter assignment
-             * to use in case the distribution depend on parameter nodes with
-             * multiple assignments. If the parameter has single assignment,
-             * that is the one being used regardless of the value informed in
-             * this argument.
-             * @param weights: values to scale the parameters of the
-             * distribution
+             * @param random_generator: random number generator
+             * @param weights: weights
              *
-             * @return A sample from the distribution.
+             * @return Weighted sample.
              */
             virtual Eigen::VectorXd
-            sample(std::shared_ptr<gsl_rng> random_generator,
-                   int parameter_idx,
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const Eigen::VectorXd& weights) const = 0;
 
             /**
@@ -129,23 +122,18 @@ namespace tomcat {
              * @return A sample from the posterior distribution
              */
             virtual Eigen::VectorXd sample_from_conjugacy(
-                std::shared_ptr<gsl_rng> random_generator,
+                const std::shared_ptr<gsl_rng>& random_generator,
                 int parameter_idx,
                 const Eigen::VectorXd& sufficient_statistics) const = 0;
 
             /**
-             * Returns the PDF/PMFs for a given value.
+             * Returns the PDF/PMF for a given value.
              *
-             * @param value: possible sample from the distribution
-             * @param parameter_idx: the index of the parameter assignment
-             * to use in case the distribution depend on parameter nodes with
-             * multiple assignments. If the parameter has single assignment,
-             * that is the one being used regardless of the value informed in
-             * this argument.
-             * @return PDFs for the values.
+             * @param value: value
+             *
+             * @return PDF/PMF
              */
-            virtual double get_pdf(const Eigen::VectorXd& value,
-                                   int parameter_idx) const = 0;
+            virtual double get_pdf(const Eigen::VectorXd& value) const = 0;
 
             /**
              * Creates a new unique pointer from a concrete instance of a
@@ -164,13 +152,13 @@ namespace tomcat {
 
             /**
              * Update the sufficient statistics in the parameter nodes given the
-             * assignment informed.
+             * collection of values informed.
              *
-             * @param assignment: Assignment from the data node that depends on
+             * @param values: Values from the data node that depends on
              * the parameter being updated
              */
             virtual void
-            update_sufficient_statistics(const Eigen::VectorXd& sample) = 0;
+            update_sufficient_statistics(const std::vector<double>& values) = 0;
 
             /**
              * Returns assignments of the node(s) the distribution depends on. A
