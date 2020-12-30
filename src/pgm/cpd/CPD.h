@@ -2,6 +2,7 @@
 
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -357,15 +358,23 @@ namespace tomcat {
             // Maps an indexing node's label to its indexing struct.
             TableOrderingMap parent_label_to_indexing;
 
+            // Controls racing conditions when multiple threads are trying to
+            // update the sufficient statistics. I decided to encapsulate it
+            // in a pointer to allow CPDs to have default move constructors
+            // as a mutex object cannot be moved. Since no copy or move will
+            // be performed by different threads (they just update the
+            // sufficient statistics), there's no need to deal with race
+            // condition when copying or moving an object of this class.
+            std::unique_ptr<std::mutex> sufficient_statistics_mutex;
+
           private:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
             /**
-             * Fill CPD's unique identifier formed by the concatenation of the
-            parent
-            // labels in alphabetical order delimited by comma.
+             * Fills CPD's unique identifier formed by the concatenation of the
+             * index nodes' labels in alphabetical order delimited by comma.
              */
             void init_id();
 

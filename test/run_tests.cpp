@@ -865,7 +865,7 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling, ModelConfig) {
 
     shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
     shared_ptr<GibbsSampler> gibbs_sampler =
-        make_shared<GibbsSampler>(model, 200);
+        make_shared<GibbsSampler>(model, 200, 4);
     DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
 
     double tolerance = 0.05;
@@ -877,6 +877,14 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling, ModelConfig) {
     data.add_data(STATE, sampler.get_samples(STATE));
     data.add_data(GREEN, sampler.get_samples(GREEN));
     data.add_data(YELLOW, sampler.get_samples(YELLOW));
+
+    // Set and freeze the first THETA_STATE_GIVEN_TC_PBAE_STATE to avoid
+    // permutation of TC values.
+    const shared_ptr<RandomVariableNode>& theta_state_0 =
+        dynamic_pointer_cast<RandomVariableNode>(model->get_nodes_by_label(
+            THETA_STATE_GIVEN_TC_PBAE_STATE + "_0")[0]);
+    theta_state_0->set_assignment(tables.state_given_tc_pbae_state.row(0));
+    theta_state_0->freeze();
 
     trainer.prepare();
     trainer.fit(data);
@@ -919,6 +927,8 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling, ModelConfig) {
         BOOST_TEST(check, msg.str());
     }
 
+    // Skip the first one that was set manually to avoid TC permutation and
+    // therefore has no sample to be retrieved.
     for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
         stringstream label;
         label << THETA_STATE_GIVEN_TC_PBAE_STATE << '_' << i;

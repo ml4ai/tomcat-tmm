@@ -76,7 +76,8 @@ namespace tomcat {
                 // improved by creating perennial threads for each one of the
                 // estimators and keep tracking of the data point they have
                 // processed in the list of available data.
-                EvidenceSet new_data = get_next_data_from_pending_messages();
+                EvidenceSet new_data =
+                    this->get_next_data_from_pending_messages();
                 if (!new_data.empty()) {
                     for (auto estimator : this->estimators) {
                         EstimationProcess::estimate(estimator, new_data);
@@ -130,48 +131,6 @@ namespace tomcat {
                              << estimator_name << "/" << estimates.label;
 
                     this->publish(ss_topic.str(), to_string(estimates_vector));
-
-                    //                        if
-                    //                        (node_estimates.assignment.size()
-                    //                        == 0) {
-                    //                            // There will be estimates for
-                    //                            each one of the possible
-                    //                            node's assignments. We publish
-                    //                            each
-                    //                            // estimate in a different
-                    //                            topic. for (int assignment =
-                    //                            0; assignment <
-                    //                            node_estimates.estimates.size();
-                    //                            assignment++) {
-                    //                                ss_topic <<
-                    //                                this->config.estimates_topic
-                    //                                << "/"
-                    //                                         << estimator_name
-                    //                                         << "/"
-                    //                                         <<
-                    //                                         node_estimates.label
-                    //                                         << "/"
-                    //                                         << assignment;
-                    //
-                    //                                this->publish(ss_topic.str(),
-                    //                                              to_string(node_estimates.estimates[assignment]));
-                    //                            }
-                    //                        } else {
-                    //                            // Use the fixed assignment as
-                    //                            a topic ss_topic <<
-                    //                            this->config.estimates_topic
-                    //                            << "/"
-                    //                                     << estimator_name <<
-                    //                                     "/"
-                    //                                     <<
-                    //                                     node_estimates.label
-                    //                                     << "/"
-                    //                                     <<
-                    //                                     node_estimates.assignment;
-                    //
-                    //                            this->publish(ss_topic.str(),
-                    //                                          to_string(node_estimates.estimates[0]));
-                    //                        }
                 }
             }
             catch (out_of_range& e) {

@@ -1,4 +1,7 @@
 #include "pgm/cpd/DirichletCPD.h"
+
+#include <mutex>
+
 #include "pgm/ConstantNode.h"
 
 namespace tomcat {
@@ -107,6 +110,8 @@ namespace tomcat {
 
         void DirichletCPD::add_to_sufficient_statistics(
             const vector<double>& values) {
+
+            scoped_lock lock(*this->sufficient_statistics_mutex);
             for (int value : values) {
                 this->sufficient_statistics(value) += 1;
             }

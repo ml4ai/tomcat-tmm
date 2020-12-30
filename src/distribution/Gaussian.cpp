@@ -34,12 +34,12 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        Gaussian::Gaussian(const Gaussian& Gaussian) {
-            this->parameters = Gaussian.parameters;
+        Gaussian::Gaussian(const Gaussian& gaussian) {
+            this->parameters = gaussian.parameters;
         }
 
-        Gaussian& Gaussian::operator=(const Gaussian& Gaussian) {
-            this->parameters = Gaussian.parameters;
+        Gaussian& Gaussian::operator=(const Gaussian& gaussian) {
+            this->parameters = gaussian.parameters;
             return *this;
         }
 
