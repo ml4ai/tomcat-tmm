@@ -1,6 +1,6 @@
 #pragma once
 
-#include "distribution/Continuous.h"
+#include "distribution/Distribution.h"
 #include "utils/Definitions.h"
 
 namespace tomcat {
@@ -12,7 +12,7 @@ namespace tomcat {
          * in the assignment of a node, which can be constant or a random
          * variable.
          */
-        class Dirichlet : public Continuous {
+        class Dirichlet : public Distribution {
 
           public:
             //------------------------------------------------------------------

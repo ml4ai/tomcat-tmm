@@ -9,7 +9,8 @@
 #include <gsl/gsl_rng.h>
 
 #include "distribution/Categorical.h"
-#include "distribution/Dirichlet.h"
+#include "distribution/Gamma.h"
+#include "distribution/Poisson.h"
 #include "pgm/ConstantNode.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
@@ -27,6 +28,8 @@
 using namespace tomcat::model;
 using namespace std;
 using namespace Eigen;
+namespace utf = boost::unit_test;
+namespace tt = boost::test_tools;
 
 bool is_equal(const MatrixXd& m1,
               const MatrixXd& m2,
@@ -46,6 +49,24 @@ bool is_equal(const MatrixXd& m1,
 
     return true;
 }
+
+BOOST_AUTO_TEST_SUITE(distribution)
+
+BOOST_AUTO_TEST_CASE(poisson, *utf::tolerance(0.00001)) {
+
+    Poisson poisson(4);
+    double pdf = poisson.get_pdf(Eigen::VectorXd::Constant(1, 3));
+    BOOST_TEST(pdf == 0.195366);
+}
+
+BOOST_AUTO_TEST_CASE(gamma, *utf::tolerance(0.00001)) {
+
+    Gamma gamma(3, 2);
+    double pdf = gamma.get_pdf(Eigen::VectorXd::Constant(1, 4));
+    BOOST_TEST(pdf == 0.135335);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
 
 struct ModelConfig {
     /**

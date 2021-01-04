@@ -8,7 +8,8 @@ namespace tomcat {
     namespace model {
 
         /**
-         * Class description here
+         * Class to represent a Categorical distribution with discrete
+         * probabilities.
          */
         class Categorical : public Distribution {
           public:
@@ -68,10 +69,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void update_dependencies(const Node::NodeMap& parameter_nodes_map,
-                                     int time_step) override;
-
-            Eigen::VectorXd
+Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
                    int parameter_idx) const override;
 
@@ -100,11 +98,6 @@ namespace tomcat {
             std::string get_description() const override;
 
             int get_sample_size() const override;
-
-            void update_sufficient_statistics(
-                const std::vector<double>& values) override;
-
-            Eigen::VectorXd get_values() const override;
 
           private:
             //------------------------------------------------------------------

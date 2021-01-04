@@ -36,7 +36,7 @@ namespace tomcat {
                             random_variable->get_metadata()->get_label(),
                             random_variable->get_metadata()->get_cardinality(),
                             random_variable->get_time_step(),
-                            random_variable->get_cpd()->get_table(),
+                            random_variable->get_cpd()->get_table(0),
                             random_variable->get_cpd()
                                 ->get_parent_label_to_indexing());
                     }

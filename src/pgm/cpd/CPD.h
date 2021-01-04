@@ -234,9 +234,12 @@ namespace tomcat {
              * Return the matrix formed by the concrete assignments of the nodes
              * it depends on.
              *
+             * @param parameter_idx: index of the parameter's assignment to
+             * consider
+             *
              * @return CPD table
              */
-            Eigen::MatrixXd get_table() const;
+            Eigen::MatrixXd get_table(int parameter_idx) const;
 
             //------------------------------------------------------------------
             // Virtual functions

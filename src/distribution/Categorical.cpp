@@ -14,19 +14,21 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         Categorical::Categorical(const shared_ptr<Node>& probabilities)
-            : probabilities(probabilities) {}
+            : Distribution({probabilities}) {}
 
         Categorical::Categorical(shared_ptr<Node>&& probabilities)
-            : probabilities(move(probabilities)) {}
+            : Distribution({move(probabilities)}) {}
 
         Categorical::Categorical(const Eigen::VectorXd& probabilities) {
-            this->probabilities =
+            shared_ptr<ConstantNode> probabilities_node =
                 make_shared<ConstantNode>(ConstantNode(probabilities));
+            this->parameters.push_back(move(probabilities_node));
         }
 
         Categorical::Categorical(const Eigen::VectorXd&& probabilities) {
-            this->probabilities =
+            shared_ptr<ConstantNode> probabilities_node =
                 make_shared<ConstantNode>(ConstantNode(move(probabilities)));
+            this->parameters.push_back(move(probabilities_node));
         }
 
         Categorical::~Categorical() {}
@@ -35,42 +37,22 @@ namespace tomcat {
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         Categorical::Categorical(const Categorical& categorical) {
-            this->probabilities = categorical.probabilities;
+            this->copy(categorical);
         }
 
         Categorical& Categorical::operator=(const Categorical& categorical) {
-            this->probabilities = categorical.probabilities;
+            this->copy(categorical);
             return *this;
         }
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void Categorical::update_dependencies(
-            const Node::NodeMap& parameter_nodes_map, int time_step) {
-
-            string parameter_timed_name;
-            const shared_ptr<NodeMetadata>& metadata =
-                this->probabilities->get_metadata();
-            if (metadata->is_replicable()) {
-                parameter_timed_name = metadata->get_timed_name(time_step);
-            }
-            else {
-                parameter_timed_name =
-                    metadata->get_timed_name(metadata->get_initial_time_step());
-            }
-
-            if (parameter_nodes_map.count(parameter_timed_name) > 0) {
-                this->probabilities =
-                    parameter_nodes_map.at(parameter_timed_name);
-            }
-        }
-
         Eigen::VectorXd
         Categorical::sample(const shared_ptr<gsl_rng>& random_generator,
                             int parameter_idx) const {
             Eigen::MatrixXd probabilities =
-                this->probabilities->get_assignment();
+                this->parameters[0]->get_assignment();
 
             parameter_idx = probabilities.rows() == 1 ? 0 : parameter_idx;
 
@@ -121,7 +103,7 @@ namespace tomcat {
             // Parameter nodes are never in-plate. Therefore, their
             // assignment matrix is always comprised by a single row.
             Eigen::VectorXd probabilities =
-                this->probabilities->get_assignment().row(0);
+                this->parameters[0]->get_assignment().row(0);
 
             Eigen::VectorXd weighted_probabilities =
                 probabilities.array() * weights.array();
@@ -142,7 +124,7 @@ namespace tomcat {
 
         double Categorical::get_pdf(const Eigen::VectorXd& value) const {
             Eigen::VectorXd probabilities =
-                this->probabilities->get_assignment().row(0);
+                this->parameters[0]->get_assignment().row(0);
 
             return probabilities((int)value(0));
         }
@@ -150,35 +132,20 @@ namespace tomcat {
         unique_ptr<Distribution> Categorical::clone() const {
             unique_ptr<Categorical> new_distribution =
                 make_unique<Categorical>(*this);
-            new_distribution->probabilities =
-                new_distribution->probabilities->clone();
+            new_distribution->parameters[0] =
+                new_distribution->parameters[0]->clone();
 
             return new_distribution;
         }
 
         string Categorical::get_description() const {
             stringstream ss;
-            ss << "Cat(" << this->probabilities << ")";
+            ss << "Cat(" << *this->parameters[0] << ")";
 
             return ss.str();
         }
 
         int Categorical::get_sample_size() const { return 1; }
-
-        void Categorical::update_sufficient_statistics(
-            const vector<double>& values) {
-            if (this->probabilities->get_metadata()->is_parameter()) {
-                if (RandomVariableNode* rv_node =
-                        dynamic_cast<RandomVariableNode*>(
-                            this->probabilities.get())) {
-                    rv_node->add_to_sufficient_statistics(values);
-                }
-            }
-        }
-
-        Eigen::VectorXd Categorical::get_values() const {
-            return this->probabilities->get_assignment().row(0);
-        }
 
     } // namespace model
 } // namespace tomcat

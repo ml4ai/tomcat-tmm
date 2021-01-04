@@ -264,12 +264,13 @@ namespace tomcat {
 
         void CPD::print(ostream& os) const { os << this->get_description(); }
 
-        Eigen::MatrixXd CPD::get_table() const {
+        Eigen::MatrixXd CPD::get_table(int parameter_idx) const {
             Eigen::MatrixXd table;
 
             int row = 0;
             for (const auto& distribution : this->distributions) {
-                Eigen::VectorXd parameters = distribution->get_values();
+                Eigen::VectorXd parameters =
+                    distribution->get_values(parameter_idx);
                 if (table.size() == 0) {
                     table = Eigen::MatrixXd(this->distributions.size(),
                                             parameters.size());

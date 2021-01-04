@@ -7,62 +7,62 @@ namespace tomcat {
     namespace model {
 
         /**
-         * Gaussian distribution with mean and variance defined by two nodes,
-         * which can be constant or random variables.
+         * Gamma distribution with parameters a alpha and beta defined by two
+         * nodes, which can be constant or random variables.
          */
-        class Gaussian : public Distribution {
+        class Gamma : public Distribution {
           public:
             //------------------------------------------------------------------
             // Types, Enums & Constants
             //------------------------------------------------------------------
-            enum PARAMETER_INDEX { mean, variance };
+            enum PARAMETER_INDEX { alpha, beta };
 
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Creates an instance of a Gaussian distribution for node
+             * Creates an instance of a Gamma distribution for node
              * dependent parameters.
              *
-             * @param parameters: nodes which the assignments define the mean
-             * and the variance of the distribution
+             * @param parameters: nodes which the assignments define the
+             * parameters of the distribution
              */
-            Gaussian(const std::shared_ptr<Node>& mean,
-                     const std::shared_ptr<Node>& variance);
+            Gamma(const std::shared_ptr<Node>& alpha,
+                  const std::shared_ptr<Node>& beta);
 
             /**
-             * Creates an instance of a Gaussian distribution for node
+             * Creates an instance of a Gamma distribution for node
              * dependent parameters.
              *
-             * @param parameters: nodes which the assignments define the mean
-             * and the variance of the distribution
+             * @param parameters: nodes which the assignments define the
+             * parameters of the distribution
              */
-            Gaussian(std::shared_ptr<Node>&& mean,
-                     std::shared_ptr<Node>&& variance);
+            Gamma(std::shared_ptr<Node>&& alpha, std::shared_ptr<Node>&& beta);
 
             /**
-             * Creates an instance of a Gaussian distribution by embedding
-             * its parameters into a constant node for the mean and
-             * another to the variance in order to keep static and node
-             * dependent distributions compatible.
+             * Creates an instance of a Gamma distribution by transforming
+             * embedding its parameters into a constant node for alpha and
+             * another to beta in order to keep static and node  dependent
+             * distributions compatible.
              *
-             * @param parameters: Mean and variance of a Gaussian distribution
+             * @param alpha: alpha parameter
+             * @param beta: beta parameter
              */
-            Gaussian(double mean, double variance);
+            Gamma(unsigned int alpha, unsigned int beta);
 
-            ~Gaussian();
+            ~Gamma();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            Gaussian(const Gaussian& gaussian);
+            Gamma(const Gamma& gamma);
 
-            Gaussian& operator=(const Gaussian& gaussian);
+            Gamma& operator=(const Gamma& gamma);
 
-            Gaussian(Gaussian&&) = default;
+            Gamma(Gamma&&) = default;
 
-            Gaussian& operator=(Gaussian&&) = default;
+            Gamma& operator=(Gamma&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -72,13 +72,13 @@ namespace tomcat {
                    int parameter_idx) const override;
 
             /**
-             * Generates a sample from a Gaussian distribution with scaled
+             * Generates a sample from a Gamma distribution with scaled
              * parameters.
              *
              * @param random_generator: random number generator
              * @param weights: weights used to scale the parameters
              *
-             * @return Sample from a scaled Gaussian distribution.
+             * @return Sample from a scaled Gamma distribution.
              */
             Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
@@ -103,15 +103,15 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Returns the mean and the variance from assignments of the nodes
-             * in the list of parameters.
+             * Returns alpha and beta from assignments of the nodes that
+             * represent these parameters.
              *
              * @param parameter_idx: the index of the parameter assignment
              * to use in case the distribution depend on parameter nodes with
              * multiple assignments. If the parameter has single assignment,
              * that is the one being used regardless of the value informed in
              * this argument.
-             * @return Vector of containing the mean and the variance of the
+             * @return Vector of containing the alpha and the beta of the
              * distribution.
              */
             Eigen::VectorXd get_parameters(int parameter_idx) const;
@@ -120,14 +120,14 @@ namespace tomcat {
              * Generate a sample using the GSL library.
              *
              * @param random_generator: random number generator
-             * @param mean: mean or weighted mean
-             * @param variance: variance or weighted variance
-             * @return A sample from a Gaussian distribution.
+             * @param alpha: alpha or weighted alpha
+             * @param beta: beta or weighted beta
+             * @return A sample from a Gamma distribution.
              */
             Eigen::VectorXd
             sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
-                            double mean,
-                            double variance) const;
+                            double alpha,
+                            double beta) const;
         };
 
     } // namespace model

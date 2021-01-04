@@ -65,8 +65,11 @@ namespace tomcat {
         void GaussianCPD::init_from_matrix(const Eigen::MatrixXd& matrix) {
             for (int row = 0; row < matrix.rows(); row++) {
                 for (int i = 0; i < matrix.rows(); i++) {
+                    double mean = matrix(i, Gaussian::PARAMETER_INDEX::mean);
+                    double variance =
+                        matrix(i, Gaussian::PARAMETER_INDEX::variance);
                     shared_ptr<Gaussian> distribution_ptr =
-                        make_shared<Gaussian>(Gaussian(matrix.row(i)));
+                        make_shared<Gaussian>(mean, variance);
                     this->distributions.push_back(distribution_ptr);
                 }
             }

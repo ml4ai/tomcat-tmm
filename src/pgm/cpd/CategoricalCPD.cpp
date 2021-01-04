@@ -131,7 +131,7 @@ namespace tomcat {
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
 
-            Eigen::MatrixXd distributions_table = this->get_table();
+            Eigen::MatrixXd distributions_table = this->get_table(0);
 
             int num_distributions = this->distributions.size();
             Eigen::MatrixXd binary_distribution_indices =
