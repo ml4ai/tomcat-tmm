@@ -8,46 +8,42 @@ namespace tomcat {
     namespace model {
 
         /**
-         * A Dirichlet CPD consists of a table containing \f$\alpha\f$: the
-         * parameters of a Dirichlet (or Beta if the size of the vector
-         * \f$\alpha\f$ is 2) distribution of the node that is sampled from this
-         * CPD given its parents' assignments. The number of rows is given by
-         * the product of the cardinalities of these parent nodes. Each row
-         * represents a combination of possible assignments of the parent nodes
-         * ordered with respect to the binary basis. The table is represented by
-         * a list of Dirichlet distributions that contain a list of coefficients
-         * of \f$\alpha\f$ in itself.
+         * A Dirichlet CPD consists of a table containing a list of Dirichlet
+         * distributions. The number of rows is given by the product of the
+         * cardinalities of the parent nodes of the node that owns this CPD.
+         * Each row represents a combination of possible assignments of these
+         * parent nodes.
          *
          * For instance,
          *
-         * Let A and B be parents of the node C.
+         * Let A and B be parents of the node C. Let A and B be discrete
+         * values sampled from a finite discrete distribution.
          *
-         * A -> C B -> C
+         * Let A, B and C, have the following dependencies:
+         * A -> C, B -> C
          *
          * Suppose A, B have cardinalities 2, 3 respectively and C is sampled
-         * from a dirichlet distribution with parameter vector \f$\alpha\f$ of
-         * size 3.
+         * from a Dirichlet distribution with parameter \f$\alpha\f$.
          *
-         * A DirichletCPD for C will be as follows,
-         * ______________________________________
-         * |///| C |       \f$\alpha\f$         |
-         * |------------------------------------|
-         * | A | B |////////////////////////////|
-         * |------------------------------------|
-         * | 0 | 0 |     \f$\alpha_{00}\f$      |
-         * |------------------------------------|
-         * | 0 | 1 |     \f$\alpha_{01}\f$      |
-         * |------------------------------------|
-         * | 0 | 2 |     \f$\alpha_{02}\f$      |
-         * |------------------------------------|
-         * | 1 | 0 |     \f$\alpha_{10}\f$      |
-         * |------------------------------------|
-         * | 1 | 1 |     \f$\alpha_{11}\f$      |
-         * |------------------------------------|
-         * | 1 | 2 |     \f$\alpha_{12}\f$      |
-         * |------------------------------------|
+         * A CPD for C will be as follows,
+         * _________________________________________________
+         * |///|                      C                    |
+         * |-----------------------------------------------|
+         * | A | B |///////////////////////////////////////|
+         * |-----------------------------------------------|
+         * | 0 | 0 |     Dirichlet(\f$\alpha_{00}\f$))     |
+         * |-----------------------------------------------|
+         * | 0 | 1 |     Dirichlet(\f$\alpha_{01}\f$)      |
+         * |-----------------------------------------------|
+         * | 0 | 2 |     Dirichlet(\f$\alpha_{02}\f$)      |
+         * |-----------------------------------------------|
+         * | 1 | 0 |     Dirichlet(\f$\alpha_{10}\f$)      |
+         * |-----------------------------------------------|
+         * | 1 | 1 |     Dirichlet(\f$\alpha_{11}\f$)      |
+         * |-----------------------------------------------|
+         * | 1 | 2 |     Dirichlet(\f$\alpha_{12}\f$)      |
+         * |-----------------------------------------------|
          */
-
         class DirichletCPD : public CPD {
           public:
             //------------------------------------------------------------------
