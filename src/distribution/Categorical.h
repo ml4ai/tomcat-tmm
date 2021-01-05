@@ -124,13 +124,6 @@ Eigen::VectorXd
              */
             unsigned int get_sample_index(const unsigned int* sample_array,
                                           size_t array_size) const;
-
-            //------------------------------------------------------------------
-            // Data members
-            //------------------------------------------------------------------
-
-            // The assignment of a node defines the probabilities
-            std::shared_ptr<Node> probabilities;
         };
 
     } // namespace model

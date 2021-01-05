@@ -163,13 +163,19 @@ namespace tomcat {
              * @param index_nodes: concrete objects of the nodes used to
              * index the CPD
              * @param num_samples: number of samples to generate.
+             * @param timer: timer node that controls the sample of the node
+             * that owns this CPD in a semi-Markov model
+             * @param previous_time_node: instance of the node that owns this
+             * CPD in a previous time step (if the node is repeatable)
              *
              * @return A sample from one of the distributions in the CPD.
              */
             Eigen::MatrixXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const std::vector<std::shared_ptr<Node>>& index_nodes,
-                   int num_samples) const;
+                   int num_samples,
+                   const std::shared_ptr<Node>& timer,
+                   const std::shared_ptr<Node>& previous_time_node) const;
 
             /**
              * Generates a sample for the node that owns this CPD from its
@@ -212,10 +218,13 @@ namespace tomcat {
              * index the CPD
              * @param cpd_owner_assignment: assignment of the node that owns
              * this CPD
+             * @param timer: timer node that controls the sample of the node
+             * that owns this CPD in a semi-Markov model
              */
             void update_sufficient_statistics(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
-                const Eigen::MatrixXd& cpd_owner_assignment);
+                const Eigen::MatrixXd& cpd_owner_assignment,
+                const std::shared_ptr<Node>& timer);
 
             /**
              * Marks the CPD as not updated to force dependency update on a

@@ -17,13 +17,14 @@ namespace tomcat {
                                    bool parameter,
                                    bool single_time_link,
                                    bool in_plate,
+                                   bool timer,
                                    int initial_time_step,
                                    int sample_size,
                                    int cardinality)
             : label(label), replicable(replicable), parameter(parameter),
               single_time_link(single_time_link), in_plate(in_plate),
-              initial_time_step(initial_time_step), sample_size(sample_size),
-              cardinality(cardinality) {}
+              timer(timer), initial_time_step(initial_time_step),
+              sample_size(sample_size), cardinality(cardinality) {}
 
         //----------------------------------------------------------------------
         // Destructor
@@ -49,8 +50,12 @@ namespace tomcat {
             ss << "Metadata: {\n";
             ss << " Label: " << this->label << "\n";
             ss << " Cardinality: " << this->cardinality << "\n";
+            ss << " Sample Size: " << this->sample_size << "\n";
             ss << " Initial Time Step: " << this->initial_time_step << "\n";
             ss << " Repeatable: " << this->replicable << "\n";
+            ss << " Timer: " << this->timer << "\n";
+            ss << " In-Plate: " << this->in_plate << "\n";
+            ss << " Parameter: " << this->parameter << "\n";
             if (!this->parent_links.empty()) {
                 ss << " Parent Links:\n";
                 ss << " [\n";
@@ -72,21 +77,28 @@ namespace tomcat {
 
         void NodeMetadata::add_parent_link(
             const shared_ptr<NodeMetadata>& parent_node, bool time_crossing) {
-            // TODO - 1. error if parent node is a parameter node and time
-            //  crossing
-            //  is true. 2. Parameter cannot be replicable if child nodes are
-            //  not
-            //  Parent node cannot have continuous distribution and not be a
-            //  parameter node
 
-            if (!this->replicable && !this->single_time_link &&
-                !time_crossing) {
-                // todo - throw a warning exception because non-replicable,
-                //  multi-time nodes always cross time.
+            if (parent_node->cardinality == 0 && !parent_node->parameter &&
+                !parent_node->is_timer()) {
+                throw TomcatModelException("A non-parameter node cannot be "
+                                           "child of a node sampled from a "
+                                           "continuous distribution.");
             }
 
+            if (!parent_node->replicable && !parent_node->single_time_link &&
+                !time_crossing) {
+                throw TomcatModelException("The parent node is "
+                                           "non-replicable and multi-time, "
+                                           "therefore its connections must "
+                                           "cross time.");
+            }
+
+            // At least one of the parents of the node that owns this metadata
+            // is a parameter node?
             this->parameter_parents |= parent_node->parameter;
 
+            // TODO -  This will be removed as soon as we forbid replicable
+            //  parameter nodes.
             this->replicable_parameter_parent |=
                 parent_node->parameter && parent_node->replicable;
 
@@ -101,37 +113,39 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
-        const string& NodeMetadata::get_label() const { return label; }
+        const string& NodeMetadata::get_label() const { return this->label; }
 
         int NodeMetadata::get_initial_time_step() const {
-            return initial_time_step;
+            return this->initial_time_step;
         }
 
-        bool NodeMetadata::is_replicable() const { return replicable; }
+        bool NodeMetadata::is_replicable() const { return this->replicable; }
 
-        bool NodeMetadata::is_parameter() const { return parameter; }
+        bool NodeMetadata::is_parameter() const { return this->parameter; }
 
         bool NodeMetadata::is_single_time_link() const {
-            return single_time_link;
+            return this->single_time_link;
         }
 
-        bool NodeMetadata::is_in_plate() const { return in_plate; }
+        bool NodeMetadata::is_in_plate() const { return this->in_plate; }
 
-        int NodeMetadata::get_sample_size() const { return sample_size; }
+        int NodeMetadata::get_sample_size() const { return this->sample_size; }
 
-        int NodeMetadata::get_cardinality() const { return cardinality; }
+        int NodeMetadata::get_cardinality() const { return this->cardinality; }
 
         const vector<ParentLink>& NodeMetadata::get_parent_links() const {
-            return parent_links;
+            return this->parent_links;
         }
 
         bool NodeMetadata::has_parameter_parents() const {
-            return parameter_parents;
+            return this->parameter_parents;
         }
 
         bool NodeMetadata::has_replicable_parameter_parent() const {
             return replicable_parameter_parent;
         }
+
+        bool NodeMetadata::is_timer() const { return timer; }
 
     } // namespace model
 } // namespace tomcat

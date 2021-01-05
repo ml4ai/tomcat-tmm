@@ -210,6 +210,7 @@ namespace tomcat {
                     source_node_metadata.get_timed_name(parent_time_step));
                 int target_vertex_id = this->name_to_id.at(
                     target_node_metadata.get_timed_name(target_time_step));
+
                 boost::add_edge(
                     source_vertex_id, target_vertex_id, this->graph);
             }
@@ -217,26 +218,50 @@ namespace tomcat {
 
         void DynamicBayesNet::set_nodes_parents_children_and_cpd() {
             for (auto& node : this->nodes) {
-                vector<shared_ptr<Node>> parent_nodes =
-                    this->get_parent_nodes_of(node, true);
-
                 shared_ptr<RandomVariableNode> rv_node =
                     dynamic_pointer_cast<RandomVariableNode>(node);
 
                 vector<string> parent_labels;
-                parent_labels.reserve(parent_nodes.size());
+                vector<shared_ptr<Node>> parent_nodes;
 
-                for (const auto& parent_node : parent_nodes) {
+                // We set timer parent nodes in a separate attribute of a
+                // node as its not used to index the node's CPD.
+                for (const auto& parent_node :
+                     this->get_parent_nodes_of(node, true)) {
                     string label = parent_node->get_metadata()->get_label();
-                    parent_labels.push_back(label);
+
+                    if (parent_node->get_metadata()->is_timer()) {
+                        if (label == rv_node->get_metadata()->get_label()) {
+                            // Timed instance of the timer node
+                            rv_node->set_previous_time_node(parent_node);
+                        }
+                        else {
+                            rv_node->set_timer(parent_node);
+                        }
+                    }
+                    else {
+                        if (label == rv_node->get_metadata()->get_label()) {
+                            // This needs to be adapted if future
+                            // implementations wish to allow skip connections.
+                            // In the original implementation, only one
+                            // time-crossing connection exists between a
+                            // repeatable nodes over time.
+                            rv_node->set_previous_time_node(parent_node);
+                        }
+
+                        parent_labels.push_back(label);
+                        parent_nodes.push_back(parent_node);
+                    }
                 }
 
+                // Here we set the subset of parent nodes for CPD indexing
+                // purposes. Therefore, timer and parameter nodes are not
+                // included.
+                rv_node->set_parents(parent_nodes);
 
                 shared_ptr<CPD> cpd = rv_node->get_cpd_for(parent_labels);
                 rv_node->set_cpd(cpd);
                 rv_node->reset_cpd_updated_status();
-
-                rv_node->set_parents(parent_nodes);
 
                 vector<shared_ptr<Node>> child_nodes =
                     this->get_child_nodes_of(node);

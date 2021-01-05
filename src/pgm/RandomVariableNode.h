@@ -239,6 +239,12 @@ namespace tomcat {
             void
             set_children(const std::vector<std::shared_ptr<Node>>& children);
 
+            void
+            set_timer(const std::shared_ptr<Node>& timer);
+
+            void
+            set_previous_time_node(const std::shared_ptr<Node>& node);
+
           private:
             //------------------------------------------------------------------
             // Member functions
@@ -306,6 +312,14 @@ namespace tomcat {
             std::vector<std::shared_ptr<Node>> parents;
 
             std::vector<std::shared_ptr<Node>> children;
+
+            // If set, the amount of time this node stays in the current
+            // state, is defined by the timer's assignment (semi-Markov model).
+            std::shared_ptr<Node> timer;
+
+            // Instance of the node in the previous time. This attribute will
+            // only be filled if the node is repeatable.
+            std::shared_ptr<Node> previous_time_node;
         };
 
     } // namespace model

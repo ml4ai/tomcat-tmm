@@ -110,9 +110,12 @@ namespace tomcat {
             this->updated = true;
         }
 
-        Eigen::MatrixXd CPD::sample(const shared_ptr<gsl_rng>& random_generator,
-                                    const vector<shared_ptr<Node>>& index_nodes,
-                                    int num_samples) const {
+        Eigen::MatrixXd
+        CPD::sample(const shared_ptr<gsl_rng>& random_generator,
+                    const vector<shared_ptr<Node>>& index_nodes,
+                    int num_samples,
+                    const shared_ptr<Node>& timer,
+                    const std::shared_ptr<Node>& previous_time_node) const {
 
             vector<int> distribution_indices =
                 this->get_indexed_distribution_indices(index_nodes,
@@ -123,9 +126,43 @@ namespace tomcat {
             Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
             for (int i = 0; i < num_samples; i++) {
                 int distribution_idx = distribution_indices[i];
-                Eigen::VectorXd sample =
-                    this->distributions[distribution_idx]->sample(
+
+                Eigen::VectorXd sample;
+                if (previous_time_node) {
+                    if (previous_time_node->get_metadata()->is_timer()) {
+                        if (previous_time_node->get_assignment()(i, 0) == 0) {
+                            sample = this->distributions[distribution_idx]->sample(
+                                random_generator, i);
+                        } else {
+                            // We are trying to sample from a timer node that
+                            // did not reach zero yet. Therefore, instead of
+                            // sampling we just decrement its value.
+                            sample = previous_time_node->get_assignment()
+                                         .row(i)
+                                         .array() -
+                                     1;
+                        }
+                    } else {
+                        if (!timer || timer->get_assignment()(i, 0) == 0) {
+                            // This is a data node that can or not be
+                            // controlled by a timer. In case it is, it's
+                            // only sampled from the transition distribution
+                            // if the timer reached zero.
+                            sample = this->distributions[distribution_idx]->sample(
+                                random_generator, i);
+                        } else {
+                            // If the timer is still on, we just repeat the value
+                            // sampled in the previous time step.
+                            sample = previous_time_node->get_assignment().row(i);
+                        }
+                    }
+                } else {
+                    // The node is always sampled in the first time it shows
+                    // up in the unrolled DBN.
+                    sample = this->distributions[distribution_idx]->sample(
                         random_generator, i);
+                }
+
                 samples.row(i) = move(sample);
             }
 
@@ -234,7 +271,8 @@ namespace tomcat {
 
         void CPD::update_sufficient_statistics(
             const vector<shared_ptr<Node>>& index_nodes,
-            const Eigen::MatrixXd& cpd_owner_assignment) {
+            const Eigen::MatrixXd& cpd_owner_assignment,
+            const std::shared_ptr<Node>& timer) {
 
             int n = cpd_owner_assignment.rows();
             vector<int> distribution_indices =
@@ -249,7 +287,24 @@ namespace tomcat {
                     values_per_distribution[distribution_idx] = {};
                 }
 
-                values_per_distribution[distribution_idx].push_back(value);
+                bool add_to_list = false;
+                if (timer) {
+                    // Only add to the sufficient statistics, when the timer
+                    // starts over which is the moment when a transition
+                    // between different states occur.
+                    const Eigen::MatrixXd& timer_values =
+                        timer->get_assignment();
+                    if (timer_values(i, 0) == 0) {
+                        add_to_list = true;
+                    }
+                }
+                else {
+                    add_to_list = true;
+                }
+
+                if (add_to_list) {
+                    values_per_distribution[distribution_idx].push_back(value);
+                }
             }
 
             for (auto& [distribution_idx, values] :

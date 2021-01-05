@@ -81,6 +81,7 @@ namespace tomcat {
                                     parameter,
                                     false,
                                     in_plate,
+                                    false,
                                     initial_time_step,
                                     sample_size,
                                     cardinality);
@@ -115,9 +116,33 @@ namespace tomcat {
                                     parameter,
                                     true,
                                     in_plate,
+                                    false,
                                     time_step,
                                     sample_size,
                                     cardinality);
+            }
+
+            /**
+             * Create an instance of NodeMetadata for a timer node used in
+             * semi-Markov models.
+             *
+             * @param label: node's label
+             * @param initial_time_step: first time step the node shows up in
+             * the unrolled DBN
+             *
+             * @return Valid instance of a metadata object for a timer node
+             */
+            static NodeMetadata create_timer_metadata(const std::string& label,
+                                                      int initial_time_step) {
+                return NodeMetadata(label,
+                                    true,
+                                    false,
+                                    false,
+                                    true,
+                                    true,
+                                    initial_time_step,
+                                    1,
+                                    0);
             }
 
             ~NodeMetadata();
@@ -190,6 +215,8 @@ namespace tomcat {
 
             bool has_replicable_parameter_parent() const;
 
+            bool is_timer() const;
+
           private:
             //------------------------------------------------------------------
             // Constructor
@@ -209,6 +236,7 @@ namespace tomcat {
                          bool parameter,
                          bool single_time_link,
                          bool in_plate,
+                         bool timer,
                          int initial_time_step,
                          int sample_size,
                          int cardinality);
@@ -282,6 +310,10 @@ namespace tomcat {
             // information is stored to avoid unnecessary CPD updates when
             // unrolling a DBN.
             bool replicable_parameter_parent = false;
+
+            // Indicates whether the node is a timer or not. A timer node is
+            // used in Semi-Markov Models.
+            bool timer = false;
         };
 
     } // namespace model

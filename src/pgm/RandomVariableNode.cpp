@@ -114,8 +114,11 @@ namespace tomcat {
         RandomVariableNode::sample(const shared_ptr<gsl_rng>& random_generator,
                                    int num_samples) const {
 
-            return this->cpd->sample(
-                random_generator, this->parents, num_samples);
+            return this->cpd->sample(random_generator,
+                                     this->parents,
+                                     num_samples,
+                                     this->timer,
+                                     this->previous_time_node);
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
@@ -181,8 +184,8 @@ namespace tomcat {
         }
 
         void RandomVariableNode::update_parents_sufficient_statistics() {
-            this->cpd->update_sufficient_statistics(this->parents,
-                                                    this->assignment);
+            this->cpd->update_sufficient_statistics(
+                this->parents, this->assignment, this->timer);
         }
 
         void RandomVariableNode::add_to_sufficient_statistics(
@@ -278,6 +281,15 @@ namespace tomcat {
         void RandomVariableNode::set_children(
             const vector<std::shared_ptr<Node>>& children) {
             this->children = children;
+        }
+
+        void RandomVariableNode::set_timer(const std::shared_ptr<Node>& timer) {
+            this->timer = timer;
+        }
+
+        void RandomVariableNode::set_previous_time_node(
+            const std::shared_ptr<Node>& node) {
+            this->previous_time_node = node;
         }
 
     } // namespace model
