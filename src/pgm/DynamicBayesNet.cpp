@@ -140,6 +140,19 @@ namespace tomcat {
                                        metadata->get_initial_time_step());
                     }
                 }
+
+                // Create link between instances of a timer node over time.
+                if (metadata->is_timer()) {
+                    for (int t = metadata->get_initial_time_step();
+                         t < this->time_steps;
+                         t++) {
+
+                        this->add_edge(*(node_template.get_metadata()),
+                                       *(node_template.get_metadata()),
+                                       true,
+                                       t);
+                    }
+                }
             }
         }
 
@@ -161,7 +174,7 @@ namespace tomcat {
                 }
                 else {
                     // A replicable node (source) that shows up at time step t
-                    // and is linked to another node (target) that also shpws up
+                    // and is linked to another node (target) that also shows up
                     // at time step t.
                     if (source_node_metadata.get_initial_time_step() <=
                         target_time_step) {
@@ -224,39 +237,31 @@ namespace tomcat {
                 vector<string> parent_labels;
                 vector<shared_ptr<Node>> parent_nodes;
 
-                // We set timer parent nodes in a separate attribute of a
-                // node as its not used to index the node's CPD.
                 for (const auto& parent_node :
                      this->get_parent_nodes_of(node, true)) {
                     string label = parent_node->get_metadata()->get_label();
 
-                    if (parent_node->get_metadata()->is_timer()) {
-                        if (label == rv_node->get_metadata()->get_label()) {
-                            // Timed instance of the timer node
-                            rv_node->set_previous_time_node(parent_node);
-                        }
-                        else {
-                            rv_node->set_timer(parent_node);
-                        }
+                    if (label == rv_node->get_metadata()->get_label()) {
+                        // This needs to be adapted if future
+                        // implementations wish to allow skip connections.
+                        // In the original implementation, only one
+                        // time-crossing connection exists between a
+                        // repeatable nodes over time.
+                        rv_node->set_previous(parent_node);
+                        dynamic_pointer_cast<RandomVariableNode>(parent_node)
+                            ->set_next(rv_node);
                     }
-                    else {
-                        if (label == rv_node->get_metadata()->get_label()) {
-                            // This needs to be adapted if future
-                            // implementations wish to allow skip connections.
-                            // In the original implementation, only one
-                            // time-crossing connection exists between a
-                            // repeatable nodes over time.
-                            rv_node->set_previous_time_node(parent_node);
-                        }
 
+                    // Timer nodes do not index CPD tables as other discrete
+                    // parent nodes do. They have connections to other nodes in
+                    // the DBN only for effects of topological order when
+                    // sampling.
+                    if (!parent_node->get_metadata()->is_timer()) {
                         parent_labels.push_back(label);
                         parent_nodes.push_back(parent_node);
                     }
                 }
 
-                // Here we set the subset of parent nodes for CPD indexing
-                // purposes. Therefore, timer and parameter nodes are not
-                // included.
                 rv_node->set_parents(parent_nodes);
 
                 shared_ptr<CPD> cpd = rv_node->get_cpd_for(parent_labels);
@@ -266,6 +271,17 @@ namespace tomcat {
                 vector<shared_ptr<Node>> child_nodes =
                     this->get_child_nodes_of(node);
                 rv_node->set_children(child_nodes);
+
+                if (const auto& timer_metadata =
+                        rv_node->get_metadata()->get_timer_metadata()) {
+                    // Associate a concrete timer instance to a node
+                    // controlled by it.
+                    int t = rv_node->get_time_step();
+                    const string& timer_name =
+                        timer_metadata->get_timed_name(t);
+                    int timer_id = this->name_to_id[timer_name];
+                    rv_node->set_timer(this->graph[timer_id].node);
+                }
             }
         }
 

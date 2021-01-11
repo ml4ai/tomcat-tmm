@@ -117,8 +117,7 @@ namespace tomcat {
             return this->cpd->sample(random_generator,
                                      this->parents,
                                      num_samples,
-                                     this->timer,
-                                     this->previous_time_node);
+                                     shared_from_this());
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
@@ -283,13 +282,30 @@ namespace tomcat {
             this->children = children;
         }
 
+        const shared_ptr<Node>& RandomVariableNode::get_timer() const {
+            return timer;
+        }
+
         void RandomVariableNode::set_timer(const std::shared_ptr<Node>& timer) {
             this->timer = timer;
         }
 
-        void RandomVariableNode::set_previous_time_node(
+        const shared_ptr<Node>& RandomVariableNode::get_previous() const {
+            return previous;
+        }
+
+        void RandomVariableNode::set_previous(
             const std::shared_ptr<Node>& node) {
-            this->previous_time_node = node;
+            this->previous = node;
+        }
+
+        const shared_ptr<Node>& RandomVariableNode::get_next() const {
+            return next;
+        }
+
+        void RandomVariableNode::set_next(
+            const std::shared_ptr<Node>& node) {
+            this->next = node;
         }
 
     } // namespace model

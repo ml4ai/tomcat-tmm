@@ -93,6 +93,11 @@ namespace tomcat {
                                            "cross time.");
             }
 
+            if (parent_node->is_timer()) {
+                throw TomcatModelException("A timer cannot be parent of "
+                                           "another node.");
+            }
+
             // At least one of the parents of the node that owns this metadata
             // is a parameter node?
             this->parameter_parents |= parent_node->parameter;
@@ -103,7 +108,7 @@ namespace tomcat {
                 parent_node->parameter && parent_node->replicable;
 
             ParentLink link{parent_node, time_crossing};
-            this->parent_links.push_back(link);
+            this->parent_links.push_back(move(link));
         }
 
         string NodeMetadata::get_timed_name(int time_step) const {
@@ -147,5 +152,38 @@ namespace tomcat {
 
         bool NodeMetadata::is_timer() const { return timer; }
 
+        bool NodeMetadata::is_connected() const { return connected; }
+
+        void NodeMetadata::set_connected(bool connected) {
+            this->connected = connected;
+        }
+
+        const shared_ptr<NodeMetadata>&
+        NodeMetadata::get_timer_metadata() const {
+            return timer_metadata;
+        }
+
+        void
+        NodeMetadata::set_timer_metadata(shared_ptr<NodeMetadata>& metadata) {
+
+            if (!metadata->is_timer()) {
+                throw TomcatModelException("The metadata informed does not "
+                                           "belong to a timer node.");
+            }
+
+            if (metadata->is_connected()) {
+                throw TomcatModelException("The timer node is already "
+                                           "associated to another node.");
+            }
+
+            this->timer_metadata = metadata;
+
+            // Previous timer controls the current node's assignment.
+            ParentLink link{metadata, true};
+            this->parent_links.push_back(link);
+
+            // Mark timer metadata so it cannot be used to control another node.
+            metadata->set_connected(true);
+        }
     } // namespace model
 } // namespace tomcat

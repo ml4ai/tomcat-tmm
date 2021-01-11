@@ -1,6 +1,7 @@
 #include "CPD.h"
 
 #include "pgm/RandomVariableNode.h"
+#include "pgm/TimerNode.h"
 
 namespace tomcat {
     namespace model {
@@ -114,8 +115,8 @@ namespace tomcat {
         CPD::sample(const shared_ptr<gsl_rng>& random_generator,
                     const vector<shared_ptr<Node>>& index_nodes,
                     int num_samples,
-                    const shared_ptr<Node>& timer,
-                    const std::shared_ptr<Node>& previous_time_node) const {
+                    const std::shared_ptr<const RandomVariableNode>&
+                        sampled_node) const {
 
             vector<int> distribution_indices =
                 this->get_indexed_distribution_indices(index_nodes,
@@ -123,44 +124,56 @@ namespace tomcat {
 
             int sample_size = this->distributions[0]->get_sample_size();
 
+            const auto& timer = sampled_node->get_timer();
+            const auto& previous = sampled_node->get_previous();
+
             Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
             for (int i = 0; i < num_samples; i++) {
                 int distribution_idx = distribution_indices[i];
 
                 Eigen::VectorXd sample;
-                if (previous_time_node) {
-                    if (previous_time_node->get_metadata()->is_timer()) {
-                        if (previous_time_node->get_assignment()(i, 0) == 0) {
-                            sample = this->distributions[distribution_idx]->sample(
-                                random_generator, i);
-                        } else {
-                            // We are trying to sample from a timer node that
-                            // did not reach zero yet. Therefore, instead of
-                            // sampling we just decrement its value.
-                            sample = previous_time_node->get_assignment()
-                                         .row(i)
-                                         .array() -
-                                     1;
-                        }
-                    } else {
-                        if (!timer || timer->get_assignment()(i, 0) == 0) {
-                            // This is a data node that can or not be
-                            // controlled by a timer. In case it is, it's
-                            // only sampled from the transition distribution
-                            // if the timer reached zero.
-                            sample = this->distributions[distribution_idx]->sample(
-                                random_generator, i);
-                        } else {
-                            // If the timer is still on, we just repeat the value
-                            // sampled in the previous time step.
-                            sample = previous_time_node->get_assignment().row(i);
+
+                if (sampled_node->get_metadata()->is_timer()) {
+                    bool decrement_sample = false;
+
+                    if (previous) {
+                        if (previous->get_assignment()(i, 0) > 0) {
+                            decrement_sample = true;
                         }
                     }
-                } else {
-                    // The node is always sampled in the first time it shows
-                    // up in the unrolled DBN.
-                    sample = this->distributions[distribution_idx]->sample(
-                        random_generator, i);
+
+                    if (decrement_sample) {
+                        sample = previous->get_assignment().row(i).array() - 1;
+                    }
+                    else {
+                        sample = this->distributions[distribution_idx]->sample(
+                            random_generator, i);
+                    }
+                }
+                else {
+                    bool repeat_sample = false;
+
+                    if (sampled_node->get_timer()) {
+                        const auto& previous_timer =
+                            dynamic_pointer_cast<RandomVariableNode>(
+                                sampled_node->get_timer())
+                                ->get_previous();
+                        if (previous_timer) {
+                            if (previous_timer->get_assignment()(i, 0) > 0) {
+                                // Node is controlled by a timer and previous
+                                // count value did not reach 0 yet.
+                                repeat_sample = true;
+                            }
+                        }
+                    }
+
+                    if (repeat_sample) {
+                        sample = previous->get_assignment().row(i);
+                    }
+                    else {
+                        sample = this->distributions[distribution_idx]->sample(
+                            random_generator, i);
+                    }
                 }
 
                 samples.row(i) = move(sample);

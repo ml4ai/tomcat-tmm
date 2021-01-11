@@ -163,19 +163,16 @@ namespace tomcat {
              * @param index_nodes: concrete objects of the nodes used to
              * index the CPD
              * @param num_samples: number of samples to generate.
-             * @param timer: timer node that controls the sample of the node
-             * that owns this CPD in a semi-Markov model
-             * @param previous_time_node: instance of the node that owns this
-             * CPD in a previous time step (if the node is repeatable)
+             * @param sampled_node: node to which sample is being generated.
              *
              * @return A sample from one of the distributions in the CPD.
              */
-            Eigen::MatrixXd
-            sample(const std::shared_ptr<gsl_rng>& random_generator,
-                   const std::vector<std::shared_ptr<Node>>& index_nodes,
-                   int num_samples,
-                   const std::shared_ptr<Node>& timer,
-                   const std::shared_ptr<Node>& previous_time_node) const;
+            Eigen::MatrixXd sample(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                int num_samples,
+                const std::shared_ptr<const RandomVariableNode>& sampled_node)
+                const;
 
             /**
              * Generates a sample for the node that owns this CPD from its

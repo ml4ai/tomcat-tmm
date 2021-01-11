@@ -217,6 +217,14 @@ namespace tomcat {
 
             bool is_timer() const;
 
+            bool is_connected() const;
+
+            void set_connected(bool connected);
+
+            const std::shared_ptr<NodeMetadata>& get_timer_metadata() const;
+
+            void set_timer_metadata(std::shared_ptr<NodeMetadata>& metadata);
+
           private:
             //------------------------------------------------------------------
             // Constructor
@@ -314,6 +322,17 @@ namespace tomcat {
             // Indicates whether the node is a timer or not. A timer node is
             // used in Semi-Markov Models.
             bool timer = false;
+
+            // Metadata of the timer node that controls the node that owns
+            // this metadata.
+            std::shared_ptr<NodeMetadata> timer_metadata;
+
+            // Indicates whether the timer node that contains this metadata
+            // has been associated to another node. This attribute is set to
+            // true whenever a timer node metadata is associated to another
+            // node. This allows us to prevent a timer node to be associated
+            // with multiple nodes.
+            bool connected = false;
         };
 
     } // namespace model

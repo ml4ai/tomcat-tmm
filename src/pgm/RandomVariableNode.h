@@ -239,13 +239,20 @@ namespace tomcat {
             void
             set_children(const std::vector<std::shared_ptr<Node>>& children);
 
+            const std::shared_ptr<Node>& get_timer() const;
+
+            const std::shared_ptr<Node>& get_previous() const;
+
+            const std::shared_ptr<Node>& get_next() const;
+
             void
             set_timer(const std::shared_ptr<Node>& timer);
 
-            void
-            set_previous_time_node(const std::shared_ptr<Node>& node);
+            void set_previous(const std::shared_ptr<Node>& node);
 
-          private:
+            void set_next(const std::shared_ptr<Node>& node);
+
+          protected:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -317,9 +324,10 @@ namespace tomcat {
             // state, is defined by the timer's assignment (semi-Markov model).
             std::shared_ptr<Node> timer;
 
-            // Instance of the node in the previous time. This attribute will
-            // only be filled if the node is repeatable.
-            std::shared_ptr<Node> previous_time_node;
+            // Instance of the node in the previous and next time steps. Only
+            // repeatable nodes have these attributes filled.
+            std::shared_ptr<Node> previous;
+            std::shared_ptr<Node> next;
         };
 
     } // namespace model

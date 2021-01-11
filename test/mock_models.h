@@ -4,6 +4,7 @@
 #include "distribution/Poisson.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/NodeMetadata.h"
+#include "pgm/TimerNode.h"
 #include "pgm/RandomVariableNode.h"
 #include "pgm/cpd/CPD.h"
 #include "pgm/cpd/CategoricalCPD.h"
@@ -20,16 +21,21 @@ class MockPoisson : public Poisson {
   public:
     MockPoisson(const std::shared_ptr<Node>& lambda) : Poisson(lambda) {}
 
-    Eigen::VectorXd sample(const std::shared_ptr<gsl_rng>& random_generator,
-                           int parameter_idx) const override {
+    VectorXd sample(const std::shared_ptr<gsl_rng>& random_generator,
+                    int parameter_idx) const override {
 
-        // Return the mean of the Poisson distribution as the sampled value
-        return this->parameters[0]->get_assignment().row(parameter_idx);
+        // Return the rounded mean of the Poisson distribution as the sampled
+        // value
+        int rounde_mean =
+            this->parameters[0]->get_assignment()(parameter_idx, 0);
+        return VectorXd::Constant(1, rounde_mean);
     }
 
     std::unique_ptr<Distribution> clone() const override {
-        unique_ptr<MockPoisson> new_distribution = make_unique<MockPoisson>(*this);
-        new_distribution->parameters[0] = new_distribution->parameters[0]->clone();
+        unique_ptr<MockPoisson> new_distribution =
+            make_unique<MockPoisson>(*this);
+        new_distribution->parameters[0] =
+            new_distribution->parameters[0]->clone();
 
         return new_distribution;
     }
@@ -41,6 +47,7 @@ typedef shared_ptr<Categorical> CatPtr;
 typedef shared_ptr<Poisson> PoiPtr;
 typedef shared_ptr<DynamicBayesNet> DBNPtr;
 typedef shared_ptr<RandomVariableNode> RVNodePtr;
+typedef shared_ptr<TimerNode> TimerNodePtr;
 
 struct HMM {
     /**
@@ -728,7 +735,7 @@ struct HSMM {
         RVNodePtr state;
         RVNodePtr green;
         RVNodePtr yellow;
-        RVNodePtr timer;
+        TimerNodePtr timer;
 
         // Parameter nodes
         RVNodePtr theta_tc;
@@ -799,9 +806,13 @@ struct HSMM {
             NodeMetadata::create_multiple_time_link_metadata(
                 PBAE, true, false, true, 0, 1, PBAE_CARDINALITY));
 
+        metadatas.timer = make_shared<NodeMetadata>(
+            NodeMetadata::create_timer_metadata(TIMER, 0));
+
         metadatas.state = make_shared<NodeMetadata>(
             NodeMetadata::create_multiple_time_link_metadata(
                 STATE, true, false, true, 0, 1, STATE_CARDINALITY));
+        metadatas.state->set_timer_metadata(metadatas.timer);
 
         metadatas.green = make_shared<NodeMetadata>(
             NodeMetadata::create_multiple_time_link_metadata(
@@ -810,9 +821,6 @@ struct HSMM {
         metadatas.yellow = make_shared<NodeMetadata>(
             NodeMetadata::create_multiple_time_link_metadata(
                 YELLOW, true, false, true, 1, 1, YELLOW_CARDINALITY));
-
-        metadatas.timer = make_shared<NodeMetadata>(
-            NodeMetadata::create_timer_metadata(TIMER, 0));
 
         // Parameter nodes
         metadatas.theta_tc = make_shared<NodeMetadata>(
@@ -885,7 +893,7 @@ struct HSMM {
         nodes.state = make_shared<RandomVariableNode>(node_metadatas.state);
         nodes.green = make_shared<RandomVariableNode>(node_metadatas.green);
         nodes.yellow = make_shared<RandomVariableNode>(node_metadatas.yellow);
-        nodes.timer = make_shared<RandomVariableNode>(node_metadatas.timer);
+        nodes.timer = make_shared<TimerNode>(node_metadatas.timer);
 
         // Parameter nodes
         nodes.theta_tc =
@@ -936,7 +944,6 @@ struct HSMM {
                 node_metadatas.pi_pbae_given_pbae[i], true);
         }
 
-        node_metadatas.state->add_parent_link(node_metadatas.timer, true);
         node_metadatas.state->add_parent_link(node_metadatas.state, true);
         node_metadatas.state->add_parent_link(node_metadatas.theta_state, true);
         for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
@@ -956,7 +963,6 @@ struct HSMM {
                 node_metadatas.pi_yellow_given_state[i], true);
         }
 
-        node_metadatas.timer->add_parent_link(node_metadatas.timer, true);
         node_metadatas.timer->add_parent_link(node_metadatas.tc, true);
         node_metadatas.timer->add_parent_link(node_metadatas.pbae, false);
         node_metadatas.timer->add_parent_link(node_metadatas.state, false);
