@@ -13,6 +13,7 @@ namespace tomcat {
         //------------------------------------------------------------------
 
         class RandomVariableNode;
+        class TimerNode;
 
         //------------------------------------------------------------------
         // Structs
@@ -116,23 +117,6 @@ namespace tomcat {
                    int num_samples) const;
 
             /**
-             * Generates a sample for the node from its posterior distribution.
-             * If the node is an in-plate node, multiple samples will be
-             * generated for the node (one per row). The number of total
-             * samples are defined by the number of elements in-plate.
-             *
-             * Note: This method changes this node assignment temporarily while
-             * calculating the weights, therefore it's not const. The final
-             * state of the this object is unchanged though.
-             *
-             * @param random_generator: random number generator
-             *
-             * @return Sample for the node from its posterior
-             */
-            Eigen::MatrixXd sample_from_posterior(
-                const std::shared_ptr<gsl_rng>& random_generator);
-
-            /**
              * Returns p(children(node)|node). The posterior of a node is
              * given by p(node|parents(node)) * p(children(node)|node). We
              * call the second term, the posterior weights here.
@@ -215,6 +199,54 @@ namespace tomcat {
             std::shared_ptr<CPD>
             get_cpd_for(const std::vector<std::string>& parent_labels) const;
 
+            /**
+             * Checks whether the node has a timer associated with it.
+             *
+             * @return True if the node is controlled by a timer.
+             */
+            bool has_timer() const;
+
+            /**
+             * Retrieves copy of the node increment time steps behind.
+             *
+             * @param increment: number of time steps to jump in the past
+             *
+             * @return Previous copy in time.
+             */
+            std::shared_ptr<RandomVariableNode>
+            get_previous(int increment = 1) const;
+
+            /**
+             * Retrieves copy of the node increment time steps ahead.
+             *
+             * @param increment: number of time steps to jump in the future
+             *
+             * @return Next copy in time.
+             */
+            std::shared_ptr<RandomVariableNode> get_next(int increment = 1)
+            const;
+
+            // -----------------------------------------------------------------
+            // Virtual functions
+            // -----------------------------------------------------------------
+
+            /**
+             * Generates a sample for the node from its posterior distribution.
+             * If the node is an in-plate node, multiple samples will be
+             * generated for the node (one per row). The number of total
+             * samples are defined by the number of elements in-plate.
+             *
+             * Note: This method changes this node assignment temporarily while
+             * calculating the weights, therefore it's not const. The final
+             * state of the this object is unchanged though.
+             *
+             * @param random_generator: random number generator
+             *
+             * @return Sample for the node from its posterior
+             */
+            virtual Eigen::MatrixXd sample_from_posterior(
+                const std::shared_ptr<gsl_rng>& random_generator);
+
             // -----------------------------------------------------------------
             // Getters & Setters
             // -----------------------------------------------------------------
@@ -239,18 +271,14 @@ namespace tomcat {
             void
             set_children(const std::vector<std::shared_ptr<Node>>& children);
 
-            const std::shared_ptr<Node>& get_timer() const;
+            const std::shared_ptr<TimerNode>& get_timer() const;
 
-            const std::shared_ptr<Node>& get_previous() const;
-
-            const std::shared_ptr<Node>& get_next() const;
+            void set_timer(const std::shared_ptr<TimerNode>& timer);
 
             void
-            set_timer(const std::shared_ptr<Node>& timer);
-
-            void set_previous(const std::shared_ptr<Node>& node);
-
-            void set_next(const std::shared_ptr<Node>& node);
+            set_timed_copies(const std::shared_ptr<
+                             std::vector<std::shared_ptr<RandomVariableNode>>>&
+                                 timed_copies);
 
           protected:
             //------------------------------------------------------------------
@@ -322,12 +350,13 @@ namespace tomcat {
 
             // If set, the amount of time this node stays in the current
             // state, is defined by the timer's assignment (semi-Markov model).
-            std::shared_ptr<Node> timer;
+            std::shared_ptr<TimerNode> timer;
 
-            // Instance of the node in the previous and next time steps. Only
-            // repeatable nodes have these attributes filled.
-            std::shared_ptr<Node> previous;
-            std::shared_ptr<Node> next;
+            // Vector of instance of the current node in each one of the time
+            // steps from its initial appearance until the last one. This
+            // allows us easy access to any other instance in time.
+            std::shared_ptr<std::vector<std::shared_ptr<RandomVariableNode>>>
+                timed_copies;
         };
 
     } // namespace model

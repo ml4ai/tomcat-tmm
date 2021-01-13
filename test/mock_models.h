@@ -191,27 +191,27 @@ struct HMM {
         // Create model and add nodes to it.
         DBNPtr model;
         model = make_shared<DynamicBayesNet>();
-        model->add_node_template(*nodes.tc);
-        model->add_node_template(*nodes.pbae);
-        model->add_node_template(*nodes.state);
-        model->add_node_template(*nodes.green);
-        model->add_node_template(*nodes.yellow);
+        model->add_node_template(nodes.tc);
+        model->add_node_template(nodes.pbae);
+        model->add_node_template(nodes.state);
+        model->add_node_template(nodes.green);
+        model->add_node_template(nodes.yellow);
 
         // Parameter nodes
-        model->add_node_template(*nodes.theta_tc);
-        model->add_node_template(*nodes.pi_pbae);
-        model->add_node_template(*nodes.theta_state);
+        model->add_node_template(nodes.theta_tc);
+        model->add_node_template(nodes.pi_pbae);
+        model->add_node_template(nodes.theta_state);
         for (int i = 0; i < NUM_PI_PBAE_GIVEN_PBAE; i++) {
-            model->add_node_template(*nodes.pi_pbae_given_pbae[i]);
+            model->add_node_template(nodes.pi_pbae_given_pbae[i]);
         }
         for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
-            model->add_node_template(*nodes.theta_state_given_tc_pbae_state[i]);
+            model->add_node_template(nodes.theta_state_given_tc_pbae_state[i]);
         }
         for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
-            model->add_node_template(*nodes.pi_green_given_state[i]);
+            model->add_node_template(nodes.pi_green_given_state[i]);
         }
         for (int i = 0; i < NUM_PI_YELLOW_GIVEN_STATE; i++) {
-            model->add_node_template(*nodes.pi_yellow_given_state[i]);
+            model->add_node_template(nodes.pi_yellow_given_state[i]);
         }
 
         return model;
@@ -764,32 +764,32 @@ struct HSMM {
         // Create model and add nodes to it.
         DBNPtr model;
         model = make_shared<DynamicBayesNet>();
-        model->add_node_template(*nodes.tc);
-        model->add_node_template(*nodes.pbae);
-        model->add_node_template(*nodes.state);
-        model->add_node_template(*nodes.green);
-        model->add_node_template(*nodes.yellow);
-        model->add_node_template(*nodes.timer);
+        model->add_node_template(nodes.tc);
+        model->add_node_template(nodes.pbae);
+        model->add_node_template(nodes.state);
+        model->add_node_template(nodes.green);
+        model->add_node_template(nodes.yellow);
+        model->add_node_template(nodes.timer);
 
         // Parameter nodes
-        model->add_node_template(*nodes.theta_tc);
-        model->add_node_template(*nodes.pi_pbae);
-        model->add_node_template(*nodes.theta_state);
+        model->add_node_template(nodes.theta_tc);
+        model->add_node_template(nodes.pi_pbae);
+        model->add_node_template(nodes.theta_state);
         for (int i = 0; i < NUM_PI_PBAE_GIVEN_PBAE; i++) {
-            model->add_node_template(*nodes.pi_pbae_given_pbae[i]);
+            model->add_node_template(nodes.pi_pbae_given_pbae[i]);
         }
         for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
-            model->add_node_template(*nodes.theta_state_given_state[i]);
+            model->add_node_template(nodes.theta_state_given_state[i]);
         }
         for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
-            model->add_node_template(*nodes.pi_green_given_state[i]);
+            model->add_node_template(nodes.pi_green_given_state[i]);
         }
         for (int i = 0; i < NUM_PI_YELLOW_GIVEN_STATE; i++) {
-            model->add_node_template(*nodes.pi_yellow_given_state[i]);
+            model->add_node_template(nodes.pi_yellow_given_state[i]);
         }
         for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_TC_PBAE_STATE; i++) {
             model->add_node_template(
-                *nodes.lambda_timer_given_tc_pbae_state[i]);
+                nodes.lambda_timer_given_tc_pbae_state[i]);
         }
 
         return model;

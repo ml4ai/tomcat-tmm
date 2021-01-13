@@ -141,6 +141,17 @@ namespace tomcat {
                              bool discard);
 
             /**
+             * Fill forward and backward assignments of timer nodes.
+             *
+             * @param timer_nodes: timer nodes
+             * @param discard: indicates whether the sample should be discarded
+             * or stored
+             */
+            void update_timer_nodes(
+                const std::vector<std::shared_ptr<Node>>& timer_nodes,
+                bool discard);
+
+            /**
              * Samples from the posterior distribution of a parameter node. The
              * posterior for a parameter node is given by its prior adjusted by
              * some sufficient statistics. For instance, if a parameter node has

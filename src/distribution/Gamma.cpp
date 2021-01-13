@@ -102,6 +102,14 @@ namespace tomcat {
             return this->sample_from_gsl(random_generator, alpha, beta);
         }
 
+        Eigen::VectorXd
+        Gamma::sample(const std::shared_ptr<gsl_rng>& random_generator,
+                          const Eigen::VectorXd& weights,
+                          double replace_by_weight) const {
+            throw TomcatModelException("Not defined for continuous "
+                                       "distributions.");
+        }
+
         Eigen::VectorXd Gamma::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,

@@ -114,6 +114,24 @@ namespace tomcat {
                                          weighted_probabilities);
         }
 
+        Eigen::VectorXd
+        Categorical::sample(const std::shared_ptr<gsl_rng>& random_generator,
+                        const Eigen::VectorXd& weights,
+                        double replace_by_weight) const {
+
+            Eigen::VectorXd probabilities =
+                this->parameters[0]->get_assignment().row(0);
+            probabilities[(int) replace_by_weight] = 1;
+
+            Eigen::VectorXd weighted_probabilities =
+                probabilities.array() * weights.array();
+
+            // The weighted probabilities do not need to be normalized
+            // because GSL already does that.
+            return this->sample_from_gsl(random_generator,
+                                         weighted_probabilities);
+        }
+
         Eigen::VectorXd Categorical::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,

@@ -185,21 +185,47 @@ namespace tomcat {
         Eigen::MatrixXd CPD::sample_from_posterior(
             const shared_ptr<gsl_rng>& random_generator,
             const vector<shared_ptr<Node>>& index_nodes,
-            const Eigen::MatrixXd& posterior_weights) const {
+            const Eigen::MatrixXd& posterior_weights,
+            const std::shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
             int num_indices = posterior_weights.rows();
             vector<int> distribution_indices =
                 this->get_indexed_distribution_indices(index_nodes,
                                                        num_indices);
+            const auto& previous = cpd_owner->get_previous();
 
             int cols = this->distributions[0]->get_sample_size();
             Eigen::MatrixXd sample(num_indices, cols);
             for (int i = 0; i < num_indices; i++) {
                 int distribution_idx = distribution_indices[i];
-                const shared_ptr<Distribution>& distribution =
+                const auto& distribution =
                     this->distributions[distribution_idx];
-                sample.row(i) = distribution->sample(random_generator,
-                                                     posterior_weights.row(i));
+                const auto& weights = posterior_weights.row(i);
+
+                if (cpd_owner->has_timer() && previous) {
+                    // If the node that owns this CPD is controlled by a timer,
+                    // P(node|Parents(node)) is calculated according to its left
+                    // and right segments. If node(t-1) == node(t), we
+                    // must ignore the transition probability from the
+                    // transition matrix as there's no transition to a
+                    // different state. This would affect only the duration of
+                    // the previous segment (or the full segment if node(t+1)
+                    // == node(t) as well) which will be increased by one. To
+                    // avoid returning 0 (or whatever value defined in the
+                    // transition matrix when node(t) == node(t-1)) we pass the
+                    // previous state to the sampling method so that P(node
+                    // (t)|node (t-1)) s.t. node(t-1) == node(t) equals 1. The
+                    // actual probability of this "transition", regarding the
+                    // duration of the left and right segments, is embedded in
+                    // the weights passed to the sampling method.
+                    double previous_value = previous->get_assignment()(i, 0);
+                    sample.row(i) = distribution->sample(
+                        random_generator, weights, previous_value);
+                }
+                else {
+                    sample.row(i) =
+                        distribution->sample(random_generator, weights);
+                }
             }
 
             return sample;
@@ -220,8 +246,7 @@ namespace tomcat {
                     // child than the number of samples for its parents in
                     // the case of homogeneous world, for instance. This
                     // only considers samples of the parent nodes (index nodes)
-                    // up to a
-                    // certain row (num_indices).
+                    // up to a certain row (num_indices).
                     indices = indices.array() +
                               index_node->get_assignment()
                                       .block(0, 0, num_indices, 1)
@@ -243,9 +268,17 @@ namespace tomcat {
         Eigen::MatrixXd CPD::get_posterior_weights(
             const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
-            const Eigen::MatrixXd& cpd_owner_assignment) const {
+            const shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
-            int rows = cpd_owner_assignment.rows();
+            if (sampled_node->has_timer() &&
+                cpd_owner->get_previous() == sampled_node) {
+                throw TomcatModelException(
+                    "This implementation only supports calculating the "
+                    "posterior for nodes with categorical distribution, in "
+                    "case they are controlled by a timer.");
+            }
+
+            int rows = cpd_owner->get_size();
             int cols = sampled_node->get_metadata()->get_cardinality();
 
             // Set sampled node's assignment equals to zero so we can get the
@@ -271,47 +304,72 @@ namespace tomcat {
                 int distribution_idx = distribution_indices[i];
 
                 for (int j = 0; j < cols; j++) {
-                    shared_ptr<Distribution> distribution =
+                    const auto& distribution =
                         this->distributions[distribution_idx + j * offset];
-
-                    weights(i, j) =
-                        distribution->get_pdf(cpd_owner_assignment.row(i));
+                    weights(i, j) = distribution->get_pdf(
+                        cpd_owner->get_assignment().row(i));
                 }
             }
 
             return weights;
         }
 
+        Eigen::MatrixXd CPD::get_segment_posterior_weights(
+            const vector<shared_ptr<Node>>& index_nodes,
+            const shared_ptr<RandomVariableNode>& sampled_node,
+            const shared_ptr<const RandomVariableNode>& cpd_owner) const {
+
+            if (sampled_node->has_timer() &&
+                cpd_owner->get_previous() == sampled_node) {
+                throw TomcatModelException(
+                    "This implementation only supports calculating the "
+                    "posterior for nodes with categorical distribution, in "
+                    "case they are controlled by a timer.");
+            }
+
+            return Eigen::MatrixXd(0, 0);
+        }
+
         void CPD::update_sufficient_statistics(
             const vector<shared_ptr<Node>>& index_nodes,
-            const Eigen::MatrixXd& cpd_owner_assignment,
-            const std::shared_ptr<Node>& timer) {
+            const shared_ptr<RandomVariableNode>& cpd_owner) {
 
-            int n = cpd_owner_assignment.rows();
+            int n = cpd_owner->get_size();
             vector<int> distribution_indices =
                 this->get_indexed_distribution_indices(index_nodes, n);
             unordered_map<int, vector<double>> values_per_distribution;
 
-            for (int i = 0; i < n; i++) { // O(d)
+            const Eigen::MatrixXd& values = cpd_owner->get_assignment();
+
+            for (int i = 0; i < n; i++) {
                 int distribution_idx = distribution_indices[i];
-                double value = cpd_owner_assignment(i, 0);
 
                 if (!EXISTS(distribution_idx, values_per_distribution)) {
                     values_per_distribution[distribution_idx] = {};
                 }
 
+                double value = 0;
                 bool add_to_list = false;
-                if (timer) {
+                if (cpd_owner->get_metadata()->is_timer()) {
                     // Only add to the sufficient statistics, when the timer
                     // starts over which is the moment when a transition
                     // between different states occur.
-                    const Eigen::MatrixXd& timer_values =
-                        timer->get_assignment();
-                    if (timer_values(i, 0) == 0) {
+                    if (values(i, 0) == 0 || !cpd_owner->get_next()) {
+                        // Beginning of a new segment or end of the last segment
+                        if (const auto& previous_timer =
+                                cpd_owner->get_previous()) {
+                            // Size of the previous segment or last one
+                            value = previous_timer->get_assignment()(i, 0);
+                        }
+                        else {
+                            // First segment
+                            value = values(i, 0);
+                        }
                         add_to_list = true;
                     }
                 }
                 else {
+                    value = values(i, 0);
                     add_to_list = true;
                 }
 
@@ -321,7 +379,7 @@ namespace tomcat {
             }
 
             for (auto& [distribution_idx, values] :
-                 values_per_distribution) { // O(d)
+                 values_per_distribution) {
                 const shared_ptr<Distribution>& distribution =
                     this->distributions[distribution_idx];
                 distribution->update_sufficient_statistics(values);

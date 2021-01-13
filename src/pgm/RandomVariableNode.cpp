@@ -1,8 +1,11 @@
 #include "RandomVariableNode.h"
+
 #include <algorithm>
 #include <fmt/format.h>
 #include <iterator>
 #include <stdexcept>
+
+#include "TimerNode.h"
 
 namespace tomcat {
     namespace model {
@@ -125,7 +128,7 @@ namespace tomcat {
 
             Eigen::MatrixXd weights = this->get_posterior_weights();
             Eigen::MatrixXd sample = this->cpd->sample_from_posterior(
-                random_generator, this->parents, weights);
+                random_generator, this->parents, weights, shared_from_this());
 
             return sample;
         }
@@ -135,25 +138,20 @@ namespace tomcat {
             int cols = this->get_metadata()->get_cardinality();
             Eigen::MatrixXd log_weights = Eigen::MatrixXd::Ones(rows, cols);
 
-            // O(min{ctkd, ct(k^p(p-1) + d)})
-            // In the worst case scenario, one node will have ct children. if
-            // the node off plate and is parent of in-plate nodes.
             for (auto& child : this->children) {
                 shared_ptr<RandomVariableNode> rv_child =
                     dynamic_pointer_cast<RandomVariableNode>(child);
 
                 Eigen::MatrixXd child_weights =
                     rv_child->get_cpd()->get_posterior_weights(
-                        rv_child->get_parents(),
-                        shared_from_this(),
-                        child->get_assignment()); // O(min{kd, k^p(p-1) + d})
+                        rv_child->get_parents(), shared_from_this(), rv_child);
                 if (this->get_metadata()->is_in_plate()) {
                     // Multiply weights of each one of the assignments
                     // separately.
                     log_weights = (log_weights.array() +
                                    (child_weights.array() + EPSILON).log());
                 }
-                else { // O(d)
+                else {
                     // Multiply the weights of each one of the assignments of
                     // the child node. When an off-plate node is
                     // parent of an in-plate node, all of the in-plate
@@ -164,6 +162,35 @@ namespace tomcat {
                         (child_weights.array() + EPSILON).log().rowwise().sum();
                     log_weights =
                         (log_weights.array() + agg_child_weights.array());
+                }
+            }
+
+            // Include weights from the left and right segments if the node
+            // is controlled by a timer
+            if (this->has_timer()) {
+                vector<shared_ptr<TimerNode>> segment_timers;
+
+                if (const auto& previous_timer = this->timer->get_previous()) {
+                    // Left segment
+                    segment_timers.push_back(
+                        dynamic_pointer_cast<TimerNode>(previous_timer));
+                }
+                if (const auto& next_timer = this->timer->get_next()) {
+                    // Right segment
+                    segment_timers.push_back(
+                        dynamic_pointer_cast<TimerNode>(next_timer));
+                }
+                // Segment formed by this node only
+                segment_timers.push_back(this->timer);
+
+                for (const auto& segment_timer : segment_timers) {
+                    Eigen::MatrixXd seg_timer_weights =
+                        segment_timer->get_cpd()->get_segment_posterior_weights(
+                            segment_timer->get_parents(),
+                            shared_from_this(),
+                            segment_timer);
+                    log_weights = (log_weights.array() +
+                                   (seg_timer_weights.array() + EPSILON).log());
                 }
             }
 
@@ -184,7 +211,7 @@ namespace tomcat {
 
         void RandomVariableNode::update_parents_sufficient_statistics() {
             this->cpd->update_sufficient_statistics(
-                this->parents, this->assignment, this->timer);
+                this->parents, shared_from_this());
         }
 
         void RandomVariableNode::add_to_sufficient_statistics(
@@ -237,6 +264,35 @@ namespace tomcat {
             return ss.str();
         }
 
+        bool RandomVariableNode::has_timer() const {
+            return this->timer != nullptr;
+        }
+
+        shared_ptr<RandomVariableNode>
+        RandomVariableNode::get_previous(int increment) const {
+            shared_ptr<RandomVariableNode> previous;
+
+            int t0 = this->get_metadata()->get_initial_time_step();
+            if (this->time_step - t0 - increment >= 0) {
+                previous =
+                    (*this->timed_copies)[this->time_step - t0 - increment];
+            }
+
+            return previous;
+        }
+
+        shared_ptr<RandomVariableNode>
+        RandomVariableNode::get_next(int increment) const {
+            shared_ptr<RandomVariableNode> next;
+
+            int t0 = this->get_metadata()->get_initial_time_step();
+            if (this->time_step - t0 + increment < this->timed_copies->size()) {
+                next = (*this->timed_copies)[this->time_step - t0 + increment];
+            }
+
+            return next;
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------
@@ -262,50 +318,38 @@ namespace tomcat {
             return cpd;
         }
 
-        const vector<std::shared_ptr<Node>>&
+        const vector<shared_ptr<Node>>&
         RandomVariableNode::get_parents() const {
             return parents;
         }
 
         void RandomVariableNode::set_parents(
-            const vector<std::shared_ptr<Node>>& parents) {
+            const vector<shared_ptr<Node>>& parents) {
             this->parents = parents;
         }
 
-        const vector<std::shared_ptr<Node>>&
+        const vector<shared_ptr<Node>>&
         RandomVariableNode::get_children() const {
             return children;
         }
 
         void RandomVariableNode::set_children(
-            const vector<std::shared_ptr<Node>>& children) {
+            const vector<shared_ptr<Node>>& children) {
             this->children = children;
         }
 
-        const shared_ptr<Node>& RandomVariableNode::get_timer() const {
+        const shared_ptr<TimerNode>& RandomVariableNode::get_timer() const {
             return timer;
         }
 
-        void RandomVariableNode::set_timer(const std::shared_ptr<Node>& timer) {
+        void RandomVariableNode::set_timer(const shared_ptr<TimerNode>& timer) {
             this->timer = timer;
         }
 
-        const shared_ptr<Node>& RandomVariableNode::get_previous() const {
-            return previous;
-        }
-
-        void RandomVariableNode::set_previous(
-            const std::shared_ptr<Node>& node) {
-            this->previous = node;
-        }
-
-        const shared_ptr<Node>& RandomVariableNode::get_next() const {
-            return next;
-        }
-
-        void RandomVariableNode::set_next(
-            const std::shared_ptr<Node>& node) {
-            this->next = node;
+        void RandomVariableNode::set_timed_copies(
+            const shared_ptr<vector<shared_ptr<RandomVariableNode>>>&
+                timed_copies) {
+            this->timed_copies = timed_copies;
         }
 
     } // namespace model

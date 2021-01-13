@@ -176,6 +176,11 @@ namespace tomcat {
                                            "associated to another node.");
             }
 
+            if (!this->is_replicable()) {
+                throw TomcatModelException("A timer must be associated to"
+                                           " a replicable node.");
+            }
+
             this->timer_metadata = metadata;
 
             // Previous timer controls the current node's assignment.

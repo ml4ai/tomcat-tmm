@@ -149,6 +149,21 @@ namespace tomcat {
                    const Eigen::VectorXd& weights) const = 0;
 
             /**
+             * Generates a weighted sample from the distribution.
+             *
+             * @param random_generator: random number generator
+             * @param weights: weights
+             * @param replace_by_weight: the probability of the value passed
+             * here is only defined by the weight given to it.
+             *
+             * @return Weighted sample.
+             */
+            virtual Eigen::VectorXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   const Eigen::VectorXd& weights,
+                   double replace_by_weight) const = 0;
+
+            /**
              * Draws a sample from a posterior computed by conjugacy using
              * sufficient statistics.
              *

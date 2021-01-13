@@ -6,9 +6,11 @@
 // This is deprecated. The new version is in boost/timer/progress_display.hpp
 // but only available for boost 1.72
 #include <boost/progress.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 #include <gsl/gsl_rng.h>
 
 #include "AncestralSampler.h"
+#include "pgm/TimerNode.h"
 
 namespace tomcat {
     namespace model {
@@ -58,6 +60,8 @@ namespace tomcat {
             // List of all nodes sampled: parameter and data nodes.
             vector<shared_ptr<Node>> sampled_nodes;
             vector<shared_ptr<Node>> parameter_nodes;
+            vector<shared_ptr<Node>> timer_nodes;
+            vector<shared_ptr<Node>> timer_controlled_nodes;
 
             // We divide data nodes in two categories: data nodes at even and
             // odd time steps. This guarantees that nodes in each of these
@@ -76,10 +80,9 @@ namespace tomcat {
             // can update the sufficient statistics of parameter nodes correctly
             // given that parent nodes were already sampled.
             for (auto& node : this->model->get_nodes_topological_order()) {
-                shared_ptr<RandomVariableNode> rv_node =
-                    dynamic_pointer_cast<RandomVariableNode>(node);
-
                 if (node->get_metadata()->is_parameter()) {
+                    shared_ptr<RandomVariableNode> rv_node =
+                        dynamic_pointer_cast<RandomVariableNode>(node);
                     if (!rv_node->is_frozen()) {
                         if (this->max_time_step_to_sample < 0 ||
                             rv_node->get_time_step() <=
@@ -98,15 +101,34 @@ namespace tomcat {
                     // statistics of the parameter nodes their CPDs depend on.
                     sampled_nodes.push_back(node);
 
-                    int job = 0;
-                    int time_step = rv_node->get_time_step();
-                    if (time_step % 2 == 0) {
-                        job = time_step / (2 * time_steps_per_job);
-                        even_time_data_nodes_per_job[job].push_back(node);
+                    // Timer nodes and the nodes controlled by them cannot be
+                    // processed in parallel as the size of the left and
+                    // segments to which the controlled nodes belong to in
+                    // random.
+                    if (node->get_metadata()->is_timer()) {
+                        timer_nodes.push_back(node);
                     }
                     else {
-                        job = (time_step - 1) / (2 * time_steps_per_job);
-                        odd_time_data_nodes_per_job[job].push_back(node);
+                        const auto& rv_node =
+                            dynamic_pointer_cast<RandomVariableNode>(node);
+                        if (rv_node->has_timer()) {
+                            timer_controlled_nodes.push_back(node);
+                        }
+                        else {
+                            int job = 0;
+                            int time_step = rv_node->get_time_step();
+                            if (time_step % 2 == 0) {
+                                job = time_step / (2 * time_steps_per_job);
+                                even_time_data_nodes_per_job[job].push_back(
+                                    node);
+                            }
+                            else {
+                                job =
+                                    (time_step - 1) / (2 * time_steps_per_job);
+                                odd_time_data_nodes_per_job[job].push_back(
+                                    node);
+                            }
+                        }
                     }
                 }
             }
@@ -133,6 +155,14 @@ namespace tomcat {
                 }
             }
 
+            // The ancestral sampling will fill the duration of a segment
+            // first, which means that the timer counter will be
+            // filled backwards (d, d-1, d-2... instead of 0, 1, 2, ...).
+            // Therefore we sample the timer nodes from their posterior to fix
+            // the counters.
+            this->update_timer_nodes(timer_nodes, true);
+
+            // Gibbs step
             for (int i = 0; i < this->burn_in_period + num_samples; i++) {
                 if (i >= burn_in_period && discard) {
                     discard = false;
@@ -148,6 +178,12 @@ namespace tomcat {
                 this->sample_data_nodes_in_parallel(random_generators_per_job,
                                                     odd_time_data_nodes_per_job,
                                                     discard);
+
+                for (auto& node : timer_controlled_nodes) {
+                    this->sample_data_node(random_generator, node, discard);
+                }
+
+                this->update_timer_nodes(timer_nodes, discard);
 
                 for (auto& node : parameter_nodes) {
                     this->sample_parameter_node(
@@ -242,8 +278,6 @@ namespace tomcat {
             const shared_ptr<Node>& node,
             bool discard) {
 
-            //            cout << this_thread::get_id() << endl;
-
             shared_ptr<RandomVariableNode> rv_node =
                 dynamic_pointer_cast<RandomVariableNode>(node);
 
@@ -273,6 +307,19 @@ namespace tomcat {
                     this->node_label_to_samples.at(node_label)(
                         i, this->iteration, time_step) = sample(0, i);
                 }
+            }
+        }
+
+        void GibbsSampler::update_timer_nodes(
+            const vector<shared_ptr<Node>>& timer_nodes, bool discard) {
+
+            for (auto& node : timer_nodes) {
+                this->sample_data_node(nullptr, node, discard);
+            }
+
+            for (auto& node : boost::adaptors::reverse(timer_nodes)) {
+                dynamic_pointer_cast<TimerNode>(node)
+                    ->update_backward_assignment();
             }
         }
 

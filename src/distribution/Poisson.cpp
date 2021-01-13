@@ -76,6 +76,14 @@ namespace tomcat {
             return this->sample_from_gsl(random_generator, lambda);
         }
 
+        Eigen::VectorXd
+        Poisson::sample(const std::shared_ptr<gsl_rng>& random_generator,
+               const Eigen::VectorXd& weights,
+               double replace_by_weight) const {
+            throw TomcatModelException("Not implemented for Poisson "
+                                       "distribution.");
+        }
+
         Eigen::VectorXd Poisson::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,

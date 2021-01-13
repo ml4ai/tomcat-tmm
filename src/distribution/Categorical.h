@@ -86,6 +86,11 @@ Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const Eigen::VectorXd& weights) const override;
 
+            Eigen::VectorXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   const Eigen::VectorXd& weights,
+                   double replace_by_weight) const override;
+
             Eigen::VectorXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
                 int parameter_idx,
