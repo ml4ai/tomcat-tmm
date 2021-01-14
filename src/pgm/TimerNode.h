@@ -79,6 +79,19 @@ namespace tomcat {
                 const std::shared_ptr<gsl_rng>& random_generator) override;
 
             /**
+             * Gets posterior weights for the left segment of a node such
+             * that this timer node is the timer at the beginning of that
+             * segment.
+             *
+             * @param sample_idx: row of the assignment to consider when
+             * calculating the weights.
+             *
+             * @return Left segment posterior weights
+             */
+            Eigen::VectorXd
+            get_left_segment_posterior_weights(int sample_idx) const;
+
+            /**
              * Computes the duration of the segments backwards.
              */
             void update_backward_assignment();

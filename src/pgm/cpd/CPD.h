@@ -165,27 +165,23 @@ namespace tomcat {
              * nodes' assignments.
              *
              * @param random_generator: random number random_generator
-             * @param index_nodes: concrete objects of the nodes used to
-             * index the CPD
              * @param num_samples: number of samples to generate.
-             * @param sampled_node: node to which sample is being generated.
+             * @param cpd_owner: node to which sample is being generated,
+             * which is also the owner of this CPD.
              *
              * @return A sample from one of the distributions in the CPD.
              */
             Eigen::MatrixXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
-                   const std::vector<std::shared_ptr<Node>>& index_nodes,
                    int num_samples,
-                   const std::shared_ptr<const RandomVariableNode>&
-                       sampled_node) const;
+                   const std::shared_ptr<const RandomVariableNode>& cpd_owner)
+                const;
 
             /**
              * Generates a sample for the node that owns this CPD from its
              * posterior distribution.
              *
              * @param random_generator: random number generator
-             * @param index_nodes: concrete objects of the nodes used to
-             * index the CPD
              * @param posterior_weights: posterior weights given by the product
              * of p(children(node)|node)
              *
@@ -193,7 +189,6 @@ namespace tomcat {
              */
             Eigen::MatrixXd sample_from_posterior(
                 const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const Eigen::MatrixXd& posterior_weights,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner)
                 const;
@@ -218,12 +213,9 @@ namespace tomcat {
              * Update the sufficient statistics of parameter nodes the cpd
              * depend on with assignments of the cpd's owner.
              *
-             * @param index_nodes: concrete objects of the nodes used to
-             * index the CPD
              * @param cpd_owner: Node that owns this CPD
              */
             void update_sufficient_statistics(
-                const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& cpd_owner);
 
             /**
@@ -250,6 +242,37 @@ namespace tomcat {
              */
             Eigen::MatrixXd get_table(int parameter_idx) const;
 
+            /**
+             * Returns p(cpd_owner_assignments | left and right segments).
+             * This method is only used for semi-Markov models where some
+             * node is controlled by a timer node.
+             *
+             * @param sampled_node: random variable for with the posterior is
+             * being computed
+             * @param cpd_owner: Node that owns this CPD
+             *
+             * @return Posterior weights of the node that owns this CPD given
+             * its left and right segments.
+             */
+            Eigen::MatrixXd get_segment_posterior_weights(
+                const std::shared_ptr<RandomVariableNode>& sampled_node,
+                const std::shared_ptr<const TimerNode>& cpd_owner) const;
+
+            /**
+             * Calculates p(left_segment_duration|node, right_segment) for a
+             * given row in the node's assignment.
+             *
+             * @param sample_idx: row in the node's assignment to consider
+             * @param segment_first_timer: timer in the beginning of the left
+             * segment of a node
+             *
+             * @return  p(left_segment_duration|node, right_segment)
+             */
+            Eigen::VectorXd get_left_segment_posterior_weights(
+                int sample_idx,
+                const std::shared_ptr<const TimerNode>& segment_first_timer)
+            const;
+
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
@@ -271,26 +294,6 @@ namespace tomcat {
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner)
                 const;
-
-            /**
-             * Returns p(cpd_owner_assignments | left and right segments).
-             * This method is only used for semi-Markov models where some
-             * node is controlled by a timer node.
-             *
-             * @param index_nodes: concrete objects of the nodes used to
-             * index the CPD
-             * @param sampled_node: random variable for with the posterior is
-             * being computed
-             * @param cpd_owner: Node that owns this CPD
-             *
-             * @return Posterior weights of the node that owns this CPD given
-             * its left and right segments.
-             */
-            virtual Eigen::MatrixXd get_segment_posterior_weights(
-                const std::vector<std::shared_ptr<Node>>& index_nodes,
-                const std::shared_ptr<RandomVariableNode>& sampled_node,
-                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
-            const;
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -316,12 +319,16 @@ namespace tomcat {
              * stored in the CPD.
              *
              * @param random_generator: random number generator
+             * @param num_samples: number of samples to generate
+             * @param cpd_owner: owner of the CPD and also parameter node to
+             * which samples will be generated
              * @return
              */
             virtual Eigen::MatrixXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                int num_samples) const = 0;
+                int num_samples,
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
+                const = 0;
 
             /**
              * Clear the values stored as sufficient statistics;
@@ -415,6 +422,20 @@ namespace tomcat {
              * table given parent node's assignments.
              */
             void fill_indexing_mapping();
+
+            /**
+             * Returns the distribution indexed by the combination of
+             * assignments of the nodes that index this CPD for a given row
+             * in their assignments.
+             *
+             * @param index_nodes: nodes that index this CPD
+             * @param sample_idx: row of their assignments to consider
+             *
+             * @return Index of a distribution from this CPD
+             */
+            int get_indexed_distribution_idx(
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                int sample_idx) const;
         };
 
     } // namespace model

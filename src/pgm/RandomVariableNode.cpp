@@ -50,6 +50,8 @@ namespace tomcat {
             this->frozen = node.frozen;
             this->parents = node.parents;
             this->children = node.children;
+            this->timer = this->timer;
+            this->timed_copies = this->timed_copies;
         }
 
         string RandomVariableNode::get_description() const {
@@ -118,7 +120,6 @@ namespace tomcat {
                                    int num_samples) const {
 
             return this->cpd->sample(random_generator,
-                                     this->parents,
                                      num_samples,
                                      shared_from_this());
         }
@@ -128,7 +129,7 @@ namespace tomcat {
 
             Eigen::MatrixXd weights = this->get_posterior_weights();
             Eigen::MatrixXd sample = this->cpd->sample_from_posterior(
-                random_generator, this->parents, weights, shared_from_this());
+                random_generator, weights, shared_from_this());
 
             return sample;
         }
@@ -186,7 +187,6 @@ namespace tomcat {
                 for (const auto& segment_timer : segment_timers) {
                     Eigen::MatrixXd seg_timer_weights =
                         segment_timer->get_cpd()->get_segment_posterior_weights(
-                            segment_timer->get_parents(),
                             shared_from_this(),
                             segment_timer);
                     log_weights = (log_weights.array() +
@@ -203,15 +203,13 @@ namespace tomcat {
 
         Eigen::MatrixXd RandomVariableNode::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
-            const vector<shared_ptr<Node>>& parent_nodes,
             int num_samples) const {
             return this->cpd->sample_from_conjugacy(
-                random_generator, parent_nodes, num_samples);
+                random_generator, num_samples, shared_from_this());
         }
 
         void RandomVariableNode::update_parents_sufficient_statistics() {
-            this->cpd->update_sufficient_statistics(
-                this->parents, shared_from_this());
+            this->cpd->update_sufficient_statistics(shared_from_this());
         }
 
         void RandomVariableNode::add_to_sufficient_statistics(

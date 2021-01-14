@@ -4,8 +4,8 @@
 #include "distribution/Poisson.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/NodeMetadata.h"
-#include "pgm/TimerNode.h"
 #include "pgm/RandomVariableNode.h"
+#include "pgm/TimerNode.h"
 #include "pgm/cpd/CPD.h"
 #include "pgm/cpd/CategoricalCPD.h"
 #include "pgm/cpd/DirichletCPD.h"
@@ -26,9 +26,9 @@ class MockPoisson : public Poisson {
 
         // Return the rounded mean of the Poisson distribution as the sampled
         // value
-        int rounde_mean =
+        int rounded_mean =
             this->parameters[0]->get_assignment()(parameter_idx, 0);
-        return VectorXd::Constant(1, rounde_mean);
+        return VectorXd::Constant(1, rounded_mean);
     }
 
     std::unique_ptr<Distribution> clone() const override {
@@ -788,8 +788,7 @@ struct HSMM {
             model->add_node_template(nodes.pi_yellow_given_state[i]);
         }
         for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_TC_PBAE_STATE; i++) {
-            model->add_node_template(
-                nodes.lambda_timer_given_tc_pbae_state[i]);
+            model->add_node_template(nodes.lambda_timer_given_tc_pbae_state[i]);
         }
 
         return model;
@@ -967,7 +966,7 @@ struct HSMM {
         node_metadatas.timer->add_parent_link(node_metadatas.pbae, false);
         node_metadatas.timer->add_parent_link(node_metadatas.state, false);
         for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_TC_PBAE_STATE; i++) {
-            node_metadatas.state->add_parent_link(
+            node_metadatas.timer->add_parent_link(
                 node_metadatas.lambda_timer_given_tc_pbae_state[i], true);
         }
     }
@@ -1094,8 +1093,14 @@ struct HSMM {
         for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_TC_PBAE_STATE; i++) {
             nodes.lambda_timer_given_tc_pbae_state[i]->set_assignment(
                 tables.timer_given_tc_pbae_state.row(i));
-            poi_distributions.push_back(make_shared<MockPoisson>(
-                nodes.lambda_timer_given_tc_pbae_state[i]));
+            if (deterministic) {
+                poi_distributions.push_back(make_shared<MockPoisson>(
+                    nodes.lambda_timer_given_tc_pbae_state[i]));
+            }
+            else {
+                poi_distributions.push_back(make_shared<Poisson>(
+                    nodes.lambda_timer_given_tc_pbae_state[i]));
+            }
         }
         PoissonCPD poi_cpd = PoissonCPD({nodes.tc->get_metadata(),
                                          nodes.pbae->get_metadata(),
@@ -1173,8 +1178,8 @@ struct HSMM {
         // Lambdas for all possible parent combinations
         tables.timer_given_tc_pbae_state =
             MatrixXd(NUM_LAMBDA_TIMER_GIVEN_TC_PBAE_STATE, 1);
-        tables.timer_given_tc_pbae_state << 0, 2, 4, 1, 3, 5, 2, 4, 1, 3, 5, 0,
-            4, 1, 3, 5, 0, 2;
+        tables.timer_given_tc_pbae_state << EPSILON, 2, 4, 1, 3, 5, 2, 4, 1, 3,
+            5, EPSILON, 4, 1, 3, 5, EPSILON, 2;
 
         return tables;
     }

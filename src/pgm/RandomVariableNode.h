@@ -134,11 +134,11 @@ namespace tomcat {
              * statistics stored in the node's CPD.
              *
              * @param random_generator: random number generator
+             * @param num_samples: number of samples to generate
              * @return
              */
             Eigen::MatrixXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& parent_nodes,
                 int num_samples) const;
 
             /**

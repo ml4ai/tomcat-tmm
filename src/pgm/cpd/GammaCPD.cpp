@@ -1,5 +1,7 @@
 #include "pgm/cpd/GammaCPD.h"
+
 #include "pgm/ConstantNode.h"
+#include "pgm/RandomVariableNode.h"
 
 namespace tomcat {
     namespace model {
@@ -118,11 +120,11 @@ namespace tomcat {
 
         Eigen::MatrixXd GammaCPD::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
-            const vector<shared_ptr<Node>>& parent_nodes,
-            int num_samples) const {
+            int num_samples,
+            const shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
             vector<int> distribution_indices =
-                this->get_indexed_distribution_indices(parent_nodes,
+                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
                                                        num_samples);
 
             int sample_size = this->distributions[0]->get_sample_size();

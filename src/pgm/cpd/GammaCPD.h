@@ -57,10 +57,9 @@ namespace tomcat {
              * nodes' assignments for correct distribution indexing
              * @param distributions: list of Gamma distributions
              */
-            GammaCPD(
-                const std::vector<std::shared_ptr<NodeMetadata>>&
-                    parent_node_order,
-                const std::vector<std::shared_ptr<Gamma>>& distributions);
+            GammaCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+                         parent_node_order,
+                     const std::vector<std::shared_ptr<Gamma>>& distributions);
 
             /**
              * Creates an instance of a Gamma CPD.
@@ -84,8 +83,8 @@ namespace tomcat {
              * beta of the list of distributions
              */
             GammaCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
-                            parent_node_order,
-                        const Eigen::MatrixXd& parameters);
+                         parent_node_order,
+                     const Eigen::MatrixXd& parameters);
 
             /**
              * Creates an instance of a Gamma CPD table by transforming a
@@ -126,8 +125,9 @@ namespace tomcat {
 
             Eigen::MatrixXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                int num_samples) const override;
+                int num_samples,
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
+                const override;
 
             void reset_sufficient_statistics() override;
 

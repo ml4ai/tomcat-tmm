@@ -126,18 +126,13 @@ namespace tomcat {
 
             Eigen::MatrixXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                int num_samples) const override;
+                int num_samples,
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
+                const override;
 
             void reset_sufficient_statistics() override;
 
             Eigen::MatrixXd get_posterior_weights(
-                const std::vector<std::shared_ptr<Node>>& index_nodes,
-                const std::shared_ptr<RandomVariableNode>& sampled_node,
-                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
-                const override;
-
-            Eigen::MatrixXd get_segment_posterior_weights(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner)

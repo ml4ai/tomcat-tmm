@@ -160,7 +160,7 @@ namespace tomcat {
             // filled backwards (d, d-1, d-2... instead of 0, 1, 2, ...).
             // Therefore we sample the timer nodes from their posterior to fix
             // the counters.
-            this->update_timer_nodes(timer_nodes, true);
+            this->update_timer_nodes(timer_nodes, true, false);
 
             // Gibbs step
             for (int i = 0; i < this->burn_in_period + num_samples; i++) {
@@ -276,7 +276,8 @@ namespace tomcat {
         void GibbsSampler::sample_data_node(
             const shared_ptr<gsl_rng>& random_generator,
             const shared_ptr<Node>& node,
-            bool discard) {
+            bool discard,
+            bool update_sufficient_statistics) {
 
             shared_ptr<RandomVariableNode> rv_node =
                 dynamic_pointer_cast<RandomVariableNode>(node);
@@ -291,7 +292,9 @@ namespace tomcat {
                 }
             }
 
-            rv_node->update_parents_sufficient_statistics();
+            if (update_sufficient_statistics) {
+                rv_node->update_parents_sufficient_statistics();
+            }
         }
 
         void
@@ -311,10 +314,13 @@ namespace tomcat {
         }
 
         void GibbsSampler::update_timer_nodes(
-            const vector<shared_ptr<Node>>& timer_nodes, bool discard) {
+            const vector<shared_ptr<Node>>& timer_nodes,
+            bool discard,
+            bool update_sufficient_statistics) {
 
             for (auto& node : timer_nodes) {
-                this->sample_data_node(nullptr, node, discard);
+                this->sample_data_node(
+                    nullptr, node, discard, update_sufficient_statistics);
             }
 
             for (auto& node : boost::adaptors::reverse(timer_nodes)) {
@@ -328,12 +334,10 @@ namespace tomcat {
             const shared_ptr<Node>& node,
             bool discard) {
 
-            vector<shared_ptr<Node>> parent_nodes =
-                this->model->get_parent_nodes_of(node, true);
             shared_ptr<RandomVariableNode> rv_node =
                 dynamic_pointer_cast<RandomVariableNode>(node);
             Eigen::MatrixXd sample = rv_node->sample_from_conjugacy(
-                random_generator, parent_nodes, rv_node->get_size());
+                random_generator, rv_node->get_size());
             rv_node->set_assignment(sample);
 
             // As nodes are processed, the sufficient statistic

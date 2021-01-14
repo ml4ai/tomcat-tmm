@@ -1,5 +1,7 @@
 #include "pgm/cpd/GaussianCPD.h"
+
 #include "pgm/ConstantNode.h"
+#include "pgm/RandomVariableNode.h"
 
 namespace tomcat {
     namespace model {
@@ -107,8 +109,8 @@ namespace tomcat {
 
         Eigen::MatrixXd GaussianCPD::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
-            const vector<shared_ptr<Node>>& parent_nodes,
-            int num_samples) const {
+            int num_samples,
+            const shared_ptr<const RandomVariableNode>& cpd_owner) const {
             throw invalid_argument("Not implemented yet.");
         }
 

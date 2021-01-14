@@ -134,11 +134,15 @@ namespace tomcat {
              * @param node: data node
              * @param discard: indicates whether the sample should be discarded
              * or stored
+             * @param update_sufficient_statistics: indicates whether
+             * sufficient statistics of the node's CPD's parameter's priors
+             * must be updated after generating a sample from the node
              */
             void
             sample_data_node(const std::shared_ptr<gsl_rng>& random_generator,
                              const std::shared_ptr<Node>& node,
-                             bool discard);
+                             bool discard,
+                             bool update_sufficient_statistics = true);
 
             /**
              * Fill forward and backward assignments of timer nodes.
@@ -146,10 +150,14 @@ namespace tomcat {
              * @param timer_nodes: timer nodes
              * @param discard: indicates whether the sample should be discarded
              * or stored
+             * @param update_sufficient_statistics: indicates whether
+             * sufficient statistics of the timer's CPD's parameter's priors
+             * must be updated after generating a sample from the node
              */
             void update_timer_nodes(
                 const std::vector<std::shared_ptr<Node>>& timer_nodes,
-                bool discard);
+                bool discard,
+                bool update_sufficient_statistics = true);
 
             /**
              * Samples from the posterior distribution of a parameter node. The

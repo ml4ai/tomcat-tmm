@@ -49,13 +49,13 @@ namespace tomcat {
         Eigen::MatrixXd TimerNode::sample_from_posterior(
             const std::shared_ptr<gsl_rng>& random_generator) {
 
-            int rows = this->controlled_node->get_size();
+            int data_size = this->controlled_node->get_size();
             if (const auto& previous_timer = this->get_previous()) {
                 const auto& previous_controlled_node =
                     this->controlled_node->get_previous();
 
-                Eigen::MatrixXd sample(rows, 1);
-                for (int i = 0; i < rows; i++) {
+                Eigen::MatrixXd sample(data_size, 1);
+                for (int i = 0; i < data_size; i++) {
                     if (previous_controlled_node->get_assignment()(i, 0) ==
                         this->controlled_node->get_assignment()(i, 0)) {
                         // Controlled node does not transition to a different
@@ -73,13 +73,14 @@ namespace tomcat {
                 return sample;
             }
             else {
-                return Eigen::MatrixXd::Zero(rows, 1);
+                return Eigen::MatrixXd::Zero(data_size, 1);
             }
         }
 
         void TimerNode::update_backward_assignment() {
             int rows = this->controlled_node->get_size();
-            if (const auto& next_timer = this->get_timer()) {
+            if (const auto& next_timer = dynamic_pointer_cast<TimerNode>(
+                    this->get_next())) {
                 const auto& next_controlled_node =
                     this->controlled_node->get_next();
 
@@ -105,6 +106,13 @@ namespace tomcat {
             else {
                 this->backward_assignment = Eigen::MatrixXd::Zero(rows, 1);
             }
+        }
+
+        Eigen::VectorXd
+        TimerNode::get_left_segment_posterior_weights(int sample_idx) const {
+            return this->get_cpd()->get_left_segment_posterior_weights(
+                sample_idx,
+                dynamic_pointer_cast<const TimerNode>(shared_from_this()));
         }
 
         // ---------------------------------------------------------------------

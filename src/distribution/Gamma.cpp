@@ -115,12 +115,18 @@ namespace tomcat {
             int parameter_idx,
             const Eigen::VectorXd& sufficient_statistics) const {
 
+            int sum_durations = sufficient_statistics(0);
+            int num_intervals = sufficient_statistics(1);
+
             Eigen::VectorXd parameters =
-                this->get_parameters(parameter_idx) + sufficient_statistics;
+                this->get_parameters(parameter_idx);
             double alpha = parameters(PARAMETER_INDEX::alpha);
             double beta = parameters(PARAMETER_INDEX::beta);
 
-            return this->sample_from_gsl(random_generator, alpha, beta);
+            double new_alpha = alpha + sum_durations;
+            double new_beta = beta/(beta*num_intervals + 1);
+
+            return this->sample_from_gsl(random_generator, new_alpha, new_beta);
         }
 
         double Gamma::get_pdf(const Eigen::VectorXd& value) const {

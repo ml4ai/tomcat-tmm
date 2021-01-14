@@ -9,8 +9,6 @@
 namespace tomcat {
     namespace model {
 
-#define EPSILON 10E-16
-
         /**
          * Abstract probability distribution.
          */
