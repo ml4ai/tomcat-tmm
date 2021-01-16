@@ -420,11 +420,12 @@ struct HMM {
         cpds.pbae_given_pbae = make_shared<CategoricalCPD>(move(cpd));
 
         // State given TC, PBAE and State
-        MatrixXd THETA_STATE_GIVEN_TC_PBAE_state_prior =
+        MatrixXd theta_state_given_tc_pbae_state_prior =
             MatrixXd::Ones(1, STATE_CARDINALITY);
         for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
             cpds.theta_state_given_tc_pbae_state_prior.push_back(
-                make_shared<DirichletCPD>(DirichletCPD({}, theta_state_prior)));
+                make_shared<DirichletCPD>(
+                    DirichletCPD({}, theta_state_given_tc_pbae_state_prior)));
         }
 
         cat_distributions.clear();
@@ -647,8 +648,8 @@ struct HSMM {
     // parents' assignments.
     int NUM_PI_PBAE_GIVEN_PBAE = PBAE_CARDINALITY;
     int NUM_THETA_STATE_GIVEN_STATE = STATE_CARDINALITY;
-    int NUM_LAMBDA_TIMER_GIVEN_TC_PBAE_STATE =
-        TC_CARDINALITY * PBAE_CARDINALITY * STATE_CARDINALITY;
+    int NUM_LAMBDA_TIMER_GIVEN_TC_PBAE_STATE = STATE_CARDINALITY;
+    //        TC_CARDINALITY * PBAE_CARDINALITY * STATE_CARDINALITY;
     int NUM_PI_GREEN_GIVEN_STATE = STATE_CARDINALITY;
     int NUM_PI_YELLOW_GIVEN_STATE = STATE_CARDINALITY;
 
@@ -764,16 +765,16 @@ struct HSMM {
         // Create model and add nodes to it.
         DBNPtr model;
         model = make_shared<DynamicBayesNet>();
-        model->add_node_template(nodes.tc);
-        model->add_node_template(nodes.pbae);
+        //        model->add_node_template(nodes.tc);
+        //        model->add_node_template(nodes.pbae);
         model->add_node_template(nodes.state);
         model->add_node_template(nodes.green);
         model->add_node_template(nodes.yellow);
         model->add_node_template(nodes.timer);
 
         // Parameter nodes
-        model->add_node_template(nodes.theta_tc);
-        model->add_node_template(nodes.pi_pbae);
+        //        model->add_node_template(nodes.theta_tc);
+        //        model->add_node_template(nodes.pi_pbae);
         model->add_node_template(nodes.theta_state);
         for (int i = 0; i < NUM_PI_PBAE_GIVEN_PBAE; i++) {
             model->add_node_template(nodes.pi_pbae_given_pbae[i]);
@@ -962,8 +963,10 @@ struct HSMM {
                 node_metadatas.pi_yellow_given_state[i], true);
         }
 
-        node_metadatas.timer->add_parent_link(node_metadatas.tc, true);
-        node_metadatas.timer->add_parent_link(node_metadatas.pbae, false);
+        //        node_metadatas.timer->add_parent_link(node_metadatas.tc,
+        //        true);
+        //        node_metadatas.timer->add_parent_link(node_metadatas.pbae,
+        //        false);
         node_metadatas.timer->add_parent_link(node_metadatas.state, false);
         for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_TC_PBAE_STATE; i++) {
             node_metadatas.timer->add_parent_link(
@@ -1030,7 +1033,8 @@ struct HSMM {
             theta_state_given_state_prior(0, i) = EPSILON; // Transition to the
             // same state will be handled by the timer.
             cpds.theta_state_given_state_prior.push_back(
-                make_shared<DirichletCPD>(DirichletCPD({}, theta_state_prior)));
+                make_shared<DirichletCPD>(
+                    DirichletCPD({}, theta_state_given_state_prior)));
         }
 
         cat_distributions.clear();
@@ -1102,10 +1106,12 @@ struct HSMM {
                     nodes.lambda_timer_given_tc_pbae_state[i]));
             }
         }
-        PoissonCPD poi_cpd = PoissonCPD({nodes.tc->get_metadata(),
-                                         nodes.pbae->get_metadata(),
-                                         nodes.state->get_metadata()},
-                                        poi_distributions);
+        //        PoissonCPD poi_cpd = PoissonCPD({nodes.tc->get_metadata(),
+        //                                         nodes.pbae->get_metadata(),
+        //                                         nodes.state->get_metadata()},
+        //                                        poi_distributions);
+        PoissonCPD poi_cpd =
+            PoissonCPD({nodes.state->get_metadata()}, poi_distributions);
         cpds.timer_given_tc_pbae_state = make_shared<PoissonCPD>(move(poi_cpd));
 
         return cpds;
@@ -1172,14 +1178,16 @@ struct HSMM {
             tables.yellow_given_state << 1, 0, 0, 1, 1, 0;
         }
         else {
-            tables.yellow_given_state << 0.7, 0.3, 0.3, 0.7, 0.7, 0.3;
+            tables.yellow_given_state << 0.7, 0.3, 0.3, 0.7, 0.3, 0.7;
         }
 
         // Lambdas for all possible parent combinations
         tables.timer_given_tc_pbae_state =
             MatrixXd(NUM_LAMBDA_TIMER_GIVEN_TC_PBAE_STATE, 1);
-        tables.timer_given_tc_pbae_state << EPSILON, 2, 4, 1, 3, 5, 2, 4, 1, 3,
-            5, EPSILON, 4, 1, 3, 5, EPSILON, 2;
+        //        tables.timer_given_tc_pbae_state << EPSILON, 2, 4, 1, 3, 5, 2,
+        //        4, 1, 3,
+        //            5, EPSILON, 4, 1, 3, 5, EPSILON, 2;
+        tables.timer_given_tc_pbae_state << 1, 3, 5;
 
         return tables;
     }

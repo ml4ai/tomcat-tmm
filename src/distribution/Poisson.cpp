@@ -30,9 +30,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        Poisson::Poisson(const Poisson& poisson) {
-            this->copy(poisson);
-        }
+        Poisson::Poisson(const Poisson& poisson) { this->copy(poisson); }
 
         Poisson& Poisson::operator=(const Poisson& poisson) {
             this->copy(poisson);
@@ -48,14 +46,14 @@ namespace tomcat {
             Eigen::MatrixXd lambdas = this->parameters[0]->get_assignment();
 
             parameter_idx = lambdas.rows() == 1 ? 0 : parameter_idx;
+            double lambda = lambdas(parameter_idx, 0);
 
-            return this->sample_from_gsl(random_generator,
-                                         lambdas(parameter_idx, 0));
+            return this->sample_from_gsl(random_generator, lambda);
         }
 
         Eigen::VectorXd
         Poisson::sample_from_gsl(const shared_ptr<gsl_rng>& random_generator,
-                                 unsigned int lambda) const {
+                                 double lambda) const {
 
             unsigned int value =
                 gsl_ran_poisson(random_generator.get(), lambda);
@@ -69,8 +67,7 @@ namespace tomcat {
 
             // Parameter nodes are never in-plate. Therefore, their
             // assignment matrix is always comprised by a single row.
-            unsigned int lambda = this->parameters[0]->get_assignment()(0, 0);
-
+            double lambda = this->parameters[0]->get_assignment()(0, 0);
             lambda = lambda * weight(0);
 
             return this->sample_from_gsl(random_generator, lambda);
@@ -78,8 +75,8 @@ namespace tomcat {
 
         Eigen::VectorXd
         Poisson::sample(const std::shared_ptr<gsl_rng>& random_generator,
-               const Eigen::VectorXd& weights,
-               double replace_by_weight) const {
+                        const Eigen::VectorXd& weights,
+                        double replace_by_weight) const {
             throw TomcatModelException("Not implemented for Poisson "
                                        "distribution.");
         }
@@ -93,13 +90,14 @@ namespace tomcat {
         }
 
         double Poisson::get_pdf(const Eigen::VectorXd& value) const {
-            unsigned int lambda = this->parameters[0]->get_assignment()(0, 0);
+            double lambda = this->parameters[0]->get_assignment()(0, 0);
             return gsl_ran_poisson_pdf(value(0), lambda);
         }
 
         unique_ptr<Distribution> Poisson::clone() const {
             unique_ptr<Poisson> new_distribution = make_unique<Poisson>(*this);
-            new_distribution->parameters[0] = new_distribution->parameters[0]->clone();
+            new_distribution->parameters[0] =
+                new_distribution->parameters[0]->clone();
 
             return new_distribution;
         }

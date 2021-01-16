@@ -83,13 +83,16 @@ namespace tomcat {
              * that this timer node is the timer at the beginning of that
              * segment.
              *
+             * @param duration of the left segment for the sample_idx
+             * timer's assignment
              * @param sample_idx: row of the assignment to consider when
              * calculating the weights.
              *
              * @return Left segment posterior weights
              */
             Eigen::VectorXd
-            get_left_segment_posterior_weights(int sample_idx) const;
+            get_left_segment_posterior_weights(int left_segment_duration,
+                                               int sample_idx) const;
 
             /**
              * Computes the duration of the segments backwards.

@@ -2,6 +2,7 @@
 
 #include "pgm/RandomVariableNode.h"
 #include "pgm/TimerNode.h"
+#include "utils/EigenExtensions.h"
 
 namespace tomcat {
     namespace model {
@@ -311,198 +312,211 @@ namespace tomcat {
             return weights;
         }
 
-        Eigen::MatrixXd CPD::get_segment_posterior_weights(
-            const shared_ptr<RandomVariableNode>& sampled_node,
-            const std::shared_ptr<const TimerNode>& cpd_owner) const {
+        Eigen::MatrixXd CPD::get_left_segment_posterior_weights(
+            const std::shared_ptr<const TimerNode>& last_timer) const {
 
-            int data_size = cpd_owner->get_size();
-            int cardinality = sampled_node->get_metadata()->get_cardinality();
+            int data_size = last_timer->get_size();
+            int cardinality = last_timer->get_controlled_node()
+                                  ->get_metadata()
+                                  ->get_cardinality();
             Eigen::MatrixXd weights(data_size, cardinality);
 
-            const auto& previous_timer =
-                dynamic_pointer_cast<TimerNode>(cpd_owner->get_previous());
-            const auto& next_timer =
-                dynamic_pointer_cast<TimerNode>(cpd_owner->get_next());
+            for (int i = 0; i < data_size; i++) {
+                // Get posterior weights for the left segment of a given
+                // timer. This is done by calculating the posterior  weights of
+                // the timer in the beginning of the left segment. As a node can
+                // have multiple assignments at a time, a timer may have several
+                // left segments at a time (one for each observation series),
+                // therefore, the timer at the beginning of the left segment
+                // will vary from row to row of the timer's assignment.
+                int segment_duration = last_timer->get_assignment()(i, 0);
 
-            Eigen::VectorXd prev_durations;
-            Eigen::VectorXd prev_assignments;
-            if (previous_timer) {
-                prev_durations = previous_timer->get_assignment().col(0);
-                prev_assignments =
-                    previous_timer->get_controlled_node()->get_assignment().col(
-                        0);
-            }
-            else {
-                prev_durations = Eigen::VectorXd::Zero(data_size);
-                prev_durations = Eigen::VectorXd::Constant(data_size, NO_OBS);
-            }
-            Eigen::VectorXd next_durations;
-            Eigen::VectorXd next_assignments;
-            if (next_timer) {
-                next_durations = next_timer->get_backward_assignment().col(0);
-                next_assignments =
-                    next_timer->get_controlled_node()->get_assignment().col(0);
-            }
-            else {
-                next_durations = Eigen::VectorXd::Zero(data_size);
-                next_assignments = Eigen::VectorXd::Constant(data_size, NO_OBS);
+                // Timer in the beginning of the left segment for the i-th
+                // assignment
+                const auto& first_timer = dynamic_pointer_cast<TimerNode>(
+                    last_timer->get_previous(segment_duration));
+                weights.row(i) =
+                    first_timer->get_left_segment_posterior_weights(
+                        segment_duration, i);
             }
 
-            // Set sampled node's assignment equals to zero so we can get
-            // the index of the first distribution indexed by this node and
-            // the other parent nodes that the child (owner of this CPD) may
-            // have.
-            Eigen::MatrixXd saved_assignment = sampled_node->get_assignment();
-            sampled_node->set_assignment(Eigen::MatrixXd::Zero(data_size, 1));
+            return weights;
+        }
+
+        Eigen::VectorXd CPD::get_left_segment_posterior_weights(
+            const std::shared_ptr<const TimerNode>& first_timer,
+            int left_segment_duration,
+            int sample_idx) const {
+
+            int left_segment_value =
+                first_timer->get_controlled_node()->get_assignment()(sample_idx,
+                                                                     0);
+
+            // Right segment value does not matter if there's no right segment;
+            int right_segment_value = NO_OBS;
+            int right_segment_duration = 0;
+            if (const auto& right_segment =
+                    first_timer->get_controlled_node()->get_next(
+                        left_segment_duration + 2)) {
+                right_segment_value =
+                    right_segment->get_assignment()(sample_idx, 0);
+                right_segment_duration =
+                    right_segment->get_timer()->get_backward_assignment()(
+                        sample_idx, 0);
+            }
+
+            int cardinality = first_timer->get_controlled_node()
+                                  ->get_metadata()
+                                  ->get_cardinality();
+            Eigen::VectorXd weights(cardinality);
+            for (int i = 0; i < cardinality; i++) {
+                int d = left_segment_duration +
+                        (left_segment_value ==
+                         i)*(1 + (i == right_segment_value) *
+                                    (right_segment_duration + 1));
+                // We get the timer's distribution at the beginning of the
+                // segment because timer nodes can have other dependencies.
+                // We need to use these dependencies' assignments to
+                // correctly retrieve the actual distribution that governs
+                // the timer node at its time step.
+                int distribution_idx = this->get_indexed_distribution_idx(
+                    first_timer->get_parents(), sample_idx);
+                const auto& timer_distribution =
+                    this->distributions.at(distribution_idx);
+                weights(i) = timer_distribution->get_pdf(
+                    Eigen::VectorXd::Constant(1, d));
+            }
+
+            return weights;
+        }
+
+        Eigen::MatrixXd CPD::get_central_segment_posterior_weights(
+            const std::shared_ptr<const TimerNode>& timer) const {
+
+            int data_size = timer->get_size();
+            int cardinality =
+                timer->get_controlled_node()->get_metadata()->get_cardinality();
+            Eigen::MatrixXd weights =
+                Eigen::MatrixXd::Ones(data_size, cardinality);
+
+            // Set sampled controlled node's assignment to zero so we can
+            // get the index of the first distribution indexed by the this node
+            // given that the other index nodes have fixed assignments.
+            Eigen::MatrixXd saved_assignment =
+                timer->get_controlled_node()->get_assignment();
+            timer->get_controlled_node()->set_assignment(
+                Eigen::MatrixXd::Zero(data_size, 1));
             vector<int> distribution_indices =
-                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
+                this->get_indexed_distribution_indices(timer->get_parents(),
                                                        data_size);
-            // Restore the sampled node's assignment to its original state.
-            sampled_node->set_assignment(saved_assignment);
+            // Restore the controlled node's assignment to its original state.
+            timer->get_controlled_node()->set_assignment(saved_assignment);
 
-            const string& sampled_node_label =
-                sampled_node->get_metadata()->get_label();
+            const string& controlled_node_label =
+                timer->get_controlled_node()->get_metadata()->get_label();
             // For every possible value of sampled_node, the offset
             // indicates how many distributions ahead we need to advance to
-            // get the distribution indexes by the index nodes of this CPD.
-            int offset = this->parent_label_to_indexing.at(sampled_node_label)
-                             .right_cumulative_cardinality;
+            // get the distribution indexed by the index nodes of this CPD if
+            // we only change the value of the controlled node.
+            int offset =
+                this->parent_label_to_indexing.at(controlled_node_label)
+                    .right_cumulative_cardinality;
 
-            for (int i = 0; i < data_size; i++) {
-                if (cpd_owner == sampled_node->get_timer()->get_previous()) {
-                    // Get posterior weights for the left segment of a given
-                    // timer. This is done by calculating the posterior
-                    // weights of the timer in the beginning of the
-                    // immediate left segment of the current timer. As a
-                    // node can have multiple assignments at a time, a timer
-                    // may have several left segments at a time (one for
-                    // each observation series), therefore, the timer at the
-                    // beginning of the left segment will vary from row to
-                    // row of the timer's assignment.
-                    int left_seg_duration = prev_durations(i);
-                    const auto& left_seg_first_timer =
-                        dynamic_pointer_cast<TimerNode>(
-                            sampled_node->get_timer()->get_previous(
-                                left_seg_duration));
-                    weights.row(i) =
-                        left_seg_first_timer
-                            ->get_left_segment_posterior_weights(i);
-                }
-                else {
-                    for (int j = 0; j < cardinality; j++) {
+            // Get values of the immediate left and right segments
+            Eigen::VectorXi left_segment_values;
+            if (const auto& prev_controlled_node =
+                    timer->get_controlled_node()->get_previous()) {
+                left_segment_values =
+                    prev_controlled_node->get_assignment().col(0).cast<int>();
+            }
+            else {
+                left_segment_values =
+                    Eigen::VectorXi::Constant(data_size, NO_OBS);
+            }
+
+            Eigen::VectorXi right_segment_values;
+            Eigen::VectorXi right_segment_durations;
+            if (const auto& next_controlled_node =
+                    timer->get_controlled_node()->get_next()) {
+                right_segment_values =
+                    next_controlled_node->get_assignment().col(0).cast<int>();
+                right_segment_durations = next_controlled_node->get_timer()
+                                              ->get_backward_assignment()
+                                              .col(0)
+                                              .cast<int>();
+            }
+            else {
+                right_segment_values =
+                    Eigen::VectorXi::Constant(data_size, NO_OBS);
+                right_segment_durations = Eigen::VectorXi::Zero(data_size);
+            }
+
+            Eigen::VectorXi central_segment_durations =
+                Eigen::VectorXi::Zero(data_size);
+
+            for (int j = 0; j < cardinality; j++) {
+                // Logic array (0'' and 1's) to indicate the assignment indices
+                // where the central and right segments have equal value.
+                Eigen::VectorXi central_joins_right =
+                    (j == right_segment_values.array()).cast<int>();
+                Eigen::VectorXi durations =
+                    central_segment_durations.array() +
+                    (central_joins_right.array() *
+                     (1 + right_segment_durations.array()));
+
+                for (int i = 0; i < data_size; i++) {
+                    if (left_segment_values(i) != j) {
                         int distribution_idx =
-                            distribution_indices[i] + (j - 1) * offset;
+                            distribution_indices[i] + j * offset;
                         const auto& timer_distribution =
                             this->distributions[distribution_idx];
-
-                        int next_duration = next_durations(i);
-                        int d = 0;
-
-                        if (cpd_owner == sampled_node->get_timer()) {
-                            if (prev_assignments(i) != j) {
-                                if (next_assignments(i) == j) {
-                                    // Current node and right segment form a
-                                    // unique segment.
-                                    d = next_duration + 1;
-                                }
-                                else {
-                                    // Sampled node does not form a unique
-                                    // segment with either its left or right
-                                    // segment.
-                                    d = 0;
-                                }
-                            }
-                            else {
-                                // Any other probability configuration will
-                                // be included in the weights of the left
-                                // or right segments, whenever this method
-                                // is called with each of them as
-                                // cpd_owners.
-                                weights(i, j) = 1;
-                                continue;
-                            }
-                        }
-                        else if (cpd_owner ==
-                                 sampled_node->get_timer()->get_next()) {
-                            if (prev_assignments(i) == j &&
-                                next_assignments(i) != j) {
-                                // Right segment is not connected to the
-                                // sampled node's segment.
-                                d = next_duration;
-                            }
-                            else {
-                                // Any other probability configuration will
-                                // be included in the weights of the left
-                                // or right segments, whenever this method
-                                // is called with each of them as
-                                // cpd_owners.
-                                weights(i, j) = 1;
-                                continue;
-                            }
-                        }
-                        else {
-                            stringstream ss;
-                            ss << "The owner of the CPD " << this
-                               << " is not any of the immediate timers of "
-                               << sampled_node;
-                            throw TomcatModelException(ss.str());
-                        }
-
                         weights(i, j) = timer_distribution->get_pdf(
-                            Eigen::VectorXd::Constant(1, d));
+                            durations.row(i).cast<double>());
                     }
                 }
             }
 
             return weights;
-        } // namespace model
+        }
 
-        Eigen::VectorXd CPD::get_left_segment_posterior_weights(
-            int sample_idx,
-            const std::shared_ptr<const TimerNode>& segment_first_timer) const {
+        Eigen::MatrixXd CPD::get_right_segment_posterior_weights(
+            const std::shared_ptr<const TimerNode>& first_timer) const {
 
-            int left_segment_duration =
-                segment_first_timer->get_assignment()(sample_idx, 0);
-            const auto& right_segment_timer = dynamic_pointer_cast<TimerNode>(
-                segment_first_timer->get_next(left_segment_duration + 2));
-            int right_segment_duration =
-                right_segment_timer
-                    ? right_segment_timer->get_backward_assignment()(sample_idx,
-                                                                     0)
-                    : 0;
-            int left_segment_value =
-                segment_first_timer->get_controlled_node()->get_assignment()(
-                    sample_idx, 0);
-            int right_segment_value =
-                right_segment_timer ? right_segment_timer->get_controlled_node()
-                                          ->get_assignment()(sample_idx, 0)
-                                    : NO_OBS;
+            // Can improve this by creating a matrix of p(right duration |
+            // lambda(i)) and for each row, set row(value_right_seg) = 1;
+            // Compute for each row. Repeat row to have size cardinality. Set
+            // 1 to the aforementioned index and add to the weight matrix.
 
-            int cardinality = segment_first_timer->get_controlled_node()
+            int data_size = first_timer->get_size();
+            int cardinality = first_timer->get_controlled_node()
                                   ->get_metadata()
                                   ->get_cardinality();
-            Eigen::VectorXd weights(cardinality);
-            for (int i = 0; i < cardinality; i++) {
-                int d = 0;
-                if (left_segment_value == i) {
-                    if (i == right_segment_value) {
-                        d = left_segment_duration + 1 +
-                            (right_segment_duration + 1);
-                    }
-                    else {
-                        d = left_segment_duration + 1;
-                    }
-                }
-                else {
-                    d = left_segment_duration;
-                }
+            Eigen::MatrixXd weights =
+                Eigen::MatrixXd::Ones(data_size, cardinality);
 
-                int distribution_idx = this->get_indexed_distribution_idx(
-                    segment_first_timer->get_parents(), sample_idx);
+            vector<int> distribution_indices =
+                this->get_indexed_distribution_indices(
+                    first_timer->get_parents(), data_size);
+
+            const Eigen::VectorXd& right_segment_values =
+                first_timer->get_controlled_node()->get_assignment().col(0);
+            const Eigen::VectorXd& right_segment_durations =
+                first_timer->get_backward_assignment().col(0);
+
+            for (int i = 0; i < data_size; i++) {
+                int distribution_idx = distribution_indices[i];
                 const auto& timer_distribution =
-                    this->distributions.at(distribution_idx);
-                weights(i) = timer_distribution->get_pdf(
-                    Eigen::VectorXd::Constant(1, d));
+                    this->distributions[distribution_idx];
+                double p_duration_right =
+                    timer_distribution->get_pdf(right_segment_durations.row(i));
+                weights.row(i) =
+                    Eigen::VectorXd::Constant(cardinality, p_duration_right);
+
+                // Ignore if value of the controlled node in the right
+                // segment is equal to the value of the controlled node in
+                // the central segment.
+                int j = right_segment_values(i, 0);
+                weights(i, j) = 1;
             }
 
             return weights;
@@ -518,7 +532,7 @@ namespace tomcat {
                 const ParentIndexing& indexing =
                     this->parent_label_to_indexing.at(label);
 
-                if (index_node->get_assignment().rows() > sample_idx) {
+                if (sample_idx >= index_node->get_assignment().rows()) {
                     // Ancestral sampling may generate less samples for a
                     // child than the number of samples for its parents in
                     // the case of homogeneous world, for instance. This

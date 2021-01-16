@@ -65,5 +65,13 @@ namespace tomcat {
         void vstack(Eigen::MatrixXd& original_matrix,
                     const Eigen::MatrixXd& other_matrix);
 
+        /**
+         * Transform a vector of numbers into a matrix where each row
+         * contains the binary representation of each number in the vector.
+         *
+         * @param integers: list of integers
+         */
+        Eigen::MatrixXd to_categorical(Eigen::VectorXi& integers, int num_bits);
+
     } // namespace model
 } // namespace tomcat

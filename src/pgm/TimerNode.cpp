@@ -50,37 +50,36 @@ namespace tomcat {
             const std::shared_ptr<gsl_rng>& random_generator) {
 
             int data_size = this->controlled_node->get_size();
+            Eigen::MatrixXd sample = Eigen::MatrixXd::Zero(data_size, 1);
             if (const auto& previous_timer = this->get_previous()) {
                 const auto& previous_controlled_node =
                     this->controlled_node->get_previous();
 
-                Eigen::MatrixXd sample(data_size, 1);
-                for (int i = 0; i < data_size; i++) {
-                    if (previous_controlled_node->get_assignment()(i, 0) ==
-                        this->controlled_node->get_assignment()(i, 0)) {
-                        // Controlled node does not transition to a different
-                        // state, therefore, the segment is the same. We just
-                        // increment the timer to the new segment size.
-                        sample.row(i) =
-                            previous_timer->get_assignment().row(i).array() + 1;
-                    }
-                    else {
-                        // Beginning of a new segment
-                        sample(i, 0) = 0;
-                    }
-                }
+                const Eigen::VectorXi& previous_values =
+                    previous_controlled_node->get_assignment()
+                        .col(0)
+                        .cast<int>();
+                const Eigen::VectorXi& current_values =
+                    this->controlled_node->get_assignment().col(0).cast<int>();
 
-                return sample;
+                Eigen::VectorXi equal =
+                    (previous_values.array() == current_values.array())
+                        .cast<int>();
+
+                const Eigen::VectorXi& previous_durations =
+                    previous_timer->get_assignment().col(0).cast<int>();
+                sample.col(0) =
+                    ((previous_durations.array() + 1) * equal.array())
+                        .cast<double>();
             }
-            else {
-                return Eigen::MatrixXd::Zero(data_size, 1);
-            }
+
+            return sample;
         }
 
         void TimerNode::update_backward_assignment() {
             int rows = this->controlled_node->get_size();
-            if (const auto& next_timer = dynamic_pointer_cast<TimerNode>(
-                    this->get_next())) {
+            if (const auto& next_timer =
+                    dynamic_pointer_cast<TimerNode>(this->get_next())) {
                 const auto& next_controlled_node =
                     this->controlled_node->get_next();
 
@@ -109,10 +108,12 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        TimerNode::get_left_segment_posterior_weights(int sample_idx) const {
+        TimerNode::get_left_segment_posterior_weights(int left_segment_duration,
+                                                      int sample_idx) const {
             return this->get_cpd()->get_left_segment_posterior_weights(
-                sample_idx,
-                dynamic_pointer_cast<const TimerNode>(shared_from_this()));
+                dynamic_pointer_cast<const TimerNode>(shared_from_this()),
+                left_segment_duration,
+                sample_idx);
         }
 
         // ---------------------------------------------------------------------

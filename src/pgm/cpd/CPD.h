@@ -243,35 +243,74 @@ namespace tomcat {
             Eigen::MatrixXd get_table(int parameter_idx) const;
 
             /**
-             * Returns p(cpd_owner_assignments | left and right segments).
-             * This method is only used for semi-Markov models where some
-             * node is controlled by a timer node.
+             * Returns p(left segment | central and right segments).
+             * The probabilities change according to the value of the
+             * controlled nodes in the central and right segments. For
+             * instance, suppose the left segment is formed by controlled
+             * nodes with values 0, 0, 0, this means that the duration of the
+             * left segment is 3. If the central controlled node is also 0,
+             * the duration of the left segment is now 4, if the right
+             * segment controlled nodes have values 0, 1, 2, the left segment
+             * now has duration 5.
              *
-             * @param sampled_node: random variable for with the posterior is
-             * being computed
-             * @param cpd_owner: Node that owns this CPD
              *
-             * @return Posterior weights of the node that owns this CPD given
-             * its left and right segments.
+             * @param last_timer: last timer of the left segment
+             *
+             * @return Posterior weights for the left segment of a time
+             * controlled node.
              */
-            Eigen::MatrixXd get_segment_posterior_weights(
-                const std::shared_ptr<RandomVariableNode>& sampled_node,
-                const std::shared_ptr<const TimerNode>& cpd_owner) const;
+            Eigen::MatrixXd get_left_segment_posterior_weights(
+                const std::shared_ptr<const TimerNode>& last_timer) const;
 
             /**
-             * Calculates p(left_segment_duration|node, right_segment) for a
-             * given row in the node's assignment.
+             * This method is an extension of the
+             * get_left_segment_posterior_weights with last_timer as parameter
+             * of the left assignment. To find the probability of a segment, we
+             * need to access the first timer of such segment. Since a node can
+             * have multiple assignments at a time (one for each data point),
+             * each row can have a different left segment configuration. This
+             * method computes p(left segment | central and right segments) for
+             * a given row in the timer's assignment
              *
+             * @param first_timer: first timer of the left segment for a
+             * @param left_segment_duration: duration of the left segment
              * @param sample_idx: row in the node's assignment to consider
-             * @param segment_first_timer: timer in the beginning of the left
-             * segment of a node
+             * specific assignment row (sample_idx)
              *
              * @return  p(left_segment_duration|node, right_segment)
              */
             Eigen::VectorXd get_left_segment_posterior_weights(
-                int sample_idx,
-                const std::shared_ptr<const TimerNode>& segment_first_timer)
-            const;
+                const std::shared_ptr<const TimerNode>& first_timer,
+                int left_segment_duration,
+                int sample_idx) const;
+
+            /**
+             * Returns p(central segment | left and right segments).
+             * Similar to get_left_segment_posterior_weights but for cases
+             * where values from the left segment are different of the value
+             * in the central segment.
+             *
+             * @param timer: timer in the central segment
+             *
+             * @return Posterior weights for the central segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_central_segment_posterior_weights(
+                const std::shared_ptr<const TimerNode>& last_timer) const;
+
+            /**
+             * Returns p(right segment | left and central segments).
+             * Similar to get_left_segment_posterior_weights but for cases
+             * where values from the left and central segments are different of
+             * the values in the right segment.
+             *
+             * @param first_timer: first timer of the right segment
+             *
+             * @return Posterior weights for the right segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_right_segment_posterior_weights(
+                const std::shared_ptr<const TimerNode>& first_timer) const;
 
             //------------------------------------------------------------------
             // Virtual functions

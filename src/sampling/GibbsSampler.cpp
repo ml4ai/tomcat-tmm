@@ -60,8 +60,8 @@ namespace tomcat {
             // List of all nodes sampled: parameter and data nodes.
             vector<shared_ptr<Node>> sampled_nodes;
             vector<shared_ptr<Node>> parameter_nodes;
+            vector<shared_ptr<Node>> single_thread_nodes;
             vector<shared_ptr<Node>> timer_nodes;
-            vector<shared_ptr<Node>> timer_controlled_nodes;
 
             // We divide data nodes in two categories: data nodes at even and
             // odd time steps. This guarantees that nodes in each of these
@@ -107,12 +107,13 @@ namespace tomcat {
                     // random.
                     if (node->get_metadata()->is_timer()) {
                         timer_nodes.push_back(node);
+                        single_thread_nodes.push_back(node);
                     }
                     else {
                         const auto& rv_node =
                             dynamic_pointer_cast<RandomVariableNode>(node);
                         if (rv_node->has_timer()) {
-                            timer_controlled_nodes.push_back(node);
+                            single_thread_nodes.push_back(node);
                         }
                         else {
                             int job = 0;
@@ -160,7 +161,13 @@ namespace tomcat {
             // filled backwards (d, d-1, d-2... instead of 0, 1, 2, ...).
             // Therefore we sample the timer nodes from their posterior to fix
             // the counters.
-            this->update_timer_nodes(timer_nodes, true, false);
+            for (auto& timer_node : timer_nodes) {
+                this->sample_data_node(nullptr, timer_node, true, false);
+            }
+            for (auto& node : boost::adaptors::reverse(timer_nodes)) {
+                dynamic_pointer_cast<TimerNode>(node)
+                    ->update_backward_assignment();
+            }
 
             // Gibbs step
             for (int i = 0; i < this->burn_in_period + num_samples; i++) {
@@ -179,11 +186,30 @@ namespace tomcat {
                                                     odd_time_data_nodes_per_job,
                                                     discard);
 
-                for (auto& node : timer_controlled_nodes) {
-                    this->sample_data_node(random_generator, node, discard);
+                for (auto& node : single_thread_nodes) {
+                    bool update_sufficient_statistics = true;
+                    if (node->get_metadata()->is_timer()) {
+                        // We only update the sufficient statistics for timer
+                        // nodes after, when all the time controlled nodes have
+                        // been sampled.
+                        update_sufficient_statistics = false;
+                    }
+                    this->sample_data_node(random_generator,
+                                           node,
+                                           discard,
+                                           update_sufficient_statistics);
                 }
 
-                this->update_timer_nodes(timer_nodes, discard);
+                // Update sufficient statistics for timer nodes and fill
+                // backwards counters
+                for (auto& timer_node : timer_nodes) {
+                    dynamic_pointer_cast<TimerNode>(timer_node)
+                        ->update_parents_sufficient_statistics();
+                }
+                for (auto& node : boost::adaptors::reverse(timer_nodes)) {
+                    dynamic_pointer_cast<TimerNode>(node)
+                        ->update_backward_assignment();
+                }
 
                 for (auto& node : parameter_nodes) {
                     this->sample_parameter_node(
@@ -310,22 +336,6 @@ namespace tomcat {
                     this->node_label_to_samples.at(node_label)(
                         i, this->iteration, time_step) = sample(0, i);
                 }
-            }
-        }
-
-        void GibbsSampler::update_timer_nodes(
-            const vector<shared_ptr<Node>>& timer_nodes,
-            bool discard,
-            bool update_sufficient_statistics) {
-
-            for (auto& node : timer_nodes) {
-                this->sample_data_node(
-                    nullptr, node, discard, update_sufficient_statistics);
-            }
-
-            for (auto& node : boost::adaptors::reverse(timer_nodes)) {
-                dynamic_pointer_cast<TimerNode>(node)
-                    ->update_backward_assignment();
             }
         }
 

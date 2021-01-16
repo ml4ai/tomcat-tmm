@@ -107,7 +107,7 @@ namespace tomcat {
              */
             Eigen::VectorXd
             sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
-                            unsigned int lambda) const;
+                            double lambda) const;
 
         };
 

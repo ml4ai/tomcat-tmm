@@ -50,8 +50,8 @@ namespace tomcat {
             this->frozen = node.frozen;
             this->parents = node.parents;
             this->children = node.children;
-            this->timer = this->timer;
-            this->timed_copies = this->timed_copies;
+            this->timer = node.timer;
+            this->timed_copies = node.timed_copies;
         }
 
         string RandomVariableNode::get_description() const {
@@ -119,9 +119,8 @@ namespace tomcat {
         RandomVariableNode::sample(const shared_ptr<gsl_rng>& random_generator,
                                    int num_samples) const {
 
-            return this->cpd->sample(random_generator,
-                                     num_samples,
-                                     shared_from_this());
+            return this->cpd->sample(
+                random_generator, num_samples, shared_from_this());
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
@@ -137,7 +136,7 @@ namespace tomcat {
         Eigen::MatrixXd RandomVariableNode::get_posterior_weights() {
             int rows = this->get_size();
             int cols = this->get_metadata()->get_cardinality();
-            Eigen::MatrixXd log_weights = Eigen::MatrixXd::Ones(rows, cols);
+            Eigen::MatrixXd log_weights = Eigen::MatrixXd::Zero(rows, cols);
 
             for (auto& child : this->children) {
                 shared_ptr<RandomVariableNode> rv_child =
@@ -166,32 +165,12 @@ namespace tomcat {
                 }
             }
 
-            // Include weights from the left and right segments if the node
-            // is controlled by a timer
-            if (this->has_timer()) {
-                vector<shared_ptr<TimerNode>> segment_timers;
-
-                if (const auto& previous_timer = this->timer->get_previous()) {
-                    // Left segment
-                    segment_timers.push_back(
-                        dynamic_pointer_cast<TimerNode>(previous_timer));
-                }
-                if (const auto& next_timer = this->timer->get_next()) {
-                    // Right segment
-                    segment_timers.push_back(
-                        dynamic_pointer_cast<TimerNode>(next_timer));
-                }
-                // Segment formed by this node only
-                segment_timers.push_back(this->timer);
-
-                for (const auto& segment_timer : segment_timers) {
-                    Eigen::MatrixXd seg_timer_weights =
-                        segment_timer->get_cpd()->get_segment_posterior_weights(
-                            shared_from_this(),
-                            segment_timer);
-                    log_weights = (log_weights.array() +
-                                   (seg_timer_weights.array() + EPSILON).log());
-                }
+            // Include posterior weights of immediate segments for nodes that
+            // are time controlled.
+            Eigen::MatrixXd segments_weights =
+                this->get_segments_log_posterior_weights();
+            if (segments_weights.size() > 0) {
+                log_weights = (log_weights.array() + segments_weights.array());
             }
 
             // Unlog and normalize the weights
@@ -199,6 +178,55 @@ namespace tomcat {
             log_weights = log_weights.array().exp();
             Eigen::VectorXd sum_per_row = log_weights.rowwise().sum();
             return (log_weights.array().colwise() / sum_per_row.array());
+        }
+
+        Eigen::MatrixXd
+        RandomVariableNode::get_segments_log_posterior_weights() {
+            Eigen::MatrixXd segments_weights(0, 0);
+
+            if (this->has_timer()) {
+                // Left segment
+                if (const auto& previous_timer =
+                        dynamic_pointer_cast<TimerNode>(
+                            this->timer->get_previous())) {
+                    // Left segment
+                    Eigen::MatrixXd left_seg_weights =
+                        previous_timer->get_cpd()
+                            ->get_left_segment_posterior_weights(
+                                previous_timer);
+                    segments_weights =
+                        (left_seg_weights.array() + EPSILON).log();
+                }
+
+                // Central segment
+                Eigen::MatrixXd central_seg_weights =
+                    this->timer->get_cpd()
+                        ->get_central_segment_posterior_weights(this->timer);
+                if (segments_weights.size() > 0) {
+                    segments_weights =
+                        (segments_weights.array() +
+                         (central_seg_weights.array() + EPSILON).log());
+                }
+                else {
+                    segments_weights =
+                        (central_seg_weights.array() + EPSILON).log();
+                }
+
+                // Right segment
+                if (const auto& next_timer = dynamic_pointer_cast<TimerNode>(
+                        this->timer->get_next())) {
+
+                    Eigen::MatrixXd right_seg_weights =
+                        next_timer->get_cpd()
+                            ->get_right_segment_posterior_weights(next_timer);
+
+                    segments_weights =
+                        (segments_weights.array() +
+                         (right_seg_weights.array() + EPSILON).log());
+                }
+            }
+
+            return segments_weights;
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_conjugacy(

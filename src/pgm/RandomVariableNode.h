@@ -223,8 +223,8 @@ namespace tomcat {
              *
              * @return Next copy in time.
              */
-            std::shared_ptr<RandomVariableNode> get_next(int increment = 1)
-            const;
+            std::shared_ptr<RandomVariableNode>
+            get_next(int increment = 1) const;
 
             // -----------------------------------------------------------------
             // Virtual functions
@@ -286,16 +286,16 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Create new reference for the CPD of the node.
-             */
-            void clone_cpd();
-
-            /**
              * Copies data members of a random variable node.
              *
              * @param cpd: continuous CPD
              */
             void copy_node(const RandomVariableNode& node);
+
+            /**
+             * Create new reference for the CPD of the node.
+             */
+            void clone_cpd();
 
             /**
              * Sorts a list of labels and concatenate them into a string
@@ -357,6 +357,33 @@ namespace tomcat {
             // allows us easy access to any other instance in time.
             std::shared_ptr<std::vector<std::shared_ptr<RandomVariableNode>>>
                 timed_copies;
+
+          private:
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+            /**
+             * Computes posterior weights from the left, central and right
+             * segments from a time controlled node.
+             *
+             *  1. If node == left seg. values and node == right seg. values
+             *  p(duration left + 1 + duration right)
+             *
+             *  2. If node == left seg. values and node != right seg. values
+             *  p(duration left + 1)p(right seg. value | node value)
+             *  p(duration right)
+             *
+             *  3. If node != left seg. values and node == right seg. values
+             *  p(duration left)p(left seg. value | node)
+             *  p(duration right + 1)
+             *
+             *  4. If node != left seg. values and node != right seg. values
+             *  p(duration left)p(left seg. value | node)
+             *  p(duration central == 1)p(right seg. value | node value)
+             *  p(duration right)
+             * @return
+             */
+            Eigen::MatrixXd get_segments_log_posterior_weights();
         };
 
     } // namespace model
