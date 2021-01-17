@@ -413,13 +413,13 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     // row when TC=1) to avoid permutation of TC
     const shared_ptr<RandomVariableNode>& theta_state_0 =
         dynamic_pointer_cast<RandomVariableNode>(model->get_nodes_by_label(
-            THETA_STATE_GIVEN_TC_PBAE_STATE + "_0")[0]);
+            THETA_STATE_GIVEN_STATE_TC_PBAE + "_0")[0]);
     theta_state_0->set_assignment(tables.state_given_state_tc_pbae.row(0));
     theta_state_0->freeze();
 
     const shared_ptr<RandomVariableNode>& theta_state_3 =
         dynamic_pointer_cast<RandomVariableNode>(model->get_nodes_by_label(
-            THETA_STATE_GIVEN_TC_PBAE_STATE + "_3")[0]);
+            THETA_STATE_GIVEN_STATE_TC_PBAE + "_3")[0]);
     theta_state_3->set_assignment(tables.state_given_state_tc_pbae.row(3));
     theta_state_3->freeze();
 
@@ -454,9 +454,9 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
         BOOST_TEST(check.first, check.second);
     }
 
-    for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
+    for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
         stringstream label;
-        label << THETA_STATE_GIVEN_TC_PBAE_STATE << '_' << i;
+        label << THETA_STATE_GIVEN_STATE_TC_PBAE << '_' << i;
         MatrixXd estimated_theta_state_given_tc_pbae_state =
             model->get_nodes_by_label(label.str())[0]->get_assignment();
         check = check_matrix_eq(estimated_theta_state_given_tc_pbae_state,

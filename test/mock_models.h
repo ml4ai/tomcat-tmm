@@ -64,8 +64,8 @@ struct HMM {
     inline static const string PBAE = "PBAE";
     inline static const string THETA_TC = "Theta_TrainingCondition";
     inline static const string THETA_STATE = "Theta_State";
-    inline static const string THETA_STATE_GIVEN_TC_PBAE_STATE =
-        "Theta_State_gv_TC_PBAE_State";
+    inline static const string THETA_STATE_GIVEN_STATE_TC_PBAE =
+        "Theta_State_gv_State_TC_PBAE";
     inline static const string PI_GREEN_GIVEN_STATE = "Pi_Green_gv_State";
     inline static const string PI_YELLOW_GIVEN_STATE = "Pi_Yellow_gv_State";
     inline static const string PI_PBAE = "Pi_PBAE";
@@ -81,8 +81,8 @@ struct HMM {
     // Number of parameter nodes for all possible combinations of
     // parents' assignments.
     int NUM_PI_PBAE_GIVEN_PBAE = PBAE_CARDINALITY;
-    int NUM_THETA_STATE_GIVEN_TC_PBAE_STATE =
-        TC_CARDINALITY * PBAE_CARDINALITY * STATE_CARDINALITY;
+    int NUM_THETA_STATE_GIVEN_STATE_TC_PBAE =
+        STATE_CARDINALITY * TC_CARDINALITY * PBAE_CARDINALITY;
     int NUM_PI_GREEN_GIVEN_STATE = STATE_CARDINALITY;
     int NUM_PI_YELLOW_GIVEN_STATE = STATE_CARDINALITY;
 
@@ -106,7 +106,7 @@ struct HMM {
 
         // One node for each combination of parent assignment.
         vector<NodeMetadataPtr> pi_pbae_given_pbae;
-        vector<NodeMetadataPtr> theta_state_given_tc_pbae_state;
+        vector<NodeMetadataPtr> theta_state_given_state_tc_pbae;
         vector<NodeMetadataPtr> pi_green_given_state;
         vector<NodeMetadataPtr> pi_yellow_given_state;
     };
@@ -139,7 +139,7 @@ struct HMM {
         CPDPtr pbae_prior;
         CPDPtr state_prior;
         CPDPtr pbae_given_pbae;
-        CPDPtr state_given_tc_pbae_state;
+        CPDPtr state_given_state_tc_pbae;
         CPDPtr green_given_state;
         CPDPtr yellow_given_state;
 
@@ -148,7 +148,7 @@ struct HMM {
         CPDPtr pi_pbae_prior;
         CPDPtr theta_state_prior;
         vector<CPDPtr> pi_pbae_given_pbae_prior;
-        vector<CPDPtr> theta_state_given_tc_pbae_state_prior;
+        vector<CPDPtr> theta_state_given_state_tc_pbae_prior;
         vector<CPDPtr> pi_green_given_state_prior;
         vector<CPDPtr> pi_yellow_given_state_prior;
     };
@@ -170,7 +170,7 @@ struct HMM {
         RVNodePtr pi_pbae;
         RVNodePtr theta_state;
         vector<RVNodePtr> pi_pbae_given_pbae;
-        vector<RVNodePtr> theta_state_given_tc_pbae_state;
+        vector<RVNodePtr> theta_state_given_state_tc_pbae;
         vector<RVNodePtr> pi_green_given_state;
         vector<RVNodePtr> pi_yellow_given_state;
     };
@@ -204,8 +204,8 @@ struct HMM {
         for (int i = 0; i < NUM_PI_PBAE_GIVEN_PBAE; i++) {
             model->add_node_template(nodes.pi_pbae_given_pbae[i]);
         }
-        for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
-            model->add_node_template(nodes.theta_state_given_tc_pbae_state[i]);
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
+            model->add_node_template(nodes.theta_state_given_state_tc_pbae[i]);
         }
         for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
             model->add_node_template(nodes.pi_green_given_state[i]);
@@ -262,11 +262,11 @@ struct HMM {
                     label.str(), false, true, false, 1, PBAE_CARDINALITY)));
         }
 
-        for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
             stringstream label;
-            label << THETA_STATE_GIVEN_TC_PBAE_STATE << '_' << i;
+            label << THETA_STATE_GIVEN_STATE_TC_PBAE << '_' << i;
 
-            metadatas.theta_state_given_tc_pbae_state.push_back(make_shared<
+            metadatas.theta_state_given_state_tc_pbae.push_back(make_shared<
                                                                 NodeMetadata>(
                 NodeMetadata::create_multiple_time_link_metadata(
                     label.str(), false, true, false, 1, STATE_CARDINALITY)));
@@ -314,10 +314,10 @@ struct HMM {
                 node_metadatas.pi_pbae_given_pbae[i]));
         }
 
-        for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
-            nodes.theta_state_given_tc_pbae_state.push_back(
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
+            nodes.theta_state_given_state_tc_pbae.push_back(
                 make_shared<RandomVariableNode>(
-                    node_metadatas.theta_state_given_tc_pbae_state[i]));
+                    node_metadatas.theta_state_given_state_tc_pbae[i]));
         }
 
         for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
@@ -349,9 +349,9 @@ struct HMM {
         node_metadatas.state->add_parent_link(node_metadatas.state, true);
         node_metadatas.state->add_parent_link(node_metadatas.pbae, true);
         node_metadatas.state->add_parent_link(node_metadatas.theta_state, true);
-        for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
             node_metadatas.state->add_parent_link(
-                node_metadatas.theta_state_given_tc_pbae_state[i], true);
+                node_metadatas.theta_state_given_state_tc_pbae[i], true);
         }
 
         node_metadatas.green->add_parent_link(node_metadatas.state, false);
@@ -422,24 +422,24 @@ struct HMM {
         // State given State, TC, PBAE
         MatrixXd theta_state_given_state_tc_pbae_prior =
             MatrixXd::Ones(1, STATE_CARDINALITY);
-        for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
-            cpds.theta_state_given_tc_pbae_state_prior.push_back(
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
+            cpds.theta_state_given_state_tc_pbae_prior.push_back(
                 make_shared<DirichletCPD>(
                     DirichletCPD({}, theta_state_given_state_tc_pbae_prior)));
         }
 
         cat_distributions.clear();
-        for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
-            nodes.theta_state_given_tc_pbae_state[i]->set_assignment(
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
+            nodes.theta_state_given_state_tc_pbae[i]->set_assignment(
                 tables.state_given_state_tc_pbae.row(i));
             cat_distributions.push_back(make_shared<Categorical>(
-                nodes.theta_state_given_tc_pbae_state[i]));
+                nodes.theta_state_given_state_tc_pbae[i]));
         }
         cpd = CategoricalCPD({nodes.state->get_metadata(),
                               nodes.tc->get_metadata(),
                               nodes.pbae->get_metadata()},
                              cat_distributions);
-        cpds.state_given_tc_pbae_state = make_shared<CategoricalCPD>(move(cpd));
+        cpds.state_given_state_tc_pbae = make_shared<CategoricalCPD>(move(cpd));
 
         // Green given State
         MatrixXd pi_green_given_state_prior =
@@ -518,7 +518,7 @@ struct HMM {
         }
 
         tables.state_given_state_tc_pbae =
-            MatrixXd(NUM_THETA_STATE_GIVEN_TC_PBAE_STATE, STATE_CARDINALITY);
+            MatrixXd(NUM_THETA_STATE_GIVEN_STATE_TC_PBAE, STATE_CARDINALITY);
         if (deterministic) {
             tables.state_given_state_tc_pbae << 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
                 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
@@ -567,12 +567,12 @@ struct HMM {
         nodes.pbae->add_cpd_template(cpds.pbae_given_pbae);
 
         nodes.theta_state->add_cpd_template(cpds.theta_state_prior);
-        for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
-            nodes.theta_state_given_tc_pbae_state[i]->add_cpd_template(
-                cpds.theta_state_given_tc_pbae_state_prior[i]);
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
+            nodes.theta_state_given_state_tc_pbae[i]->add_cpd_template(
+                cpds.theta_state_given_state_tc_pbae_prior[i]);
         }
         nodes.state->add_cpd_template(cpds.state_prior);
-        nodes.state->add_cpd_template(cpds.state_given_tc_pbae_state);
+        nodes.state->add_cpd_template(cpds.state_given_state_tc_pbae);
 
         for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
             nodes.pi_green_given_state[i]->add_cpd_template(
@@ -596,8 +596,8 @@ struct HMM {
         }
 
         nodes.theta_state->freeze();
-        for (int i = 0; i < NUM_THETA_STATE_GIVEN_TC_PBAE_STATE; i++) {
-            nodes.theta_state_given_tc_pbae_state[i]->freeze();
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
+            nodes.theta_state_given_state_tc_pbae[i]->freeze();
         }
 
         for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
