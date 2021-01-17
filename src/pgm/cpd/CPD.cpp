@@ -575,10 +575,6 @@ namespace tomcat {
                             add_to_list = true;
                         }
                     }
-                    else {
-                        // Last timer to be drawn
-                        add_to_list = true;
-                    }
                 }
                 else {
                     if (cpd_owner->has_timer()) {
@@ -590,6 +586,8 @@ namespace tomcat {
                             // a state transition or when t = 0 (there's no
                             // previous node in time);
                             add_to_list = true;
+                        } else {
+                            add_to_list = false;
                         }
                     }
                     else {

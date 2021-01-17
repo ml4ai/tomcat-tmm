@@ -61,6 +61,9 @@ namespace tomcat {
                             this->param_label_to_samples[split_idx][node_label](
                                     time_step, 2)
                                 .transpose();
+                        stringstream filename;
+                        filename << "../../data/gibbs/" << node_label << ".txt";
+                        save_matrix_to_file(filename.str(), samples);
                         Eigen::MatrixXd param_value(1, samples.cols());
 
                         if (sample_idx) {

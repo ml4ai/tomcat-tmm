@@ -138,8 +138,29 @@ namespace tomcat {
                 cpd_owner->get_previous() == sampled_node) {
                 // We ignore the probability of staying in the same state as
                 // this will be embedded in the segment posterior weights.
-                distributions_table.diagonal() =
-                    Eigen::VectorXd::Ones(distributions_table.rows());
+                if (cardinality == distributions_table.rows()) {
+                    // Node only depends on a past copy of itself
+                    distributions_table.diagonal() =
+                        Eigen::VectorXd::Ones(distributions_table.rows());
+                }
+                else {
+                    // Node depends on a past copy of itself plus other nodes
+                    // . When defining a CPD, this implementation requires
+                    // that the replicable node is defined as the first one in
+                    // the index node of the CPD, which guarantees that the
+                    // following modifications will always change the
+                    // elements of the table that represent p(node(t-1)
+                    // == node(t)).
+                    int right_cum_cardinality =
+                        distributions_table.rows() / cardinality;
+                    for (int i = 0; i < cardinality; i++) {
+                        distributions_table.block(i * right_cum_cardinality,
+                                                  i,
+                                                  right_cum_cardinality,
+                                                  1) =
+                            Eigen::VectorXd::Ones(right_cum_cardinality);
+                    }
+                }
             }
 
             int num_distributions = this->distributions.size();

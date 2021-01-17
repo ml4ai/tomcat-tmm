@@ -202,13 +202,21 @@ namespace tomcat {
 
                 // Update sufficient statistics for timer nodes and fill
                 // backwards counters
-                for (auto& timer_node : timer_nodes) {
-                    dynamic_pointer_cast<TimerNode>(timer_node)
-                        ->update_parents_sufficient_statistics();
-                }
-                for (auto& node : boost::adaptors::reverse(timer_nodes)) {
-                    dynamic_pointer_cast<TimerNode>(node)
-                        ->update_backward_assignment();
+                for (int j = 0; j < timer_nodes.size(); j++) {
+                    if (j < timer_nodes.size() - 1) {
+                        // We do not add the last timer to the sufficient
+                        // statistics of the duration's prior distribution
+                        // to avoid biasing it with durations of truncated
+                        // segments.
+                        const auto& timer =
+                            dynamic_pointer_cast<TimerNode>(timer_nodes.at(j));
+                        timer->update_parents_sufficient_statistics();
+                    }
+
+                    const auto& reverse_timer =
+                        dynamic_pointer_cast<TimerNode>
+                            (timer_nodes.at(timer_nodes.size() - j - 1));
+                    reverse_timer->update_backward_assignment();
                 }
 
                 for (auto& node : parameter_nodes) {

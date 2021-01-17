@@ -190,6 +190,15 @@ namespace tomcat {
             void add_cpd_template(std::shared_ptr<CPD>&& cpd);
 
             /**
+             * Checks if a replicable node that depends on a past copy of
+             * itself is the first to index a CPD. We require this to speed
+             * up some computations when using categorical CPDs.
+             *
+             * @param cpd: cpd
+             */
+            void check_cpd(const std::shared_ptr<CPD>& cpd) const;
+
+            /**
              * Returns the node's CPD associated to a set of parents.
              *
              * @param parent_labels: labels of the parents of the node

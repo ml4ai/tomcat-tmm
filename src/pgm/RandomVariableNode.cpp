@@ -256,11 +256,27 @@ namespace tomcat {
         }
 
         void RandomVariableNode::add_cpd_template(const shared_ptr<CPD>& cpd) {
+            this->check_cpd(cpd);
             this->cpd_templates[cpd->get_id()] = cpd;
         }
 
         void RandomVariableNode::add_cpd_template(shared_ptr<CPD>&& cpd) {
+            this->check_cpd(cpd);
             this->cpd_templates[cpd->get_id()] = move(cpd);
+        }
+
+        void RandomVariableNode::check_cpd(const shared_ptr<CPD>& cpd) const {
+            const auto& indexing_mapping = cpd->get_parent_label_to_indexing();
+            const auto& label = this->metadata->get_label();
+
+            if (EXISTS(label, indexing_mapping)) {
+                if (indexing_mapping.at(label).order != 0) {
+                    throw TomcatModelException("Replicable nodes that depend "
+                                               "on itself over time must be "
+                                               "the first node to index a CPD"
+                                               ".");
+                }
+            }
         }
 
         shared_ptr<CPD> RandomVariableNode::get_cpd_for(
