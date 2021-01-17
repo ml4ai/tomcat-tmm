@@ -13,6 +13,7 @@ namespace tomcat {
         //------------------------------------------------------------------
 
         class RandomVariableNode;
+        class TimerNode;
 
         //------------------------------------------------------------------
         // Structs
@@ -116,23 +117,6 @@ namespace tomcat {
                    int num_samples) const;
 
             /**
-             * Generates a sample for the node from its posterior distribution.
-             * If the node is an in-plate node, multiple samples will be
-             * generated for the node (one per row). The number of total
-             * samples are defined by the number of elements in-plate.
-             *
-             * Note: This method changes this node assignment temporarily while
-             * calculating the weights, therefore it's not const. The final
-             * state of the this object is unchanged though.
-             *
-             * @param random_generator: random number generator
-             *
-             * @return Sample for the node from its posterior
-             */
-            Eigen::MatrixXd sample_from_posterior(
-                const std::shared_ptr<gsl_rng>& random_generator);
-
-            /**
              * Returns p(children(node)|node). The posterior of a node is
              * given by p(node|parents(node)) * p(children(node)|node). We
              * call the second term, the posterior weights here.
@@ -150,11 +134,11 @@ namespace tomcat {
              * statistics stored in the node's CPD.
              *
              * @param random_generator: random number generator
+             * @param num_samples: number of samples to generate
              * @return
              */
             Eigen::MatrixXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& parent_nodes,
                 int num_samples) const;
 
             /**
@@ -206,6 +190,15 @@ namespace tomcat {
             void add_cpd_template(std::shared_ptr<CPD>&& cpd);
 
             /**
+             * Checks if a replicable node that depends on a past copy of
+             * itself is the first to index a CPD. We require this to speed
+             * up some computations when using categorical CPDs.
+             *
+             * @param cpd: cpd
+             */
+            void check_cpd(const std::shared_ptr<CPD>& cpd) const;
+
+            /**
              * Returns the node's CPD associated to a set of parents.
              *
              * @param parent_labels: labels of the parents of the node
@@ -214,6 +207,54 @@ namespace tomcat {
              */
             std::shared_ptr<CPD>
             get_cpd_for(const std::vector<std::string>& parent_labels) const;
+
+            /**
+             * Checks whether the node has a timer associated with it.
+             *
+             * @return True if the node is controlled by a timer.
+             */
+            bool has_timer() const;
+
+            /**
+             * Retrieves copy of the node increment time steps behind.
+             *
+             * @param increment: number of time steps to jump in the past
+             *
+             * @return Previous copy in time.
+             */
+            std::shared_ptr<RandomVariableNode>
+            get_previous(int increment = 1) const;
+
+            /**
+             * Retrieves copy of the node increment time steps ahead.
+             *
+             * @param increment: number of time steps to jump in the future
+             *
+             * @return Next copy in time.
+             */
+            std::shared_ptr<RandomVariableNode>
+            get_next(int increment = 1) const;
+
+            // -----------------------------------------------------------------
+            // Virtual functions
+            // -----------------------------------------------------------------
+
+            /**
+             * Generates a sample for the node from its posterior distribution.
+             * If the node is an in-plate node, multiple samples will be
+             * generated for the node (one per row). The number of total
+             * samples are defined by the number of elements in-plate.
+             *
+             * Note: This method changes this node assignment temporarily while
+             * calculating the weights, therefore it's not const. The final
+             * state of the this object is unchanged though.
+             *
+             * @param random_generator: random number generator
+             *
+             * @return Sample for the node from its posterior
+             */
+            virtual Eigen::MatrixXd sample_from_posterior(
+                const std::shared_ptr<gsl_rng>& random_generator);
 
             // -----------------------------------------------------------------
             // Getters & Setters
@@ -239,15 +280,19 @@ namespace tomcat {
             void
             set_children(const std::vector<std::shared_ptr<Node>>& children);
 
-          private:
+            const std::shared_ptr<TimerNode>& get_timer() const;
+
+            void set_timer(const std::shared_ptr<TimerNode>& timer);
+
+            void
+            set_timed_copies(const std::shared_ptr<
+                             std::vector<std::shared_ptr<RandomVariableNode>>>&
+                                 timed_copies);
+
+          protected:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-
-            /**
-             * Create new reference for the CPD of the node.
-             */
-            void clone_cpd();
 
             /**
              * Copies data members of a random variable node.
@@ -255,6 +300,11 @@ namespace tomcat {
              * @param cpd: continuous CPD
              */
             void copy_node(const RandomVariableNode& node);
+
+            /**
+             * Create new reference for the CPD of the node.
+             */
+            void clone_cpd();
 
             /**
              * Sorts a list of labels and concatenate them into a string
@@ -306,6 +356,43 @@ namespace tomcat {
             std::vector<std::shared_ptr<Node>> parents;
 
             std::vector<std::shared_ptr<Node>> children;
+
+            // If set, the amount of time this node stays in the current
+            // state, is defined by the timer's assignment (semi-Markov model).
+            std::shared_ptr<TimerNode> timer;
+
+            // Vector of instance of the current node in each one of the time
+            // steps from its initial appearance until the last one. This
+            // allows us easy access to any other instance in time.
+            std::shared_ptr<std::vector<std::shared_ptr<RandomVariableNode>>>
+                timed_copies;
+
+          private:
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+            /**
+             * Computes posterior weights from the left, central and right
+             * segments from a time controlled node.
+             *
+             *  1. If node == left seg. values and node == right seg. values
+             *  p(duration left + 1 + duration right)
+             *
+             *  2. If node == left seg. values and node != right seg. values
+             *  p(duration left + 1)p(right seg. value | node value)
+             *  p(duration right)
+             *
+             *  3. If node != left seg. values and node == right seg. values
+             *  p(duration left)p(left seg. value | node)
+             *  p(duration right + 1)
+             *
+             *  4. If node != left seg. values and node != right seg. values
+             *  p(duration left)p(left seg. value | node)
+             *  p(duration central == 1)p(right seg. value | node value)
+             *  p(duration right)
+             * @return
+             */
+            Eigen::MatrixXd get_segments_log_posterior_weights();
         };
 
     } // namespace model

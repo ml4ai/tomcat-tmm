@@ -59,7 +59,7 @@ namespace tomcat {
             DynamicBayesNet dbn;
 
             for (const auto& [node_label, node] : nodes) {
-                dbn.add_node_template(*node);
+                dbn.add_node_template(node);
             }
 
             this->model = make_shared<DynamicBayesNet>(dbn);

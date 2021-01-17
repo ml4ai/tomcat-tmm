@@ -9,8 +9,6 @@
 namespace tomcat {
     namespace model {
 
-#define EPSILON 10E-16
-
         /**
          * Abstract probability distribution.
          */
@@ -24,6 +22,24 @@ namespace tomcat {
              * Creates an abstract representation of a distribution.
              */
             Distribution();
+
+            /**
+             * Creates an abstract representation of a  distribution for node
+             * dependent parameters.
+             *
+             * @param parameters: nodes which the assignments define the set
+             * of parameters of the distribution
+             */
+            Distribution(const std::vector<std::shared_ptr<Node>>& parameters);
+
+            /**
+             * Creates an abstract representation of a distribution for node
+             * dependent parameters.
+             *
+             * @param parameters: nodes which the assignments define the set
+             * of parameters of the distribution
+             */
+            Distribution(std::vector<std::shared_ptr<Node>>&& parameters);
 
             virtual ~Distribution();
 
@@ -53,17 +69,6 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Prints a short description of the distribution.
-             *
-             * @param os: output stream
-             */
-            void print(std::ostream& os) const;
-
-            //------------------------------------------------------------------
-            // Pure virtual functions
-            //------------------------------------------------------------------
-
-            /**
              * Replaces parameter nodes in the distribution by the correct
              * copy of the node in an unrolled DBN.
              *
@@ -74,9 +79,44 @@ namespace tomcat {
              * parameter node if the latter is shared among nodes over several
              * time steps.
              */
-            virtual void
-            update_dependencies(const Node::NodeMap& parameter_nodes_map,
-                                int time_step) = 0;
+            void update_dependencies(const Node::NodeMap& parameter_nodes_map,
+                                     int time_step);
+
+            /**
+             * Update the sufficient statistics in the parameter nodes given the
+             * collection of values informed.
+             *
+             * @param values: Values from the data node that depends on
+             * the parameter being updated
+             */
+            void
+            update_sufficient_statistics(const std::vector<double>& values);
+
+            /**
+             * Returns assignments of the node(s) the distribution depends on. A
+             * node can have multiple assignments. Only the first one is
+             * returned by this function.
+             *
+             * @param parameter_idx: the index of the parameter assignment
+             * to use in case the distribution depend on parameter nodes with
+             * multiple assignments. If the parameter has single assignment,
+             * that is the one being used regardless of the value informed in
+             * this argument.
+             *
+             * @return Concrete node assignments.
+             */
+            Eigen::VectorXd get_values(int parameter_idx) const;
+
+            /**
+             * Prints a short description of the distribution.
+             *
+             * @param os: output stream
+             */
+            void print(std::ostream& os) const;
+
+            //------------------------------------------------------------------
+            // Pure virtual functions
+            //------------------------------------------------------------------
 
             /**
              * Draws a sample from the distribution.
@@ -105,6 +145,21 @@ namespace tomcat {
             virtual Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const Eigen::VectorXd& weights) const = 0;
+
+            /**
+             * Generates a weighted sample from the distribution.
+             *
+             * @param random_generator: random number generator
+             * @param weights: weights
+             * @param replace_by_weight: the probability of the value passed
+             * here is only defined by the weight given to it.
+             *
+             * @return Weighted sample.
+             */
+            virtual Eigen::VectorXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   const Eigen::VectorXd& weights,
+                   double replace_by_weight) const = 0;
 
             /**
              * Draws a sample from a posterior computed by conjugacy using
@@ -150,26 +205,18 @@ namespace tomcat {
              */
             virtual int get_sample_size() const = 0;
 
-            /**
-             * Update the sufficient statistics in the parameter nodes given the
-             * collection of values informed.
-             *
-             * @param values: Values from the data node that depends on
-             * the parameter being updated
-             */
-            virtual void
-            update_sufficient_statistics(const std::vector<double>& values) = 0;
-
-            /**
-             * Returns assignments of the node(s) the distribution depends on. A
-             * node can have multiple assignments. Only the first one is
-             * returned by this function.
-             *
-             * @return Concrete node assignments.
-             */
-            virtual Eigen::VectorXd get_values() const = 0;
-
           protected:
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            /**
+             * Copy data members from another distribution.
+             *
+             * @param distribution: distribution to copy from
+             */
+            void copy(const Distribution& distribution);
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -180,6 +227,13 @@ namespace tomcat {
              * @return Distribution's description.
              */
             virtual std::string get_description() const = 0;
+
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+            // The assignment of a node defines one of the parameters of the
+            // distribution.
+            std::vector<std::shared_ptr<Node>> parameters;
         };
 
     } // namespace model

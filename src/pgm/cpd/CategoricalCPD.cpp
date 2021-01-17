@@ -1,5 +1,7 @@
 #include "pgm/cpd/CategoricalCPD.h"
+
 #include "pgm/ConstantNode.h"
+#include "pgm/TimerNode.h"
 
 namespace tomcat {
     namespace model {
@@ -103,8 +105,8 @@ namespace tomcat {
 
         Eigen::MatrixXd CategoricalCPD::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
-            const vector<shared_ptr<Node>>& parent_nodes,
-            int num_samples) const {
+            int num_samples,
+            const shared_ptr<const RandomVariableNode>& cpd_owner) const {
             throw invalid_argument(
                 "No conjugate prior with a categorical distribution.");
         }
@@ -116,34 +118,62 @@ namespace tomcat {
         Eigen::MatrixXd CategoricalCPD::get_posterior_weights(
             const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
-            const Eigen::MatrixXd& cpd_owner_assignment) const {
+            const std::shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
-            int rows = cpd_owner_assignment.rows();
-            int cols = sampled_node->get_metadata()->get_cardinality();
+            int data_size = cpd_owner->get_size();
+            int cardinality = sampled_node->get_metadata()->get_cardinality();
 
             // Set sampled node's assignment equals to zero so we can get the
             // index of the first distribution indexed by this node and the
             // other parent nodes that the child (owner of this CPD) may have.
             Eigen::MatrixXd saved_assignment = sampled_node->get_assignment();
-            sampled_node->set_assignment(Eigen::MatrixXd::Zero(rows, 1));
+            sampled_node->set_assignment(Eigen::MatrixXd::Zero(data_size, 1));
             vector<int> distribution_indices =
-                this->get_indexed_distribution_indices(index_nodes, rows);
+                this->get_indexed_distribution_indices(index_nodes, data_size);
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
 
-            Eigen::MatrixXd distributions_table = this->get_table();
+            Eigen::MatrixXd distributions_table = this->get_table(0);
+            if (sampled_node->has_timer() &&
+                cpd_owner->get_previous() == sampled_node) {
+                // We ignore the probability of staying in the same state as
+                // this will be embedded in the segment posterior weights.
+                if (cardinality == distributions_table.rows()) {
+                    // Node only depends on a past copy of itself
+                    distributions_table.diagonal() =
+                        Eigen::VectorXd::Ones(distributions_table.rows());
+                }
+                else {
+                    // Node depends on a past copy of itself plus other nodes
+                    // . When defining a CPD, this implementation requires
+                    // that the replicable node is defined as the first one in
+                    // the index node of the CPD, which guarantees that the
+                    // following modifications will always change the
+                    // elements of the table that represent p(node(t-1)
+                    // == node(t)).
+                    int right_cum_cardinality =
+                        distributions_table.rows() / cardinality;
+                    for (int i = 0; i < cardinality; i++) {
+                        distributions_table.block(i * right_cum_cardinality,
+                                                  i,
+                                                  right_cum_cardinality,
+                                                  1) =
+                            Eigen::VectorXd::Ones(right_cum_cardinality);
+                    }
+                }
+            }
 
             int num_distributions = this->distributions.size();
             Eigen::MatrixXd binary_distribution_indices =
-                Eigen::MatrixXd::Zero(rows, num_distributions);
+                Eigen::MatrixXd::Zero(data_size, num_distributions);
             Eigen::MatrixXd binary_assignment =
-                Eigen::MatrixXd::Zero(rows, distributions_table.cols());
+                Eigen::MatrixXd::Zero(data_size, distributions_table.cols());
 
-            for (int i = 0; i < rows; i++) {
-                binary_assignment(i, cpd_owner_assignment(i, 0)) = 1;
+            for (int i = 0; i < data_size; i++) {
+                binary_assignment(i, cpd_owner->get_assignment()(i, 0)) = 1;
             }
 
-            Eigen::MatrixXd weights(rows, cols);
+            Eigen::MatrixXd weights(data_size, cardinality);
             const string& sampled_node_label =
                 sampled_node->get_metadata()->get_label();
             // For every possible value of sampled_node, the offset indicates
@@ -151,8 +181,8 @@ namespace tomcat {
             // distribution indexes by the index nodes of this CPD.
             int offset = this->parent_label_to_indexing.at(sampled_node_label)
                              .right_cumulative_cardinality;
-            for (int j = 0; j < cols; j++) {
-                for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cardinality; j++) {
+                for (int i = 0; i < data_size; i++) {
                     int distribution_idx = distribution_indices[i];
                     if (j > 0) {
                         binary_distribution_indices(

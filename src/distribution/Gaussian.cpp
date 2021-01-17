@@ -14,19 +14,19 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Gaussian::Gaussian(const shared_ptr<Node>& mean,
                            const shared_ptr<Node>& variance)
-            : Continuous({mean, variance}) {}
+            : Distribution({mean, variance}) {}
 
-        Gaussian::Gaussian(shared_ptr<Node>&& mean,
-                           shared_ptr<Node>&& variance)
-            : Continuous({move(mean), move(variance)}) {}
+        Gaussian::Gaussian(shared_ptr<Node>&& mean, shared_ptr<Node>&& variance)
+            : Distribution({move(mean), move(variance)}) {}
 
-        Gaussian::Gaussian(const Eigen::VectorXd& parameters) {
-            ConstantNode mean(parameters[PARAMETER_INDEX::mean]);
-            ConstantNode variance(parameters[PARAMETER_INDEX::variance]);
+        Gaussian::Gaussian(double mean, double variance) {
+            ConstantNode mean_node(mean);
+            ConstantNode variance_node(variance);
 
-            this->parameters.push_back(make_shared<ConstantNode>(move(mean)));
             this->parameters.push_back(
-                make_shared<ConstantNode>(move(variance)));
+                make_shared<ConstantNode>(move(mean_node)));
+            this->parameters.push_back(
+                make_shared<ConstantNode>(move(variance_node)));
         }
 
         Gaussian::~Gaussian() {}
@@ -35,11 +35,11 @@ namespace tomcat {
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         Gaussian::Gaussian(const Gaussian& gaussian) {
-            this->parameters = gaussian.parameters;
+            this->copy(gaussian);
         }
 
         Gaussian& Gaussian::operator=(const Gaussian& gaussian) {
-            this->parameters = gaussian.parameters;
+            this->copy(gaussian);
             return *this;
         }
 
@@ -104,6 +104,14 @@ namespace tomcat {
             return this->sample_from_gsl(random_generator, mean, variance);
         }
 
+        Eigen::VectorXd
+        Gaussian::sample(const std::shared_ptr<gsl_rng>& random_generator,
+                          const Eigen::VectorXd& weights,
+                          double replace_by_weight) const {
+            throw TomcatModelException("Not defined for continuous "
+                                       "distributions.");
+        }
+
         Eigen::VectorXd Gaussian::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,
@@ -133,8 +141,11 @@ namespace tomcat {
 
         string Gaussian::get_description() const {
             stringstream ss;
-            ss << "N(" << this->parameters[0] << ", " << this->parameters[1]
-               << ")";
+            const shared_ptr<Node>& mean_node =
+                this->parameters[PARAMETER_INDEX::mean];
+            const shared_ptr<Node>& variance_node =
+                this->parameters[PARAMETER_INDEX::variance];
+            ss << "N(" << *mean_node << ", " << *variance_node << ")";
 
             return ss.str();
         }

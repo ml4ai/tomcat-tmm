@@ -1,5 +1,7 @@
 #include "pgm/cpd/GaussianCPD.h"
+
 #include "pgm/ConstantNode.h"
+#include "pgm/RandomVariableNode.h"
 
 namespace tomcat {
     namespace model {
@@ -65,8 +67,11 @@ namespace tomcat {
         void GaussianCPD::init_from_matrix(const Eigen::MatrixXd& matrix) {
             for (int row = 0; row < matrix.rows(); row++) {
                 for (int i = 0; i < matrix.rows(); i++) {
+                    double mean = matrix(i, Gaussian::PARAMETER_INDEX::mean);
+                    double variance =
+                        matrix(i, Gaussian::PARAMETER_INDEX::variance);
                     shared_ptr<Gaussian> distribution_ptr =
-                        make_shared<Gaussian>(Gaussian(matrix.row(i)));
+                        make_shared<Gaussian>(mean, variance);
                     this->distributions.push_back(distribution_ptr);
                 }
             }
@@ -104,8 +109,8 @@ namespace tomcat {
 
         Eigen::MatrixXd GaussianCPD::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
-            const vector<shared_ptr<Node>>& parent_nodes,
-            int num_samples) const {
+            int num_samples,
+            const shared_ptr<const RandomVariableNode>& cpd_owner) const {
             throw invalid_argument("Not implemented yet.");
         }
 

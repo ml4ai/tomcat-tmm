@@ -6,9 +6,11 @@
 // This is deprecated. The new version is in boost/timer/progress_display.hpp
 // but only available for boost 1.72
 #include <boost/progress.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 #include <gsl/gsl_rng.h>
 
 #include "AncestralSampler.h"
+#include "pgm/TimerNode.h"
 
 namespace tomcat {
     namespace model {
@@ -58,6 +60,8 @@ namespace tomcat {
             // List of all nodes sampled: parameter and data nodes.
             vector<shared_ptr<Node>> sampled_nodes;
             vector<shared_ptr<Node>> parameter_nodes;
+            vector<shared_ptr<Node>> single_thread_nodes;
+            vector<shared_ptr<Node>> timer_nodes;
 
             // We divide data nodes in two categories: data nodes at even and
             // odd time steps. This guarantees that nodes in each of these
@@ -76,10 +80,9 @@ namespace tomcat {
             // can update the sufficient statistics of parameter nodes correctly
             // given that parent nodes were already sampled.
             for (auto& node : this->model->get_nodes_topological_order()) {
-                shared_ptr<RandomVariableNode> rv_node =
-                    dynamic_pointer_cast<RandomVariableNode>(node);
-
                 if (node->get_metadata()->is_parameter()) {
+                    shared_ptr<RandomVariableNode> rv_node =
+                        dynamic_pointer_cast<RandomVariableNode>(node);
                     if (!rv_node->is_frozen()) {
                         if (this->max_time_step_to_sample < 0 ||
                             rv_node->get_time_step() <=
@@ -98,15 +101,35 @@ namespace tomcat {
                     // statistics of the parameter nodes their CPDs depend on.
                     sampled_nodes.push_back(node);
 
-                    int job = 0;
-                    int time_step = rv_node->get_time_step();
-                    if (time_step % 2 == 0) {
-                        job = time_step / (2 * time_steps_per_job);
-                        even_time_data_nodes_per_job[job].push_back(node);
+                    // Timer nodes and the nodes controlled by them cannot be
+                    // processed in parallel as the size of the left and
+                    // segments to which the controlled nodes belong to in
+                    // random.
+                    if (node->get_metadata()->is_timer()) {
+                        timer_nodes.push_back(node);
+                        single_thread_nodes.push_back(node);
                     }
                     else {
-                        job = (time_step - 1) / (2 * time_steps_per_job);
-                        odd_time_data_nodes_per_job[job].push_back(node);
+                        const auto& rv_node =
+                            dynamic_pointer_cast<RandomVariableNode>(node);
+                        if (rv_node->has_timer()) {
+                            single_thread_nodes.push_back(node);
+                        }
+                        else {
+                            int job = 0;
+                            int time_step = rv_node->get_time_step();
+                            if (time_step % 2 == 0) {
+                                job = time_step / (2 * time_steps_per_job);
+                                even_time_data_nodes_per_job[job].push_back(
+                                    node);
+                            }
+                            else {
+                                job =
+                                    (time_step - 1) / (2 * time_steps_per_job);
+                                odd_time_data_nodes_per_job[job].push_back(
+                                    node);
+                            }
+                        }
                     }
                 }
             }
@@ -133,6 +156,20 @@ namespace tomcat {
                 }
             }
 
+            // The ancestral sampling will fill the duration of a segment
+            // first, which means that the timer counter will be
+            // filled backwards (d, d-1, d-2... instead of 0, 1, 2, ...).
+            // Therefore we sample the timer nodes from their posterior to fix
+            // the counters.
+            for (auto& timer_node : timer_nodes) {
+                this->sample_data_node(nullptr, timer_node, true, false);
+            }
+            for (auto& node : boost::adaptors::reverse(timer_nodes)) {
+                dynamic_pointer_cast<TimerNode>(node)
+                    ->update_backward_assignment();
+            }
+
+            // Gibbs step
             for (int i = 0; i < this->burn_in_period + num_samples; i++) {
                 if (i >= burn_in_period && discard) {
                     discard = false;
@@ -148,6 +185,39 @@ namespace tomcat {
                 this->sample_data_nodes_in_parallel(random_generators_per_job,
                                                     odd_time_data_nodes_per_job,
                                                     discard);
+
+                for (auto& node : single_thread_nodes) {
+                    bool update_sufficient_statistics = true;
+                    if (node->get_metadata()->is_timer()) {
+                        // We only update the sufficient statistics for timer
+                        // nodes after, when all the time controlled nodes have
+                        // been sampled.
+                        update_sufficient_statistics = false;
+                    }
+                    this->sample_data_node(random_generator,
+                                           node,
+                                           discard,
+                                           update_sufficient_statistics);
+                }
+
+                // Update sufficient statistics for timer nodes and fill
+                // backwards counters
+                for (int j = 0; j < timer_nodes.size(); j++) {
+                    if (j < timer_nodes.size() - 1) {
+                        // We do not add the last timer to the sufficient
+                        // statistics of the duration's prior distribution
+                        // to avoid biasing it with durations of truncated
+                        // segments.
+                        const auto& timer =
+                            dynamic_pointer_cast<TimerNode>(timer_nodes.at(j));
+                        timer->update_parents_sufficient_statistics();
+                    }
+
+                    const auto& reverse_timer =
+                        dynamic_pointer_cast<TimerNode>
+                            (timer_nodes.at(timer_nodes.size() - j - 1));
+                    reverse_timer->update_backward_assignment();
+                }
 
                 for (auto& node : parameter_nodes) {
                     this->sample_parameter_node(
@@ -240,9 +310,8 @@ namespace tomcat {
         void GibbsSampler::sample_data_node(
             const shared_ptr<gsl_rng>& random_generator,
             const shared_ptr<Node>& node,
-            bool discard) {
-
-            //            cout << this_thread::get_id() << endl;
+            bool discard,
+            bool update_sufficient_statistics) {
 
             shared_ptr<RandomVariableNode> rv_node =
                 dynamic_pointer_cast<RandomVariableNode>(node);
@@ -257,7 +326,9 @@ namespace tomcat {
                 }
             }
 
-            rv_node->update_parents_sufficient_statistics();
+            if (update_sufficient_statistics) {
+                rv_node->update_parents_sufficient_statistics();
+            }
         }
 
         void
@@ -281,12 +352,10 @@ namespace tomcat {
             const shared_ptr<Node>& node,
             bool discard) {
 
-            vector<shared_ptr<Node>> parent_nodes =
-                this->model->get_parent_nodes_of(node, true);
             shared_ptr<RandomVariableNode> rv_node =
                 dynamic_pointer_cast<RandomVariableNode>(node);
             Eigen::MatrixXd sample = rv_node->sample_from_conjugacy(
-                random_generator, parent_nodes, rv_node->get_size());
+                random_generator, rv_node->get_size());
             rv_node->set_assignment(sample);
 
             // As nodes are processed, the sufficient statistic

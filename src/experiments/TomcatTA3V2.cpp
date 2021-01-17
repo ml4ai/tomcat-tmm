@@ -83,7 +83,7 @@ namespace tomcat {
             DynamicBayesNet dbn;
 
             for (const auto& [node_label, node] : nodes) {
-                dbn.add_node_template(*node);
+                dbn.add_node_template(node);
             }
 
             this->model = make_shared<DynamicBayesNet>(dbn);
@@ -173,9 +173,9 @@ namespace tomcat {
                 this->create_state_metadata();
             shared_ptr<CPD> state_prior_cpd = this->create_state_prior_cpd();
             shared_ptr<CPD> state_transition_cpd =
-                this->create_state_transition_cpd({training_condition_metadata,
-                                                   pbae_metadata,
-                                                   state_metadata},
+                this->create_state_transition_cpd({state_metadata,
+                                                   training_condition_metadata,
+                                                   pbae_metadata},
                                                   theta_s_nodes);
             nodes[STATE] = this->create_node(
                 state_metadata, {state_prior_cpd, state_transition_cpd});

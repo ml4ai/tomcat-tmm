@@ -18,7 +18,12 @@
 namespace tomcat {
     namespace model {
 
+        //------------------------------------------------------------------
+        // Forward declarations
+        //------------------------------------------------------------------
+
         class RandomVariableNode;
+        class TimerNode;
 
         //------------------------------------------------------------------
         // Structs
@@ -160,24 +165,23 @@ namespace tomcat {
              * nodes' assignments.
              *
              * @param random_generator: random number random_generator
-             * @param index_nodes: concrete objects of the nodes used to
-             * index the CPD
              * @param num_samples: number of samples to generate.
+             * @param cpd_owner: node to which sample is being generated,
+             * which is also the owner of this CPD.
              *
              * @return A sample from one of the distributions in the CPD.
              */
             Eigen::MatrixXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
-                   const std::vector<std::shared_ptr<Node>>& index_nodes,
-                   int num_samples) const;
+                   int num_samples,
+                   const std::shared_ptr<const RandomVariableNode>& cpd_owner)
+                const;
 
             /**
              * Generates a sample for the node that owns this CPD from its
              * posterior distribution.
              *
              * @param random_generator: random number generator
-             * @param index_nodes: concrete objects of the nodes used to
-             * index the CPD
              * @param posterior_weights: posterior weights given by the product
              * of p(children(node)|node)
              *
@@ -185,8 +189,9 @@ namespace tomcat {
              */
             Eigen::MatrixXd sample_from_posterior(
                 const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& index_nodes,
-                const Eigen::MatrixXd& posterior_weights) const;
+                const Eigen::MatrixXd& posterior_weights,
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
+                const;
 
             /**
              * Returns the indices of the distributions indexed by the current
@@ -208,14 +213,10 @@ namespace tomcat {
              * Update the sufficient statistics of parameter nodes the cpd
              * depend on with assignments of the cpd's owner.
              *
-             * @param index_nodes: concrete objects of the nodes used to
-             * index the CPD
-             * @param cpd_owner_assignment: assignment of the node that owns
-             * this CPD
+             * @param cpd_owner: Node that owns this CPD
              */
             void update_sufficient_statistics(
-                const std::vector<std::shared_ptr<Node>>& index_nodes,
-                const Eigen::MatrixXd& cpd_owner_assignment);
+                const std::shared_ptr<RandomVariableNode>& cpd_owner);
 
             /**
              * Marks the CPD as not updated to force dependency update on a
@@ -234,9 +235,82 @@ namespace tomcat {
              * Return the matrix formed by the concrete assignments of the nodes
              * it depends on.
              *
+             * @param parameter_idx: index of the parameter's assignment to
+             * consider
+             *
              * @return CPD table
              */
-            Eigen::MatrixXd get_table() const;
+            Eigen::MatrixXd get_table(int parameter_idx) const;
+
+            /**
+             * Returns p(left segment | central and right segments).
+             * The probabilities change according to the value of the
+             * controlled nodes in the central and right segments. For
+             * instance, suppose the left segment is formed by controlled
+             * nodes with values 0, 0, 0, this means that the duration of the
+             * left segment is 3. If the central controlled node is also 0,
+             * the duration of the left segment is now 4, if the right
+             * segment controlled nodes have values 0, 1, 2, the left segment
+             * now has duration 5.
+             *
+             *
+             * @param last_timer: last timer of the left segment
+             *
+             * @return Posterior weights for the left segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_left_segment_posterior_weights(
+                const std::shared_ptr<const TimerNode>& last_timer) const;
+
+            /**
+             * This method is an extension of the
+             * get_left_segment_posterior_weights with last_timer as parameter
+             * of the left assignment. To find the probability of a segment, we
+             * need to access the first timer of such segment. Since a node can
+             * have multiple assignments at a time (one for each data point),
+             * each row can have a different left segment configuration. This
+             * method computes p(left segment | central and right segments) for
+             * a given row in the timer's assignment
+             *
+             * @param first_timer: first timer of the left segment for a
+             * @param left_segment_duration: duration of the left segment
+             * @param sample_idx: row in the node's assignment to consider
+             * specific assignment row (sample_idx)
+             *
+             * @return  p(left_segment_duration|node, right_segment)
+             */
+            Eigen::VectorXd get_left_segment_posterior_weights(
+                const std::shared_ptr<const TimerNode>& first_timer,
+                int left_segment_duration,
+                int sample_idx) const;
+
+            /**
+             * Returns p(central segment | left and right segments).
+             * Similar to get_left_segment_posterior_weights but for cases
+             * where values from the left segment are different of the value
+             * in the central segment.
+             *
+             * @param timer: timer in the central segment
+             *
+             * @return Posterior weights for the central segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_central_segment_posterior_weights(
+                const std::shared_ptr<const TimerNode>& last_timer) const;
+
+            /**
+             * Returns p(right segment | left and central segments).
+             * Similar to get_left_segment_posterior_weights but for cases
+             * where values from the left and central segments are different of
+             * the values in the right segment.
+             *
+             * @param first_timer: first timer of the right segment
+             *
+             * @return Posterior weights for the right segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_right_segment_posterior_weights(
+                const std::shared_ptr<const TimerNode>& first_timer) const;
 
             //------------------------------------------------------------------
             // Virtual functions
@@ -249,8 +323,7 @@ namespace tomcat {
              * index the CPD
              * @param sampled_node: random variable for with the posterior is
              * being computed
-             * @param cpd_owner_assignments: assignment of the child node that
-             * owns this CPD
+             * @param cpd_owner: Node that owns this CPD
              *
              * @return Posterior weights of the node that owns this CPD for one
              * of its parent nodes.
@@ -258,7 +331,8 @@ namespace tomcat {
             virtual Eigen::MatrixXd get_posterior_weights(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
-                const Eigen::MatrixXd& cpd_owner_assignment) const;
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
+                const;
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -284,12 +358,16 @@ namespace tomcat {
              * stored in the CPD.
              *
              * @param random_generator: random number generator
+             * @param num_samples: number of samples to generate
+             * @param cpd_owner: owner of the CPD and also parameter node to
+             * which samples will be generated
              * @return
              */
             virtual Eigen::MatrixXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& parent_nodes,
-                int num_samples) const = 0;
+                int num_samples,
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
+                const = 0;
 
             /**
              * Clear the values stored as sufficient statistics;
@@ -383,6 +461,20 @@ namespace tomcat {
              * table given parent node's assignments.
              */
             void fill_indexing_mapping();
+
+            /**
+             * Returns the distribution indexed by the combination of
+             * assignments of the nodes that index this CPD for a given row
+             * in their assignments.
+             *
+             * @param index_nodes: nodes that index this CPD
+             * @param sample_idx: row of their assignments to consider
+             *
+             * @return Index of a distribution from this CPD
+             */
+            int get_indexed_distribution_idx(
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                int sample_idx) const;
         };
 
     } // namespace model

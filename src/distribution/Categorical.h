@@ -8,7 +8,8 @@ namespace tomcat {
     namespace model {
 
         /**
-         * Class description here
+         * Class to represent a Categorical distribution with discrete
+         * probabilities.
          */
         class Categorical : public Distribution {
           public:
@@ -68,10 +69,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void update_dependencies(const Node::NodeMap& parameter_nodes_map,
-                                     int time_step) override;
-
-            Eigen::VectorXd
+Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
                    int parameter_idx) const override;
 
@@ -88,6 +86,11 @@ namespace tomcat {
             sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const Eigen::VectorXd& weights) const override;
 
+            Eigen::VectorXd
+            sample(const std::shared_ptr<gsl_rng>& random_generator,
+                   const Eigen::VectorXd& weights,
+                   double replace_by_weight) const override;
+
             Eigen::VectorXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
                 int parameter_idx,
@@ -100,11 +103,6 @@ namespace tomcat {
             std::string get_description() const override;
 
             int get_sample_size() const override;
-
-            void update_sufficient_statistics(
-                const std::vector<double>& values) override;
-
-            Eigen::VectorXd get_values() const override;
 
           private:
             //------------------------------------------------------------------
@@ -131,13 +129,6 @@ namespace tomcat {
              */
             unsigned int get_sample_index(const unsigned int* sample_array,
                                           size_t array_size) const;
-
-            //------------------------------------------------------------------
-            // Data members
-            //------------------------------------------------------------------
-
-            // The assignment of a node defines the probabilities
-            std::shared_ptr<Node> probabilities;
         };
 
     } // namespace model

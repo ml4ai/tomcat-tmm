@@ -14,12 +14,12 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         Dirichlet::Dirichlet(const vector<shared_ptr<Node>>& alpha)
-            : Continuous(alpha) {
+            : Distribution(alpha) {
             this->init_constant_alpha();
         }
 
         Dirichlet::Dirichlet(vector<shared_ptr<Node>>&& alpha)
-            : Continuous(move(alpha)) {
+            : Distribution(move(alpha)) {
             this->init_constant_alpha();
         }
 
@@ -40,12 +40,12 @@ namespace tomcat {
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         Dirichlet::Dirichlet(const Dirichlet& dirichlet) {
-            this->parameters = dirichlet.parameters;
+            this->copy(dirichlet);
             this->constant_alpha = dirichlet.constant_alpha;
         }
 
         Dirichlet& Dirichlet::operator=(const Dirichlet& dirichlet) {
-            this->parameters = dirichlet.parameters;
+            this->copy(dirichlet);
             this->constant_alpha = dirichlet.constant_alpha;
             return *this;
         }
@@ -122,6 +122,14 @@ namespace tomcat {
             return this->sample_from_gsl(random_generator, alpha);
         }
 
+        Eigen::VectorXd
+        Dirichlet::sample(const std::shared_ptr<gsl_rng>& random_generator,
+                          const Eigen::VectorXd& weights,
+                          double replace_by_weight) const {
+            throw TomcatModelException("Not defined for continuous "
+                                       "distributions.");
+        }
+
         Eigen::VectorXd Dirichlet::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,
@@ -158,7 +166,7 @@ namespace tomcat {
             ss << "Dir\n";
             ss << "(\n";
             for (const auto& parameter : this->parameters) {
-                ss << " " << parameter << "\n";
+                ss << " " << *parameter << "\n";
             }
             ss << ")";
 

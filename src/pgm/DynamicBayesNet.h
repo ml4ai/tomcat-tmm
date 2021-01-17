@@ -89,7 +89,8 @@ namespace tomcat {
              *
              * @param node: node to be stored in the DBN as a template
              */
-            void add_node_template(const RandomVariableNode& node);
+            void
+            add_node_template(const std::shared_ptr<RandomVariableNode>& node);
 
             /**
              * Unrolls the DBN into time steps if nor previously unrolled into
@@ -152,11 +153,15 @@ namespace tomcat {
 
             /**
              * Returns timed instances of the children of a node
+             *
              * @param node: timed instance of a node
+             * @param exclude_timers: exclude any child that is a timer node
+             *
              * @return Time instances of a node's children.
              */
             std::vector<std::shared_ptr<Node>>
-            get_child_nodes_of(const std::shared_ptr<Node>& node) const;
+            get_child_nodes_of(const std::shared_ptr<Node>& node,
+                               bool exclude_timers = false) const;
 
             /**
              * Saves model's parameter values in individual files inside a given
@@ -272,8 +277,9 @@ namespace tomcat {
              * @param time_step
              * @return
              */
-            VertexData add_vertex(const RandomVariableNode& node_template,
-                                  int time_step);
+            VertexData
+            add_vertex(const std::shared_ptr<RandomVariableNode>& node_template,
+                       int time_step);
 
             /**
              * Uses the node templates' metadata to link the vertices
@@ -301,7 +307,18 @@ namespace tomcat {
              * children and concrete CPD from the list of possible CPDs in
              * the node's metadata.
              */
-            void set_nodes_parents_children_and_cpd();
+            void set_parents_children_and_cpd_to_nodes();
+
+            /**
+             * Add the timed copy of a timer node to the node controlled by it.
+             */
+            void set_timers_to_nodes();
+
+            /**
+             * Set the vector of timed copies to each repeatable node in the
+             * DBN.
+             */
+            void set_timed_copies_to_nodes();
 
             /**
              * Replaces node objects in the CPDs that depend on other nodes with
@@ -336,7 +353,7 @@ namespace tomcat {
             // unrolled method based on the original set of nodes.
             // TODO - change to a set to forbid adding the same node multiple
             //  times
-            std::vector<RandomVariableNode> node_templates;
+            std::vector<std::shared_ptr<RandomVariableNode>> node_templates;
 
             // If unrolled, the number of time steps the DBN was unrolled into
             int time_steps = 0;

@@ -1,8 +1,11 @@
 #include "RandomVariableNode.h"
+
 #include <algorithm>
 #include <fmt/format.h>
 #include <iterator>
 #include <stdexcept>
+
+#include "TimerNode.h"
 
 namespace tomcat {
     namespace model {
@@ -47,6 +50,8 @@ namespace tomcat {
             this->frozen = node.frozen;
             this->parents = node.parents;
             this->children = node.children;
+            this->timer = node.timer;
+            this->timed_copies = node.timed_copies;
         }
 
         string RandomVariableNode::get_description() const {
@@ -115,7 +120,7 @@ namespace tomcat {
                                    int num_samples) const {
 
             return this->cpd->sample(
-                random_generator, this->parents, num_samples);
+                random_generator, num_samples, shared_from_this());
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
@@ -123,7 +128,7 @@ namespace tomcat {
 
             Eigen::MatrixXd weights = this->get_posterior_weights();
             Eigen::MatrixXd sample = this->cpd->sample_from_posterior(
-                random_generator, this->parents, weights);
+                random_generator, weights, shared_from_this());
 
             return sample;
         }
@@ -131,27 +136,22 @@ namespace tomcat {
         Eigen::MatrixXd RandomVariableNode::get_posterior_weights() {
             int rows = this->get_size();
             int cols = this->get_metadata()->get_cardinality();
-            Eigen::MatrixXd log_weights = Eigen::MatrixXd::Ones(rows, cols);
+            Eigen::MatrixXd log_weights = Eigen::MatrixXd::Zero(rows, cols);
 
-            // O(min{ctkd, ct(k^p(p-1) + d)})
-            // In the worst case scenario, one node will have ct children. if
-            // the node off plate and is parent of in-plate nodes.
             for (auto& child : this->children) {
                 shared_ptr<RandomVariableNode> rv_child =
                     dynamic_pointer_cast<RandomVariableNode>(child);
 
                 Eigen::MatrixXd child_weights =
                     rv_child->get_cpd()->get_posterior_weights(
-                        rv_child->get_parents(),
-                        shared_from_this(),
-                        child->get_assignment()); // O(min{kd, k^p(p-1) + d})
+                        rv_child->get_parents(), shared_from_this(), rv_child);
                 if (this->get_metadata()->is_in_plate()) {
                     // Multiply weights of each one of the assignments
                     // separately.
                     log_weights = (log_weights.array() +
                                    (child_weights.array() + EPSILON).log());
                 }
-                else { // O(d)
+                else {
                     // Multiply the weights of each one of the assignments of
                     // the child node. When an off-plate node is
                     // parent of an in-plate node, all of the in-plate
@@ -165,6 +165,14 @@ namespace tomcat {
                 }
             }
 
+            // Include posterior weights of immediate segments for nodes that
+            // are time controlled.
+            Eigen::MatrixXd segments_weights =
+                this->get_segments_log_posterior_weights();
+            if (segments_weights.size() > 0) {
+                log_weights = (log_weights.array() + segments_weights.array());
+            }
+
             // Unlog and normalize the weights
             log_weights.colwise() -= log_weights.rowwise().maxCoeff();
             log_weights = log_weights.array().exp();
@@ -172,17 +180,64 @@ namespace tomcat {
             return (log_weights.array().colwise() / sum_per_row.array());
         }
 
+        Eigen::MatrixXd
+        RandomVariableNode::get_segments_log_posterior_weights() {
+            Eigen::MatrixXd segments_weights(0, 0);
+
+            if (this->has_timer()) {
+                // Left segment
+                if (const auto& previous_timer =
+                        dynamic_pointer_cast<TimerNode>(
+                            this->timer->get_previous())) {
+                    // Left segment
+                    Eigen::MatrixXd left_seg_weights =
+                        previous_timer->get_cpd()
+                            ->get_left_segment_posterior_weights(
+                                previous_timer);
+                    segments_weights =
+                        (left_seg_weights.array() + EPSILON).log();
+                }
+
+                // Central segment
+                Eigen::MatrixXd central_seg_weights =
+                    this->timer->get_cpd()
+                        ->get_central_segment_posterior_weights(this->timer);
+                if (segments_weights.size() > 0) {
+                    segments_weights =
+                        (segments_weights.array() +
+                         (central_seg_weights.array() + EPSILON).log());
+                }
+                else {
+                    segments_weights =
+                        (central_seg_weights.array() + EPSILON).log();
+                }
+
+                // Right segment
+                if (const auto& next_timer = dynamic_pointer_cast<TimerNode>(
+                        this->timer->get_next())) {
+
+                    Eigen::MatrixXd right_seg_weights =
+                        next_timer->get_cpd()
+                            ->get_right_segment_posterior_weights(next_timer);
+
+                    segments_weights =
+                        (segments_weights.array() +
+                         (right_seg_weights.array() + EPSILON).log());
+                }
+            }
+
+            return segments_weights;
+        }
+
         Eigen::MatrixXd RandomVariableNode::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
-            const vector<shared_ptr<Node>>& parent_nodes,
             int num_samples) const {
             return this->cpd->sample_from_conjugacy(
-                random_generator, parent_nodes, num_samples);
+                random_generator, num_samples, shared_from_this());
         }
 
         void RandomVariableNode::update_parents_sufficient_statistics() {
-            this->cpd->update_sufficient_statistics(this->parents,
-                                                    this->assignment);
+            this->cpd->update_sufficient_statistics(shared_from_this());
         }
 
         void RandomVariableNode::add_to_sufficient_statistics(
@@ -201,11 +256,27 @@ namespace tomcat {
         }
 
         void RandomVariableNode::add_cpd_template(const shared_ptr<CPD>& cpd) {
+            this->check_cpd(cpd);
             this->cpd_templates[cpd->get_id()] = cpd;
         }
 
         void RandomVariableNode::add_cpd_template(shared_ptr<CPD>&& cpd) {
+            this->check_cpd(cpd);
             this->cpd_templates[cpd->get_id()] = move(cpd);
+        }
+
+        void RandomVariableNode::check_cpd(const shared_ptr<CPD>& cpd) const {
+            const auto& indexing_mapping = cpd->get_parent_label_to_indexing();
+            const auto& label = this->metadata->get_label();
+
+            if (EXISTS(label, indexing_mapping)) {
+                if (indexing_mapping.at(label).order != 0) {
+                    throw TomcatModelException("Replicable nodes that depend "
+                                               "on itself over time must be "
+                                               "the first node to index a CPD"
+                                               ".");
+                }
+            }
         }
 
         shared_ptr<CPD> RandomVariableNode::get_cpd_for(
@@ -235,6 +306,35 @@ namespace tomcat {
             return ss.str();
         }
 
+        bool RandomVariableNode::has_timer() const {
+            return this->timer != nullptr;
+        }
+
+        shared_ptr<RandomVariableNode>
+        RandomVariableNode::get_previous(int increment) const {
+            shared_ptr<RandomVariableNode> previous;
+
+            int t0 = this->get_metadata()->get_initial_time_step();
+            if (this->time_step - t0 - increment >= 0) {
+                previous =
+                    (*this->timed_copies)[this->time_step - t0 - increment];
+            }
+
+            return previous;
+        }
+
+        shared_ptr<RandomVariableNode>
+        RandomVariableNode::get_next(int increment) const {
+            shared_ptr<RandomVariableNode> next;
+
+            int t0 = this->get_metadata()->get_initial_time_step();
+            if (this->time_step - t0 + increment < this->timed_copies->size()) {
+                next = (*this->timed_copies)[this->time_step - t0 + increment];
+            }
+
+            return next;
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------
@@ -260,24 +360,38 @@ namespace tomcat {
             return cpd;
         }
 
-        const vector<std::shared_ptr<Node>>&
+        const vector<shared_ptr<Node>>&
         RandomVariableNode::get_parents() const {
             return parents;
         }
 
         void RandomVariableNode::set_parents(
-            const vector<std::shared_ptr<Node>>& parents) {
+            const vector<shared_ptr<Node>>& parents) {
             this->parents = parents;
         }
 
-        const vector<std::shared_ptr<Node>>&
+        const vector<shared_ptr<Node>>&
         RandomVariableNode::get_children() const {
             return children;
         }
 
         void RandomVariableNode::set_children(
-            const vector<std::shared_ptr<Node>>& children) {
+            const vector<shared_ptr<Node>>& children) {
             this->children = children;
+        }
+
+        const shared_ptr<TimerNode>& RandomVariableNode::get_timer() const {
+            return timer;
+        }
+
+        void RandomVariableNode::set_timer(const shared_ptr<TimerNode>& timer) {
+            this->timer = timer;
+        }
+
+        void RandomVariableNode::set_timed_copies(
+            const shared_ptr<vector<shared_ptr<RandomVariableNode>>>&
+                timed_copies) {
+            this->timed_copies = timed_copies;
         }
 
     } // namespace model
