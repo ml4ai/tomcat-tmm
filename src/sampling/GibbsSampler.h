@@ -71,8 +71,54 @@ namespace tomcat {
 
           private:
             //------------------------------------------------------------------
+            // Structs
+            //------------------------------------------------------------------
+            struct NodeSet {
+                /**
+                 * Struct that contains a collection of nodes separate in
+                 * distinct lists to speed up processing.
+                 */
+                std::vector<std::shared_ptr<Node>> sampled_nodes;
+                std::vector<std::shared_ptr<Node>> single_thread_nodes;
+                std::vector<std::shared_ptr<Node>> timer_nodes;
+
+                // Parameter nodes can all be sampled in parallel since they
+                // are sampled from conjugacy
+                std::vector<std::vector<std::shared_ptr<Node>>>
+                    parameter_nodes_per_job;
+
+                // We divide data nodes in two categories: data nodes at even
+                // and odd time steps. This guarantees that nodes in each of
+                // these categories can be sampled in parallel as nodes from a
+                // time step can only depend on nodes from previous, current or
+                // subsequent time steps.
+                std::vector<std::vector<std::shared_ptr<Node>>>
+                    even_time_data_nodes_per_job;
+                std::vector<std::vector<std::shared_ptr<Node>>>
+                    odd_time_data_nodes_per_job;
+            };
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Gets a collection of nodes split into lists for fast
+             * processing.
+             *
+             * @return Node set
+             */
+            NodeSet get_node_set() const;
+
+            /**
+             * Creates a new random number generator per job.
+             *
+             * @param random_generator: original random number generator
+             *
+             * @return List of random number generator per job
+             */
+            std::vector<std::shared_ptr<gsl_rng>> get_random_generators(
+                const std::shared_ptr<gsl_rng>& random_generator) const;
 
             /**
              * Populates the nodes' assignments with initial values.
@@ -94,20 +140,31 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Node>>& latent_nodes);
 
             /**
-             * Sample a collection of independent data nodes in parallel.
+             * Initialize timer nodes by doing one pass forward and backwards;
+             *
+             * @param node_set: collection of nodes to be processed
+             */
+            void
+            init_timers(const std::vector<std::shared_ptr<Node>> timer_nodes);
+
+            /**
+             * Sample a collection of independent nodes in parallel.
              *
              * @param random_generators_per_job: random number generators to
              * use in each job
              * @param nodes_per_job: list of data nodes to process in each job
              * @param discard: whether samples generated must be discarded or
              * not
+             * @param data_nodes: whether the nodes are data nodes or
+             * parameter notes otherwise
              */
-            void sample_data_nodes_in_parallel(
+            void sample_nodes_in_parallel(
                 const std::vector<std::shared_ptr<gsl_rng>>&
                     random_generators_per_job,
                 const std::vector<std::vector<std::shared_ptr<Node>>>&
                     nodes_per_job,
-                bool discard);
+                bool discard,
+                bool data_nodes);
 
             /**
              * Samples a series of data nodes from their posterior distribution.
@@ -118,6 +175,20 @@ namespace tomcat {
              * or stored
              */
             void run_data_node_thread(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::vector<std::shared_ptr<Node>>& nodes,
+                bool discard);
+
+            /**
+             * Samples a series of parameter nodes from their posterior
+             * distribution.
+             *
+             * @param random_generator: random number generator
+             * @param nodes: parameter nodes to be processed
+             * @param discard: indicates whether the samples should be discarded
+             * or stored
+             */
+            void run_parameter_node_thread(
                 const std::shared_ptr<gsl_rng>& random_generator,
                 const std::vector<std::shared_ptr<Node>>& nodes,
                 bool discard);
@@ -143,6 +214,29 @@ namespace tomcat {
                              const std::shared_ptr<Node>& node,
                              bool discard,
                              bool update_sufficient_statistics = true);
+
+            /**
+             * Sample nodes that cannot be horizontally parallelized (timer
+             * and time controlled nodes).
+             *
+             * @param random_generator: random number generator of the main
+             * thread
+             * @param single_thread_nodes: nodes that cannot be horizontally
+             * split in multiple threads.
+             * @param discard: whether the sampled must be saved or discarded
+             */
+            void sample_single_thread_nodes(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::vector<std::shared_ptr<Node>>& single_thread_nodes,
+                bool discard);
+
+            /**
+             * Update sufficient statistics of the timer nodes.
+             *
+             * @param timer_nodes: timer nodes
+             */
+            void update_timer_sufficient_statistics(
+                const std::vector<std::shared_ptr<Node>>& timer_nodes);
 
             /**
              * Samples from the posterior distribution of a parameter node. The

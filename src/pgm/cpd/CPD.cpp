@@ -276,20 +276,20 @@ namespace tomcat {
                     "case they are controlled by a timer.");
             }
 
-            int rows = cpd_owner->get_size();
-            int cols = sampled_node->get_metadata()->get_cardinality();
+            int data_size = cpd_owner->get_size();
+            int cardinality = sampled_node->get_metadata()->get_cardinality();
 
             // Set sampled node's assignment equals to zero so we can get the
             // index of the first distribution indexed by this node and the
             // other parent nodes that the child (owner of this CPD) may have.
             Eigen::MatrixXd saved_assignment = sampled_node->get_assignment();
-            sampled_node->set_assignment(Eigen::MatrixXd::Zero(rows, 1));
+            sampled_node->set_assignment(Eigen::MatrixXd::Zero(data_size, 1));
             vector<int> distribution_indices =
-                this->get_indexed_distribution_indices(index_nodes, rows);
+                this->get_indexed_distribution_indices(index_nodes, data_size);
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
 
-            Eigen::MatrixXd weights(rows, cols);
+            Eigen::MatrixXd weights(data_size, cardinality);
             const string& sampled_node_label =
                 sampled_node->get_metadata()->get_label();
             // For every possible value of sampled_node, the offset indicates
@@ -298,10 +298,10 @@ namespace tomcat {
             int offset = this->parent_label_to_indexing.at(sampled_node_label)
                              .right_cumulative_cardinality;
 
-            for (int i = 0; i < rows; i++) {
+            for (int i = 0; i < data_size; i++) {
                 int distribution_idx = distribution_indices[i];
 
-                for (int j = 0; j < cols; j++) {
+                for (int j = 0; j < cardinality; j++) {
                     const auto& distribution =
                         this->distributions[distribution_idx + j * offset];
                     weights(i, j) = distribution->get_pdf(
