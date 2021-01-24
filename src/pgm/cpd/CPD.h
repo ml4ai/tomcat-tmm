@@ -5,6 +5,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <eigen3/Eigen/Dense>
@@ -396,6 +397,26 @@ namespace tomcat {
             void copy_cpd(const CPD& cpd);
 
             //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
+            virtual Eigen::MatrixXd compute_posterior_weights(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const std::vector<int>& distribution_indices,
+                int cardinality,
+                int distribution_index_offset,
+                int num_jobs) const;
+
+            virtual void run_posterior_weights_thread(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const std::vector<int>& distribution_indices,
+                int cardinality,
+                int distribution_index_offset,
+                const std::pair<int, int>& processing_block,
+                Eigen::MatrixXd& full_weights,
+                std::mutex& weights_mutex) const;
+
+            //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
 
@@ -475,6 +496,20 @@ namespace tomcat {
             int get_indexed_distribution_idx(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 int sample_idx) const;
+
+            /**
+             * Returns the initial row and the number of rows to process per
+             * thread.
+             *
+             * @param num_jobs: number of threads
+             * @param data_size: number of rows of a matrix to be processed in
+             * parallel
+             *
+             * @return list of row indices and size of sub-matrices to be
+             * processed in parallel.
+             */
+            std::vector<std::pair<int, int>>
+            get_parallel_processing_blocks(int num_jobs, int data_size) const;
         };
 
     } // namespace model

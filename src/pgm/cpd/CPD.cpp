@@ -1,5 +1,7 @@
 #include "CPD.h"
 
+#include <thread>
+
 #include "pgm/RandomVariableNode.h"
 #include "pgm/TimerNode.h"
 #include "utils/EigenExtensions.h"
@@ -289,7 +291,6 @@ namespace tomcat {
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
 
-            Eigen::MatrixXd weights(data_size, cardinality);
             const string& sampled_node_label =
                 sampled_node->get_metadata()->get_label();
             // For every possible value of sampled_node, the offset indicates
@@ -298,18 +299,103 @@ namespace tomcat {
             int offset = this->parent_label_to_indexing.at(sampled_node_label)
                              .right_cumulative_cardinality;
 
-            for (int i = 0; i < data_size; i++) {
-                int distribution_idx = distribution_indices[i];
+            Eigen::MatrixXd weights = this->compute_posterior_weights(
+                cpd_owner, distribution_indices, cardinality, offset, 4);
+            return weights;
+        }
 
-                for (int j = 0; j < cardinality; j++) {
-                    const auto& distribution =
-                        this->distributions[distribution_idx + j * offset];
-                    weights(i, j) = distribution->get_pdf(
-                        cpd_owner->get_assignment().row(i));
+        Eigen::MatrixXd CPD::compute_posterior_weights(
+            const shared_ptr<const RandomVariableNode>& cpd_owner,
+            const vector<int>& distribution_indices,
+            int cardinality,
+            int distribution_index_offset,
+            int num_jobs) const {
+
+            int data_size = cpd_owner->get_size();
+            Eigen::MatrixXd weights(data_size, cardinality);
+            mutex weights_mutex;
+
+            if (num_jobs == 1) {
+                // Run in the main thread
+                this->run_posterior_weights_thread(cpd_owner,
+                                                   distribution_indices,
+                                                   cardinality,
+                                                   distribution_index_offset,
+                                                   make_pair(0, data_size),
+                                                   weights,
+                                                   weights_mutex);
+            }
+            else {
+                vector<thread> threads;
+                const vector<pair<int, int>> processing_blocks =
+                    this->get_parallel_processing_blocks(num_jobs, data_size);
+                for (const auto& processing_block : processing_blocks) {
+                    thread weights_thread(&CPD::run_posterior_weights_thread,
+                                          this,
+                                          cpd_owner,
+                                          distribution_indices,
+                                          cardinality,
+                                          distribution_index_offset,
+                                          ref(processing_block),
+                                          ref(weights),
+                                          ref(weights_mutex));
+                    threads.push_back(move(weights_thread));
+                }
+
+                for (auto& weights_thread : threads) {
+                    weights_thread.join();
                 }
             }
 
             return weights;
+        }
+
+        vector<pair<int, int>>
+        CPD::get_parallel_processing_blocks(int num_jobs, int data_size) const {
+            vector<pair<int, int>> processing_blocks;
+
+            int rows_per_job = data_size / num_jobs;
+            int i = 0;
+            for (; i < data_size; i += rows_per_job) {
+                pair<int, int> block = make_pair(i, rows_per_job);
+                processing_blocks.push_back(move(block));
+            }
+
+            if (processing_blocks.size() < num_jobs) {
+                pair<int, int> block = make_pair(i, data_size - i);
+                processing_blocks.push_back(move(block));
+            }
+
+            return processing_blocks;
+        }
+
+        void CPD::run_posterior_weights_thread(
+            const shared_ptr<const RandomVariableNode>& cpd_owner,
+            const vector<int>& distribution_indices,
+            int cardinality,
+            int distribution_index_offset,
+            const pair<int, int>& processing_block,
+            Eigen::MatrixXd& full_weights,
+            mutex& weights_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
+            Eigen::MatrixXd weights(num_rows, cardinality);
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
+                int distribution_idx = distribution_indices[i];
+
+                for (int j = 0; j < cardinality; j++) {
+                    const auto& distribution =
+                        this->distributions[distribution_idx +
+                                            j * distribution_index_offset];
+                    weights(i - initial_row, j) = distribution->get_pdf(
+                        cpd_owner->get_assignment().row(i));
+                }
+            }
+
+            scoped_lock lock(weights_mutex);
+            full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
         }
 
         Eigen::MatrixXd CPD::get_left_segment_posterior_weights(
@@ -371,9 +457,9 @@ namespace tomcat {
             Eigen::VectorXd weights(cardinality);
             for (int i = 0; i < cardinality; i++) {
                 int d = left_segment_duration +
-                        (left_segment_value ==
-                         i)*(1 + (i == right_segment_value) *
-                                    (right_segment_duration + 1));
+                        (left_segment_value == i) *
+                            (1 + (i == right_segment_value) *
+                                     (right_segment_duration + 1));
                 // We get the timer's distribution at the beginning of the
                 // segment because timer nodes can have other dependencies.
                 // We need to use these dependencies' assignments to
@@ -586,7 +672,8 @@ namespace tomcat {
                             // a state transition or when t = 0 (there's no
                             // previous node in time);
                             add_to_list = true;
-                        } else {
+                        }
+                        else {
                             add_to_list = false;
                         }
                     }
