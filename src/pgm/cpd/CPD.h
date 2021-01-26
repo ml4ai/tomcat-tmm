@@ -5,6 +5,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <eigen3/Eigen/Dense>
@@ -164,7 +165,8 @@ namespace tomcat {
              * Draws a sample from the distribution associated with the parent
              * nodes' assignments.
              *
-             * @param random_generator: random number random_generator
+             * @param random_generator_per_job: random number
+             * random_generator per thread
              * @param num_samples: number of samples to generate.
              * @param cpd_owner: node to which sample is being generated,
              * which is also the owner of this CPD.
@@ -172,7 +174,8 @@ namespace tomcat {
              * @return A sample from one of the distributions in the CPD.
              */
             Eigen::MatrixXd
-            sample(const std::shared_ptr<gsl_rng>& random_generator,
+            sample(const std::vector<std::shared_ptr<gsl_rng>>&
+                       random_generator_per_job,
                    int num_samples,
                    const std::shared_ptr<const RandomVariableNode>& cpd_owner)
                 const;
@@ -181,14 +184,17 @@ namespace tomcat {
              * Generates a sample for the node that owns this CPD from its
              * posterior distribution.
              *
-             * @param random_generator: random number generator
+             * @param random_generator_per_job: random number generator per
+             * thread
              * @param posterior_weights: posterior weights given by the product
              * of p(children(node)|node)
+             * @param num_jobs: number of threads used in the computation
              *
              * @return Sample from the node's posterior.
              */
             Eigen::MatrixXd sample_from_posterior(
-                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::vector<std::shared_ptr<gsl_rng>>&
+                    random_generator_per_job,
                 const Eigen::MatrixXd& posterior_weights,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner)
                 const;
@@ -205,7 +211,7 @@ namespace tomcat {
              * @return Indices of the distributions indexed by the current
              * indexing nodes' assignments.
              */
-            std::vector<int> get_indexed_distribution_indices(
+            Eigen::VectorXi get_indexed_distribution_indices(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 int num_indices) const;
 
@@ -255,12 +261,14 @@ namespace tomcat {
              *
              *
              * @param last_timer: last timer of the left segment
+             * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the left segment of a time
              * controlled node.
              */
             Eigen::MatrixXd get_left_segment_posterior_weights(
-                const std::shared_ptr<const TimerNode>& last_timer) const;
+                const std::shared_ptr<const TimerNode>& last_timer,
+                int num_jobs) const;
 
             /**
              * This method is an extension of the
@@ -291,12 +299,14 @@ namespace tomcat {
              * in the central segment.
              *
              * @param timer: timer in the central segment
+             * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the central segment of a time
              * controlled node.
              */
             Eigen::MatrixXd get_central_segment_posterior_weights(
-                const std::shared_ptr<const TimerNode>& last_timer) const;
+                const std::shared_ptr<const TimerNode>& last_timer,
+                int num_jobs) const;
 
             /**
              * Returns p(right segment | left and central segments).
@@ -305,12 +315,14 @@ namespace tomcat {
              * the values in the right segment.
              *
              * @param first_timer: first timer of the right segment
+             * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the right segment of a time
              * controlled node.
              */
             Eigen::MatrixXd get_right_segment_posterior_weights(
-                const std::shared_ptr<const TimerNode>& first_timer) const;
+                const std::shared_ptr<const TimerNode>& first_timer,
+                int num_jobs) const;
 
             //------------------------------------------------------------------
             // Virtual functions
@@ -324,6 +336,10 @@ namespace tomcat {
              * @param sampled_node: random variable for with the posterior is
              * being computed
              * @param cpd_owner: Node that owns this CPD
+             * @param num_jobs: number of threads to perform vertical
+             * parallelization (split the computation over the
+             * observations/data points provided). If 1, the computations are
+             * performed in the main thread
              *
              * @return Posterior weights of the node that owns this CPD for one
              * of its parent nodes.
@@ -331,8 +347,8 @@ namespace tomcat {
             virtual Eigen::MatrixXd get_posterior_weights(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
-                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
-                const;
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                int num_jobs) const;
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -475,6 +491,186 @@ namespace tomcat {
             int get_indexed_distribution_idx(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 int sample_idx) const;
+
+            /**
+             * Computes the posterior weights for a given node that owns this
+             * CPD.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param distribution_indices: indices of the distributions
+             * indexed by the parents of the cpd owner
+             * @param cardinality: cardinality of the node to which posterior
+             * weights are being computed
+             * @param distribution_index_offset: how many indices need to be
+             * skipped to reach the next sampled node possible value (the
+             * multiplicative cardinality of the indexing nodes to the right
+             * of the sampled node)
+             * @param num_jobs: number of jobs used to compute the weights
+             * (if > 1, the computation is performed in multiple threads)
+             *
+             * @return Posterior weights.
+             */
+            Eigen::MatrixXd compute_posterior_weights(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::VectorXi& distribution_indices,
+                int cardinality,
+                int distribution_index_offset,
+                int num_jobs) const;
+
+            /**
+             * Computes a portion of the posterior weights for a given node.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param distribution_indices: indices of the distributions
+             * indexed by the parents of the cpd owner
+             * @param cardinality: cardinality of the node to which posterior
+             * weights are being computed
+             * @param distribution_index_offset: how many indices need to be
+             * skipped to reach the next sampled node possible value (the
+             * multiplicative cardinality of the indexing nodes to the right
+             * of the sampled node)
+             * @param processing_block: initial row and number of rows from
+             * the node's assignment to consider for computation
+             * @param full_weights: matrix containing the full weights. A
+             * portion of it will be updated by this method
+             * @param weights_mutex: mutex to lock the full weights matrix
+             * when this method writes to it
+             */
+            void run_posterior_weights_thread(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::VectorXi& distribution_indices,
+                int cardinality,
+                int distribution_index_offset,
+                const std::pair<int, int>& processing_block,
+                Eigen::MatrixXd& full_weights,
+                std::mutex& weights_mutex) const;
+
+            /**
+             * Computes a portion of the posterior weights for the left
+             * segment of a given timer in a single thread.
+             *
+             * @param last_timer: last timer of the left segment
+             * @param processing_block: initial row and number of rows from
+             * the node's assignment to consider for computation
+             * @param full_weights: matrix containing the full weights. A
+             * portion of it will be updated by this method
+             * @param weights_mutex: mutex to lock the full weights matrix
+             * when this method writes to it
+             */
+            void run_left_segment_posterior_weights_thread(
+                const std::shared_ptr<const TimerNode>& last_timer,
+                const std::pair<int, int>& processing_block,
+                Eigen::MatrixXd& full_weights,
+                std::mutex& weights_mutex) const;
+
+            /**
+             * Computes a portion of the posterior weights for the central
+             * segment of a given timer.
+             *
+             * @param timer: timer of the central segment
+             * @param distribution_indices: indices of the distributions
+             * indexed by the parents of the cpd owner
+             * @param cardinality: cardinality of the node to which posterior
+             * weights are being computed
+             * @param distribution_index_offset: how many indices need to be
+             * skipped to reach the next sampled node possible value (the
+             * multiplicative cardinality of the indexing nodes to the right
+             * of the sampled node)
+             * @param num_jobs: number of jobs used to compute the weights
+             * (if > 1, the computation is performed in multiple threads)
+             */
+            Eigen::MatrixXd compute_central_segment_posterior_weights(
+                const std::shared_ptr<const TimerNode>& timer,
+                const Eigen::VectorXi& distribution_indices,
+                int cardinality,
+                int distribution_index_offset,
+                int num_jobs) const;
+
+            /**
+             * Computes a portion of the posterior weights for the central
+             * segment of a given timer in a single thread.
+             *
+             * @param left_segment_values: assignments in the left segments
+             * @param right_segment_values: assignments in the right segments
+             * @param left_segment_durations: durations of the left segments
+             * @param right_segment_durations: durations of the right segments
+             * @param distribution_indices: indices of the distributions
+             * indexed by the parents of the cpd owner
+             * @param distribution_index_offset: how many indices need to be
+             * skipped to reach the next sampled node possible value (the
+             * multiplicative cardinality of the indexing nodes to the right
+             * of the sampled node)
+             * @param processing_block: initial row and number of rows from
+             * the node's assignment to consider for computation
+             * @param full_weights: matrix containing the full weights. A
+             * portion of it will be updated by this method
+             * @param weights_mutex: mutex to lock the full weights matrix
+             * when this method writes to it
+             */
+            void run_central_segment_posterior_weights_thread(
+                const Eigen::VectorXi& left_segment_values,
+                const Eigen::VectorXi& right_segment_values,
+                const Eigen::VectorXi& right_segment_durations,
+                const Eigen::VectorXi& distribution_indices,
+                int distribution_index_offset,
+                const std::pair<int, int>& processing_block,
+                Eigen::MatrixXd& full_weights,
+                std::mutex& weights_mutex) const;
+
+            /**
+             * Computes a portion of the posterior weights for the right
+             * segment of a given timer in a single thread.
+             *
+             * @param right_segment_values: assignments in the right segments
+             * @param right_segment_durations: durations of the right segments
+             * @param distribution_indices: indices of the distributions
+             * indexed by the parents of the cpd owner
+             * @param processing_block: initial row and number of rows from
+             * the node's assignment to consider for computation
+             * @param full_weights: matrix containing the full weights. A
+             * portion of it will be updated by this method
+             * @param weights_mutex: mutex to lock the full weights matrix
+             * when this method writes to it
+             */
+            void run_right_segment_posterior_weights_thread(
+                const Eigen::VectorXi& right_segment_values,
+                const Eigen::VectorXi& right_segment_durations,
+                const Eigen::VectorXi& distribution_indices,
+                const std::pair<int, int>& processing_block,
+                Eigen::MatrixXd& full_weights,
+                std::mutex& weights_mutex) const;
+
+            /**
+             * Samples values from a node's prior in a single thread.
+             *
+             * @param cpd_owner: node that owns this CPD and to which samples
+             * are being generated
+             * @param distribution_indices: indices of the distributions
+             * indexed by the parents of the cpd owner
+             * @param random_generator: random number random_generator
+             * @param processing_block: initial row and number of rows from
+             * the node's assignment to consider for computation
+             * @param full_samples: matrix containing the full samples. A
+             * portion of it will be updated by this method
+             * @param samples_mutex: mutex to lock the full samples matrix
+             * when this method writes to it
+             */
+            void run_samples_thread(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::VectorXi& distribution_indices,
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::pair<int, int>& processing_block,
+                Eigen::MatrixXd& full_samples,
+                std::mutex& samples_mutex) const;
+
+            void run_samples_from_posterior_thread(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::MatrixXd& posterior_weights,
+                const Eigen::VectorXi& distribution_indices,
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::pair<int, int>& processing_block,
+                Eigen::MatrixXd& full_samples,
+                std::mutex& samples_mutex) const;
         };
 
     } // namespace model

@@ -222,7 +222,7 @@ namespace tomcat {
             NodeEstimates estimates;
 
             // Node to compute estimates, its fixed assignment and cumulative
-            // estimates
+            // estimates over several executions (if cross validation is used)
             CumulativeNodeEstimates cumulative_estimates;
 
             // An inference horizon determines if the task is a prediction (> 0)

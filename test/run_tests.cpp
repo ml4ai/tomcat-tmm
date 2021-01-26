@@ -409,19 +409,17 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     data.add_data(GREEN, sampler.get_samples(GREEN));
     data.add_data(YELLOW, sampler.get_samples(YELLOW));
 
-    // Fix some THETA_STATE_GIVEN_TC_PBAE_STATE (one row when TC=0 and one
-    // row when TC=1) to avoid permutation of TC
-    const shared_ptr<RandomVariableNode>& theta_state_0 =
-        dynamic_pointer_cast<RandomVariableNode>(model->get_nodes_by_label(
-            THETA_STATE_GIVEN_STATE_TC_PBAE + "_0")[0]);
-    theta_state_0->set_assignment(tables.state_given_state_tc_pbae.row(0));
-    theta_state_0->freeze();
-
-    const shared_ptr<RandomVariableNode>& theta_state_3 =
-        dynamic_pointer_cast<RandomVariableNode>(model->get_nodes_by_label(
-            THETA_STATE_GIVEN_STATE_TC_PBAE + "_3")[0]);
-    theta_state_3->set_assignment(tables.state_given_state_tc_pbae.row(3));
-    theta_state_3->freeze();
+    // Fix some THETA_STATE_GIVEN_STATE_TC_PBAE (one row when TC=0 and one
+    // row when TC=1) and PBAE prior to avoid permutation of TC and PBAE.
+    for(int i : {0, 2}) {
+        stringstream label;
+        label << THETA_STATE_GIVEN_STATE_TC_PBAE << "_" << i;
+        const shared_ptr<RandomVariableNode>& theta_state =
+            dynamic_pointer_cast<RandomVariableNode>(model->get_nodes_by_label(
+                label.str())[0]);
+        theta_state->set_assignment(tables.state_given_state_tc_pbae.row(i));
+        theta_state->freeze();
+    }
 
     trainer.prepare();
     trainer.fit(data);

@@ -71,7 +71,8 @@ namespace tomcat {
          *
          * @param integers: list of integers
          */
-        Eigen::MatrixXd to_categorical(Eigen::VectorXi& integers, int num_bits);
+        Eigen::MatrixXi to_categorical(const Eigen::VectorXi& integers, int
+        num_bits);
 
     } // namespace model
 } // namespace tomcat

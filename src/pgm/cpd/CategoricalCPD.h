@@ -135,8 +135,8 @@ namespace tomcat {
             Eigen::MatrixXd get_posterior_weights(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
-                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
-                const override;
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                int num_jobs) const override;
 
           protected:
             //------------------------------------------------------------------
@@ -164,6 +164,62 @@ namespace tomcat {
              * @param matrix: matrix of probabilities
              */
             void init_from_matrix(const Eigen::MatrixXd& matrix);
+
+            /**
+             * Computes the posterior weights for a given node that owns this
+             * CPD.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param distribution_indices: indices of the distributions
+             * indexed by the parents of the cpd owner
+             * @param cardinality: cardinality of the node to which posterior
+             * weights are being computed
+             * @param distribution_index_offset: how many indices need to be
+             * skipped to reach the next sampled node possible value (the
+             * multiplicative cardinality of the indexing nodes to the right
+             * of the sampled node)
+             * @param distributions_table: table os probabilities that
+             * represent this categorical CPD
+             * @param num_jobs: number of jobs used to compute the weights
+             * (if > 1, the computation is performed in multiple threads)
+             *
+             * @return Posterior weights.
+             */
+            Eigen::MatrixXd compute_posterior_weights(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::VectorXi& distribution_indices,
+                int cardinality,
+                int distribution_index_offset,
+                const Eigen::MatrixXd& distributions_table,
+                int num_jobs) const;
+
+            /**
+             * Computes a portion of the posterior weights for a given node.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param distribution_indices: indices of the distributions
+             * indexed by the parents of the cpd owner
+             * @param distribution_index_offset: how many indices need to be
+             * skipped to reach the next sampled node possible value (the
+             * multiplicative cardinality of the indexing nodes to the right
+             * of the sampled node)
+             * @param distributions_table: table os probabilities that
+             * represent this categorical CPD
+             * @param processing_block: initial row and number of rows from
+             * the node's assignment to consider for computation
+             * @param full_weights: matrix containing the full-weights. A
+             * portion of it will be updated by this method
+             * @param weights_mutex: mutex to lock the full_weights matrix
+             * when this method writes to it
+             */
+            void run_posterior_weights_thread(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::VectorXi& distribution_indices,
+                int distribution_index_offset,
+                const Eigen::MatrixXd& distributions_table,
+                const std::pair<int, int>& processing_block,
+                Eigen::MatrixXd& full_weights,
+                std::mutex& weights_mutex) const;
         };
 
     } // namespace model

@@ -31,8 +31,10 @@ namespace tomcat {
              * unrolled DBN.
              *
              * @param model: unrolled DBN
+             * @param num_jobs: number of threads for parallel sampling
              */
-            Sampler(const std::shared_ptr<DynamicBayesNet>& model);
+            Sampler(const std::shared_ptr<DynamicBayesNet>& model,
+                    int num_jobs);
 
             virtual ~Sampler();
 
@@ -154,6 +156,9 @@ namespace tomcat {
             EvidenceSet data;
 
             int max_time_step_to_sample = -1;
+
+            // Number of threads created for parallel sampling.
+            int num_jobs = 1;
 
           private:
             //------------------------------------------------------------------

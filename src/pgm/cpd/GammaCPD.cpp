@@ -123,22 +123,21 @@ namespace tomcat {
             int num_samples,
             const shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
-            vector<int> distribution_indices =
+            Eigen::VectorXi distribution_indices =
                 this->get_indexed_distribution_indices(cpd_owner->get_parents(),
                                                        num_samples);
 
             int sample_size = this->distributions[0]->get_sample_size();
 
             Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
-            int i = 0;
-            for (const auto& distribution_idx : distribution_indices) {
+            for (int i = 0; i < distribution_indices.size(); i++) {
+                int distribution_idx = distribution_indices(i);
                 Eigen::VectorXd assignment =
                     this->distributions[distribution_idx]
                         ->sample_from_conjugacy(random_generator,
                                                 distribution_idx,
                                                 this->sufficient_statistics);
                 samples.row(i) = move(assignment);
-                i++;
             }
 
             return samples;

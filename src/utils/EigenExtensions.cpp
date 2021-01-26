@@ -94,10 +94,10 @@ namespace tomcat {
                 other_matrix;
         }
 
-        Eigen::MatrixXd to_categorical(Eigen::VectorXi& integers,
+        Eigen::MatrixXi to_categorical(const Eigen::VectorXi& integers,
                                        int num_bits) {
             int rows = integers.size();
-            Eigen::MatrixXd cat = Eigen::MatrixXd::Zero(rows, num_bits);
+            Eigen::MatrixXi cat = Eigen::MatrixXi::Zero(rows, num_bits);
 
             for (int i = 0; i < rows; i++) {
                 cat(i, integers(i)) = 1;
