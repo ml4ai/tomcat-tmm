@@ -120,16 +120,6 @@ namespace tomcat {
             NodeSet get_node_set() const;
 
             /**
-             * Creates a new random number generator per job.
-             *
-             * @param random_generator: original random number generator
-             *
-             * @return List of random number generator per job
-             */
-            std::vector<std::shared_ptr<gsl_rng>> get_random_generators(
-                const std::shared_ptr<gsl_rng>& random_generator) const;
-
-            /**
              * Populates the nodes' assignments with initial values.
              *
              * @param random_generator: random number generator
@@ -176,71 +166,57 @@ namespace tomcat {
                 bool data_nodes);
 
             /**
-             * Samples a series of data nodes from their posterior distribution.
+             * Samples a series of nodes from their posterior distribution.
              *
              * @param random_generator: random number generator
-             * @param nodes: data nodes to be processed
+             * @param nodes: nodes to be processed
              * @param discard: indicates whether the samples should be discarded
              * or stored
              */
-            void run_data_node_thread(
+            void run_sample_from_posterior_thread(
                 const std::shared_ptr<gsl_rng>& random_generator,
                 const std::vector<std::shared_ptr<Node>>& nodes,
                 bool discard);
 
             /**
-             * Samples a series of parameter nodes from their posterior
-             * distribution.
-             *
-             * @param random_generator: random number generator
-             * @param nodes: parameter nodes to be processed
-             * @param discard: indicates whether the samples should be discarded
-             * or stored
-             */
-            void run_parameter_node_thread(
-                const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& nodes,
-                bool discard);
-
-            /**
-             * Samples from the posterior distribution of a data node
-             * (non-parameter latent node). The posterior for a data node x is
+             * Samples from the posterior distribution of a node. The posterior for a data node x is
              * given by P(x|Pa(x))P(Ch1(x)|x)...P(Chk(x)|x), where Pa(x) is the
              * parents of x and Chi(x) is the i-th child of x. P(Chi(x)|x) is a
              * vector containing the pdf of the current value assigned to the
              * i-th child f x for each one of the possible values x can take.
+             * For parameter nodes, the posterior is sampled from prior
+             * sufficient statistics updating via conjugacy.
              *
-             * @param random_generator: random number generator
-             * @param node: data node
+             * @param random_generator_per_job: random number generator per
+             * thread
+             * @param node: node
              * @param discard: indicates whether the sample should be discarded
              * or stored
              * @param update_sufficient_statistics: indicates whether
              * sufficient statistics of the node's CPD's parameter's priors
              * must be updated after generating a sample from the node
-             * @param num_jobs: number of threads to perform vertical
-             * parallelization (split the computation over the
-             * observations/data points provided). If 1, the computations are
-             * performed in the main thread
+             * (relevant for data nodes)
              */
-            void
-            sample_data_node(const std::shared_ptr<gsl_rng>& random_generator,
-                             const std::shared_ptr<Node>& node,
-                             bool discard,
-                             bool update_sufficient_statistics = true,
-                             int num_jobs = 1);
+            void sample_from_posterior(const
+            std::vector<std::shared_ptr<gsl_rng>>&
+                                      random_generator_per_job,
+                                  const std::shared_ptr<Node>& node,
+                                  bool discard,
+                                  bool update_sufficient_statistics = true);
 
             /**
              * Sample nodes that cannot be horizontally parallelized (timer
              * and time controlled nodes).
              *
-             * @param random_generator: random number generator of the main
+             * @param random_generator_per_job: random number generator per
              * thread
              * @param single_thread_nodes: nodes that cannot be horizontally
              * split in multiple threads.
              * @param discard: whether the sampled must be saved or discarded
              */
             void sample_single_thread_nodes(
-                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::vector<std::shared_ptr<gsl_rng>>&
+                    random_generator_per_job,
                 const std::vector<std::shared_ptr<Node>>& single_thread_nodes,
                 bool discard);
 
@@ -251,29 +227,6 @@ namespace tomcat {
              */
             void update_timer_sufficient_statistics(
                 const std::vector<std::shared_ptr<Node>>& timer_nodes);
-
-            /**
-             * Samples from the posterior distribution of a parameter node. The
-             * posterior for a parameter node is given by its prior adjusted by
-             * some sufficient statistics. For instance, if a parameter node has
-             * a Dirichlet distribution as prior, its posterior will be a
-             * Dirichlet with the coefficients updated according to the sampled
-             * values of the data nodes that depend on this parameter. As data
-             * nodes are sampled from the roots to the leaves, their sampled
-             * values are informed to the parameter nodes they depend on so they
-             * can update its sufficient statistics so as to avoid looping over
-             * data nodes when sampling a parameter node. It only works with
-             * conjugate priors.
-             *
-             * @param random_generator: random number generator
-             * @param node: parameter node
-             * @param discard: indicates whether the sample should be discarded
-             * or stored
-             */
-            void sample_parameter_node(
-                const std::shared_ptr<gsl_rng>& random_generator,
-                const std::shared_ptr<Node>& node,
-                bool discard);
 
             /**
              * Stores a new sample in the local samples' container.
@@ -309,9 +262,7 @@ namespace tomcat {
             // store samples at the same time.
             std::unique_ptr<std::mutex> keep_sample_mutex;
 
-            // Number of threads created for parallel sampling.
-            int num_jobs = 1;
-
+            void print_nodes(const NodeSet& node_set) const;
         };
 
     } // namespace model

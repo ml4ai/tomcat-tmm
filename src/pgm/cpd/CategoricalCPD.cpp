@@ -5,6 +5,7 @@
 #include "pgm/ConstantNode.h"
 #include "pgm/TimerNode.h"
 #include "utils/EigenExtensions.h"
+#include "utils/Multithreading.h"
 
 namespace tomcat {
     namespace model {
@@ -210,7 +211,7 @@ namespace tomcat {
             else {
                 vector<thread> threads;
                 const vector<pair<int, int>> processing_blocks =
-                    this->get_parallel_processing_blocks(num_jobs, data_size);
+                    get_parallel_processing_blocks(num_jobs, data_size);
                 for (const auto& processing_block : processing_blocks) {
                     thread weights_thread(
                         &CategoricalCPD::run_posterior_weights_thread,

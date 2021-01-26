@@ -26,8 +26,12 @@ namespace tomcat {
              * number generator.
              *
              * @param model: DBN
+             * @param num_jobs: number of threads created for parallel
+             * sampling. If 1, no parallel processing is performed and  the code
+             * runs in the main thread.
              */
-            AncestralSampler(const std::shared_ptr<DynamicBayesNet>& model);
+            AncestralSampler(const std::shared_ptr<DynamicBayesNet>& model,
+                             int num_jobs = 1);
 
             ~AncestralSampler();
 

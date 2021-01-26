@@ -71,7 +71,8 @@ namespace tomcat {
              * Increment timer assignment if subsequent controlled nodes are in
              * the same state. Otherwise, restart its value.
              *
-             * @param random_generator: random number generator
+             * @param random_generator_per_job: random number generator per
+             * thread
              * @param num_jobs: The computations in this method is not
              * performed in parallel as they can be achieved by small matrix
              * operations. Therefore, this parameter is irrelevant in this
@@ -79,8 +80,9 @@ namespace tomcat {
              *
              * @return Timer values given controlled nodes' assignment.
              */
-            Eigen::MatrixXd sample_from_posterior(
-                const std::shared_ptr<gsl_rng>& random_generator, int num_jobs) override;
+            Eigen::MatrixXd
+            sample_from_posterior(const std::vector<std::shared_ptr<gsl_rng>>&
+                                      random_generator_per_job) override;
 
             /**
              * Gets posterior weights for the left segment of a node such

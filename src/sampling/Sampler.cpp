@@ -17,8 +17,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Sampler::Sampler() {}
 
-        Sampler::Sampler(const shared_ptr<DynamicBayesNet>& model) : model
-        (model) {}
+        Sampler::Sampler(const shared_ptr<DynamicBayesNet>& model, int num_jobs)
+            : model(model), num_jobs(num_jobs) {}
 
         Sampler::~Sampler() {}
 

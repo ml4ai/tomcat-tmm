@@ -5,6 +5,7 @@
 #include "pgm/RandomVariableNode.h"
 #include "pgm/TimerNode.h"
 #include "utils/EigenExtensions.h"
+#include "utils/Multithreading.h"
 
 namespace tomcat {
     namespace model {
@@ -115,7 +116,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd CPD::sample(
-            const shared_ptr<gsl_rng>& random_generator,
+            const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
             int num_samples,
             const std::shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
@@ -123,13 +124,59 @@ namespace tomcat {
                 this->get_indexed_distribution_indices(cpd_owner->get_parents(),
                                                        num_samples);
 
+            int num_jobs = random_generator_per_job.size();
             int sample_size = this->distributions[0]->get_sample_size();
+            Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
+            mutex samples_mutex;
+
+            if (num_jobs == 1) {
+                // Run in the main thread
+                this->run_samples_thread(cpd_owner,
+                                         distribution_indices,
+                                         random_generator_per_job.at(0),
+                                         make_pair(0, samples.rows()),
+                                         samples,
+                                         samples_mutex);
+            }
+            else {
+                vector<thread> threads;
+                const auto processing_blocks =
+                    get_parallel_processing_blocks(num_jobs, samples.rows());
+                for (int i = 0; i < processing_blocks.size(); i++) {
+                    thread samples_thread(&CPD::run_samples_thread,
+                                          this,
+                                          cpd_owner,
+                                          ref(distribution_indices),
+                                          ref(random_generator_per_job.at(i)),
+                                          ref(processing_blocks.at(i)),
+                                          ref(samples),
+                                          ref(samples_mutex));
+                    threads.push_back(move(samples_thread));
+                }
+
+                for (auto& samples_thread : threads) {
+                    samples_thread.join();
+                }
+            }
+
+            return samples;
+        }
+
+        void CPD::run_samples_thread(
+            const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+            const Eigen::VectorXi& distribution_indices,
+            const shared_ptr<gsl_rng>& random_generator,
+            const std::pair<int, int>& processing_block,
+            Eigen::MatrixXd& full_samples,
+            std::mutex& samples_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
 
             const auto& timer = cpd_owner->get_timer();
             const auto& previous = cpd_owner->get_previous();
-
-            Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
-            for (int i = 0; i < num_samples; i++) {
+            Eigen::MatrixXd samples(num_rows, full_samples.cols());
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
                 int distribution_idx = distribution_indices[i];
 
                 Eigen::VectorXd sample;
@@ -177,14 +224,16 @@ namespace tomcat {
                     }
                 }
 
-                samples.row(i) = move(sample);
+                samples.row(i - initial_row) = move(sample);
             }
 
-            return samples;
+            scoped_lock lock(samples_mutex);
+            full_samples.block(initial_row, 0, num_rows, full_samples.cols()) =
+                samples;
         }
 
         Eigen::MatrixXd CPD::sample_from_posterior(
-            const shared_ptr<gsl_rng>& random_generator,
+            const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
             const Eigen::MatrixXd& posterior_weights,
             const std::shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
@@ -192,11 +241,65 @@ namespace tomcat {
             Eigen::VectorXi distribution_indices =
                 this->get_indexed_distribution_indices(cpd_owner->get_parents(),
                                                        num_indices);
+
+            int num_jobs = random_generator_per_job.size();
+            int sample_size = this->distributions[0]->get_sample_size();
+            Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
+            mutex samples_mutex;
+
+            if (num_jobs == 1) {
+                // Run in the main thread
+                this->run_samples_from_posterior_thread(
+                    cpd_owner,
+                    posterior_weights,
+                    distribution_indices,
+                    random_generator_per_job.at(0),
+                    make_pair(0, samples.rows()),
+                    samples,
+                    samples_mutex);
+            }
+            else {
+                vector<thread> threads;
+                const auto processing_blocks =
+                    get_parallel_processing_blocks(num_jobs, samples.rows());
+                for (int i = 0; i < processing_blocks.size(); i++) {
+                    thread samples_thread(
+                        &CPD::run_samples_from_posterior_thread,
+                        this,
+                        cpd_owner,
+                        posterior_weights,
+                        ref(distribution_indices),
+                        ref(random_generator_per_job.at(i)),
+                        ref(processing_blocks.at(i)),
+                        ref(samples),
+                        ref(samples_mutex));
+                    threads.push_back(move(samples_thread));
+                }
+
+                for (auto& samples_thread : threads) {
+                    samples_thread.join();
+                }
+            }
+
+            return samples;
+        }
+
+        void CPD::run_samples_from_posterior_thread(
+            const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+            const Eigen::MatrixXd& posterior_weights,
+            const Eigen::VectorXi& distribution_indices,
+            const shared_ptr<gsl_rng>& random_generator,
+            const std::pair<int, int>& processing_block,
+            Eigen::MatrixXd& full_samples,
+            std::mutex& samples_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
             const auto& previous = cpd_owner->get_previous();
 
-            int cols = this->distributions[0]->get_sample_size();
-            Eigen::MatrixXd sample(num_indices, cols);
-            for (int i = 0; i < num_indices; i++) {
+            Eigen::MatrixXd samples(num_rows, full_samples.cols());
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
                 int distribution_idx = distribution_indices[i];
                 const auto& distribution =
                     this->distributions[distribution_idx];
@@ -219,16 +322,18 @@ namespace tomcat {
                     // duration of the left and right segments, is embedded in
                     // the weights passed to the sampling method.
                     double previous_value = previous->get_assignment()(i, 0);
-                    sample.row(i) = distribution->sample(
+                    samples.row(i - initial_row) = distribution->sample(
                         random_generator, weights, previous_value);
                 }
                 else {
-                    sample.row(i) =
+                    samples.row(i - initial_row) =
                         distribution->sample(random_generator, weights);
                 }
             }
 
-            return sample;
+            scoped_lock lock(samples_mutex);
+            full_samples.block(initial_row, 0, num_rows, full_samples.cols()) =
+                samples;
         }
 
         Eigen::VectorXi CPD::get_indexed_distribution_indices(
@@ -332,7 +437,7 @@ namespace tomcat {
             else {
                 vector<thread> threads;
                 const vector<pair<int, int>> processing_blocks =
-                    this->get_parallel_processing_blocks(num_jobs, data_size);
+                    get_parallel_processing_blocks(num_jobs, data_size);
                 for (const auto& processing_block : processing_blocks) {
                     thread weights_thread(&CPD::run_posterior_weights_thread,
                                           this,
@@ -352,24 +457,6 @@ namespace tomcat {
             }
 
             return weights;
-        }
-
-        vector<pair<int, int>>
-        CPD::get_parallel_processing_blocks(int num_jobs, int data_size) const {
-            vector<pair<int, int>> processing_blocks;
-
-            int rows_per_job = data_size / num_jobs;
-            int i = 0;
-            for (; i < rows_per_job * (num_jobs - 1); i += rows_per_job) {
-                pair<int, int> block = make_pair(i, rows_per_job);
-                processing_blocks.push_back(move(block));
-            }
-
-            // Last processing block
-            pair<int, int> block = make_pair(i, data_size - i);
-            processing_blocks.push_back(move(block));
-
-            return processing_blocks;
         }
 
         void CPD::run_posterior_weights_thread(
@@ -422,7 +509,7 @@ namespace tomcat {
             else {
                 vector<thread> threads;
                 const vector<pair<int, int>> processing_blocks =
-                    this->get_parallel_processing_blocks(num_jobs, data_size);
+                    get_parallel_processing_blocks(num_jobs, data_size);
                 for (const auto& processing_block : processing_blocks) {
                     thread weights_thread(
                         &CPD::run_left_segment_posterior_weights_thread,
@@ -617,7 +704,7 @@ namespace tomcat {
             else {
                 vector<thread> threads;
                 const vector<pair<int, int>> processing_blocks =
-                    this->get_parallel_processing_blocks(num_jobs, data_size);
+                    get_parallel_processing_blocks(num_jobs, data_size);
                 for (const auto& processing_block : processing_blocks) {
                     thread weights_thread(
                         &CPD::run_central_segment_posterior_weights_thread,
@@ -733,7 +820,7 @@ namespace tomcat {
             else {
                 vector<thread> threads;
                 const vector<pair<int, int>> processing_blocks =
-                    this->get_parallel_processing_blocks(num_jobs, data_size);
+                    get_parallel_processing_blocks(num_jobs, data_size);
                 for (const auto& processing_block : processing_blocks) {
                     thread weights_thread(
                         &CPD::run_right_segment_posterior_weights_thread,

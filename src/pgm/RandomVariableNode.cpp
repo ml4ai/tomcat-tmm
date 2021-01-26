@@ -115,20 +115,27 @@ namespace tomcat {
             }
         }
 
-        Eigen::MatrixXd
-        RandomVariableNode::sample(const shared_ptr<gsl_rng>& random_generator,
-                                   int num_samples) const {
+        Eigen::MatrixXd RandomVariableNode::sample(
+            const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
+            int num_samples) const {
 
             return this->cpd->sample(
-                random_generator, num_samples, shared_from_this());
+                random_generator_per_job, num_samples, shared_from_this());
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
-            const shared_ptr<gsl_rng>& random_generator, int num_jobs) {
+            const vector<shared_ptr<gsl_rng>>& random_generator_per_job) {
+            Eigen::MatrixXd sample;
 
-            Eigen::MatrixXd weights = this->get_posterior_weights(num_jobs);
-            Eigen::MatrixXd sample = this->cpd->sample_from_posterior(
-                random_generator, weights, shared_from_this());
+            if (this->metadata->is_parameter()) {
+                sample = this->sample_from_conjugacy
+                    (random_generator_per_job.at(0), this->get_size());
+            } else {
+                int num_jobs = random_generator_per_job.size();
+                Eigen::MatrixXd weights = this->get_posterior_weights(num_jobs);
+                sample = this->cpd->sample_from_posterior(
+                    random_generator_per_job, weights, shared_from_this());
+            }
 
             return sample;
         }

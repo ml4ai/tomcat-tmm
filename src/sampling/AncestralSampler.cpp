@@ -1,5 +1,7 @@
 #include "AncestralSampler.h"
 
+#include "utils/Multithreading.h"
+
 namespace tomcat {
     namespace model {
 
@@ -9,8 +11,8 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         AncestralSampler::AncestralSampler(
-            const shared_ptr<DynamicBayesNet>& model)
-            : Sampler(model) {}
+            const shared_ptr<DynamicBayesNet>& model, int num_jobs)
+            : Sampler(model, num_jobs) {}
 
         AncestralSampler::~AncestralSampler() {}
 
@@ -33,6 +35,9 @@ namespace tomcat {
         void AncestralSampler::sample_latent(
             const shared_ptr<gsl_rng>& random_generator, int num_samples) {
             vector<shared_ptr<Node>> nodes_to_sample;
+
+            vector<shared_ptr<gsl_rng>> random_generators_per_job =
+                split_random_generator(random_generator, this->num_jobs);
 
             // We start by sampling nodes in the root and keep moving forward
             // until we reach the leaves. Sampling a node depends on the values
@@ -83,11 +88,12 @@ namespace tomcat {
                     // values, we generate a single sample following the
                     // ancestral sampling procedure and replicate it.
 
-                    sample = rv_node->sample(random_generator, 1);
+                    sample = rv_node->sample(random_generators_per_job, 1);
                     sample = sample.replicate(max_num_samples, 1);
                 }
                 else {
-                    sample = rv_node->sample(random_generator, max_num_samples);
+                    sample = rv_node->sample(random_generators_per_job,
+                                             max_num_samples);
                 }
 
                 // A sample is stored as an assignment of the node.
