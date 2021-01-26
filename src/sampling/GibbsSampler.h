@@ -79,8 +79,17 @@ namespace tomcat {
                  * distinct lists to speed up processing.
                  */
                 std::vector<std::shared_ptr<Node>> sampled_nodes;
-                std::vector<std::shared_ptr<Node>> single_thread_nodes;
                 std::vector<std::shared_ptr<Node>> timer_nodes;
+
+                // The nodes in this list cannot be processed in parallel
+                // over time because they can either depend on nodes across
+                // all the time steps, or they can be a timer or controlled by
+                // one, in which case, their dependencies over time are
+                // random. The computation in these nodes will be
+                // parallelized over the data provided (vertical
+                // parallelization).
+                std::vector<std::shared_ptr<Node>>
+                    single_thread_over_time_nodes;
 
                 // Parameter nodes can all be sampled in parallel since they
                 // are sampled from conjugacy
@@ -208,12 +217,17 @@ namespace tomcat {
              * @param update_sufficient_statistics: indicates whether
              * sufficient statistics of the node's CPD's parameter's priors
              * must be updated after generating a sample from the node
+             * @param num_jobs: number of threads to perform vertical
+             * parallelization (split the computation over the
+             * observations/data points provided). If 1, the computations are
+             * performed in the main thread
              */
             void
             sample_data_node(const std::shared_ptr<gsl_rng>& random_generator,
                              const std::shared_ptr<Node>& node,
                              bool discard,
-                             bool update_sufficient_statistics = true);
+                             bool update_sufficient_statistics = true,
+                             int num_jobs = 1);
 
             /**
              * Sample nodes that cannot be horizontally parallelized (timer
@@ -297,6 +311,7 @@ namespace tomcat {
 
             // Number of threads created for parallel sampling.
             int num_jobs = 1;
+
         };
 
     } // namespace model

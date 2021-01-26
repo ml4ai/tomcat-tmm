@@ -125,9 +125,14 @@ namespace tomcat {
              * calculating the weights, therefore it's not const. The final
              * state of the this object is unchanged though.
              *
+             * @param num_jobs: number of threads to perform vertical
+             * parallelization (split the computation over the
+             * observations/data points provided). If 1, the computations are
+             * performed in the main thread
+             *
              * @return Posterior weights
              */
-            Eigen::MatrixXd get_posterior_weights();
+            Eigen::MatrixXd get_posterior_weights(int num_jobs);
 
             /**
              * Samples a node using conjugacy properties and sufficient
@@ -250,11 +255,15 @@ namespace tomcat {
              * state of the this object is unchanged though.
              *
              * @param random_generator: random number generator
+             * @param num_jobs: number of threads to perform vertical
+             * parallelization (split the computation over the
+             * observations/data points provided). If 1, the computations are
+             * performed in the main thread
              *
              * @return Sample for the node from its posterior
              */
             virtual Eigen::MatrixXd sample_from_posterior(
-                const std::shared_ptr<gsl_rng>& random_generator);
+                const std::shared_ptr<gsl_rng>& random_generator, int num_jobs);
 
             // -----------------------------------------------------------------
             // Getters & Setters
@@ -390,9 +399,16 @@ namespace tomcat {
              *  p(duration left)p(left seg. value | node)
              *  p(duration central == 1)p(right seg. value | node value)
              *  p(duration right)
-             * @return
+             *
+             * @param num_jobs: number of threads to perform vertical
+             * parallelization (split the computation over the
+             * observations/data points provided). If 1, the computations are
+             * performed in the main thread
+             *
+             * @return Posterior weights for the left, central and right
+             * segments combined
              */
-            Eigen::MatrixXd get_segments_log_posterior_weights();
+            Eigen::MatrixXd get_segments_log_posterior_weights(int num_jobs);
         };
 
     } // namespace model

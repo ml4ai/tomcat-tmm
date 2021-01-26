@@ -90,7 +90,9 @@ namespace tomcat {
                     true);
 
                 this->sample_single_thread_nodes(
-                    random_generator, node_set.single_thread_nodes, discard);
+                    random_generator,
+                    node_set.single_thread_over_time_nodes,
+                    discard);
 
                 this->update_timer_sufficient_statistics(node_set.timer_nodes);
 
@@ -157,15 +159,21 @@ namespace tomcat {
                     // processed in parallel as the size of the left and
                     // segments to which the controlled nodes belong to in
                     // random.
+
                     if (node->get_metadata()->is_timer()) {
                         node_set.timer_nodes.push_back(node);
-                        node_set.single_thread_nodes.push_back(node);
+                        node_set.single_thread_over_time_nodes.push_back(node);
                     }
                     else {
+                        bool multiple_connections_over_time =
+                            !node->get_metadata()->is_replicable() &&
+                            !node->get_metadata()->is_single_time_link();
                         const auto& rv_node =
                             dynamic_pointer_cast<RandomVariableNode>(node);
-                        if (rv_node->has_timer()) {
-                            node_set.single_thread_nodes.push_back(node);
+                        if (multiple_connections_over_time ||
+                            rv_node->has_timer()) {
+                            node_set.single_thread_over_time_nodes.push_back(
+                                node);
                         }
                         else {
                             int job = 0;
@@ -323,14 +331,15 @@ namespace tomcat {
             const shared_ptr<gsl_rng>& random_generator,
             const shared_ptr<Node>& node,
             bool discard,
-            bool update_sufficient_statistics) {
+            bool update_sufficient_statistics,
+            int num_jobs) {
 
             shared_ptr<RandomVariableNode> rv_node =
                 dynamic_pointer_cast<RandomVariableNode>(node);
 
             if (!rv_node->is_frozen()) {
                 Eigen::MatrixXd sample =
-                    rv_node->sample_from_posterior(random_generator);
+                    rv_node->sample_from_posterior(random_generator, num_jobs);
 
                 rv_node->set_assignment(sample);
                 if (!discard) {
@@ -368,8 +377,11 @@ namespace tomcat {
                 // nodes after, when all the time controlled nodes have
                 // been sampled.
                 bool upd_suff_stat = !node->get_metadata()->is_timer();
-                this->sample_data_node(
-                    random_generator, node, discard, upd_suff_stat);
+                this->sample_data_node(random_generator,
+                                       node,
+                                       discard,
+                                       upd_suff_stat,
+                                       this->num_jobs);
             }
         }
 

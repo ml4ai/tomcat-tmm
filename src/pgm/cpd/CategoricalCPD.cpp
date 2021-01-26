@@ -1,7 +1,10 @@
 #include "pgm/cpd/CategoricalCPD.h"
 
+#include <thread>
+
 #include "pgm/ConstantNode.h"
 #include "pgm/TimerNode.h"
+#include "utils/EigenExtensions.h"
 
 namespace tomcat {
     namespace model {
@@ -118,7 +121,8 @@ namespace tomcat {
         Eigen::MatrixXd CategoricalCPD::get_posterior_weights(
             const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
-            const std::shared_ptr<const RandomVariableNode>& cpd_owner) const {
+            const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+            int num_jobs) const {
 
             int data_size = cpd_owner->get_size();
             int cardinality = sampled_node->get_metadata()->get_cardinality();
@@ -128,7 +132,7 @@ namespace tomcat {
             // other parent nodes that the child (owner of this CPD) may have.
             Eigen::MatrixXd saved_assignment = sampled_node->get_assignment();
             sampled_node->set_assignment(Eigen::MatrixXd::Zero(data_size, 1));
-            vector<int> distribution_indices =
+            Eigen::VectorXi distribution_indices =
                 this->get_indexed_distribution_indices(index_nodes, data_size);
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
@@ -163,17 +167,6 @@ namespace tomcat {
                 }
             }
 
-            int num_distributions = this->distributions.size();
-            Eigen::MatrixXd binary_distribution_indices =
-                Eigen::MatrixXd::Zero(data_size, num_distributions);
-            Eigen::MatrixXd binary_assignment =
-                Eigen::MatrixXd::Zero(data_size, distributions_table.cols());
-
-            for (int i = 0; i < data_size; i++) {
-                binary_assignment(i, cpd_owner->get_assignment()(i, 0)) = 1;
-            }
-
-            Eigen::MatrixXd weights(data_size, cardinality);
             const string& sampled_node_label =
                 sampled_node->get_metadata()->get_label();
             // For every possible value of sampled_node, the offset indicates
@@ -181,26 +174,119 @@ namespace tomcat {
             // distribution indexes by the index nodes of this CPD.
             int offset = this->parent_label_to_indexing.at(sampled_node_label)
                              .right_cumulative_cardinality;
-            for (int j = 0; j < cardinality; j++) {
-                for (int i = 0; i < data_size; i++) {
-                    int distribution_idx = distribution_indices[i];
-                    if (j > 0) {
-                        binary_distribution_indices(
-                            i, distribution_idx + (j - 1) * offset) = 0;
-                    }
-                    binary_distribution_indices(
-                        i, distribution_idx + j * offset) = 1;
+
+            Eigen::MatrixXd weights =
+                this->compute_posterior_weights(cpd_owner,
+                                                distribution_indices,
+                                                cardinality,
+                                                offset,
+                                                distributions_table,
+                                                num_jobs);
+            return weights;
+        }
+
+        Eigen::MatrixXd CategoricalCPD::compute_posterior_weights(
+            const shared_ptr<const RandomVariableNode>& cpd_owner,
+            const Eigen::VectorXi& distribution_indices,
+            int cardinality,
+            int distribution_index_offset,
+            const Eigen::MatrixXd& distributions_table,
+            int num_jobs) const {
+
+            int data_size = cpd_owner->get_size();
+            Eigen::MatrixXd weights(data_size, cardinality);
+            mutex weights_mutex;
+
+            if (num_jobs == 1) {
+                // Run in the main thread
+                this->run_posterior_weights_thread(cpd_owner,
+                                                   distribution_indices,
+                                                   distribution_index_offset,
+                                                   distributions_table,
+                                                   make_pair(0, data_size),
+                                                   weights,
+                                                   weights_mutex);
+            }
+            else {
+                vector<thread> threads;
+                const vector<pair<int, int>> processing_blocks =
+                    this->get_parallel_processing_blocks(num_jobs, data_size);
+                for (const auto& processing_block : processing_blocks) {
+                    thread weights_thread(
+                        &CategoricalCPD::run_posterior_weights_thread,
+                        this,
+                        cpd_owner,
+                        distribution_indices,
+                        distribution_index_offset,
+                        distributions_table,
+                        ref(processing_block),
+                        ref(weights),
+                        ref(weights_mutex));
+                    threads.push_back(move(weights_thread));
                 }
 
-                weights.col(j) =
-                    ((binary_distribution_indices * distributions_table)
-                         .array() *
-                     binary_assignment.array())
-                        .rowwise()
-                        .sum();
+                for (auto& weights_thread : threads) {
+                    weights_thread.join();
+                }
             }
 
             return weights;
+        }
+
+        void CategoricalCPD::run_posterior_weights_thread(
+            const shared_ptr<const RandomVariableNode>& cpd_owner,
+            const Eigen::VectorXi& distribution_indices,
+            int distribution_index_offset,
+            const Eigen::MatrixXd& distributions_table,
+            const pair<int, int>& processing_block,
+            Eigen::MatrixXd& full_weights,
+            mutex& weights_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+            int cardinality = full_weights.cols();
+
+            const Eigen::VectorXi& assignment =
+                cpd_owner->get_assignment()
+                    .block(initial_row, 0, num_rows, 1)
+                    .cast<int>();
+            Eigen::MatrixXi binary_assignment =
+                to_categorical(assignment, distributions_table.cols());
+
+            int num_distributions = distributions_table.rows();
+            Eigen::MatrixXi binary_distribution_indices =
+                Eigen::MatrixXi::Zero(num_rows, num_distributions);
+            Eigen::MatrixXd weights(num_rows, cardinality);
+            for (int j = 0; j < cardinality; j++) {
+                // Get the index for the next value of the indexing node
+                // in binary format.
+                for (int i = initial_row; i < initial_row + num_rows; i++) {
+                    int distribution_idx = distribution_indices[i];
+
+                    if (j > 0) {
+                        // Zero the previous j
+                        int prev_val_idx = distribution_idx +
+                                           (j - 1) * distribution_index_offset;
+                        binary_distribution_indices(i - initial_row,
+                                                    prev_val_idx) = 0;
+                    }
+
+                    int curr_val_idx =
+                        distribution_idx + j * distribution_index_offset;
+                    binary_distribution_indices(i - initial_row, curr_val_idx) =
+                        1;
+                }
+
+                weights.col(j) = ((binary_distribution_indices.cast<double>() *
+                                   distributions_table)
+                                      .array() *
+                                  binary_assignment.cast<double>().array())
+                                     .rowwise()
+                                     .sum();
+            }
+
+            scoped_lock lock(weights_mutex);
+            full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
         }
 
     } // namespace model

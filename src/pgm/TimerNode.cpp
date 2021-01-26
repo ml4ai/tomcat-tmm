@@ -47,7 +47,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd TimerNode::sample_from_posterior(
-            const std::shared_ptr<gsl_rng>& random_generator) {
+            const std::shared_ptr<gsl_rng>& random_generator, int num_jobs) {
 
             int data_size = this->controlled_node->get_size();
             Eigen::MatrixXd sample = Eigen::MatrixXd::Zero(data_size, 1);

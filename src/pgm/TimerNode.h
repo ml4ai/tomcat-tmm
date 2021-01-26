@@ -72,11 +72,15 @@ namespace tomcat {
              * the same state. Otherwise, restart its value.
              *
              * @param random_generator: random number generator
+             * @param num_jobs: The computations in this method is not
+             * performed in parallel as they can be achieved by small matrix
+             * operations. Therefore, this parameter is irrelevant in this
+             * subclass.
              *
              * @return Timer values given controlled nodes' assignment.
              */
             Eigen::MatrixXd sample_from_posterior(
-                const std::shared_ptr<gsl_rng>& random_generator) override;
+                const std::shared_ptr<gsl_rng>& random_generator, int num_jobs) override;
 
             /**
              * Gets posterior weights for the left segment of a node such
