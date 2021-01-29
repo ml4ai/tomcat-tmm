@@ -48,8 +48,12 @@ namespace tomcat {
                     dynamic_pointer_cast<RandomVariableNode>(node);
 
                 // If a node is frozen, we don't generate samples for it as it
-                // already contains pre-defined samples.
-                if (!rv_node->is_frozen()) {
+                // already contains pre-defined samples. If a node is a
+                // parameter and it's not frozen, we only generate samples
+                // for it if the sampler is trainable.
+                bool is_parameter = node->get_metadata()->is_parameter();
+                if (!rv_node->is_frozen() &&
+                    (!is_parameter || this->trainable)) {
 
                     // If defined, we don't sample nodes after a given time
                     // step. Otherwise, we proceed sampling for all the time
@@ -59,6 +63,8 @@ namespace tomcat {
                             this->max_time_step_to_sample) {
                         nodes_to_sample.push_back(node);
                     }
+                }
+                else if (node->get_metadata()->is_parameter()) {
                 }
             }
 

@@ -127,6 +127,8 @@ namespace tomcat {
 
             void set_max_time_step_to_sample(int time_step);
 
+            void set_trainable(bool trainable);
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -159,6 +161,9 @@ namespace tomcat {
 
             // Number of threads created for parallel sampling.
             int num_jobs = 1;
+
+            // Indicates whether the sampler should update parameter nodes.
+            bool trainable = true;
 
           private:
             //------------------------------------------------------------------

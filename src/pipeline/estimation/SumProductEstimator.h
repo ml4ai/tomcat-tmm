@@ -36,7 +36,7 @@ namespace tomcat {
                 const std::shared_ptr<DynamicBayesNet>& model,
                 int inference_horizon,
                 const std::string& node_label,
-                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
+                const Eigen::VectorXd& assignment = EMPTY_VECTOR);
 
             ~SumProductEstimator();
 
@@ -62,8 +62,6 @@ namespace tomcat {
             void get_info(nlohmann::json& json) const override;
 
             std::string get_name() const override;
-
-            FactorGraph factor_graph;
 
           private:
             //------------------------------------------------------------------
@@ -147,6 +145,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
+
+            FactorGraph factor_graph;
 
             // Next time step to compute messages to the nodes in the factor
             // graph. Nodes with time steps before next_time_step already have

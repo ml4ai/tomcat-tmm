@@ -86,7 +86,7 @@ namespace tomcat {
              *
              * @return Assignable matrix.
              */
-            Eigen::MatrixXd operator()(int i, int axis);
+            Eigen::MatrixXd operator()(int i, int axis) const;
 
             /**
              * Returns a non-assignable vector for given indices of the second

@@ -37,7 +37,7 @@ namespace tomcat {
 
         void EstimationProcess::clear_estimates() {
             for (auto& estimator : this->estimators) {
-                estimator->clear_estimates();
+                estimator->cleanup();
             }
         }
 

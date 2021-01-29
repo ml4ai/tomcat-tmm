@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 
+#include "Types.h"
+
 namespace tomcat {
     namespace model {
 
@@ -14,6 +16,7 @@ namespace tomcat {
 #define LOG_WARNING(log) std::cerr << log << std::endl
 #define EXISTS(member, container) (container.find(member) != container.end())
 #define EPSILON 1E-15
+#define EMPTY_VECTOR Eigen::VectorXd(0)
 
         struct TomcatModelException : public std::exception {
             std::string message;

@@ -233,6 +233,16 @@ namespace tomcat {
              */
             std::vector<std::string> get_parameter_node_labels() const;
 
+            /**
+             * Gets a pointer to a node by its label and time step.
+             *
+             * @param label: node's label
+             * @param time_step: node's time step
+             *
+             * @return Pointer to a node
+             */
+            RVNodePtr get_node(const std::string& label, int time_step);
+
             // --------------------------------------------------------
             // Getters & Setters
             // --------------------------------------------------------

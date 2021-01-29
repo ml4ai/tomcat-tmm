@@ -42,6 +42,14 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        string NodeMetadata::get_timed_name(const string& label,
+                                            int time_step) {
+            return fmt::format("({},{})", label, time_step);
+        }
+
+        //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
         string NodeMetadata::get_description() const {
@@ -112,7 +120,7 @@ namespace tomcat {
         }
 
         string NodeMetadata::get_timed_name(int time_step) const {
-            return fmt::format("({},{})", this->label, time_step);
+            return NodeMetadata::get_timed_name(this->label, time_step);
         }
 
         //----------------------------------------------------------------------

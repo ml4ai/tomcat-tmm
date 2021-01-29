@@ -145,7 +145,7 @@ namespace tomcat {
                 if (node->get_metadata()->is_parameter()) {
                     shared_ptr<RandomVariableNode> rv_node =
                         dynamic_pointer_cast<RandomVariableNode>(node);
-                    if (!rv_node->is_frozen()) {
+                    if (!rv_node->is_frozen() && this->trainable) {
                         if (this->max_time_step_to_sample < 0 ||
                             rv_node->get_time_step() <=
                                 this->max_time_step_to_sample) {
@@ -317,16 +317,18 @@ namespace tomcat {
                 }
             }
 
-            if (node->get_metadata()->is_parameter()) {
-                // As nodes are processed, the sufficient statistic
-                // table of their dependent parent parameter nodes are
-                // updated accordingly. So at this point we already have all
-                // the information needed to sample the parameter from its
-                // posterior.
-                rv_node->reset_sufficient_statistics();
-            }
-            else if (update_sufficient_statistics) {
-                rv_node->update_parents_sufficient_statistics();
+            if(this->trainable) {
+                if (node->get_metadata()->is_parameter()) {
+                    // As nodes are processed, the sufficient statistic
+                    // table of their dependent parent parameter nodes are
+                    // updated accordingly. So at this point we already have all
+                    // the information needed to sample the parameter from its
+                    // posterior.
+                    rv_node->reset_sufficient_statistics();
+                }
+                else if (update_sufficient_statistics) {
+                    rv_node->update_parents_sufficient_statistics();
+                }
             }
         }
 

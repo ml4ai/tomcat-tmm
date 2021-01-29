@@ -167,5 +167,9 @@ namespace tomcat {
             this->max_time_step_to_sample = time_step;
         }
 
+        void Sampler::set_trainable(bool trainable) {
+            this->trainable = trainable;
+        }
+
     } // namespace model
 } // namespace tomcat

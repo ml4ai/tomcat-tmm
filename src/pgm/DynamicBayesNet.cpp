@@ -569,6 +569,18 @@ namespace tomcat {
             return labels;
         }
 
+        RVNodePtr DynamicBayesNet::get_node(const std::string& label,
+                                            int time_step) {
+            RVNodePtr node;
+            string name = NodeMetadata::get_timed_name(label, time_step);
+            if (EXISTS(name, this->name_to_id)) {
+                int id = this->name_to_id.at(name);
+                node = this->graph[id].node;
+            }
+
+            return node;
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
