@@ -24,7 +24,16 @@ namespace tomcat {
             : label(label), replicable(replicable), parameter(parameter),
               single_time_link(single_time_link), in_plate(in_plate),
               timer(timer), initial_time_step(initial_time_step),
-              sample_size(sample_size), cardinality(cardinality) {}
+              sample_size(sample_size), cardinality(cardinality) {
+
+            if (replicable && parameter) {
+                throw TomcatModelException("Parameter nodes cannot be "
+                                           "replicable. They show up once and"
+                                           " are shareable among the "
+                                           "distributions that govern the "
+                                           "timed copies of data nodes.");
+            }
+        }
 
         //----------------------------------------------------------------------
         // Destructor

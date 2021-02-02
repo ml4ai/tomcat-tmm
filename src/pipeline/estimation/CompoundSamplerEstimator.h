@@ -81,7 +81,8 @@ namespace tomcat {
              *
              * @param estimator: concrete estimator
              */
-            void add_estimator(const SamplerEstimator& estimator);
+            void
+            add_estimator(const std::shared_ptr<SamplerEstimator>& estimator);
 
           private:
             //------------------------------------------------------------------
@@ -121,7 +122,7 @@ namespace tomcat {
 
             std::shared_ptr<Sampler> sampler;
 
-            std::vector<SamplerEstimator> estimators;
+            std::vector<std::shared_ptr<SamplerEstimator>> estimators;
 
             std::unordered_map<std::string, RVNodePtr> nodes_to_unfreeze;
         };

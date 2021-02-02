@@ -142,20 +142,20 @@ namespace tomcat {
             // given that parent nodes were already sampled.
             int params = 0;
             for (auto& node : this->model->get_nodes_topological_order()) {
-                if (node->get_metadata()->is_parameter()) {
-                    shared_ptr<RandomVariableNode> rv_node =
-                        dynamic_pointer_cast<RandomVariableNode>(node);
-                    if (!rv_node->is_frozen() && this->trainable) {
-                        if (this->max_time_step_to_sample < 0 ||
-                            rv_node->get_time_step() <=
-                                this->max_time_step_to_sample) {
+                shared_ptr<RandomVariableNode> rv_node =
+                    dynamic_pointer_cast<RandomVariableNode>(node);
 
-                            int job = params % this->num_jobs;
-                            params++;
-                            node_set.parameter_nodes_per_job[job].push_back(
-                                node);
-                            node_set.sampled_nodes.push_back(node);
-                        }
+                if (this->max_time_step_to_sample >= 0 &&
+                    rv_node->get_time_step() > this->max_time_step_to_sample) {
+                    continue;
+                }
+
+                if (node->get_metadata()->is_parameter()) {
+                    if (!rv_node->is_frozen() && this->trainable) {
+                        int job = params % this->num_jobs;
+                        params++;
+                        node_set.parameter_nodes_per_job[job].push_back(node);
+                        node_set.sampled_nodes.push_back(node);
                     }
                 }
                 else {
@@ -317,7 +317,7 @@ namespace tomcat {
                 }
             }
 
-            if(this->trainable) {
+            if (this->trainable) {
                 if (node->get_metadata()->is_parameter()) {
                     // As nodes are processed, the sufficient statistic
                     // table of their dependent parent parameter nodes are
@@ -382,7 +382,6 @@ namespace tomcat {
                 reverse_timer->update_backward_assignment();
             }
         }
-
 
         Tensor3 GibbsSampler::get_samples(const string& node_label) const {
             return this->node_label_to_samples.at(node_label);

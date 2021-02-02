@@ -57,12 +57,21 @@ namespace tomcat {
         std::string to_string(const Eigen::MatrixXd& matrix);
 
         /**
-         * Appends a matrix in the original one rowwise.
+         * Appends a matrix in the original one row wise.
          *
          * @param original_matrix: matrix to be appended
          * @param other_matrix: matrix to append in the original one
          */
         void vstack(Eigen::MatrixXd& original_matrix,
+                    const Eigen::MatrixXd& other_matrix);
+
+        /**
+         * Appends a matrix in the original one column wise.
+         *
+         * @param original_matrix: matrix to be appended
+         * @param other_matrix: matrix to append in the original one
+         */
+        void hstack(Eigen::MatrixXd& original_matrix,
                     const Eigen::MatrixXd& other_matrix);
 
         /**

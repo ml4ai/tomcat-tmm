@@ -8,9 +8,9 @@ namespace tomcat {
         class Node;
         class RandomVariableNode;
 
-        typedef std::shared_ptr<RandomVariableNode> NodePtr;
+        typedef std::shared_ptr<Node> NodePtr;
         typedef std::shared_ptr<RandomVariableNode> RVNodePtr;
         typedef std::vector<NodePtr> NodePtrVec;
-        typedef std::vector<RVNodePtr> NodePtrVec;
+        typedef std::vector<RVNodePtr> RVNodePtrVec;
     }
 } // namespace tomcat

@@ -104,14 +104,10 @@ namespace tomcat {
             this->sufficient_statistics_mutex = make_unique<mutex>();
         }
 
-        void CPD::update_dependencies(const Node::NodeMap& parameter_nodes_map,
-                                      int time_step) {
-
+        void CPD::update_dependencies(const Node::NodeMap& parameter_nodes_map) {
             for (auto& distribution : this->distributions) {
-                distribution->update_dependencies(parameter_nodes_map,
-                                                  time_step);
+                distribution->update_dependencies(parameter_nodes_map);
             }
-
             this->updated = true;
         }
 

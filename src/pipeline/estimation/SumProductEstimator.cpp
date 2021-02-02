@@ -6,6 +6,7 @@
 
 #include "pgm/inference/FactorGraph.h"
 #include "pgm/inference/VariableNode.h"
+#include "utils/EigenExtensions.h"
 
 namespace tomcat {
     namespace model {
@@ -93,28 +94,34 @@ namespace tomcat {
                         this->factor_graph.get_marginal_for(
                             this->estimates.label, t, true);
 
-                    if (marginal.size() == 0) {
-                        marginal = Eigen::MatrixXd::Constant(
-                            new_data.get_num_data_points(), 1, NO_OBS);
+                    Eigen::VectorXd no_obs = Eigen::MatrixXd::Constant(
+                        new_data.get_num_data_points(), 1, NO_OBS);
+
+                    if (this->estimates.assignment.size() == 0) {
+                        // For each possible discrete value the node can
+                        // take, we compute the probability estimate.
+                        // marginal.cols() is the cardinality of the node.
+                        int cardinality = this->model->get_cardinality_of(
+                            this->estimates.label);
+
+                        for (int col = 0; col < cardinality; col++) {
+                            Eigen::VectorXd estimates_in_time_step = no_obs;
+                            if (marginal.size() > 0) {
+                                estimates_in_time_step = marginal.col(col);
+                            }
+                            this->add_column_to_estimates(
+                                estimates_in_time_step, col);
+                        }
                     }
                     else {
-                        if (this->estimates.assignment.size() != 0) {
-                            int discrete_assignment =
-                                this->estimates.assignment[0];
-                            Eigen::VectorXd estimates_in_time_step =
+                        int discrete_assignment = this->estimates.assignment[0];
+                        Eigen::VectorXd estimates_in_time_step = no_obs;
+                        if (marginal.size() > 0) {
+                            estimates_in_time_step =
                                 marginal.col(discrete_assignment);
+                        }
 
-                            this->add_column_to_estimates(
-                                estimates_in_time_step);
-                        }
-                        else {
-                            for (int col = 0; col < marginal.cols(); col++) {
-                                Eigen::VectorXd estimates_in_time_step =
-                                    marginal.col(col);
-                                this->add_column_to_estimates(
-                                    estimates_in_time_step, col);
-                            }
-                        }
+                        this->add_column_to_estimates(estimates_in_time_step);
                     }
                 }
 
@@ -331,19 +338,11 @@ namespace tomcat {
 
         void SumProductEstimator::add_column_to_estimates(
             const Eigen::VectorXd new_column, int index) {
+
             if (this->estimates.estimates.size() < index + 1) {
-                // First estimates for a given assignment
                 this->estimates.estimates.push_back(Eigen::MatrixXd(0, 0));
-                this->estimates.estimates[index] = new_column;
             }
-            else {
-                // Append new column to the existing estimates
-                int num_rows = this->estimates.estimates[index].rows();
-                int num_cols = this->estimates.estimates[index].cols() + 1;
-                this->estimates.estimates[index].conservativeResize(num_rows,
-                                                                    num_cols);
-                this->estimates.estimates[index].col(num_cols - 1) = new_column;
-            }
+            hstack(this->estimates.estimates[index], new_column);
         }
 
         void SumProductEstimator::estimate_backward_in_time(

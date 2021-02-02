@@ -64,8 +64,6 @@ namespace tomcat {
                         nodes_to_sample.push_back(node);
                     }
                 }
-                else if (node->get_metadata()->is_parameter()) {
-                }
             }
 
             for (auto& node : nodes_to_sample) {

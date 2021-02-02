@@ -90,13 +90,9 @@ namespace tomcat {
              *
              * @param parameter_nodes_map: mapping between a parameter node
              * timed name and its object in an unrolled DBN
-             * @param time_step: time step of the node that owns the CPD in the
-             * unrolled DBN. It can be different from the time step of the
-             * parameter node if the latter is shared among nodes over several
-             * time steps.
              */
             void update_cpd_templates_dependencies(
-                const NodeMap& parameter_nodes_map, int time_step);
+                const NodeMap& parameter_nodes_map);
 
             /**
              * Create new references for the CPD templates of the node.

@@ -243,6 +243,24 @@ namespace tomcat {
              */
             RVNodePtr get_node(const std::string& label, int time_step);
 
+            /**
+             * Returns the metadata of any node derived from a given label.
+             *
+             * @param node_label: template node's label
+             *
+             * @return Metadata of the template node.
+             */
+            std::shared_ptr<NodeMetadata>
+            get_metadata_of(const std::string& node_label) const;
+
+            /**
+             * Expand the DBN by unrolling it into more time steps.
+             *
+             * @param time_steps: number of time steps to add to the unrolled
+             * DBN
+             */
+            void expand(int time_steps);
+
             // --------------------------------------------------------
             // Getters & Setters
             // --------------------------------------------------------
@@ -276,8 +294,11 @@ namespace tomcat {
 
             /**
              * Creates vertices from a list of node templates.
+             *
+             * @param num_timed_copies: number of replicable node copies over
+             * time to add to the unrolled DBN
              */
-            void create_vertices_from_nodes();
+            void create_vertices_from_nodes(int num_timed_copies);
 
             /**
              * Creates a vertex in the graph and stores a node timed instance in
@@ -294,8 +315,11 @@ namespace tomcat {
             /**
              * Uses the node templates' metadata to link the vertices
              * accordingly.
+             *
+             * @param num_timed_copies: number of replicable node copies over
+             * time to add to the unrolled DBN
              */
-            void create_edges();
+            void create_edges(int num_timed_copies);
 
             /**
              * Adds a new edge to the graph.
@@ -344,7 +368,11 @@ namespace tomcat {
             IDMap name_to_id;
 
             // List of concrete timed instances node of the unrolled DBN.
-            std::vector<std::shared_ptr<Node>> nodes;
+            NodePtrVec nodes;
+
+            // List of concrete timed instances nodes of the unrolled DBN per
+            // time step.
+            std::vector<RVNodePtrVec> nodes_per_time_step;
 
             // Mapping between a timed instance parameter node's label and its
             // node object.
@@ -352,7 +380,7 @@ namespace tomcat {
 
             // Mapping between a node label and all of the timed instance nodes
             // created from the template with such label.
-            std::unordered_map<std::string, std::vector<std::shared_ptr<Node>>>
+            std::unordered_map<std::string, NodePtrVec>
                 label_to_nodes;
 
             // Node templates will be used to create concrete instances of
@@ -363,7 +391,7 @@ namespace tomcat {
             // unrolled method based on the original set of nodes.
             // TODO - change to a set to forbid adding the same node multiple
             //  times
-            std::vector<std::shared_ptr<RandomVariableNode>> node_templates;
+            RVNodePtrVec node_templates;
 
             // If unrolled, the number of time steps the DBN was unrolled into
             int time_steps = 0;

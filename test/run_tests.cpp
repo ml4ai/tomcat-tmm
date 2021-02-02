@@ -13,6 +13,8 @@
 #include "distribution/Poisson.h"
 #include "mock_models.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/estimation/CompoundSamplerEstimator.h"
+#include "pipeline/estimation/SamplerEstimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
 #include "pipeline/training/DBNSamplingTrainer.h"
 #include "sampling/AncestralSampler.h"
@@ -411,12 +413,12 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
 
     // Fix some THETA_STATE_GIVEN_STATE_TC_PBAE (one row when TC=0 and one
     // row when TC=1) and PBAE prior to avoid permutation of TC and PBAE.
-    for(int i : {0, 2}) {
+    for (int i : {0, 2}) {
         stringstream label;
         label << THETA_STATE_GIVEN_STATE_TC_PBAE << "_" << i;
         const shared_ptr<RandomVariableNode>& theta_state =
-            dynamic_pointer_cast<RandomVariableNode>(model->get_nodes_by_label(
-                label.str())[0]);
+            dynamic_pointer_cast<RandomVariableNode>(
+                model->get_nodes_by_label(label.str())[0]);
         theta_state->set_assignment(tables.state_given_state_tc_pbae.row(i));
         theta_state->freeze();
     }
@@ -683,14 +685,109 @@ BOOST_FIXTURE_TEST_CASE(sum_product, HMM) {
     check = check_matrix_eq(yellow_estimates_h3, expected_yellow_h3);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd expected_tc(3, 3);
-    expected_tc << 0.500324, 0.506335, 0.504282, 0.294363, 0.286289, 0.291487,
-        0.205313, 0.207376, 0.204232;
+    MatrixXd expected_tc(3, 4);
+    expected_tc << -1, 0.500324, 0.506335, 0.504282, -1, 0.294363, 0.286289,
+        0.291487, -1, 0.205313, 0.207376, 0.204232;
     check = check_matrix_eq(tc_estimates[0], expected_tc.row(0));
     BOOST_TEST(check.first, check.second);
     check = check_matrix_eq(tc_estimates[1], expected_tc.row(1));
     BOOST_TEST(check.first, check.second);
     check = check_matrix_eq(tc_estimates[2], expected_tc.row(2));
+    BOOST_TEST(check.first, check.second);
+}
+
+BOOST_FIXTURE_TEST_CASE(gibbs_sampling, HMM) {
+    /**
+     * This test case checks if the Gibbs sampling procedure can approximate
+     * correctly the marginal probabilities over time of the nodes Green and
+     * TC from a non-deterministic model. The approximations should be close
+     * enough to the ones obtained by the sum-product algorithm.
+     */
+
+    DBNPtr deterministic_model = create_model(true, false);
+    deterministic_model->unroll(4, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // One sample from the deterministic model will be used for estimation.
+    AncestralSampler sampler(deterministic_model);
+    sampler.sample(gen, 1);
+
+    DBNPtr pre_trained_model = create_model(false, false);
+    pre_trained_model->unroll(4, true);
+
+    shared_ptr<SamplerEstimator> green_estimator_h1 =
+        make_shared<SamplerEstimator>(
+            pre_trained_model, 1, GREEN, VectorXd::Constant(1, 1));
+    shared_ptr<SamplerEstimator> yellow_estimator_h1 =
+        make_shared<SamplerEstimator>(
+            pre_trained_model, 1, YELLOW, VectorXd::Constant(1, 1));
+    shared_ptr<SamplerEstimator> green_estimator_h3 =
+        make_shared<SamplerEstimator>(
+            pre_trained_model, 3, GREEN, VectorXd::Constant(1, 1));
+    shared_ptr<SamplerEstimator> yellow_estimator_h3 =
+        make_shared<SamplerEstimator>(
+            pre_trained_model, 3, YELLOW, VectorXd::Constant(1, 1));
+    shared_ptr<SamplerEstimator> tc_estimator =
+        make_shared<SamplerEstimator>(pre_trained_model, 0, TC);
+
+    shared_ptr<GibbsSampler> gibbs =
+        make_shared<GibbsSampler>(pre_trained_model, 300);
+    CompoundSamplerEstimator sampler_estimator(
+        pre_trained_model, gibbs, gen, 5000);
+    sampler_estimator.add_estimator(green_estimator_h1);
+    sampler_estimator.add_estimator(yellow_estimator_h1);
+    sampler_estimator.add_estimator(green_estimator_h3);
+    sampler_estimator.add_estimator(yellow_estimator_h3);
+    sampler_estimator.add_estimator(tc_estimator);
+
+    // Green node is observed
+    EvidenceSet data;
+    data.add_data(GREEN, sampler.get_samples(GREEN));
+
+    sampler_estimator.prepare();
+    sampler_estimator.estimate(data);
+
+    MatrixXd green_estimates_h1 =
+        green_estimator_h1->get_estimates().estimates[0];
+    MatrixXd yellow_estimates_h1 =
+        yellow_estimator_h1->get_estimates().estimates[0];
+    MatrixXd green_estimates_h3 =
+        green_estimator_h3->get_estimates().estimates[0];
+    MatrixXd yellow_estimates_h3 =
+        yellow_estimator_h3->get_estimates().estimates[0];
+    vector<MatrixXd> tc_estimates = tc_estimator->get_estimates().estimates;
+
+    double tolerance = 0.02;
+
+    MatrixXd expected_green_h1(1, 4);
+    expected_green_h1 << 0.56788, 0.56589, 0.566867, 0.565993;
+    auto check =
+        check_matrix_eq(green_estimates_h1, expected_green_h1, tolerance);
+    BOOST_TEST(check.first, check.second);
+
+    MatrixXd expected_yellow_h1(1, 4);
+    expected_yellow_h1 << 0.43212, 0.43411, 0.433133, 0.434007;
+    check = check_matrix_eq(yellow_estimates_h1, expected_yellow_h1, tolerance);
+    BOOST_TEST(check.first, check.second);
+
+    MatrixXd expected_green_h3(1, 4);
+    expected_green_h3 << 0.91875, 0.918454, 0.918545, 0.918483;
+    check = check_matrix_eq(green_estimates_h3, expected_green_h3, tolerance);
+    BOOST_TEST(check.first, check.second);
+
+    MatrixXd expected_yellow_h3(1, 4);
+    expected_yellow_h3 << 0.818174, 0.818918, 0.818499, 0.818842;
+    check = check_matrix_eq(yellow_estimates_h3, expected_yellow_h3, tolerance);
+    BOOST_TEST(check.first, check.second);
+
+        MatrixXd expected_tc(3, 4);
+        expected_tc << -1, 0.500324, 0.506335, 0.504282, -1, 0.294363, 0.286289,
+            0.291487, -1, 0.205313, 0.207376, 0.204232;
+    check = check_matrix_eq(tc_estimates[0], expected_tc.row(0), tolerance);
+    BOOST_TEST(check.first, check.second);
+    check = check_matrix_eq(tc_estimates[1], expected_tc.row(1), tolerance);
+    BOOST_TEST(check.first, check.second);
+    check = check_matrix_eq(tc_estimates[2], expected_tc.row(2), tolerance);
     BOOST_TEST(check.first, check.second);
 }
 

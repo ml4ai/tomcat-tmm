@@ -85,13 +85,33 @@ namespace tomcat {
         void vstack(Eigen::MatrixXd& original_matrix,
                     const Eigen::MatrixXd& other_matrix) {
 
-            int old_rows = original_matrix.rows();
-            int new_rows = old_rows + other_matrix.rows();
-            int cols = other_matrix.cols();
+            if (original_matrix.size() == 0) {
+                original_matrix = other_matrix;
+            } else {
+                int cols = original_matrix.cols();
+                int old_rows = original_matrix.rows();
+                int new_rows = old_rows + other_matrix.rows();
 
-            original_matrix.conservativeResize(new_rows, cols);
-            original_matrix.block(old_rows, 0, other_matrix.rows(), cols) =
-                other_matrix;
+                original_matrix.conservativeResize(new_rows, Eigen::NoChange);
+                original_matrix.block(old_rows, 0, other_matrix.rows(), cols) =
+                    other_matrix;
+            }
+        }
+
+        void hstack(Eigen::MatrixXd& original_matrix,
+                    const Eigen::MatrixXd& other_matrix) {
+
+            if (original_matrix.size() == 0) {
+                original_matrix = other_matrix;
+            } else {
+                int rows = original_matrix.rows();
+                int old_cols = original_matrix.cols();
+                int new_cols = old_cols + other_matrix.cols();
+
+                original_matrix.conservativeResize(Eigen::NoChange, new_cols);
+                original_matrix.block(0, old_cols, rows, other_matrix.cols()) =
+                    other_matrix;
+            }
         }
 
         Eigen::MatrixXi to_categorical(const Eigen::VectorXi& integers,

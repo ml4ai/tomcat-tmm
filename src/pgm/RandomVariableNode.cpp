@@ -106,11 +106,10 @@ namespace tomcat {
         }
 
         void RandomVariableNode::update_cpd_templates_dependencies(
-            const NodeMap& parameter_nodes_map, int time_step) {
+            const NodeMap& parameter_nodes_map) {
             for (auto& mapping : this->cpd_templates) {
                 if (!mapping.second->is_updated()) {
-                    mapping.second->update_dependencies(parameter_nodes_map,
-                                                        time_step);
+                    mapping.second->update_dependencies(parameter_nodes_map);
                 }
             }
         }
