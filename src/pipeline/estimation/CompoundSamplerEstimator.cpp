@@ -68,23 +68,19 @@ namespace tomcat {
             this->next_time_step = 0;
             Estimator::cleanup();
             this->unfreeze_observable_nodes();
+            this->model->unroll(this->inference_horizon, true);
         }
 
         void CompoundSamplerEstimator::estimate(const EvidenceSet& new_data) {
-            // Prevent the sampler from generating samples beyond the
-            // inference horizon.
-
             int time_steps = this->next_time_step + new_data.get_time_steps();
             for (int t = this->next_time_step; t < time_steps; t++) {
-                this->model->unroll(t + this->inference_horizon + 1, true);
+                  this->model->expand(1);
 
                 for (int d = 0; d < new_data.get_num_data_points(); d++) {
                     // Observations for a single data point at the time step
                     // for which we are computing inferences
                     EvidenceSet data = new_data.at(d, t - this->next_time_step);
                     this->add_data_to_nodes(data, t);
-                    this->sampler->set_max_time_step_to_sample(
-                        t + this->inference_horizon);
                     this->sampler->sample(this->random_generator,
                                           this->num_samples);
 

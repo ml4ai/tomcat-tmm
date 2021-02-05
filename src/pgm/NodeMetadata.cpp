@@ -182,7 +182,6 @@ namespace tomcat {
 
         void
         NodeMetadata::set_timer_metadata(shared_ptr<NodeMetadata>& metadata) {
-
             if (!metadata->is_timer()) {
                 throw TomcatModelException("The metadata informed does not "
                                            "belong to a timer node.");
@@ -196,6 +195,11 @@ namespace tomcat {
             if (!this->is_replicable()) {
                 throw TomcatModelException("A timer must be associated to"
                                            " a replicable node.");
+            }
+
+            if (this->initial_time_step > 0) {
+                throw TomcatModelException("The initial time step of a time "
+                                           "controlled node must be 0.");
             }
 
             this->timer_metadata = metadata;

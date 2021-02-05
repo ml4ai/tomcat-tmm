@@ -111,6 +111,14 @@ namespace tomcat {
             void unroll(int time_steps, bool force);
 
             /**
+             * Expand the DBN by unrolling it into more time steps.
+             *
+             * @param new_time_steps: number of time steps to add to the
+             * unrolled DBN
+             */
+            void expand(int new_time_steps);
+
+            /**
              * Checks if the DBN is consistent and prepared to be unrolled.
              */
             void check();
@@ -253,14 +261,6 @@ namespace tomcat {
             std::shared_ptr<NodeMetadata>
             get_metadata_of(const std::string& node_label) const;
 
-            /**
-             * Expand the DBN by unrolling it into more time steps.
-             *
-             * @param time_steps: number of time steps to add to the unrolled
-             * DBN
-             */
-            void expand(int time_steps);
-
             // --------------------------------------------------------
             // Getters & Setters
             // --------------------------------------------------------
@@ -295,10 +295,10 @@ namespace tomcat {
             /**
              * Creates vertices from a list of node templates.
              *
-             * @param num_timed_copies: number of replicable node copies over
+             * @param new_time_steps: number of replicable node copies over
              * time to add to the unrolled DBN
              */
-            void create_vertices_from_nodes(int num_timed_copies);
+            void create_vertices_from_nodes(int new_time_steps);
 
             /**
              * Creates a vertex in the graph and stores a node timed instance in
@@ -316,10 +316,10 @@ namespace tomcat {
              * Uses the node templates' metadata to link the vertices
              * accordingly.
              *
-             * @param num_timed_copies: number of replicable node copies over
+             * @param new_time_steps: number of replicable node copies over
              * time to add to the unrolled DBN
              */
-            void create_edges(int num_timed_copies);
+            void create_edges(int new_time_steps);
 
             /**
              * Adds a new edge to the graph.
@@ -345,14 +345,20 @@ namespace tomcat {
 
             /**
              * Add the timed copy of a timer node to the node controlled by it.
+             *
+             * @param num_timed_copies: number of replicable node copies over
+             * time to add to the unrolled DBN
              */
-            void set_timers_to_nodes();
+            void set_timers_to_nodes(int num_timed_copies);
 
             /**
              * Set the vector of timed copies to each repeatable node in the
              * DBN.
+             *
+             * @param num_timed_copies: number of replicable node copies over
+             * time to add to the unrolled DBN
              */
-            void set_timed_copies_to_nodes();
+            void set_timed_copies_to_nodes(int num_timed_copies);
 
             /**
              * Replaces node objects in the CPDs that depend on other nodes with
@@ -380,8 +386,7 @@ namespace tomcat {
 
             // Mapping between a node label and all of the timed instance nodes
             // created from the template with such label.
-            std::unordered_map<std::string, NodePtrVec>
-                label_to_nodes;
+            std::unordered_map<std::string, NodePtrVec> label_to_nodes;
 
             // Node templates will be used to create concrete instances of
             // nodes over time (timed node instances/objects), which will be
