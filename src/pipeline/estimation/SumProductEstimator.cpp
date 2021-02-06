@@ -21,7 +21,15 @@ namespace tomcat {
             int inference_horizon,
             const std::string& node_label,
             const Eigen::VectorXd& assignment)
-            : Estimator(model, inference_horizon, node_label, assignment) {}
+            : Estimator(model, inference_horizon, node_label, assignment) {
+
+            if (inference_horizon > 0 && assignment.size() == 0) {
+                throw TomcatModelException(
+                    "An assignment must be given for estimations with "
+                    "inference horizon greater than 0.");
+            }
+
+        }
 
         SumProductEstimator::~SumProductEstimator() {}
 

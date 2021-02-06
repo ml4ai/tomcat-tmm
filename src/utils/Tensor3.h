@@ -344,6 +344,9 @@ namespace tomcat {
              */
             Tensor3 coeff_wise_and(int axis) const;
 
+
+
+
           private:
             //------------------------------------------------------------------
             // Data members

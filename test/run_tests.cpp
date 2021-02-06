@@ -696,7 +696,7 @@ BOOST_FIXTURE_TEST_CASE(sum_product, HMM) {
     BOOST_TEST(check.first, check.second);
 }
 
-BOOST_FIXTURE_TEST_CASE(gibbs_sampling, HMM) {
+BOOST_FIXTURE_TEST_CASE(gs_approx_inference, HMM) {
     /**
      * This test case checks if the Gibbs sampling procedure can approximate
      * correctly the marginal probabilities over time of the nodes Green and
@@ -732,6 +732,7 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling, HMM) {
 
     shared_ptr<GibbsSampler> gibbs =
         make_shared<GibbsSampler>(pre_trained_model, 300);
+    gibbs->set_trainable(false);
     CompoundSamplerEstimator sampler_estimator(
         pre_trained_model, gibbs, gen, 5000);
     sampler_estimator.add_estimator(green_estimator_h1);

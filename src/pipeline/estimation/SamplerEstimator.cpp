@@ -77,14 +77,17 @@ namespace tomcat {
         void SamplerEstimator::estimate(const std::shared_ptr<Sampler>& sampler,
                                         int data_point_idx,
                                         int time_step) {
+
+            // Slicing the matrix directly is more efficient than calling the
+            // get_samples with a range here because it will trye to slice a
+            // tensor, but we know that in this scenario this tensor has
+            // an unitary first dimension since the nodes being estimated are
+            // data nodes and not parameter ones.
             Eigen::MatrixXd samples =
                 sampler->get_samples(this->estimates.label)(0, 0);
-            // Only samples generated in the window spanned by the inference
-            // horizon
-
             const auto& node_metadata =
                 this->model->get_metadata_of(this->estimates.label);
-            int initial_time_step = node_metadata->get_initial_time_step();
+            int node_initial_time_step = node_metadata->get_initial_time_step();
             if (node_metadata->is_replicable()) {
                 int initial_col =
                     this->inference_horizon == 0 ? time_step : time_step + 1;
@@ -95,7 +98,7 @@ namespace tomcat {
             }
             else {
                 samples =
-                    samples.block(0, initial_time_step, samples.rows(), 1);
+                    samples.block(0, node_initial_time_step, samples.rows(), 1);
             }
 
             int k = 1;
@@ -113,8 +116,9 @@ namespace tomcat {
             }
 
             for (int i = 0; i < k; i++) {
-                double probability = -1;
-                if (initial_time_step <= time_step + this->inference_horizon) {
+                double probability = NO_OBS;
+                if (node_initial_time_step <=
+                    time_step + this->inference_horizon) {
                     if (k > 1) {
                         low = i;
                         high = i;

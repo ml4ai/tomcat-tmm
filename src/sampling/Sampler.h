@@ -96,6 +96,27 @@ namespace tomcat {
              */
             virtual Tensor3 get_samples(const std::string& node_label) const;
 
+            /**
+             * Returns samples generated for a specific latent node withing a
+             * given time range.
+             *
+             * @param node_label: latent node label
+             * @param low_time_step: lower bound (inclusive)
+             * @param high_time_step: upper bound (not inclusive)
+             *
+             * @return Samples over time. A matrix of dimension (num_samples,
+             * time_steps).
+             */
+            virtual Tensor3 get_samples(const std::string& node_label,
+                                        int low_time_step,
+                                        int high_time_step) const;
+
+            /**
+             * Method to do any sort of initialization prior a call to the
+             * sample function.
+             */
+            virtual void prepare();
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -124,6 +145,10 @@ namespace tomcat {
             void set_num_in_plate_samples(int num_in_plate_samples);
 
             const std::shared_ptr<DynamicBayesNet>& get_model() const;
+
+            virtual void set_min_initialization_time_step(int time_step);
+
+            void set_min_time_step_to_sample(int time_step);
 
             void set_max_time_step_to_sample(int time_step);
 
@@ -156,6 +181,14 @@ namespace tomcat {
             int num_in_plate_samples = -1;
 
             EvidenceSet data;
+
+            // This is used when the sampler is used for estimation
+            // (approximate inference). If the sampler requires
+            // initialization (Gibbs Sampling, for instance) the first time
+            // step to initialize is kept here.
+            int min_initialization_time_step = 0;
+
+            int min_time_step_to_sample = 0;
 
             int max_time_step_to_sample = -1;
 

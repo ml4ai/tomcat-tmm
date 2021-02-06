@@ -9,7 +9,6 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <gsl/gsl_rng.h>
 
-#include "AncestralSampler.h"
 #include "pgm/TimerNode.h"
 #include "utils/Multithreading.h"
 
@@ -24,9 +23,8 @@ namespace tomcat {
         GibbsSampler::GibbsSampler(const shared_ptr<DynamicBayesNet>& model,
                                    int burn_in_period,
                                    int num_jobs)
-            : Sampler(model, num_jobs), burn_in_period(burn_in_period) {
-            this->keep_sample_mutex = make_unique<mutex>();
-        }
+            : Sampler(model, num_jobs), burn_in_period(burn_in_period),
+              keep_sample_mutex(make_unique<mutex>()) {}
 
         GibbsSampler::~GibbsSampler() {}
 
@@ -65,13 +63,12 @@ namespace tomcat {
         GibbsSampler::sample_latent(const shared_ptr<gsl_rng>& random_generator,
                                     int num_samples) {
             this->reset();
-            // Collection of nodes to be processed
-            NodeSet node_set = this->get_node_set();
             vector<shared_ptr<gsl_rng>> random_generators_per_job =
                 split_random_generator(random_generator, this->num_jobs);
             this->fill_initial_samples(random_generator);
-            this->init_samples_storage(num_samples, node_set.sampled_nodes);
-            this->init_timers(node_set.timer_nodes);
+            this->init_samples_storage(num_samples,
+                                       this->node_set.sampled_nodes);
+            this->init_timers(this->node_set.timer_nodes);
 
             //            this->print_nodes(node_set);
 
@@ -89,27 +86,29 @@ namespace tomcat {
 
                 this->sample_nodes_in_parallel(
                     random_generators_per_job,
-                    node_set.even_time_data_nodes_per_job,
+                    this->node_set.even_time_data_nodes_per_job,
                     discard,
                     true);
 
                 this->sample_nodes_in_parallel(
                     random_generators_per_job,
-                    node_set.odd_time_data_nodes_per_job,
+                    this->node_set.odd_time_data_nodes_per_job,
                     discard,
                     true);
 
                 this->sample_single_thread_nodes(
                     random_generators_per_job,
-                    node_set.single_thread_over_time_nodes,
+                    this->node_set.single_thread_over_time_nodes,
                     discard);
 
-                this->update_timer_sufficient_statistics(node_set.timer_nodes);
+                this->update_timer_sufficient_statistics(
+                    this->node_set.timer_nodes);
 
-                this->sample_nodes_in_parallel(random_generators_per_job,
-                                               node_set.parameter_nodes_per_job,
-                                               discard,
-                                               false);
+                this->sample_nodes_in_parallel(
+                    random_generators_per_job,
+                    this->node_set.parameter_nodes_per_job,
+                    discard,
+                    false);
 
                 ++progress;
                 if (!discard) {
@@ -145,18 +144,28 @@ namespace tomcat {
                 shared_ptr<RandomVariableNode> rv_node =
                     dynamic_pointer_cast<RandomVariableNode>(node);
 
-                if (this->max_time_step_to_sample >= 0 &&
-                    rv_node->get_time_step() > this->max_time_step_to_sample) {
+                // We only generate samples for nodes within the time range
+                // set.
+                int t = rv_node->get_time_step();
+                int t_min = this->min_time_step_to_sample;
+                int t_max = this->max_time_step_to_sample >= 0
+                                ? this->max_time_step_to_sample
+                                : this->model->get_time_steps() - 1;
+                if (t < t_min || t > t_max) {
                     continue;
                 }
 
                 if (node->get_metadata()->is_parameter()) {
-                    if (!rv_node->is_frozen() && this->trainable) {
-                        int job = params % this->num_jobs;
-                        params++;
-                        node_set.parameter_nodes_per_job[job].push_back(node);
-                        node_set.sampled_nodes.push_back(node);
+                    // We don't sample parameter nodes that are frozen or if
+                    // the sampler is not trainable
+                    if (rv_node->is_frozen() || !this->trainable) {
+                        continue;
                     }
+
+                    int job = params % this->num_jobs;
+                    params++;
+                    node_set.parameter_nodes_per_job[job].push_back(node);
+                    node_set.sampled_nodes.push_back(node);
                 }
                 else {
                     // We don't check if a data node is frozen to insert it
@@ -228,6 +237,10 @@ namespace tomcat {
             // Observable nodes are already frozen by the Gibbs sampler thus
             // there's no need to add them as data in the ancestral sampler.
             AncestralSampler initial_sampler(this->model);
+            initial_sampler.set_min_time_step_to_sample(
+                this->min_initialization_time_step);
+            initial_sampler.set_max_time_step_to_sample(
+                this->max_time_step_to_sample);
             initial_sampler.set_num_in_plate_samples(
                 this->num_in_plate_samples);
             initial_sampler.sample(random_generator, 1);
@@ -384,13 +397,39 @@ namespace tomcat {
         }
 
         Tensor3 GibbsSampler::get_samples(const string& node_label) const {
+            if (!EXISTS(node_label, this->node_label_to_samples)) {
+                stringstream ss;
+                ss << "The node " << node_label
+                   << " does not belong to the "
+                      "model.";
+                throw invalid_argument(ss.str());
+            }
+
             return this->node_label_to_samples.at(node_label);
+        }
+
+        Tensor3 GibbsSampler::get_samples(const std::string& node_label,
+                                          int low_time_step,
+                                          int high_time_step) const {
+
+            if (!EXISTS(node_label, this->node_label_to_samples)) {
+                stringstream ss;
+                ss << "The node " << node_label
+                   << " does not belong to the "
+                      "model.";
+                throw invalid_argument(ss.str());
+            }
+
+            return this->node_label_to_samples.at(node_label)
+                .slice(low_time_step, high_time_step, 2);
         }
 
         void GibbsSampler::get_info(nlohmann::json& json) const {
             json["name"] = "gibbs";
             json["burn_in"] = this->burn_in_period;
         }
+
+        void GibbsSampler::prepare() { this->node_set = this->get_node_set(); }
 
     } // namespace model
 } // namespace tomcat

@@ -51,8 +51,6 @@ namespace tomcat {
 
         void DynamicBayesNet::expand(int new_time_steps) {
             if (new_time_steps > 0) {
-                this->nodes_per_time_step.resize(this->time_steps +
-                                                 new_time_steps);
                 this->create_vertices_from_nodes(new_time_steps);
                 this->create_edges(new_time_steps);
                 this->set_timers_to_nodes(new_time_steps);
@@ -70,7 +68,6 @@ namespace tomcat {
             this->parameter_nodes_map.clear();
             this->label_to_nodes.clear();
             this->nodes.clear();
-            this->nodes_per_time_step.clear();
         }
 
         void DynamicBayesNet::create_vertices_from_nodes(int new_time_steps) {
@@ -134,7 +131,6 @@ namespace tomcat {
             this->label_to_nodes[data.node->get_metadata()->get_label()]
                 .push_back(data.node);
             this->nodes.push_back(data.node);
-            this->nodes_per_time_step[time_step].push_back(data.node);
             if (data.node->get_metadata()->is_parameter()) {
                 this->parameter_nodes_map[node_name] = data.node;
             }

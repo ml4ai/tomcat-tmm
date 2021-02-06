@@ -20,7 +20,6 @@ namespace tomcat {
 
             // Each data point will be used for estimation at a time.
             this->sampler->set_num_in_plate_samples(1);
-            this->sampler->set_trainable(false);
         }
 
         CompoundSamplerEstimator::~CompoundSamplerEstimator() {}
@@ -74,13 +73,21 @@ namespace tomcat {
         void CompoundSamplerEstimator::estimate(const EvidenceSet& new_data) {
             int time_steps = this->next_time_step + new_data.get_time_steps();
             for (int t = this->next_time_step; t < time_steps; t++) {
-                  this->model->expand(1);
+                this->model->expand(1);
+                if(t > this->next_time_step) {
+                    // Nodes smaller than this->inference_horizon + t were
+                    // already sampled in the previous iteration.
+                    this->sampler->set_min_initialization_time_step(
+                        this->inference_horizon + t);
+                }
+                this->sampler->prepare();
 
                 for (int d = 0; d < new_data.get_num_data_points(); d++) {
                     // Observations for a single data point at the time step
                     // for which we are computing inferences
                     EvidenceSet data = new_data.at(d, t - this->next_time_step);
                     this->add_data_to_nodes(data, t);
+
                     this->sampler->sample(this->random_generator,
                                           this->num_samples);
 

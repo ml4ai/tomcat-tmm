@@ -376,10 +376,6 @@ namespace tomcat {
             // List of concrete timed instances node of the unrolled DBN.
             NodePtrVec nodes;
 
-            // List of concrete timed instances nodes of the unrolled DBN per
-            // time step.
-            std::vector<RVNodePtrVec> nodes_per_time_step;
-
             // Mapping between a timed instance parameter node's label and its
             // node object.
             Node::NodeMap parameter_nodes_map;

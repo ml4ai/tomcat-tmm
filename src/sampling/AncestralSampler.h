@@ -57,10 +57,33 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
+            void set_min_initialization_time_step(int time_step) override;
+
             void set_equal_samples_time_step_limit(
                 int equal_samples_time_step_limit);
 
           private:
+            //------------------------------------------------------------------
+            // Structs
+            //------------------------------------------------------------------
+
+            // Store the nodes that were sampled by the sampler.
+            struct NodeSet {
+                NodePtrVec nodes_to_sample;
+            };
+
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            /**
+             * Gets a collection of nodes split into lists for fast
+             * processing.
+             *
+             * @return Node set
+             */
+            NodeSet get_node_set() const;
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------

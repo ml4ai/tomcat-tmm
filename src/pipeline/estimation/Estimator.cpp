@@ -19,10 +19,11 @@ namespace tomcat {
             : model(model), inference_horizon(inference_horizon),
               compound(false) {
 
-            if (inference_horizon > 0 && assignment.size() == 0) {
-                throw TomcatModelException(
-                    "An assignment must be given for estimations with "
-                    "inference horizon greater than 0.");
+            const auto& metadata = model->get_metadata_of(node_label);
+            if (!metadata->is_replicable() && inference_horizon > 0) {
+                throw TomcatModelException("Inference horizon for "
+                                           "non-replicable nodes can only be "
+                                           "0.");
             }
 
             this->estimates.label = node_label;
