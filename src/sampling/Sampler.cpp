@@ -237,6 +237,10 @@ namespace tomcat {
             return model;
         }
 
+        void Sampler::set_model(const shared_ptr<DynamicBayesNet>& model) {
+            this->model = model;
+        }
+
         void Sampler::set_min_initialization_time_step(int time_step) {
             this->min_initialization_time_step = time_step;
         }

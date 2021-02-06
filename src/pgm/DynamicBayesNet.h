@@ -261,6 +261,19 @@ namespace tomcat {
             std::shared_ptr<NodeMetadata>
             get_metadata_of(const std::string& node_label) const;
 
+            /**
+             * Creates a deep copy of the template nodes and unrolls the DBN
+             * into the same time steps as the original one. Parameter nodes'
+             * assignments are copied. Data nodes' assignments are copied upon
+             * request.
+             *
+             * @param copy_data_node_assignment: indicates whether
+             * assignments from data nodes must be copied too.
+             *
+             * @return a deep copy of this DBN
+             */
+            DynamicBayesNet clone(bool copy_data_node_assignment);
+
             // --------------------------------------------------------
             // Getters & Setters
             // --------------------------------------------------------

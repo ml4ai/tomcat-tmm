@@ -81,7 +81,13 @@ namespace tomcat {
                 make_unique<RandomVariableNode>(*this);
             new_node->metadata = make_shared<NodeMetadata>(*this->metadata);
             new_node->clone_cpd_templates();
-            new_node->clone_cpd();
+            // The following attributes have to be set again according to the
+            // connections of this new copy in a DBN
+            new_node->cpd = nullptr;
+            new_node->parents.clear();
+            new_node->children.clear();
+            new_node->timer = nullptr;
+            new_node->timed_copies = nullptr;
             return new_node;
         }
 

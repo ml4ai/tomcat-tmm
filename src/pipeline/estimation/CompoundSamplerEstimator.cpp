@@ -67,6 +67,9 @@ namespace tomcat {
             this->next_time_step = 0;
             Estimator::cleanup();
             this->unfreeze_observable_nodes();
+//            this->model =
+//                make_shared<DynamicBayesNet>(this->model->clone(false));
+//            this->sampler->set_model(this->model);
             this->model->unroll(this->inference_horizon, true);
         }
 
@@ -74,7 +77,7 @@ namespace tomcat {
             int time_steps = this->next_time_step + new_data.get_time_steps();
             for (int t = this->next_time_step; t < time_steps; t++) {
                 this->model->expand(1);
-                if(t > this->next_time_step) {
+                if (t > this->next_time_step) {
                     // Nodes smaller than this->inference_horizon + t were
                     // already sampled in the previous iteration.
                     this->sampler->set_min_initialization_time_step(

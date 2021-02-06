@@ -113,13 +113,6 @@ namespace tomcat {
             data.node->set_time_step(time_step);
             data.label = data.node->get_timed_name();
 
-            if (data.node->get_metadata()->has_replicable_parameter_parent()) {
-                // If a node has parameter nodes that are replicable, its
-                // replicas do not share the same CPD's and therefore it cannot
-                // use the CPD pointer inherited from its template.
-                data.node->clone_cpd_templates();
-            }
-
             // Save mapping between the vertice id and it's name.
             string node_name = data.node->get_timed_name();
             this->name_to_id[node_name] = vertex_id;
@@ -585,6 +578,40 @@ namespace tomcat {
         shared_ptr<NodeMetadata>
         DynamicBayesNet::get_metadata_of(const std::string& node_label) const {
             return this->label_to_nodes.at(node_label)[0]->get_metadata();
+        }
+
+        DynamicBayesNet DynamicBayesNet::clone(bool copy_data_node_assignment) {
+            DynamicBayesNet new_dbn(this->node_templates.size());
+            new_dbn.node_templates = this->node_templates;
+            new_dbn.unroll(this->time_steps, true);
+
+            if (copy_data_node_assignment) {
+                for (auto& new_node : new_dbn.nodes) {
+                    RVNodePtr rv_new_node =
+                        dynamic_pointer_cast<RandomVariableNode>(new_node);
+                    RVNodePtr original_node =
+                        this->get_node(rv_new_node->get_metadata()->get_label(),
+                                       rv_new_node->get_time_step());
+
+                    rv_new_node->set_assignment(
+                        original_node->get_assignment());
+                }
+            }
+            else {
+                // Copy only assignments from parameter nodes
+                for (auto& [name, new_node] : new_dbn.parameter_nodes_map) {
+                    RVNodePtr rv_new_node =
+                        dynamic_pointer_cast<RandomVariableNode>(new_node);
+                    RVNodePtr original_node =
+                        dynamic_pointer_cast<RandomVariableNode>(
+                            this->parameter_nodes_map.at(name));
+
+                    rv_new_node->set_assignment(
+                        original_node->get_assignment());
+                }
+            }
+
+            return new_dbn;
         }
 
         //----------------------------------------------------------------------

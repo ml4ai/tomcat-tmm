@@ -146,6 +146,8 @@ namespace tomcat {
 
             const std::shared_ptr<DynamicBayesNet>& get_model() const;
 
+            void set_model(const std::shared_ptr<DynamicBayesNet>& model);
+
             virtual void set_min_initialization_time_step(int time_step);
 
             void set_min_time_step_to_sample(int time_step);
