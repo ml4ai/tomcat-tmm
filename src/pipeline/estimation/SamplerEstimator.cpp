@@ -1,6 +1,7 @@
 #include "SamplerEstimator.h"
 
 #include <iostream>
+#include <thread>
 
 #include "utils/EigenExtensions.h"
 
@@ -19,7 +20,8 @@ namespace tomcat {
             const std::string& node_label,
             const Eigen::VectorXd& low,
             const Eigen::VectorXd& high)
-            : Estimator(model, inference_horizon, node_label, low) {
+            : Estimator(model, inference_horizon, node_label, low),
+              update_estimates_mutex(make_unique<mutex>()) {
 
             if (low.size() == 0) {
                 int cardinality = model->get_cardinality_of(node_label);
@@ -74,9 +76,10 @@ namespace tomcat {
 
         string SamplerEstimator::get_name() const { return "sampler"; }
 
-        void SamplerEstimator::estimate(const std::shared_ptr<Sampler>& sampler,
-                                        int data_point_idx,
-                                        int time_step) {
+        vector<double>
+        SamplerEstimator::estimate(const std::shared_ptr<Sampler>& sampler,
+                                   int data_point_idx,
+                                   int time_step) {
 
             // Slicing the matrix directly is more efficient than calling the
             // get_samples with a range here because it will trye to slice a
@@ -115,6 +118,7 @@ namespace tomcat {
                 high = this->estimates.assignment(0);
             }
 
+            vector<double> probabilities_per_class(k);
             for (int i = 0; i < k; i++) {
                 double probability = NO_OBS;
                 if (node_initial_time_step <=
@@ -127,13 +131,35 @@ namespace tomcat {
                         this->get_probability_in_range(samples, low, high);
                 }
 
-                if (this->estimates.estimates[i].rows() < data_point_idx + 1 ||
-                    this->estimates.estimates[i].cols() < time_step + 1) {
-                    this->estimates.estimates[i].conservativeResize(
-                        data_point_idx + 1, time_step + 1);
+                probabilities_per_class[i] = probability;
+            }
+
+            return probabilities_per_class;
+        }
+
+        void SamplerEstimator::set_estimates(
+            const std::vector<Eigen::VectorXd>& probabilities_per_class,
+            int initial_data_idx,
+            int final_data_idx,
+            int time_step) {
+
+            int data_size = final_data_idx - initial_data_idx;
+
+            scoped_lock lock(*this->update_estimates_mutex);
+            for (int k = 0; k < probabilities_per_class.size(); k++) {
+                auto& estimates_matrix = this->estimates.estimates.at(k);
+                int new_rows =
+                    max((int)estimates_matrix.rows(), final_data_idx);
+                int new_cols = max((int)estimates_matrix.cols(), time_step + 1);
+
+                if (estimates_matrix.rows() != new_rows ||
+                    estimates_matrix.cols() != new_cols) {
+                    estimates_matrix.conservativeResize(new_rows, new_cols);
                 }
-                this->estimates.estimates[i](data_point_idx, time_step) =
-                    probability;
+
+                estimates_matrix.block(
+                    initial_data_idx, time_step, data_size, 1) =
+                    probabilities_per_class.at(k);
             }
         }
 

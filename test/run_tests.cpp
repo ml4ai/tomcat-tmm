@@ -731,7 +731,7 @@ BOOST_FIXTURE_TEST_CASE(gs_approx_inference, HMM) {
         make_shared<SamplerEstimator>(pre_trained_model, 0, TC);
 
     shared_ptr<GibbsSampler> gibbs =
-        make_shared<GibbsSampler>(pre_trained_model, 300);
+        make_shared<GibbsSampler>(pre_trained_model, 300, 4);
     gibbs->set_trainable(false);
     CompoundSamplerEstimator sampler_estimator(
         pre_trained_model, gibbs, gen, 5000);

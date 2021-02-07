@@ -124,6 +124,16 @@ namespace tomcat {
             json["name"] = "ancestral";
         }
 
+        unique_ptr<Sampler> AncestralSampler::clone() const {
+            unique_ptr<Sampler> new_sampler =
+                make_unique<AncestralSampler>(this->model, this->num_jobs);
+            // Clone the model and the nodes in it
+            new_sampler->set_model(
+                make_shared<DynamicBayesNet>(this->model->clone(true)));
+
+            return new_sampler;
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------

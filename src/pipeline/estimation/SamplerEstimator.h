@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <vector>
+#include <mutex>
 
 #include "utils/Definitions.h"
 
@@ -93,9 +94,16 @@ namespace tomcat {
              * @param time_step: last time step of observations used while
              * generating the samples
              */
-            void estimate(const std::shared_ptr<Sampler>& sampler,
-                          int data_point_idx,
-                          int time_step);
+            std::vector<double>
+            estimate(const std::shared_ptr<Sampler>& sampler,
+                     int data_point_idx,
+                     int time_step);
+
+            void set_estimates(
+                const std::vector<Eigen::VectorXd>& probabilities_per_class,
+                int initial_data_idx,
+                int final_data_idx,
+                int time_step);
 
           private:
             //------------------------------------------------------------------
@@ -119,8 +127,16 @@ namespace tomcat {
              *
              * @return frequency of samples in the range
              */
-            double get_probability_in_range(
-                const Eigen::MatrixXd& samples, double low, double high) const;
+            double get_probability_in_range(const Eigen::MatrixXd& samples,
+                                            double low,
+                                            double high) const;
+
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+
+            // Mutex to make the computation of estimates thread safe.
+            std::unique_ptr<std::mutex> update_estimates_mutex;
         };
 
     } // namespace model

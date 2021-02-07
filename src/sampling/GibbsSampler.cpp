@@ -429,6 +429,16 @@ namespace tomcat {
             json["burn_in"] = this->burn_in_period;
         }
 
+        unique_ptr<Sampler> GibbsSampler::clone() const {
+            unique_ptr<Sampler> new_sampler = make_unique<GibbsSampler>(
+                this->model, this->burn_in_period, this->num_jobs);
+            // Clone the model and the nodes in it
+            new_sampler->set_model(
+                make_shared<DynamicBayesNet>(this->model->clone(true)));
+
+            return new_sampler;
+        }
+
         void GibbsSampler::prepare() { this->node_set = this->get_node_set(); }
 
     } // namespace model

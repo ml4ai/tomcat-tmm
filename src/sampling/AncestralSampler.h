@@ -54,6 +54,8 @@ namespace tomcat {
 
             void get_info(nlohmann::json& json) const override;
 
+            std::unique_ptr<Sampler> clone() const override;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------

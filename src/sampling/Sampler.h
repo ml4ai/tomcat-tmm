@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_set>
+#include <memory>
 
 #include <nlohmann/json.hpp>
 
@@ -138,6 +139,13 @@ namespace tomcat {
              * @param json: json object
              */
             virtual void get_info(nlohmann::json& json) const = 0;
+
+            /**
+             * Creates a deep copy of the sampler.
+             *
+             * @return Pointer to the new sampler created.
+             */
+            virtual std::unique_ptr<Sampler> clone() const = 0;
 
             // -----------------------------------------------------------------
             // Getters & Setters

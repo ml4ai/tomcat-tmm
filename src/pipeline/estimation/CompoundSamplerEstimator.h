@@ -3,6 +3,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
 
 #include "utils/Definitions.h"
 
@@ -38,12 +39,14 @@ namespace tomcat {
              * @param random_generator: random number generator
              * @param num_samples: number of samples to generate to
              * approximate the estimated distributions
+             * @param num_jobs: number of threads to split computation into
              */
             CompoundSamplerEstimator(
                 const std::shared_ptr<DynamicBayesNet>& model,
                 const std::shared_ptr<Sampler>& sampler,
                 const std::shared_ptr<gsl_rng>& random_generator,
-                int num_samples);
+                int num_samples,
+                int num_jobs = 1);
 
             ~CompoundSamplerEstimator();
 
@@ -72,11 +75,6 @@ namespace tomcat {
             std::string get_name() const override;
 
             /**
-             * Clear estimates and unfreeze observable nodes.
-             */
-            void cleanup() override;
-
-            /**
              * Adds a concrete estimator to this compound estimator.
              *
              * @param estimator: concrete estimator
@@ -97,34 +95,39 @@ namespace tomcat {
             void copy(const CompoundSamplerEstimator& estimator);
 
             /**
-             * Unfreeze nodes that were frozen they had data.
-             */
-            void unfreeze_observable_nodes();
-
-            /**
              * Adds a new data collection to the nodes from a model.
              *
+             * @param model: model to add the data to
              * @param new_data: new data
              * @param time_step: data's column (time step) to use
              */
-            void add_data_to_nodes(const EvidenceSet& new_data, int time_step);
+            void
+            add_data_to_nodes(const std::shared_ptr<DynamicBayesNet>& model,
+                              const EvidenceSet& new_data,
+                              int time_step);
+
+            void run_estimation_thread(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::shared_ptr<Sampler>& sampler,
+                const EvidenceSet& new_data,
+                int time_step,
+                int initial_data_idx,
+                int final_data_idx);
 
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
 
-            std::shared_ptr<gsl_rng> random_generator;
+            std::vector<std::shared_ptr<gsl_rng>> random_generator_per_job;
+
+            std::vector<std::shared_ptr<Sampler>> sampler_per_job;
 
             int num_samples;
 
             // Next time step to generate samples to.
             int next_time_step = 0;
 
-            std::shared_ptr<Sampler> sampler;
-
             std::vector<std::shared_ptr<SamplerEstimator>> estimators;
-
-            std::unordered_map<std::string, RVNodePtr> nodes_to_unfreeze;
         };
 
     } // namespace model
