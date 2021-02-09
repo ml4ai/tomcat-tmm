@@ -255,14 +255,17 @@ namespace tomcat {
              * now has duration 5.
              *
              *
-             * @param last_timer: last timer of the left segment
+             * @param left_segment_last_timer: last timer of the left segment
+             * @param right_segment_state: first state of the right segment
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the left segment of a time
              * controlled node.
              */
             Eigen::MatrixXd get_left_segment_posterior_weights(
-                const std::shared_ptr<const TimerNode>& last_timer,
+                const std::shared_ptr<const TimerNode>& left_segment_last_timer,
+                const std::shared_ptr<const RandomVariableNode>&
+                    right_segment_state,
                 int num_jobs) const;
 
             /**
@@ -275,15 +278,21 @@ namespace tomcat {
              * method computes p(left segment | central and right segments) for
              * a given row in the timer's assignment
              *
-             * @param first_timer: first timer of the left segment for a
-             * @param left_segment_duration: duration of the left segment
+             * @param left_segment_first_timer: first timer of the left segment
+             * for a
+             * @param right_segment_state: first state of the right segment
+             * @param left_segment_duration: duration of the left segment for
+             * a specific sample
              * @param sample_idx: row in the node's assignment to consider
              * specific assignment row (sample_idx)
              *
              * @return  p(left_segment_duration|node, right_segment)
              */
-            Eigen::VectorXd get_left_segment_posterior_weights(
-                const std::shared_ptr<const TimerNode>& first_timer,
+            Eigen::VectorXd get_single_left_segment_posterior_weights(
+                const std::shared_ptr<const TimerNode>&
+                    left_segment_first_timer,
+                const std::shared_ptr<const RandomVariableNode>&
+                    right_segment_state,
                 int left_segment_duration,
                 int sample_idx) const;
 
@@ -293,14 +302,20 @@ namespace tomcat {
              * where values from the left segment are different of the value
              * in the central segment.
              *
-             * @param timer: timer in the central segment
+             * @param left_segment_state: last state of the left segment
+             * @param central_segment_timer: timer in the central segment
+             * @param right_segment_state: first state of the right segment
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the central segment of a time
              * controlled node.
              */
             Eigen::MatrixXd get_central_segment_posterior_weights(
-                const std::shared_ptr<const TimerNode>& last_timer,
+                const std::shared_ptr<const RandomVariableNode>&
+                    left_segment_state,
+                const std::shared_ptr<const TimerNode>& central_segment_timer,
+                const std::shared_ptr<const RandomVariableNode>&
+                    right_segment_state,
                 int num_jobs) const;
 
             /**
@@ -309,14 +324,16 @@ namespace tomcat {
              * where values from the left and central segments are different of
              * the values in the right segment.
              *
-             * @param first_timer: first timer of the right segment
+             * @param right_segment_first_timer: first timer of the right
+             * segment
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the right segment of a time
              * controlled node.
              */
             Eigen::MatrixXd get_right_segment_posterior_weights(
-                const std::shared_ptr<const TimerNode>& first_timer,
+                const std::shared_ptr<const TimerNode>&
+                    right_segment_first_timer,
                 int num_jobs) const;
 
             //------------------------------------------------------------------
@@ -544,7 +561,8 @@ namespace tomcat {
              * Computes a portion of the posterior weights for the left
              * segment of a given timer in a single thread.
              *
-             * @param last_timer: last timer of the left segment
+             * @param left_segment_last_timer: last timer of the left segment
+             * @param right_segment_state: first state of the right segment
              * @param processing_block: initial row and number of rows from
              * the node's assignment to consider for computation
              * @param full_weights: matrix containing the full weights. A
@@ -553,7 +571,9 @@ namespace tomcat {
              * when this method writes to it
              */
             void run_left_segment_posterior_weights_thread(
-                const std::shared_ptr<const TimerNode>& last_timer,
+                const std::shared_ptr<const TimerNode>& left_segment_last_timer,
+                const std::shared_ptr<const RandomVariableNode>&
+                    right_segment_state,
                 const std::pair<int, int>& processing_block,
                 Eigen::MatrixXd& full_weights,
                 std::mutex& weights_mutex) const;
@@ -562,7 +582,9 @@ namespace tomcat {
              * Computes a portion of the posterior weights for the central
              * segment of a given timer.
              *
-             * @param timer: timer of the central segment
+             * @param left_segment_state: last state of the left segment
+             * @param central_segment_timer: timer of the central segment
+             * @param right_segment_state: first state of the right segment
              * @param distribution_indices: indices of the distributions
              * indexed by the parents of the cpd owner
              * @param cardinality: cardinality of the node to which posterior
@@ -575,7 +597,11 @@ namespace tomcat {
              * (if > 1, the computation is performed in multiple threads)
              */
             Eigen::MatrixXd compute_central_segment_posterior_weights(
-                const std::shared_ptr<const TimerNode>& timer,
+                const std::shared_ptr<const RandomVariableNode>&
+                    left_segment_state,
+                const std::shared_ptr<const TimerNode>& central_segment_timer,
+                const std::shared_ptr<const RandomVariableNode>&
+                    right_segment_state,
                 const Eigen::VectorXi& distribution_indices,
                 int cardinality,
                 int distribution_index_offset,
@@ -658,6 +684,21 @@ namespace tomcat {
                 Eigen::MatrixXd& full_samples,
                 std::mutex& samples_mutex) const;
 
+            /**
+             * Samples values from a node's posterior in a single thread.
+             *
+             * @param cpd_owner: node that owns this CPD
+             * @param posterior_weights: posterior weights for the node being
+             * sampled
+             * @param distribution_indices: indices of the distributions from
+             * this CPD to be used
+             * @param random_generator: random number generator
+             * @param processing_block: block of data to process in this thread
+             * @param full_samples: matrix of samples to be updated by the
+             * samples generated in this function
+             * @param samples_mutex: mutex to control writing in the
+             * full_samples matrix
+             */
             void run_samples_from_posterior_thread(
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
                 const Eigen::MatrixXd& posterior_weights,

@@ -70,6 +70,9 @@ namespace tomcat {
 
             std::unique_ptr<Sampler> clone() const override;
 
+            std::unordered_set<std::string>
+            get_sampled_node_labels() const override;
+
             void prepare() override;
 
           protected:
@@ -268,7 +271,7 @@ namespace tomcat {
             // store samples at the same time.
             std::unique_ptr<std::mutex> keep_sample_mutex;
 
-            void print_nodes(const NodeSet& node_set) const;
+            void print_nodes() const;
 
             // Selection of nodes used by the sampler. We store this
             // information to avoid computing this list every time tha sample

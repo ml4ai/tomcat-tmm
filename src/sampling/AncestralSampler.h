@@ -56,6 +56,9 @@ namespace tomcat {
 
             std::unique_ptr<Sampler> clone() const override;
 
+            std::unordered_set<std::string>
+            get_sampled_node_labels() const override;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------

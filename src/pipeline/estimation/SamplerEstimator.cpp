@@ -81,27 +81,21 @@ namespace tomcat {
                                    int data_point_idx,
                                    int time_step) {
 
-            // Slicing the matrix directly is more efficient than calling the
-            // get_samples with a range here because it will trye to slice a
-            // tensor, but we know that in this scenario this tensor has
-            // an unitary first dimension since the nodes being estimated are
-            // data nodes and not parameter ones.
-            Eigen::MatrixXd samples =
-                sampler->get_samples(this->estimates.label)(0, 0);
             const auto& node_metadata =
                 this->model->get_metadata_of(this->estimates.label);
             int node_initial_time_step = node_metadata->get_initial_time_step();
-            if (node_metadata->is_replicable()) {
-                int initial_col =
-                    this->inference_horizon == 0 ? time_step : time_step + 1;
-                int num_cols =
-                    this->inference_horizon == 0 ? 1 : this->inference_horizon;
-                samples =
-                    samples.block(0, initial_col, samples.rows(), num_cols);
+            Eigen::MatrixXd samples(0, 0);
+            if (this->inference_horizon > 0) {
+                samples = sampler->get_samples(this->estimates.label)(0, 0);
+                samples = samples.block(
+                    0, time_step + 1, samples.rows(), this->inference_horizon);
             }
             else {
-                samples =
-                    samples.block(0, node_initial_time_step, samples.rows(), 1);
+                if (time_step >= node_initial_time_step) {
+                    samples =
+                        sampler->get_samples(this->estimates.label)(0, 0).col(
+                            node_initial_time_step);
+                }
             }
 
             int k = 1;
@@ -119,19 +113,20 @@ namespace tomcat {
             }
 
             vector<double> probabilities_per_class(k);
-            for (int i = 0; i < k; i++) {
-                double probability = NO_OBS;
-                if (node_initial_time_step <=
-                    time_step + this->inference_horizon) {
+            if (samples.size() == 0) {
+                fill_n(probabilities_per_class.begin(), k, NO_OBS);
+            }
+            else {
+                for (int i = 0; i < k; i++) {
                     if (k > 1) {
                         low = i;
                         high = i;
                     }
-                    probability =
-                        this->get_probability_in_range(samples, low, high);
-                }
 
-                probabilities_per_class[i] = probability;
+                    double probability =
+                        this->get_probability_in_range(samples, low, high);
+                    probabilities_per_class[i] = probability;
+                }
             }
 
             return probabilities_per_class;
@@ -140,16 +135,14 @@ namespace tomcat {
         void SamplerEstimator::set_estimates(
             const std::vector<Eigen::VectorXd>& probabilities_per_class,
             int initial_data_idx,
-            int final_data_idx,
+            int data_size,
             int time_step) {
-
-            int data_size = final_data_idx - initial_data_idx;
 
             scoped_lock lock(*this->update_estimates_mutex);
             for (int k = 0; k < probabilities_per_class.size(); k++) {
                 auto& estimates_matrix = this->estimates.estimates.at(k);
-                int new_rows =
-                    max((int)estimates_matrix.rows(), final_data_idx);
+                int new_rows = max((int)estimates_matrix.rows(),
+                                   initial_data_idx + data_size);
                 int new_cols = max((int)estimates_matrix.cols(), time_step + 1);
 
                 if (estimates_matrix.rows() != new_rows ||

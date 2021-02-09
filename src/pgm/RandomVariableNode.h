@@ -126,10 +126,13 @@ namespace tomcat {
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
              * performed in the main thread
+             * @param max_time_step_to_sample: ignore children from time step
+             * larger than this value
              *
              * @return Posterior weights
              */
-            Eigen::MatrixXd get_posterior_weights(int num_jobs);
+            Eigen::MatrixXd get_posterior_weights(int num_jobs,
+                                                  int max_time_step_to_sample);
 
             /**
              * Samples a node using conjugacy properties and sufficient
@@ -253,16 +256,19 @@ namespace tomcat {
              *
              * @param random_generator_per_job: random number generator per
              * thread
-             * @param num_jobs: number of threads to perform vertical
-             * parallelization (split the computation over the
-             * observations/data points provided). If 1, the computations are
-             * performed in the main thread
+             * @param max_time_step_to_sample: max time step to consider when
+             * computing the posterior distribution to sample from. The DBN
+             * might have more time steps but we want to ignore time steps
+             * larger than the max_time_step_to_sample. This means that
+             * children or timers in a time step bigger than this attribute
+             * won't be considered in the computation.
              *
              * @return Sample for the node from its posterior
              */
             virtual Eigen::MatrixXd
             sample_from_posterior(const std::vector<std::shared_ptr<gsl_rng>>&
-                                      random_generator_per_job);
+                                      random_generator_per_job,
+                                  int max_time_step_to_sample);
 
             // -----------------------------------------------------------------
             // Getters & Setters
@@ -403,11 +409,15 @@ namespace tomcat {
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
              * performed in the main thread
+             * @param max_time_step_to_sample: clamp the right segment to
+             * this value
              *
              * @return Posterior weights for the left, central and right
              * segments combined
              */
-            Eigen::MatrixXd get_segments_log_posterior_weights(int num_jobs);
+            Eigen::MatrixXd
+            get_segments_log_posterior_weights(int num_jobs,
+                                               int max_time_step_to_sample);
         };
 
     } // namespace model

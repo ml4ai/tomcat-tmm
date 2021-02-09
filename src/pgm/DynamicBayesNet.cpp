@@ -582,7 +582,9 @@ namespace tomcat {
 
         DynamicBayesNet DynamicBayesNet::clone(bool copy_data_node_assignment) {
             DynamicBayesNet new_dbn(this->node_templates.size());
-            new_dbn.node_templates = this->node_templates;
+            for(const auto& node_template : this->node_templates) {
+                new_dbn.add_node_template(node_template);
+            }
             new_dbn.unroll(this->time_steps, true);
 
             if (copy_data_node_assignment) {

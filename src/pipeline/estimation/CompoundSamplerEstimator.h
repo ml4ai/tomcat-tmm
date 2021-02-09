@@ -10,6 +10,7 @@
 #include "pipeline/estimation/Estimator.h"
 #include "pipeline/estimation/SamplerEstimator.h"
 #include "sampling/Sampler.h"
+#include "sampling/AncestralSampler.h"
 
 namespace tomcat {
     namespace model {
@@ -95,6 +96,27 @@ namespace tomcat {
             void copy(const CompoundSamplerEstimator& estimator);
 
             /**
+             * Compute estimates for a block of data points in a single thread.
+             *
+             * @param random_generator: random number generator unique to the
+             * thread
+             * @param sampler: sampler unique to the thread
+             * @param new_data: observations
+             * @param time_step: time step for the inference
+             * @param initial_data_idx: index of the first data point from
+             * observation to be used in the estimates computed by this thread
+             * @param data_size: number of data points estimates are being
+             * computed for in the thread
+             */
+            void run_estimation_thread(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const std::shared_ptr<Sampler>& sampler,
+                const EvidenceSet& new_data,
+                int time_step,
+                int initial_data_idx,
+                int data_size);
+
+            /**
              * Adds a new data collection to the nodes from a model.
              *
              * @param model: model to add the data to
@@ -105,14 +127,6 @@ namespace tomcat {
             add_data_to_nodes(const std::shared_ptr<DynamicBayesNet>& model,
                               const EvidenceSet& new_data,
                               int time_step);
-
-            void run_estimation_thread(
-                const std::shared_ptr<gsl_rng>& random_generator,
-                const std::shared_ptr<Sampler>& sampler,
-                const EvidenceSet& new_data,
-                int time_step,
-                int initial_data_idx,
-                int final_data_idx);
 
             //------------------------------------------------------------------
             // Data members

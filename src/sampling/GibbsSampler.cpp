@@ -51,8 +51,38 @@ namespace tomcat {
             this->keep_sample_mutex = make_unique<mutex>();
         }
 
-        void GibbsSampler::print_nodes(const NodeSet& node_set) const {
-            for (const auto& node : node_set.sampled_nodes) {
+        void GibbsSampler::print_nodes() const {
+            //            Eigen::MatrixXd back_timers(3, 10);
+            //            Eigen::MatrixXd for_timers(3, 10);
+            //            Eigen::MatrixXd states(3, 10);
+            //            for (int i = 0; i < 10; i++) {
+            //                back_timers.col(i) =
+            //                    this->model->get_node("Timer",
+            //                    i)->get_assignment().col(0);
+            //                for_timers.col(i) =
+            //                dynamic_pointer_cast<TimerNode>(
+            //                                        this->model->get_node("Timer",
+            //                                        i))
+            //                                        ->get_forward_assignment()
+            //                                        .col(0);
+            //                states.col(i) =
+            //                    this->model->get_node("State",
+            //                    i)->get_assignment().col(0);
+            //            }
+            //
+            //            cout << "STATES" << endl;
+            //            cout << "-----------------" << endl;
+            //            cout << states << endl << endl;
+            //
+            //            cout << "F-TIMERS" << endl;
+            //            cout << "-----------------" << endl;
+            //            cout << for_timers << endl << endl;
+            //
+            //            cout << "B-TIMERS" << endl;
+            //            cout << "-----------------" << endl;
+            //            cout << back_timers << endl << endl;
+
+            for (const auto& node : this->node_set.sampled_nodes) {
                 cout << node->get_timed_name() << endl;
                 cout << "-----------------" << endl;
                 cout << node->get_assignment() << endl << endl;
@@ -69,8 +99,6 @@ namespace tomcat {
             this->init_samples_storage(num_samples,
                                        this->node_set.sampled_nodes);
             this->init_timers(this->node_set.timer_nodes);
-
-            //            this->print_nodes(node_set);
 
             bool discard = true;
             LOG("Burn-in");
@@ -151,7 +179,14 @@ namespace tomcat {
                 int t_max = this->max_time_step_to_sample >= 0
                                 ? this->max_time_step_to_sample
                                 : this->model->get_time_steps() - 1;
-                if (t < t_min || t > t_max) {
+                //                if (t < t_min || t > t_max) {
+                //                    continue;
+                //                }
+                if (t < t_min) {
+                    continue;
+                }
+
+                if (!this->sample_after_max_time_step && t > t_max) {
                     continue;
                 }
 
@@ -190,7 +225,10 @@ namespace tomcat {
                         const auto& rv_node =
                             dynamic_pointer_cast<RandomVariableNode>(node);
                         if (multiple_connections_over_time ||
-                            rv_node->has_timer()) {
+                            rv_node->has_timer() || t > t_max) {
+                            // The nodes after t_max must be sampled from
+                            // their priors, and therefore, they have to be
+                            // sampled sequentially.
                             node_set.single_thread_over_time_nodes.push_back(
                                 node);
                         }
@@ -225,10 +263,6 @@ namespace tomcat {
             // the counters.
             for (auto& timer_node : timer_nodes) {
                 this->sample_from_posterior({nullptr}, timer_node, true, false);
-            }
-            for (auto& node : boost::adaptors::reverse(timer_nodes)) {
-                dynamic_pointer_cast<TimerNode>(node)
-                    ->update_backward_assignment();
             }
         }
 
@@ -321,10 +355,29 @@ namespace tomcat {
                 dynamic_pointer_cast<RandomVariableNode>(node);
 
             if (!rv_node->is_frozen()) {
-                Eigen::MatrixXd sample =
-                    rv_node->sample_from_posterior(random_generator_per_job);
+                // We need to pass the max time step to sample so the rv node
+                // ignores the children at a future time step when computing
+                // the posterior weights for the node.
+                int max_time_step = this->max_time_step_to_sample >= 0
+                                        ? this->max_time_step_to_sample
+                                        : this->model->get_time_steps() - 1;
+                Eigen::MatrixXd sample(0, 0);
+                if (rv_node->get_time_step() > max_time_step) {
+                    sample = rv_node->sample(random_generator_per_job,
+                                             this->num_in_plate_samples);
+                }
+                else {
+                    sample = rv_node->sample_from_posterior(
+                        random_generator_per_job, max_time_step);
+                }
 
-                rv_node->set_assignment(sample);
+                if (rv_node->get_metadata()->is_timer()) {
+                    dynamic_pointer_cast<TimerNode>(rv_node)
+                        ->set_forward_assignment(sample);
+                }
+                else {
+                    rv_node->set_assignment(sample);
+                }
                 if (!discard) {
                     this->keep_sample(rv_node, sample);
                 }
@@ -392,7 +445,10 @@ namespace tomcat {
 
                 const auto& reverse_timer = dynamic_pointer_cast<TimerNode>(
                     timer_nodes.at(timer_nodes.size() - j - 1));
-                reverse_timer->update_backward_assignment();
+                int max_time_step = this->max_time_step_to_sample >= 0
+                                        ? this->max_time_step_to_sample
+                                        : this->model->get_time_steps();
+                reverse_timer->update_backward_assignment(max_time_step);
             }
         }
 
@@ -437,6 +493,17 @@ namespace tomcat {
                 make_shared<DynamicBayesNet>(this->model->clone(true)));
 
             return new_sampler;
+        }
+
+        unordered_set<string> GibbsSampler::get_sampled_node_labels() const {
+            unordered_set<string> labels;
+            labels.reserve(this->node_label_to_samples.size());
+
+            for (auto key_value : this->node_label_to_samples) {
+                labels.insert(key_value.first);
+            }
+
+            return labels;
         }
 
         void GibbsSampler::prepare() { this->node_set = this->get_node_set(); }

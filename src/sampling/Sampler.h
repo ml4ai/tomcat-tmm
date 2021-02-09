@@ -1,7 +1,7 @@
 #pragma once
 
-#include <unordered_set>
 #include <memory>
+#include <unordered_set>
 
 #include <nlohmann/json.hpp>
 
@@ -147,6 +147,14 @@ namespace tomcat {
              */
             virtual std::unique_ptr<Sampler> clone() const = 0;
 
+            /**
+             * Return labels of all the nodes sampled.
+             *
+             * @return Labels of sampled nodes.
+             */
+            virtual std::unordered_set<std::string>
+            get_sampled_node_labels() const = 0;
+
             // -----------------------------------------------------------------
             // Getters & Setters
             // -----------------------------------------------------------------
@@ -163,6 +171,11 @@ namespace tomcat {
             void set_max_time_step_to_sample(int time_step);
 
             void set_trainable(bool trainable);
+
+            int get_num_jobs() const;
+
+            void
+            set_sample_after_max_time_step(bool sample_after_max_time_step);
 
           protected:
             //------------------------------------------------------------------
@@ -201,6 +214,12 @@ namespace tomcat {
             int min_time_step_to_sample = 0;
 
             int max_time_step_to_sample = -1;
+
+            // If this attribute is true, nodes that show up in the unrolled
+            // DBN after the max_time_step_to_sample will be sampled from
+            // their priors (using ancestral sampling). This is used when we
+            // use approximate inference to predict future assignments.
+            bool sample_after_max_time_step = false;
 
             // Number of threads created for parallel sampling.
             int num_jobs = 1;

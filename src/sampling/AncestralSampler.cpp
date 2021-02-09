@@ -134,6 +134,16 @@ namespace tomcat {
             return new_sampler;
         }
 
+        unordered_set<string> AncestralSampler::get_sampled_node_labels() const {
+            unordered_set<string> labels;
+
+            for (auto node : this->get_node_set().nodes_to_sample) {
+                labels.insert(node->get_metadata()->get_label());
+            }
+
+            return labels;
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
