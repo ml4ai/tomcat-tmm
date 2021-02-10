@@ -119,12 +119,14 @@ namespace tomcat {
         Eigen::VectorXd TimerNode::get_left_segment_posterior_weights(
             const shared_ptr<const RandomVariableNode>& right_segment_state,
             int left_segment_duration,
+            int last_time_step,
             int sample_idx) const {
 
             return this->get_cpd()->get_single_left_segment_posterior_weights(
                 dynamic_pointer_cast<const TimerNode>(shared_from_this()),
                 right_segment_state,
                 left_segment_duration,
+                last_time_step,
                 sample_idx);
         }
 

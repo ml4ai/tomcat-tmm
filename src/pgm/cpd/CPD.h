@@ -257,6 +257,8 @@ namespace tomcat {
              *
              * @param left_segment_last_timer: last timer of the left segment
              * @param right_segment_state: first state of the right segment
+             * @param last_time_step: time step of the last timer being
+             * sampled in the unrolled DBN
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the left segment of a time
@@ -266,6 +268,7 @@ namespace tomcat {
                 const std::shared_ptr<const TimerNode>& left_segment_last_timer,
                 const std::shared_ptr<const RandomVariableNode>&
                     right_segment_state,
+                int last_time_step,
                 int num_jobs) const;
 
             /**
@@ -294,6 +297,7 @@ namespace tomcat {
                 const std::shared_ptr<const RandomVariableNode>&
                     right_segment_state,
                 int left_segment_duration,
+                int last_time_step,
                 int sample_idx) const;
 
             /**
@@ -305,6 +309,8 @@ namespace tomcat {
              * @param left_segment_state: last state of the left segment
              * @param central_segment_timer: timer in the central segment
              * @param right_segment_state: first state of the right segment
+             * @param last_time_step: time step of the last timer being
+             * sampled in the unrolled DBN
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the central segment of a time
@@ -316,6 +322,7 @@ namespace tomcat {
                 const std::shared_ptr<const TimerNode>& central_segment_timer,
                 const std::shared_ptr<const RandomVariableNode>&
                     right_segment_state,
+                int last_time_step,
                 int num_jobs) const;
 
             /**
@@ -326,6 +333,8 @@ namespace tomcat {
              *
              * @param right_segment_first_timer: first timer of the right
              * segment
+             * @param last_time_step: time step of the last timer being
+             * sampled in the unrolled DBN
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the right segment of a time
@@ -334,6 +343,7 @@ namespace tomcat {
             Eigen::MatrixXd get_right_segment_posterior_weights(
                 const std::shared_ptr<const TimerNode>&
                     right_segment_first_timer,
+                int last_time_step,
                 int num_jobs) const;
 
             //------------------------------------------------------------------
@@ -574,6 +584,7 @@ namespace tomcat {
                 const std::shared_ptr<const TimerNode>& left_segment_last_timer,
                 const std::shared_ptr<const RandomVariableNode>&
                     right_segment_state,
+                int last_time_step,
                 const std::pair<int, int>& processing_block,
                 Eigen::MatrixXd& full_weights,
                 std::mutex& weights_mutex) const;
@@ -602,6 +613,7 @@ namespace tomcat {
                 const std::shared_ptr<const TimerNode>& central_segment_timer,
                 const std::shared_ptr<const RandomVariableNode>&
                     right_segment_state,
+                int last_time_step,
                 const Eigen::VectorXi& distribution_indices,
                 int cardinality,
                 int distribution_index_offset,
@@ -632,6 +644,8 @@ namespace tomcat {
                 const Eigen::VectorXi& left_segment_values,
                 const Eigen::VectorXi& right_segment_values,
                 const Eigen::VectorXi& right_segment_durations,
+                int central_segment_time_step,
+                int last_time_step,
                 const Eigen::VectorXi& distribution_indices,
                 int distribution_index_offset,
                 const std::pair<int, int>& processing_block,
@@ -656,6 +670,8 @@ namespace tomcat {
             void run_right_segment_posterior_weights_thread(
                 const Eigen::VectorXi& right_segment_values,
                 const Eigen::VectorXi& right_segment_durations,
+                int right_segment_first_time_step,
+                int last_time_step,
                 const Eigen::VectorXi& distribution_indices,
                 const std::pair<int, int>& processing_block,
                 Eigen::MatrixXd& full_weights,

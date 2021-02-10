@@ -696,7 +696,7 @@ BOOST_FIXTURE_TEST_CASE(sum_product, HMM) {
     BOOST_TEST(check.first, check.second);
 }
 
-BOOST_FIXTURE_TEST_CASE(gs_approx_inference, HMM) {
+BOOST_FIXTURE_TEST_CASE(gs_ai_hmm, HMM) {
     /**
      * This test case checks if the Gibbs sampling procedure can approximate
      * correctly the marginal probabilities over time of the nodes Green and
@@ -781,14 +781,85 @@ BOOST_FIXTURE_TEST_CASE(gs_approx_inference, HMM) {
     check = check_matrix_eq(yellow_estimates_h3, expected_yellow_h3, tolerance);
     BOOST_TEST(check.first, check.second);
 
-        MatrixXd expected_tc(3, 4);
-        expected_tc << -1, 0.500324, 0.506335, 0.504282, -1, 0.294363, 0.286289,
-            0.291487, -1, 0.205313, 0.207376, 0.204232;
+    MatrixXd expected_tc(3, 4);
+    expected_tc << -1, 0.500324, 0.506335, 0.504282, -1, 0.294363, 0.286289,
+        0.291487, -1, 0.205313, 0.207376, 0.204232;
     check = check_matrix_eq(tc_estimates[0], expected_tc.row(0), tolerance);
     BOOST_TEST(check.first, check.second);
     check = check_matrix_eq(tc_estimates[1], expected_tc.row(1), tolerance);
     BOOST_TEST(check.first, check.second);
     check = check_matrix_eq(tc_estimates[2], expected_tc.row(2), tolerance);
+    BOOST_TEST(check.first, check.second);
+}
+
+BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
+    /**
+     * This test case checks if the Gibbs sampling procedure can approximate
+     * correctly the marginal probabilities over time of the node Green
+     * in a hidden semi-Markov model.
+     */
+
+    DBNPtr deterministic_model = create_model(true, false);
+    deterministic_model->unroll(4, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // One sample from the deterministic model will be used for estimation.
+    AncestralSampler sampler(deterministic_model);
+    sampler.sample(gen, 1);
+
+    DBNPtr pre_trained_model = create_model(false, false);
+    pre_trained_model->unroll(4, true);
+
+    shared_ptr<SamplerEstimator> state_estimator_h1 =
+        make_shared<SamplerEstimator>(pre_trained_model, 1, STATE);
+    shared_ptr<SamplerEstimator> green_estimator_h1 =
+        make_shared<SamplerEstimator>(
+            pre_trained_model, 1, GREEN, VectorXd::Constant(1, 1));
+    shared_ptr<SamplerEstimator> green_estimator_h3 =
+        make_shared<SamplerEstimator>(
+            pre_trained_model, 3, GREEN, VectorXd::Constant(1, 1));
+
+    shared_ptr<GibbsSampler> gibbs =
+        make_shared<GibbsSampler>(pre_trained_model, 1000, 4);
+    gibbs->set_trainable(false);
+    CompoundSamplerEstimator sampler_estimator(
+        pre_trained_model, gibbs, gen, 5000);
+    sampler_estimator.add_estimator(state_estimator_h1);
+    sampler_estimator.add_estimator(green_estimator_h1);
+//    sampler_estimator.add_estimator(green_estimator_h3);
+
+    // Green node is observed
+    EvidenceSet data;
+    data.add_data(GREEN, sampler.get_samples(GREEN));
+
+    cout << data[GREEN](0, 0) << endl;
+
+    sampler_estimator.prepare();
+    sampler_estimator.estimate(data);
+
+    vector<MatrixXd> state_estimates =
+        state_estimator_h1->get_estimates().estimates;
+
+    cout << state_estimates[0] << endl;
+    cout << state_estimates[1] << endl;
+    cout << state_estimates[2] << endl;
+
+    MatrixXd green_estimates_h1 =
+        green_estimator_h1->get_estimates().estimates[0];
+    MatrixXd green_estimates_h3 =
+        green_estimator_h3->get_estimates().estimates[0];
+
+    double tolerance = 0.02;
+
+    MatrixXd expected_green_h1(1, 4);
+    expected_green_h1 << 0.56788, 0.56589, 0.566867, 0.565993;
+    auto check =
+        check_matrix_eq(green_estimates_h1, expected_green_h1, tolerance);
+    BOOST_TEST(check.first, check.second);
+
+    MatrixXd expected_green_h3(1, 4);
+    expected_green_h3 << 0.91875, 0.918454, 0.918545, 0.918483;
+    check = check_matrix_eq(green_estimates_h3, expected_green_h3, tolerance);
     BOOST_TEST(check.first, check.second);
 }
 

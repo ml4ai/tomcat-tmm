@@ -103,6 +103,7 @@ namespace tomcat {
                 const std::shared_ptr<const RandomVariableNode>&
                     right_segment_state,
                 int left_segment_duration,
+                int last_time_step,
                 int sample_idx) const;
 
             /**

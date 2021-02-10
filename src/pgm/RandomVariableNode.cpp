@@ -138,7 +138,7 @@ namespace tomcat {
                     random_generator_per_job.at(0), this->get_size());
             }
             else {
-                int num_jobs = random_generator_per_job.size();
+                int num_jobs = 1; // random_generator_per_job.size();
                 Eigen::MatrixXd weights = this->get_posterior_weights(
                     num_jobs, max_time_step_to_sample);
                 sample = this->cpd->sample_from_posterior(
@@ -226,20 +226,31 @@ namespace tomcat {
             const auto& right_first_timer =
                 right_state ? right_state->get_timer() : nullptr;
 
+            // Last time step being sampled. This will be used to deal with
+            // right segment truncation in the computation of the segment
+            // posteriors.
+            int last_time_step = max(this->time_step, max_time_step_to_sample);
+
             // Left segment
             if (left_state) {
                 // Left segment
                 Eigen::MatrixXd left_seg_weights =
                     left_last_timer->get_cpd()
-                        ->get_left_segment_posterior_weights(
-                            left_last_timer, right_state, num_jobs);
+                        ->get_left_segment_posterior_weights(left_last_timer,
+                                                             right_state,
+                                                             last_time_step,
+                                                             num_jobs);
                 segments_weights = (left_seg_weights.array() + EPSILON).log();
             }
 
             // Central segment
             Eigen::MatrixXd central_seg_weights =
                 this->timer->get_cpd()->get_central_segment_posterior_weights(
-                    left_state, central_timer, right_state, num_jobs);
+                    left_state,
+                    central_timer,
+                    right_state,
+                    last_time_step,
+                    num_jobs);
             if (segments_weights.size() > 0) {
                 segments_weights =
                     (segments_weights.array() +
@@ -254,8 +265,8 @@ namespace tomcat {
             if (right_state) {
                 Eigen::MatrixXd right_seg_weights =
                     right_first_timer->get_cpd()
-                        ->get_right_segment_posterior_weights(right_first_timer,
-                                                              num_jobs);
+                        ->get_right_segment_posterior_weights(
+                            right_first_timer, last_time_step, num_jobs);
 
                 segments_weights =
                     (segments_weights.array() +

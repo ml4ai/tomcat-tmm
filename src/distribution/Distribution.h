@@ -186,6 +186,16 @@ namespace tomcat {
             virtual double get_pdf(const Eigen::VectorXd& value) const = 0;
 
             /**
+             * Returns the CDF for a given value.
+             *
+             * @param value: value
+             * @param reverse: computes p(x > value) instead of p(x <= value)
+             *
+             * @return PDF/PMF
+             */
+            virtual double get_cdf(double value, bool reverse) const = 0;
+
+            /**
              * Creates a new unique pointer from a concrete instance of a
              * distribution.
              *

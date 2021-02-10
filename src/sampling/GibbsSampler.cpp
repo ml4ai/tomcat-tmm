@@ -273,8 +273,12 @@ namespace tomcat {
             AncestralSampler initial_sampler(this->model);
             initial_sampler.set_min_time_step_to_sample(
                 this->min_initialization_time_step);
-            initial_sampler.set_max_time_step_to_sample(
-                this->max_time_step_to_sample);
+            if (!this->sample_after_max_time_step) {
+                // If we are sampling beyond the maximum time step to sample,
+                // initialize all the nodes.
+                initial_sampler.set_max_time_step_to_sample(
+                    this->max_time_step_to_sample);
+            }
             initial_sampler.set_num_in_plate_samples(
                 this->num_in_plate_samples);
             initial_sampler.sample(random_generator, 1);
@@ -292,11 +296,28 @@ namespace tomcat {
                 string node_label = node->get_metadata()->get_label();
                 if (!EXISTS(node_label, this->node_label_to_samples)) {
                     int sample_size = node->get_metadata()->get_sample_size();
-                    this->node_label_to_samples[node_label] =
-                        Tensor3::constant(sample_size,
-                                          num_samples,
-                                          this->model->get_time_steps(),
-                                          -1);
+                    int time_steps = this->model->get_time_steps();
+                    if (!this->sample_after_max_time_step &&
+                        this->max_time_step_to_sample >= 0) {
+                        time_steps = this->max_time_step_to_sample + 1;
+                    }
+
+                    this->node_label_to_samples[node_label] = Tensor3::constant(
+                        sample_size, num_samples, time_steps, -1);
+
+                    if (this->min_time_step_to_sample > 0) {
+                        // Include new columns to save samples generated
+                        // before the min time step defined. These samples
+                        // will be used further if this sampler is used for
+                        // inference forward in time. Instead of sampling
+                        // past nodes from the posterior given future
+                        // observations, we use the previously generated
+                        // samples saved here. We don't want message
+                        // propagating from the future to the past and back.
+//                        this->node_label_to_past_samples[node_label].resize(
+//                            this->burn_in_period + num_samples,
+//                            this->min_time_step_to_sample);
+                    }
                 }
             }
         }
@@ -355,20 +376,34 @@ namespace tomcat {
                 dynamic_pointer_cast<RandomVariableNode>(node);
 
             if (!rv_node->is_frozen()) {
-                // We need to pass the max time step to sample so the rv node
-                // ignores the children at a future time step when computing
-                // the posterior weights for the node.
-                int max_time_step = this->max_time_step_to_sample >= 0
-                                        ? this->max_time_step_to_sample
-                                        : this->model->get_time_steps() - 1;
                 Eigen::MatrixXd sample(0, 0);
-                if (rv_node->get_time_step() > max_time_step) {
-                    sample = rv_node->sample(random_generator_per_job,
-                                             this->num_in_plate_samples);
+                if (rv_node->get_time_step() < this->min_time_step_to_sample) {
+                    // Q should not fall here
+
+//                    const string& node_label =
+//                        rv_node->get_metadata()->get_label();
+//                    sample = this->node_label_to_past_samples[node_label](
+//                                     rv_node->get_time_step(), 2)
+//                                 .row(gibbs_step_counter);
                 }
                 else {
-                    sample = rv_node->sample_from_posterior(
-                        random_generator_per_job, max_time_step);
+                    // We need to pass the max time step to sample so the rv
+                    // node ignores the children at a future time step when
+                    // computing the posterior weights for the node.
+                    int max_time_step = this->max_time_step_to_sample >= 0
+                                            ? this->max_time_step_to_sample
+                                            : this->model->get_time_steps() - 1;
+
+                    if (rv_node->get_time_step() > max_time_step &&
+                        !rv_node->get_metadata()->is_timer() &&
+                        !rv_node->has_timer()) {
+                        sample = rv_node->sample(random_generator_per_job,
+                                                 this->num_in_plate_samples);
+                    }
+                    else {
+                        sample = rv_node->sample_from_posterior(
+                            random_generator_per_job, max_time_step);
+                    }
                 }
 
                 if (rv_node->get_metadata()->is_timer()) {
@@ -378,6 +413,9 @@ namespace tomcat {
                 else {
                     rv_node->set_assignment(sample);
                 }
+
+                // save past samples.
+
                 if (!discard) {
                     this->keep_sample(rv_node, sample);
                 }
