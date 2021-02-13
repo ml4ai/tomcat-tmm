@@ -144,10 +144,11 @@ namespace tomcat {
             double alpha = parameters(PARAMETER_INDEX::alpha);
             double beta = parameters(PARAMETER_INDEX::beta);
 
-            double cdf = gsl_cdf_gamma_P(value, alpha, beta);
-            if (reverse) {
-                cdf = 1 - cdf;
-            }
+            double cdf = this->get_pdf(Eigen::VectorXd::Constant(1,1,value));
+//                gsl_cdf_gamma_P(value, alpha, beta);
+//            if (reverse) {
+//                cdf = 1 - cdf;
+//            }
 
             return cdf;
         }

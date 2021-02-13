@@ -13,6 +13,7 @@
 #include <gsl/gsl_rng.h>
 
 #include "distribution/Distribution.h"
+#include "pgm/EvidenceSet.h"
 #include "pgm/Node.h"
 #include "utils/Definitions.h"
 
@@ -371,6 +372,22 @@ namespace tomcat {
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
                 int num_jobs) const;
+
+            /**
+             * Creates a constant CPD by using the frequencies of a
+             * collection of samples.
+             *
+             * @param data: collection of samples
+             * @param cpd_owner_label: label of the node that owns this CPD
+             * @param cpd_owner_cardinality: cardinality of the node that
+             * owns this CPD
+             *
+             * @return CPD with constant probabilities
+             */
+            virtual std::shared_ptr<CPD>
+            create_from_data(const EvidenceSet& data,
+                             const std::string& cpd_owner_label,
+                             int cpd_owner_cardinality);
 
             //------------------------------------------------------------------
             // Pure virtual functions

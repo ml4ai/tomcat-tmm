@@ -399,6 +399,7 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
     shared_ptr<GibbsSampler> gibbs_sampler =
         make_shared<GibbsSampler>(model, 200, 4);
+    gibbs_sampler->set_show_progress(false);
     DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
 
     double tolerance = 0.05;
@@ -411,9 +412,8 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     data.add_data(GREEN, sampler.get_samples(GREEN));
     data.add_data(YELLOW, sampler.get_samples(YELLOW));
 
-    // Fix some THETA_STATE_GIVEN_STATE_TC_PBAE (one row when TC=0 and one
-    // row when TC=1) and PBAE prior to avoid permutation of TC and PBAE.
-    for (int i : {0, 2}) {
+    // Fix some THETA_STATE_GIVEN_STATE_TC_PBAE to avoid permutation of TC and PBAE.
+    for (int i : {0, 1, 2, 3}) {
         stringstream label;
         label << THETA_STATE_GIVEN_STATE_TC_PBAE << "_" << i;
         const shared_ptr<RandomVariableNode>& theta_state =
@@ -513,6 +513,7 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm, HSMM) {
     shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
     shared_ptr<GibbsSampler> gibbs_sampler =
         make_shared<GibbsSampler>(model, 100, 4);
+    gibbs_sampler->set_show_progress(false);
     DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
 
     double tolerance = 0.05;
@@ -732,6 +733,7 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hmm, HMM) {
 
     shared_ptr<GibbsSampler> gibbs =
         make_shared<GibbsSampler>(pre_trained_model, 300, 4);
+    gibbs->set_show_progress(false);
     gibbs->set_trainable(false);
     CompoundSamplerEstimator sampler_estimator(
         pre_trained_model, gibbs, gen, 5000);
@@ -758,7 +760,7 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hmm, HMM) {
         yellow_estimator_h3->get_estimates().estimates[0];
     vector<MatrixXd> tc_estimates = tc_estimator->get_estimates().estimates;
 
-    double tolerance = 0.02;
+    double tolerance = 0.03;
 
     MatrixXd expected_green_h1(1, 4);
     expected_green_h1 << 0.56788, 0.56589, 0.566867, 0.565993;
@@ -800,7 +802,7 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
      */
 
     DBNPtr deterministic_model = create_model(true, false);
-    deterministic_model->unroll(4, true);
+    deterministic_model->unroll(3, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // One sample from the deterministic model will be used for estimation.
@@ -815,18 +817,15 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
     shared_ptr<SamplerEstimator> green_estimator_h1 =
         make_shared<SamplerEstimator>(
             pre_trained_model, 1, GREEN, VectorXd::Constant(1, 1));
-    shared_ptr<SamplerEstimator> green_estimator_h3 =
-        make_shared<SamplerEstimator>(
-            pre_trained_model, 3, GREEN, VectorXd::Constant(1, 1));
 
     shared_ptr<GibbsSampler> gibbs =
         make_shared<GibbsSampler>(pre_trained_model, 1000, 4);
+    gibbs->set_show_progress(false);
     gibbs->set_trainable(false);
     CompoundSamplerEstimator sampler_estimator(
-        pre_trained_model, gibbs, gen, 5000);
+        pre_trained_model, gibbs, gen, 3000);
     sampler_estimator.add_estimator(state_estimator_h1);
     sampler_estimator.add_estimator(green_estimator_h1);
-//    sampler_estimator.add_estimator(green_estimator_h3);
 
     // Green node is observed
     EvidenceSet data;
@@ -837,29 +836,33 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
     sampler_estimator.prepare();
     sampler_estimator.estimate(data);
 
-    vector<MatrixXd> state_estimates =
+    vector<MatrixXd> state_estimates_h1 =
         state_estimator_h1->get_estimates().estimates;
-
-    cout << state_estimates[0] << endl;
-    cout << state_estimates[1] << endl;
-    cout << state_estimates[2] << endl;
 
     MatrixXd green_estimates_h1 =
         green_estimator_h1->get_estimates().estimates[0];
-    MatrixXd green_estimates_h3 =
-        green_estimator_h3->get_estimates().estimates[0];
 
-    double tolerance = 0.02;
+    double tolerance = 0.03;
 
-    MatrixXd expected_green_h1(1, 4);
-    expected_green_h1 << 0.56788, 0.56589, 0.566867, 0.565993;
+    MatrixXd expected_state_h1(1, 3);
+    expected_state_h1 << 0.6321, 0.3412, 0.1748;
     auto check =
-        check_matrix_eq(green_estimates_h1, expected_green_h1, tolerance);
+        check_matrix_eq(state_estimates_h1[0], expected_state_h1, tolerance);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd expected_green_h3(1, 4);
-    expected_green_h3 << 0.91875, 0.918454, 0.918545, 0.918483;
-    check = check_matrix_eq(green_estimates_h3, expected_green_h3, tolerance);
+    expected_state_h1 << 0.2943, 0.4949, 0.5802;
+    check =
+        check_matrix_eq(state_estimates_h1[1], expected_state_h1, tolerance);
+    BOOST_TEST(check.first, check.second);
+
+    expected_state_h1 << 0.0736, 0.1639, 0.2450;
+    check =
+        check_matrix_eq(state_estimates_h1[2], expected_state_h1, tolerance);
+    BOOST_TEST(check.first, check.second);
+
+    MatrixXd expected_green_h1(1, 3);
+    expected_green_h1 << 0.6308, 0.5034, 0.4393;
+    check = check_matrix_eq(green_estimates_h1, expected_green_h1, tolerance);
     BOOST_TEST(check.first, check.second);
 }
 

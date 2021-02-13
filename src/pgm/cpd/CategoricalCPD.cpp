@@ -290,5 +290,42 @@ namespace tomcat {
             full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
         }
 
+        shared_ptr<CPD>
+        CategoricalCPD::create_from_data(const EvidenceSet& data,
+                                         const string& cpd_owner_label,
+                                         int cpd_owner_cardinality) {
+            Eigen::MatrixXd prob_table = Eigen::MatrixXd::Zero(
+                this->distributions.size(), cpd_owner_cardinality);
+
+            for (int d = 0; d < data.get_num_data_points(); d++) {
+                int distribution_idx = 0;
+                for (const auto& [node_label, indexing_scheme] :
+                     this->parent_label_to_indexing) {
+                    if (!data.has_data_for(node_label)) {
+                        stringstream ss;
+                        ss << "There's no data for the index node "
+                           << node_label << ".";
+                        throw TomcatModelException(ss.str());
+                    }
+
+                    // The values of interest must be in the first column of
+                    // the matrix that comprises the data tensor.
+                    distribution_idx +=
+                        data[node_label].at(0, d, 0) *
+                        indexing_scheme.right_cumulative_cardinality;
+                }
+
+                int k = data[cpd_owner_label].at(0, d, 0);
+                prob_table(distribution_idx, k) += 1;
+            }
+
+            Eigen::VectorXd sum_per_row =
+                prob_table.rowwise().sum().array() + EPSILON;
+            prob_table = prob_table.array().colwise() / sum_per_row.array();
+
+            return make_shared<CategoricalCPD>(this->parent_node_order,
+                                               prob_table);
+        }
+
     } // namespace model
 } // namespace tomcat

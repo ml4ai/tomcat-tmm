@@ -35,12 +35,21 @@ namespace tomcat {
             this->model = sampler.model;
             this->num_in_plate_samples = sampler.num_in_plate_samples;
             this->sampled_node_labels = sampler.sampled_node_labels;
+            this->num_samples = sampler.num_samples;
+            this->data = sampler.data;
+            this->min_initialization_time_step = sampler.min_initialization_time_step;
+            this->min_time_step_to_sample = sampler.min_time_step_to_sample;
+            this->max_time_step_to_sample = sampler.max_time_step_to_sample;
+            this->num_jobs = sampler.num_jobs;
+            this->trainable = sampler.trainable;
+            this->show_progress = sampler.show_progress;
         }
 
         void Sampler::sample(const shared_ptr<gsl_rng>& random_generator,
                              int num_samples) {
+            this->num_samples = num_samples;
             this->freeze_observable_nodes();
-            this->sample_latent(random_generator, num_samples);
+            this->sample_latent(random_generator);
             this->unfreeze_observable_nodes();
         }
 
@@ -204,9 +213,12 @@ namespace tomcat {
 
         int Sampler::get_num_jobs() const { return num_jobs; }
 
-        void Sampler::set_sample_after_max_time_step(
-            bool sample_after_max_time_step) {
-            this->sample_after_max_time_step = sample_after_max_time_step;
+        int Sampler::get_num_samples() const {
+            return num_samples;
+        }
+
+        void Sampler::set_show_progress(bool show_progress) {
+            this->show_progress = show_progress;
         }
 
     } // namespace model

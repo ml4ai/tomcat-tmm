@@ -1,16 +1,16 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
-#include <mutex>
 
 #include "utils/Definitions.h"
 
 #include "pipeline/estimation/Estimator.h"
 #include "pipeline/estimation/SamplerEstimator.h"
-#include "sampling/Sampler.h"
 #include "sampling/AncestralSampler.h"
+#include "sampling/Sampler.h"
 
 namespace tomcat {
     namespace model {
@@ -127,6 +127,17 @@ namespace tomcat {
             add_data_to_nodes(const std::shared_ptr<DynamicBayesNet>& model,
                               const EvidenceSet& new_data,
                               int time_step);
+
+            /**
+             * Updates latent nodes' CPDs with constant distributions given by
+             * the posteriors computed empirically from the samples generated at
+             * a given time step for a given data.
+             *
+             * @param sampler: sampler used to compute the posteriors
+             * @param time_step: time step of the latent nodes to be updated
+             */
+            void save_posteriors(const std::shared_ptr<Sampler>& sampler,
+                                 int time_step);
 
             //------------------------------------------------------------------
             // Data members

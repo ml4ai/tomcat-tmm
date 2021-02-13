@@ -49,8 +49,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void sample_latent(const std::shared_ptr<gsl_rng>& random_generator,
-                               int num_samples) override;
+            void sample_latent(const std::shared_ptr<gsl_rng>& random_generator) override;
 
             void get_info(nlohmann::json& json) const override;
 

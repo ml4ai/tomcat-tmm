@@ -89,16 +89,6 @@ namespace tomcat {
             Eigen::MatrixXd operator()(int i, int axis) const;
 
             /**
-             * Returns a non-assignable vector for given indices of the second
-             * and third axes.
-             *
-             * @param j: second axis' index
-             * @param k: third axis' index
-             * @return Non-assignable vector.
-             */
-            Eigen::VectorXd at(int j, int k) const;
-
-            /**
              * Returns an assignable number given indices of all axes.
              *
              * @param i: first axis' index
@@ -232,6 +222,16 @@ namespace tomcat {
              * @return Tensor's dimensions.
              */
             std::array<int, 3> get_shape() const;
+
+            /**
+             * Returns a non-assignable vector for given indices of the second
+             * and third axes.
+             *
+             * @param j: second axis' index
+             * @param k: third axis' index
+             * @return Non-assignable vector.
+             */
+            Eigen::VectorXd at(int j, int k) const;
 
             /**
              * Returns a non-assignable coefficient from a specific tensor

@@ -41,7 +41,7 @@ namespace tomcat {
                 this->duration = this->end - this->start;
 
                 std::cout << "Timer took " << this->duration.count()
-                          << "seconds.";
+                          << "seconds.\n";
             }
         };
 

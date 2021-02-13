@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <unordered_set>
+#include <unordered_map>
 
 #include <nlohmann/json.hpp>
 
@@ -127,11 +128,10 @@ namespace tomcat {
              * unfrozen nodes. The function sample freezes observable nodes and
              * releases them in the end. Calling this function in between.
              *
-             * @param num_samples: number of samples to generate
+             * @param random_generator: random number generator
              */
             virtual void
-            sample_latent(const std::shared_ptr<gsl_rng>& random_generator,
-                          int num_samples) = 0;
+            sample_latent(const std::shared_ptr<gsl_rng>& random_generator) = 0;
 
             /**
              * Writes information about the splitter in a json object.
@@ -174,8 +174,9 @@ namespace tomcat {
 
             int get_num_jobs() const;
 
-            void
-            set_sample_after_max_time_step(bool sample_after_max_time_step);
+            int get_num_samples() const;
+
+            void set_show_progress(bool show_progress);
 
           protected:
             //------------------------------------------------------------------
@@ -215,17 +216,15 @@ namespace tomcat {
 
             int max_time_step_to_sample = -1;
 
-            // If this attribute is true, nodes that show up in the unrolled
-            // DBN after the max_time_step_to_sample will be sampled from
-            // their priors (using ancestral sampling). This is used when we
-            // use approximate inference to predict future assignments.
-            bool sample_after_max_time_step = false;
-
             // Number of threads created for parallel sampling.
             int num_jobs = 1;
 
             // Indicates whether the sampler should update parameter nodes.
             bool trainable = true;
+
+            int num_samples = 0;
+
+            bool show_progress = true;
 
           private:
             //------------------------------------------------------------------

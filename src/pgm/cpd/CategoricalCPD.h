@@ -138,6 +138,11 @@ namespace tomcat {
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
                 int num_jobs) const override;
 
+            std::shared_ptr<CPD>
+            create_from_data(const EvidenceSet& data,
+                             const std::string& cpd_owner_label,
+                             int cpd_owner_cardinality) override;
+
           protected:
             //------------------------------------------------------------------
             // Member functions

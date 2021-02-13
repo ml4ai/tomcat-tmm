@@ -33,7 +33,7 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
         void AncestralSampler::sample_latent(
-            const shared_ptr<gsl_rng>& random_generator, int num_samples) {
+            const shared_ptr<gsl_rng>& random_generator) {
 
             NodeSet node_set = this->get_node_set();
 
@@ -52,7 +52,7 @@ namespace tomcat {
                 // will be frozen for more sampling. The maximum number of
                 // samples we'll be able to generate for other nodes will be
                 // the number of in-plate nodes.
-                int max_num_samples = num_samples;
+                int max_num_samples = this->num_samples;
                 if (node->get_metadata()->is_in_plate()) {
                     if (this->num_in_plate_samples > 0) {
                         max_num_samples = this->num_in_plate_samples;

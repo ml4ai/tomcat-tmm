@@ -30,7 +30,6 @@ namespace tomcat {
             for (int i = 0; i < num_jobs; i++) {
                 shared_ptr<Sampler> new_sampler = move(sampler->clone());
                 new_sampler->set_trainable(false);
-                new_sampler->set_sample_after_max_time_step(true);
                 new_sampler->set_num_in_plate_samples(1);
                 this->sampler_per_job.push_back(new_sampler);
             }
@@ -121,24 +120,16 @@ namespace tomcat {
         }
 
         void CompoundSamplerEstimator::run_estimation_thread(
-            const std::shared_ptr<gsl_rng>& random_generator,
-            const std::shared_ptr<Sampler>& sampler,
+            const shared_ptr<gsl_rng>& random_generator,
+            const shared_ptr<Sampler>& sampler,
             const EvidenceSet& new_data,
             int time_step,
             int initial_data_idx,
             int data_size) {
 
             sampler->get_model()->expand(1);
+            sampler->set_min_time_step_to_sample(time_step);
             sampler->set_max_time_step_to_sample(time_step);
-            if (time_step == 0) {
-                sampler->set_min_initialization_time_step(time_step);
-            }
-            else {
-                // Nodes with smaller time steps were already initialized
-                // previously.
-                sampler->set_min_initialization_time_step(
-                    time_step + this->inference_horizon);
-            }
             sampler->prepare();
 
             vector<vector<Eigen::VectorXd>> probs_per_estimator_and_class(
@@ -154,8 +145,8 @@ namespace tomcat {
                 sampler->sample(random_generator, this->num_samples);
 
                 for (int i = 0; i < this->estimators.size(); i++) {
-                    vector<double> probs = this->estimators.at(i)->estimate(
-                        sampler, d, time_step);
+                    vector<double> probs =
+                        this->estimators.at(i)->estimate(sampler, d, time_step);
 
                     if (probs_per_estimator_and_class.at(i).empty()) {
                         probs_per_estimator_and_class.at(i) =
@@ -173,6 +164,8 @@ namespace tomcat {
                             d - initial_data_idx) = probs.at(k);
                     }
                 }
+
+                this->save_posteriors(sampler, time_step);
             }
 
             // Dump the estimates vector to the matrix of estimates for each
@@ -199,6 +192,54 @@ namespace tomcat {
                     node->unfreeze();
                     node->set_assignment(data);
                     node->freeze();
+                }
+            }
+        }
+
+        void CompoundSamplerEstimator::save_posteriors(
+            const shared_ptr<Sampler>& sampler, int time_step) {
+
+            EvidenceSet data_from_posterior;
+            for (const auto& node_label : sampler->get_sampled_node_labels()) {
+                const auto& metadata =
+                    sampler->get_model()->get_metadata_of(node_label);
+                int node_time_step = time_step;
+                if (!metadata->is_replicable() &&
+                    !metadata->is_single_time_link()) {
+                    node_time_step =
+                        min(metadata->get_initial_time_step(), time_step);
+                }
+                const RVNodePtr node = dynamic_pointer_cast<RandomVariableNode>(
+                    sampler->get_model()->get_node(node_label, node_time_step));
+                if (node && !metadata->is_timer()) {
+                    if (node->is_frozen()) {
+                        // The data for these nodes are the same across all
+                        // the samples generated
+                        Eigen::MatrixXd given_data =
+                            node->get_assignment().replicate(
+                                sampler->get_num_samples(), 1);
+                        data_from_posterior.add_data(node_label, given_data);
+                    }
+                    else {
+                        Eigen::MatrixXd samples =
+                            sampler->get_samples(node_label)(0, 0).col(
+                                node_time_step);
+                        data_from_posterior.add_data(node_label, samples);
+                    }
+                }
+            }
+
+            for (const auto& node_label : sampler->get_sampled_node_labels()) {
+                const RVNodePtr node = dynamic_pointer_cast<RandomVariableNode>(
+                    sampler->get_model()->get_node(node_label, time_step));
+                const auto& metadata = node->get_metadata();
+                if (node && !node->is_frozen() && !metadata->is_timer() &&
+                    (metadata->is_replicable() ||
+                     metadata->is_single_time_link())) {
+                    int k = node->get_metadata()->get_cardinality();
+                    shared_ptr<CPD> new_cpd = node->get_cpd()->create_from_data(
+                        data_from_posterior, node_label, k);
+                    node->set_cpd(move(new_cpd));
                 }
             }
         }

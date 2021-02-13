@@ -138,7 +138,7 @@ namespace tomcat {
                     random_generator_per_job.at(0), this->get_size());
             }
             else {
-                int num_jobs = 1; // random_generator_per_job.size();
+                int num_jobs = random_generator_per_job.size();
                 Eigen::MatrixXd weights = this->get_posterior_weights(
                     num_jobs, max_time_step_to_sample);
                 sample = this->cpd->sample_from_posterior(

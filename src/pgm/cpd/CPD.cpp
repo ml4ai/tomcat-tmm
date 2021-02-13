@@ -126,7 +126,10 @@ namespace tomcat {
             Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
             mutex samples_mutex;
 
-            if (num_jobs == 1) {
+            const auto processing_blocks =
+                get_parallel_processing_blocks(num_jobs, samples.rows());
+
+            if (processing_blocks.size() == 1) {
                 // Run in the main thread
                 this->run_samples_thread(cpd_owner,
                                          distribution_indices,
@@ -137,8 +140,6 @@ namespace tomcat {
             }
             else {
                 vector<thread> threads;
-                const auto processing_blocks =
-                    get_parallel_processing_blocks(num_jobs, samples.rows());
                 for (int i = 0; i < processing_blocks.size(); i++) {
                     thread samples_thread(&CPD::run_samples_thread,
                                           this,
@@ -244,7 +245,10 @@ namespace tomcat {
             Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
             mutex samples_mutex;
 
-            if (num_jobs == 1) {
+            const auto processing_blocks =
+                get_parallel_processing_blocks(num_jobs, samples.rows());
+
+            if (processing_blocks.size() == 1) {
                 // Run in the main thread
                 this->run_samples_from_posterior_thread(
                     cpd_owner,
@@ -257,8 +261,6 @@ namespace tomcat {
             }
             else {
                 vector<thread> threads;
-                const auto processing_blocks =
-                    get_parallel_processing_blocks(num_jobs, samples.rows());
                 for (int i = 0; i < processing_blocks.size(); i++) {
                     thread samples_thread(
                         &CPD::run_samples_from_posterior_thread,
@@ -421,7 +423,10 @@ namespace tomcat {
             Eigen::MatrixXd weights(data_size, cardinality);
             mutex weights_mutex;
 
-            if (num_jobs == 1) {
+            const vector<pair<int, int>> processing_blocks =
+                get_parallel_processing_blocks(num_jobs, data_size);
+
+            if (processing_blocks.size() == 1) {
                 // Run in the main thread
                 this->run_posterior_weights_thread(cpd_owner,
                                                    distribution_indices,
@@ -433,8 +438,6 @@ namespace tomcat {
             }
             else {
                 vector<thread> threads;
-                const vector<pair<int, int>> processing_blocks =
-                    get_parallel_processing_blocks(num_jobs, data_size);
                 for (const auto& processing_block : processing_blocks) {
                     thread weights_thread(&CPD::run_posterior_weights_thread,
                                           this,
@@ -1075,6 +1078,13 @@ namespace tomcat {
             }
 
             return table;
+        }
+
+        shared_ptr<CPD> CPD::create_from_data(const EvidenceSet& data,
+                                              const string& cpd_owner_label,
+                                              int cpd_owner_cardinality) {
+            throw TomcatModelException("Only implemented to categorical "
+                                       "CPDs.");
         }
 
         //------------------------------------------------------------------

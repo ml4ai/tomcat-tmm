@@ -1612,7 +1612,7 @@ struct ShortHSMM {
         // Lambdas for all possible parent combinations
         tables.timer_given_state =
             MatrixXd(NUM_LAMBDA_TIMER_GIVEN_STATE, 1);
-        tables.timer_given_state << 1, 2, 3;
+        tables.timer_given_state << 1, 3, 5;
 
         return tables;
     }
