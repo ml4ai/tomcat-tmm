@@ -32,24 +32,17 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
         void Distribution::update_dependencies(
-            const Node::NodeMap& parameter_nodes_map, int time_step) {
+            const Node::NodeMap& parameter_nodes_map) {
 
             for (auto& parameter : this->parameters) {
-                string parameter_timed_name;
+                string param_name;
                 const shared_ptr<NodeMetadata>& metadata =
                     parameter->get_metadata();
-                if (metadata->is_replicable()) {
-                    parameter_timed_name = metadata->get_timed_name(time_step);
-                }
-                else {
-                    // If not replicable, there'll be only one instance of
-                    // the parameter at its initial time step.
-                    parameter_timed_name = metadata->get_timed_name(
-                        metadata->get_initial_time_step());
-                }
+                int time_step = metadata->get_initial_time_step();
+                param_name = metadata->get_timed_name(time_step);
 
-                if (parameter_nodes_map.count(parameter_timed_name) > 0) {
-                    parameter = parameter_nodes_map.at(parameter_timed_name);
+                if (EXISTS(param_name, parameter_nodes_map)) {
+                    parameter = parameter_nodes_map.at(param_name);
                 }
             }
         }

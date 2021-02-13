@@ -39,7 +39,7 @@ namespace tomcat {
                 const std::shared_ptr<DynamicBayesNet>& model,
                 int inference_horizon,
                 const std::string& node_label,
-                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
+                const Eigen::VectorXd& assignment = EMPTY_VECTOR);
 
             ~TrainingFrequencyEstimator();
 

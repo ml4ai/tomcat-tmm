@@ -165,6 +165,20 @@ namespace tomcat {
                                             const NodeMetadata& metadata);
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Returns the node's unique id in an unrolled DBN for an arbitrary
+             * label and time step.
+             *
+             * @return Node's description in an unrolled DBN for an arbitrary
+             * label and time step.
+             */
+            static std::string get_timed_name(const std::string& label,
+                                              int time_step);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 

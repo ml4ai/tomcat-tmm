@@ -116,12 +116,12 @@ namespace tomcat {
 
         Eigen::VectorXd
         Categorical::sample(const std::shared_ptr<gsl_rng>& random_generator,
-                        const Eigen::VectorXd& weights,
-                        double replace_by_weight) const {
+                            const Eigen::VectorXd& weights,
+                            double replace_by_weight) const {
 
             Eigen::VectorXd probabilities =
                 this->parameters[0]->get_assignment().row(0);
-            probabilities[(int) replace_by_weight] = 1;
+            probabilities[(int)replace_by_weight] = 1;
 
             Eigen::VectorXd weighted_probabilities =
                 probabilities.array() * weights.array();
@@ -145,6 +145,18 @@ namespace tomcat {
                 this->parameters[0]->get_assignment().row(0);
 
             return probabilities((int)value(0));
+        }
+
+        double Categorical::get_cdf(double value, bool reverse) const {
+            Eigen::VectorXd probabilities =
+                this->parameters[0]->get_assignment().row(0);
+
+            double cdf = probabilities.block(0, 0, (int)value + 1, 1).sum();
+            if (reverse) {
+                cdf = 1 - cdf;
+            }
+
+            return cdf;
         }
 
         unique_ptr<Distribution> Categorical::clone() const {

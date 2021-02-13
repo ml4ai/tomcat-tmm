@@ -24,7 +24,16 @@ namespace tomcat {
             : label(label), replicable(replicable), parameter(parameter),
               single_time_link(single_time_link), in_plate(in_plate),
               timer(timer), initial_time_step(initial_time_step),
-              sample_size(sample_size), cardinality(cardinality) {}
+              sample_size(sample_size), cardinality(cardinality) {
+
+            if (replicable && parameter) {
+                throw TomcatModelException("Parameter nodes cannot be "
+                                           "replicable. They show up once and"
+                                           " are shareable among the "
+                                           "distributions that govern the "
+                                           "timed copies of data nodes.");
+            }
+        }
 
         //----------------------------------------------------------------------
         // Destructor
@@ -39,6 +48,14 @@ namespace tomcat {
             os << metadata.get_description();
 
             return os;
+        }
+
+        //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        string NodeMetadata::get_timed_name(const string& label,
+                                            int time_step) {
+            return fmt::format("({},{})", label, time_step);
         }
 
         //----------------------------------------------------------------------
@@ -112,7 +129,7 @@ namespace tomcat {
         }
 
         string NodeMetadata::get_timed_name(int time_step) const {
-            return fmt::format("({},{})", this->label, time_step);
+            return NodeMetadata::get_timed_name(this->label, time_step);
         }
 
         //----------------------------------------------------------------------
@@ -165,7 +182,6 @@ namespace tomcat {
 
         void
         NodeMetadata::set_timer_metadata(shared_ptr<NodeMetadata>& metadata) {
-
             if (!metadata->is_timer()) {
                 throw TomcatModelException("The metadata informed does not "
                                            "belong to a timer node.");
@@ -179,6 +195,11 @@ namespace tomcat {
             if (!this->is_replicable()) {
                 throw TomcatModelException("A timer must be associated to"
                                            " a replicable node.");
+            }
+
+            if (this->initial_time_step > 0) {
+                throw TomcatModelException("The initial time step of a time "
+                                           "controlled node must be 0.");
             }
 
             this->timer_metadata = metadata;

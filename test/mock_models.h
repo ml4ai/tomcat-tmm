@@ -1257,3 +1257,400 @@ struct HSMM {
         }
     }
 };
+
+struct ShortHSMM {
+    /**
+     * Short version of an HSMM with one observable node and no parent nodes
+     * in the timer.
+     */
+
+    // Node labels
+    inline static const string TC = "TrainingCondition";
+    inline static const string STATE = "State";
+    inline static const string GREEN = "Green";
+    inline static const string TIMER = "Timer";
+    inline static const string THETA_STATE = "Theta_State";
+    inline static const string THETA_STATE_GIVEN_STATE = "Theta_State_gv_State";
+    inline static const string PI_GREEN_GIVEN_STATE = "Pi_Green_gv_State";
+
+    inline static const string LAMBDA_TIMER_GIVEN_STATE = "Lambda_Timer";
+
+    // Cardinality of the data nodes.
+    int STATE_CARDINALITY = 3;
+    int GREEN_CARDINALITY = 2;
+
+    // Number of parameter nodes for all possible combinations of
+    // parents' assignments.
+    int NUM_THETA_STATE_GIVEN_STATE = STATE_CARDINALITY;
+    int NUM_LAMBDA_TIMER_GIVEN_STATE = STATE_CARDINALITY;
+    int NUM_PI_GREEN_GIVEN_STATE = STATE_CARDINALITY;
+
+    struct NodeMetadataCollection {
+        /**
+         * Struct that contains the collection of metadatas for all nodes in
+         * the DBN used for testing.
+         */
+
+        // Data nodes
+        NodeMetadataPtr state;
+        NodeMetadataPtr green;
+        NodeMetadataPtr timer;
+
+        // Parameter nodes
+        NodeMetadataPtr theta_state;
+
+        // One node for each combination of parent assignment.
+        vector<NodeMetadataPtr> theta_state_given_state;
+        vector<NodeMetadataPtr> pi_green_given_state;
+        vector<NodeMetadataPtr> lambda_timer_given_state;
+    };
+
+    struct CPDTableCollection {
+        /**
+         * This struct contains the collection of CPD tables for the data
+         * nodes in the DBN used for testing. We will set the CPD tables
+         * probabilities manually to construct the test cases based on them. The
+         * CPD tables of the parameter nodes' priors will always be a matrix of
+         * ones for the tests, so there's no need to store them in this struct.
+         */
+
+        MatrixXd state_prior;
+        MatrixXd state_given_state;
+        MatrixXd green_given_state;
+        MatrixXd timer_given_state; // Poisson means
+    };
+
+    struct CPDCollection {
+        /**
+         * This struct contains the collection of CPD's for all the nodes in
+         * the DBN used for testing.
+         */
+
+        CPDPtr state_prior;
+        CPDPtr state_given_state;
+        CPDPtr green_given_state;
+        CPDPtr timer_given_state;
+
+        // Parameter nodes
+        CPDPtr theta_state_prior;
+        vector<CPDPtr> theta_state_given_state_prior;
+        vector<CPDPtr> pi_green_given_state_prior;
+        vector<CPDPtr> lambda_timer_given_state_prior;
+    };
+
+    struct RVNodeCollection {
+        /**
+         * This struct contains the collection of all the nodes in the DBN
+         * used for testing.
+         */
+
+        RVNodePtr state;
+        RVNodePtr green;
+        TimerNodePtr timer;
+
+        // Parameter nodes
+        RVNodePtr theta_state;
+        vector<RVNodePtr> theta_state_given_state;
+        vector<RVNodePtr> pi_green_given_state;
+        vector<RVNodePtr> lambda_timer_given_state;
+    };
+
+    ShortHSMM() {}
+
+    DBNPtr create_model(bool deterministic, bool trainable) {
+        NodeMetadataCollection node_metadatas = this->create_node_metadatas();
+        this->create_connections(node_metadatas);
+        RVNodeCollection nodes = this->create_nodes(node_metadatas);
+        CPDCollection cpds = this->create_cpds(nodes, deterministic);
+        this->assign_cpds_to_nodes(nodes, cpds);
+
+        if (!trainable) {
+            this->freeze_parameters(nodes);
+        }
+
+        // Create model and add nodes to it.
+        DBNPtr model;
+        model = make_shared<DynamicBayesNet>();
+        model->add_node_template(nodes.state);
+        model->add_node_template(nodes.green);
+        model->add_node_template(nodes.timer);
+
+        // Parameter nodes
+        model->add_node_template(nodes.theta_state);
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
+            model->add_node_template(nodes.theta_state_given_state[i]);
+        }
+        for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+            model->add_node_template(nodes.pi_green_given_state[i]);
+        }
+        for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_STATE; i++) {
+            model->add_node_template(nodes.lambda_timer_given_state[i]);
+        }
+
+        return model;
+    }
+
+    NodeMetadataCollection create_node_metadatas() {
+        NodeMetadataCollection metadatas;
+
+        metadatas.timer = make_shared<NodeMetadata>(
+            NodeMetadata::create_timer_metadata(TIMER, 0));
+
+        metadatas.state = make_shared<NodeMetadata>(
+            NodeMetadata::create_multiple_time_link_metadata(
+                STATE, true, false, true, 0, 1, STATE_CARDINALITY));
+        metadatas.state->set_timer_metadata(metadatas.timer);
+
+        metadatas.green = make_shared<NodeMetadata>(
+            NodeMetadata::create_multiple_time_link_metadata(
+                GREEN, true, false, true, 1, 1, GREEN_CARDINALITY));
+
+        // Parameter nodes
+        metadatas.theta_state = make_shared<NodeMetadata>(
+            NodeMetadata::create_multiple_time_link_metadata(
+                THETA_STATE, false, true, false, 0, STATE_CARDINALITY));
+
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
+            stringstream label;
+            label << THETA_STATE_GIVEN_STATE << '_' << i;
+
+            metadatas.theta_state_given_state.push_back(make_shared<
+                                                        NodeMetadata>(
+                NodeMetadata::create_multiple_time_link_metadata(
+                    label.str(), false, true, false, 1, STATE_CARDINALITY)));
+        }
+
+        for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+            stringstream label;
+            label << PI_GREEN_GIVEN_STATE << '_' << i;
+
+            metadatas.pi_green_given_state.push_back(make_shared<NodeMetadata>(
+                NodeMetadata::create_multiple_time_link_metadata(
+                    label.str(), false, true, false, 1, GREEN_CARDINALITY)));
+        }
+
+        for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_STATE; i++) {
+            stringstream label;
+            label << LAMBDA_TIMER_GIVEN_STATE << '_' << i;
+
+            metadatas.lambda_timer_given_state.push_back(
+                make_shared<NodeMetadata>(
+                    NodeMetadata::create_multiple_time_link_metadata(
+                        label.str(), false, true, false, 1, 1)));
+        }
+
+        return metadatas;
+    }
+
+    RVNodeCollection create_nodes(NodeMetadataCollection& node_metadatas) {
+        RVNodeCollection nodes;
+
+        nodes.state = make_shared<RandomVariableNode>(node_metadatas.state);
+        nodes.green = make_shared<RandomVariableNode>(node_metadatas.green);
+        nodes.timer = make_shared<TimerNode>(node_metadatas.timer);
+
+        // Parameter nodes
+        nodes.theta_state =
+            make_shared<RandomVariableNode>(node_metadatas.theta_state);
+
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
+            nodes.theta_state_given_state.push_back(
+                make_shared<RandomVariableNode>(
+                    node_metadatas.theta_state_given_state[i]));
+        }
+
+        for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+            nodes.pi_green_given_state.push_back(
+                make_shared<RandomVariableNode>(
+                    node_metadatas.pi_green_given_state[i]));
+        }
+
+        for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_STATE; i++) {
+            nodes.lambda_timer_given_state.push_back(
+                make_shared<RandomVariableNode>(
+                    node_metadatas.lambda_timer_given_state[i]));
+        }
+
+        return nodes;
+    }
+
+    void create_connections(NodeMetadataCollection& node_metadatas) {
+        node_metadatas.state->add_parent_link(node_metadatas.state, true);
+        node_metadatas.state->add_parent_link(node_metadatas.theta_state, true);
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
+            node_metadatas.state->add_parent_link(
+                node_metadatas.theta_state_given_state[i], true);
+        }
+
+        node_metadatas.green->add_parent_link(node_metadatas.state, false);
+        for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+            node_metadatas.green->add_parent_link(
+                node_metadatas.pi_green_given_state[i], true);
+        }
+
+        node_metadatas.timer->add_parent_link(node_metadatas.state, false);
+        for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_STATE; i++) {
+            node_metadatas.timer->add_parent_link(
+                node_metadatas.lambda_timer_given_state[i], true);
+        }
+    }
+
+    CPDCollection create_cpds(RVNodeCollection& nodes, bool deterministic) {
+        CPDCollection cpds;
+        CPDTableCollection tables = this->create_cpd_tables(deterministic);
+
+        // State at time step 0
+        MatrixXd theta_state_prior = MatrixXd::Zero(1, STATE_CARDINALITY);
+        theta_state_prior(0, 0) = 1;
+        cpds.theta_state_prior =
+            make_shared<DirichletCPD>(DirichletCPD({}, theta_state_prior));
+
+        vector<CatPtr> cat_distributions = {make_shared<Categorical>(nodes
+                                     .theta_state)};
+        nodes.theta_state->set_assignment(tables.state_prior);
+        CategoricalCPD cpd = CategoricalCPD({}, cat_distributions);
+        cpds.state_prior = make_shared<CategoricalCPD>(move(cpd));
+
+        // State given State
+        MatrixXd theta_state_given_state_prior(NUM_THETA_STATE_GIVEN_STATE,
+                                               STATE_CARDINALITY);
+        theta_state_given_state_prior << EPSILON, 1, 1, 1, EPSILON, 1, 1, 1,
+            EPSILON;
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
+            cpds.theta_state_given_state_prior.push_back(
+                make_shared<DirichletCPD>(
+                    DirichletCPD({}, theta_state_given_state_prior.row(i))));
+        }
+
+        cat_distributions.clear();
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
+            nodes.theta_state_given_state[i]->set_assignment(
+                tables.state_given_state.row(i));
+            cat_distributions.push_back(
+                make_shared<Categorical>(nodes.theta_state_given_state[i]));
+        }
+        cpd = CategoricalCPD({nodes.state->get_metadata()}, cat_distributions);
+        cpds.state_given_state = make_shared<CategoricalCPD>(move(cpd));
+
+        // Green given State
+        MatrixXd pi_green_given_state_prior =
+            MatrixXd::Ones(1, GREEN_CARDINALITY);
+        for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+            cpds.pi_green_given_state_prior.push_back(make_shared<DirichletCPD>(
+                DirichletCPD({}, pi_green_given_state_prior)));
+        }
+
+        cat_distributions.clear();
+        for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+            nodes.pi_green_given_state[i]->set_assignment(
+                tables.green_given_state.row(i));
+            cat_distributions.push_back(
+                make_shared<Categorical>(nodes.pi_green_given_state[i]));
+        }
+        cpd = CategoricalCPD({nodes.state->get_metadata()}, cat_distributions);
+        cpds.green_given_state = make_shared<CategoricalCPD>(move(cpd));
+
+        // Timer given State
+        MatrixXd lambda_timer_given_state_prior =
+            MatrixXd::Ones(1, 2); // Gamma(1, 1)
+        for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_STATE; i++) {
+            cpds.lambda_timer_given_state_prior.push_back(make_shared<GammaCPD>(
+                GammaCPD({}, lambda_timer_given_state_prior)));
+        }
+
+        vector<PoiPtr> poi_distributions;
+        for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_STATE; i++) {
+            nodes.lambda_timer_given_state[i]->set_assignment(
+                tables.timer_given_state.row(i));
+            if (deterministic) {
+                poi_distributions.push_back(make_shared<MockPoisson>(
+                    nodes.lambda_timer_given_state[i]));
+            }
+            else {
+                poi_distributions.push_back(
+                    make_shared<Poisson>(nodes.lambda_timer_given_state[i]));
+            }
+        }
+
+        PoissonCPD poi_cpd =
+            PoissonCPD({nodes.state->get_metadata()}, poi_distributions);
+        cpds.timer_given_state = make_shared<PoissonCPD>(move(poi_cpd));
+
+        return cpds;
+    }
+
+    CPDTableCollection create_cpd_tables(bool deterministic) {
+        CPDTableCollection tables;
+
+        tables.state_prior = MatrixXd(1, STATE_CARDINALITY);
+        if (deterministic) {
+            tables.state_prior << 1, 0, 0;
+        }
+        else {
+            tables.state_prior << 1, 0, 0;
+        }
+
+        tables.state_given_state =
+            MatrixXd(NUM_THETA_STATE_GIVEN_STATE, STATE_CARDINALITY);
+        if (deterministic) {
+            tables.state_given_state << 0, 0, 1, 1, 0, 0, 1, 0, 0;
+        }
+        else {
+            tables.state_given_state << EPSILON, 0.8, 0.2, 0.2, EPSILON, 0.8,
+                0.8, 0.2, EPSILON;
+        }
+
+        tables.green_given_state =
+            MatrixXd(NUM_PI_GREEN_GIVEN_STATE, GREEN_CARDINALITY);
+        if (deterministic) {
+            tables.green_given_state << 0, 1, 1, 0, 0, 1;
+        }
+        else {
+            tables.green_given_state << 0.2, 0.8, 0.7, 0.3, 0.5, 0.5;
+        }
+
+        // Lambdas for all possible parent combinations
+        tables.timer_given_state =
+            MatrixXd(NUM_LAMBDA_TIMER_GIVEN_STATE, 1);
+        tables.timer_given_state << 1, 3, 5;
+
+        return tables;
+    }
+
+    void assign_cpds_to_nodes(RVNodeCollection& nodes, CPDCollection& cpds) {
+        nodes.theta_state->add_cpd_template(cpds.theta_state_prior);
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
+            nodes.theta_state_given_state[i]->add_cpd_template(
+                cpds.theta_state_given_state_prior[i]);
+        }
+        nodes.state->add_cpd_template(cpds.state_prior);
+        nodes.state->add_cpd_template(cpds.state_given_state);
+
+        for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+            nodes.pi_green_given_state[i]->add_cpd_template(
+                cpds.pi_green_given_state_prior[i]);
+        }
+        nodes.green->add_cpd_template(cpds.green_given_state);
+
+        for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_STATE; i++) {
+            nodes.lambda_timer_given_state[i]->add_cpd_template(
+                cpds.lambda_timer_given_state_prior[i]);
+        }
+        nodes.timer->add_cpd_template(cpds.timer_given_state);
+    }
+
+    void freeze_parameters(RVNodeCollection& nodes) {
+        nodes.theta_state->freeze();
+        for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE; i++) {
+            nodes.theta_state_given_state[i]->freeze();
+        }
+
+        for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+            nodes.pi_green_given_state[i]->freeze();
+        }
+
+        for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_STATE; i++) {
+            nodes.lambda_timer_given_state[i]->freeze();
+        }
+    }
+};

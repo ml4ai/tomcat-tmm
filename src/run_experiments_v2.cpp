@@ -113,7 +113,7 @@ void execute_experiment_2c_part_a() {
     Experimentation experimentation(
         gen, "2c", Experimentation::MODEL_VERSION::v2, training_set, test_set);
 
-    experimentation.train_using_gibbs(50, 100);
+    experimentation.train_using_gibbs(50, 100, 8);
     string model_dir = fmt::format("{}/2c", MODEL_DIR);
     experimentation.save_model(model_dir, true);
     experimentation.train_and_save();
@@ -146,7 +146,7 @@ void execute_experiment_2c_part_b() {
     experimentation.compute_eval_scores_for(TomcatTA3V2::Q, 0, measures);
 
     string evaluations_dir = fmt::format("{}/2c", EVAL_DIR);
-    experimentation.train_and_evaluate(evaluations_dir, true);
+    experimentation.train_and_evaluate(evaluations_dir, false);
 }
 
 /**

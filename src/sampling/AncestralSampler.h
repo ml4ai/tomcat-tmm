@@ -49,18 +49,45 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void sample_latent(const std::shared_ptr<gsl_rng>& random_generator,
-                               int num_samples) override;
+            void sample_latent(const std::shared_ptr<gsl_rng>& random_generator) override;
 
             void get_info(nlohmann::json& json) const override;
+
+            std::unique_ptr<Sampler> clone() const override;
+
+            std::unordered_set<std::string>
+            get_sampled_node_labels() const override;
 
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
+            void set_min_initialization_time_step(int time_step) override;
+
             void set_equal_samples_time_step_limit(
                 int equal_samples_time_step_limit);
 
           private:
+            //------------------------------------------------------------------
+            // Structs
+            //------------------------------------------------------------------
+
+            // Store the nodes that were sampled by the sampler.
+            struct NodeSet {
+                NodePtrVec nodes_to_sample;
+            };
+
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            /**
+             * Gets a collection of nodes split into lists for fast
+             * processing.
+             *
+             * @return Node set
+             */
+            NodeSet get_node_set() const;
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------

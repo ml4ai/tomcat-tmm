@@ -1,6 +1,8 @@
 #pragma once
 
+#include <memory>
 #include <unordered_set>
+#include <unordered_map>
 
 #include <nlohmann/json.hpp>
 
@@ -96,6 +98,27 @@ namespace tomcat {
              */
             virtual Tensor3 get_samples(const std::string& node_label) const;
 
+            /**
+             * Returns samples generated for a specific latent node withing a
+             * given time range.
+             *
+             * @param node_label: latent node label
+             * @param low_time_step: lower bound (inclusive)
+             * @param high_time_step: upper bound (not inclusive)
+             *
+             * @return Samples over time. A matrix of dimension (num_samples,
+             * time_steps).
+             */
+            virtual Tensor3 get_samples(const std::string& node_label,
+                                        int low_time_step,
+                                        int high_time_step) const;
+
+            /**
+             * Method to do any sort of initialization prior a call to the
+             * sample function.
+             */
+            virtual void prepare();
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -105,11 +128,10 @@ namespace tomcat {
              * unfrozen nodes. The function sample freezes observable nodes and
              * releases them in the end. Calling this function in between.
              *
-             * @param num_samples: number of samples to generate
+             * @param random_generator: random number generator
              */
             virtual void
-            sample_latent(const std::shared_ptr<gsl_rng>& random_generator,
-                          int num_samples) = 0;
+            sample_latent(const std::shared_ptr<gsl_rng>& random_generator) = 0;
 
             /**
              * Writes information about the splitter in a json object.
@@ -118,6 +140,21 @@ namespace tomcat {
              */
             virtual void get_info(nlohmann::json& json) const = 0;
 
+            /**
+             * Creates a deep copy of the sampler.
+             *
+             * @return Pointer to the new sampler created.
+             */
+            virtual std::unique_ptr<Sampler> clone() const = 0;
+
+            /**
+             * Return labels of all the nodes sampled.
+             *
+             * @return Labels of sampled nodes.
+             */
+            virtual std::unordered_set<std::string>
+            get_sampled_node_labels() const = 0;
+
             // -----------------------------------------------------------------
             // Getters & Setters
             // -----------------------------------------------------------------
@@ -125,7 +162,21 @@ namespace tomcat {
 
             const std::shared_ptr<DynamicBayesNet>& get_model() const;
 
+            void set_model(const std::shared_ptr<DynamicBayesNet>& model);
+
+            virtual void set_min_initialization_time_step(int time_step);
+
+            void set_min_time_step_to_sample(int time_step);
+
             void set_max_time_step_to_sample(int time_step);
+
+            void set_trainable(bool trainable);
+
+            int get_num_jobs() const;
+
+            int get_num_samples() const;
+
+            void set_show_progress(bool show_progress);
 
           protected:
             //------------------------------------------------------------------
@@ -155,10 +206,25 @@ namespace tomcat {
 
             EvidenceSet data;
 
+            // This is used when the sampler is used for estimation
+            // (approximate inference). If the sampler requires
+            // initialization (Gibbs Sampling, for instance) the first time
+            // step to initialize is kept here.
+            int min_initialization_time_step = 0;
+
+            int min_time_step_to_sample = 0;
+
             int max_time_step_to_sample = -1;
 
             // Number of threads created for parallel sampling.
             int num_jobs = 1;
+
+            // Indicates whether the sampler should update parameter nodes.
+            bool trainable = true;
+
+            int num_samples = 0;
+
+            bool show_progress = true;
 
           private:
             //------------------------------------------------------------------

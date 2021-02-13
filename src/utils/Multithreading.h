@@ -60,7 +60,12 @@ namespace tomcat {
                     std::shared_ptr<gsl_rng> new_random_gen(
                         gsl_rng_alloc(random_generator->type));
                     // New seed
-                    gsl_rng_set(new_random_gen.get(), job);
+                    long seed = 0;
+                    while(seed == 0) {
+                        seed = gsl_rng_get(random_generator.get());
+                    }
+
+                    gsl_rng_set(new_random_gen.get(), seed);
                     random_generators_per_job.push_back(move(new_random_gen));
                 }
             }

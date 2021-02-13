@@ -95,7 +95,14 @@ namespace tomcat {
             Estimator(const std::shared_ptr<DynamicBayesNet>& model,
                       int inference_horizon,
                       const std::string& node_label,
-                      const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
+                      const Eigen::VectorXd& assignment = EMPTY_VECTOR);
+
+            /**
+             * Creates an abstract compound estimator.
+             *
+             * @param model: DBN
+             */
+            Estimator(const std::shared_ptr<DynamicBayesNet>& model);
 
             virtual ~Estimator();
 
@@ -133,15 +140,15 @@ namespace tomcat {
              */
             void keep_estimates();
 
+            //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
             /**
              * Clear last estimates and cumulative estimates computed by the
              * estimator.
              */
-            void clear_estimates();
-
-            //------------------------------------------------------------------
-            // Virtual functions
-            //------------------------------------------------------------------
+            virtual void cleanup();
 
             /**
              * Initializations before the computation of estimates.
@@ -181,8 +188,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             NodeEstimates get_estimates() const;
 
-            CumulativeNodeEstimates
-            get_cumulative_estimates() const;
+            CumulativeNodeEstimates get_cumulative_estimates() const;
 
             int get_inference_horizon() const;
 
@@ -191,6 +197,8 @@ namespace tomcat {
             const std::shared_ptr<DynamicBayesNet>& get_model() const;
 
             void set_show_progress(bool show_progress);
+
+            bool is_compound() const;
 
           protected:
             //------------------------------------------------------------------
@@ -215,7 +223,7 @@ namespace tomcat {
             // Observed data to perform estimations. More data points can be
             // appended as estimations are made. Each derived class must store
             // computations to avoid recalculations as new data is available.
-            EvidenceSet test_data;
+            //EvidenceSet test_data;
 
             // Node to compute estimates, its fixed assignment (optional if
             // inference_horizon = 0) and estimates
@@ -229,11 +237,18 @@ namespace tomcat {
             // or an inference (= 0). If it's a prediction, the horizon
             // determines up to how much further in the future predictions are
             // made.
-            int inference_horizon;
+            int inference_horizon = 0;
 
             // Whether a progress bar must be shown as the estimations are
             // happening
             bool show_progress = true;
+
+            // A compound estimator has a collection of concrete child
+            // estimators. Compound estimators are used for performing a
+            // computation that can be used by these concrete estimators.
+            // Compound estimators cannot be used for evaluation as they do not
+            // calculate an estimate for an specific node.
+            bool compound;
         };
 
     } // namespace model

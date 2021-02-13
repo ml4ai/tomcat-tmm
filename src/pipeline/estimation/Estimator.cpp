@@ -16,12 +16,14 @@ namespace tomcat {
                              int inference_horizon,
                              const std::string& node_label,
                              const Eigen::VectorXd& assignment)
-            : model(model), inference_horizon(inference_horizon) {
+            : model(model), inference_horizon(inference_horizon),
+              compound(false) {
 
-            if (inference_horizon > 0 && assignment.size() == 0) {
-                throw TomcatModelException(
-                    "An assignment must be given for estimations with "
-                    "inference horizon greater than 0.");
+            const auto& metadata = model->get_metadata_of(node_label);
+            if (!metadata->is_replicable() && inference_horizon > 0) {
+                throw TomcatModelException("Inference horizon for "
+                                           "non-replicable nodes can only be "
+                                           "0.");
             }
 
             this->estimates.label = node_label;
@@ -29,6 +31,9 @@ namespace tomcat {
             this->cumulative_estimates.label = node_label;
             this->cumulative_estimates.assignment = assignment;
         }
+
+        Estimator::Estimator(const shared_ptr<DynamicBayesNet>& model)
+            : model(model), compound(true) {}
 
         Estimator::~Estimator() {}
 
@@ -38,7 +43,7 @@ namespace tomcat {
         void Estimator::copy_estimator(const Estimator& estimator) {
             this->model = estimator.model;
             this->training_data = estimator.training_data;
-            this->test_data = estimator.test_data;
+            //            this->test_data = estimator.test_data;
             this->estimates = estimator.estimates;
             this->cumulative_estimates = estimator.cumulative_estimates;
             this->inference_horizon = estimator.inference_horizon;
@@ -79,7 +84,7 @@ namespace tomcat {
             }
         }
 
-        void Estimator::clear_estimates() {
+        void Estimator::cleanup() {
             int i = 0;
             this->estimates.estimates.clear();
             this->cumulative_estimates.estimates.clear();
@@ -111,5 +116,7 @@ namespace tomcat {
         void Estimator::set_show_progress(bool show_progress) {
             this->show_progress = show_progress;
         }
+
+        bool Estimator::is_compound() const { return compound; }
     } // namespace model
 } // namespace tomcat

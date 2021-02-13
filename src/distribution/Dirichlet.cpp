@@ -150,6 +150,10 @@ namespace tomcat {
             return gsl_ran_dirichlet_pdf(k, alpha_ptr, value_ptr);
         }
 
+        double Dirichlet::get_cdf(double value, bool reverse) const {
+            throw TomcatModelException("No CDF for Dirichlet distribution.");
+        }
+
         unique_ptr<Distribution> Dirichlet::clone() const {
             unique_ptr<Dirichlet> new_distribution =
                 make_unique<Dirichlet>(*this);

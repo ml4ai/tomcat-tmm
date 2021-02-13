@@ -86,17 +86,7 @@ namespace tomcat {
              *
              * @return Assignable matrix.
              */
-            Eigen::MatrixXd operator()(int i, int axis);
-
-            /**
-             * Returns a non-assignable vector for given indices of the second
-             * and third axes.
-             *
-             * @param j: second axis' index
-             * @param k: third axis' index
-             * @return Non-assignable vector.
-             */
-            Eigen::VectorXd at(int j, int k) const;
+            Eigen::MatrixXd operator()(int i, int axis) const;
 
             /**
              * Returns an assignable number given indices of all axes.
@@ -234,6 +224,16 @@ namespace tomcat {
             std::array<int, 3> get_shape() const;
 
             /**
+             * Returns a non-assignable vector for given indices of the second
+             * and third axes.
+             *
+             * @param j: second axis' index
+             * @param k: third axis' index
+             * @return Non-assignable vector.
+             */
+            Eigen::VectorXd at(int j, int k) const;
+
+            /**
              * Returns a non-assignable coefficient from a specific tensor
              * index.
              *
@@ -343,6 +343,9 @@ namespace tomcat {
              * @return Mean.
              */
             Tensor3 coeff_wise_and(int axis) const;
+
+
+
 
           private:
             //------------------------------------------------------------------

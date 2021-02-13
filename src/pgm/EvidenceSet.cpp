@@ -3,8 +3,8 @@
 #include <boost/filesystem.hpp>
 
 #include "utils/EigenExtensions.h"
-#include "utils/Tensor3.h"
 #include "utils/FileHandler.h"
+#include "utils/Tensor3.h"
 
 namespace tomcat {
     namespace model {
@@ -133,15 +133,6 @@ namespace tomcat {
             }
         }
 
-        void EvidenceSet::save(const string& output_dir) const {
-            fs::create_directories(output_dir);
-            for(auto&[node_label, data] : this->node_label_to_data){
-                string filename = node_label;
-                string filepath = get_filepath(output_dir, filename);
-                save_tensor_to_file(filepath, data);
-            }
-        }
-
         vector<string> EvidenceSet::get_node_labels() const {
             vector<string> node_labels;
             node_labels.reserve(this->node_label_to_data.size());
@@ -217,6 +208,25 @@ namespace tomcat {
 
         void EvidenceSet::remove(const string& node_label) {
             this->node_label_to_data.erase(node_label);
+        }
+
+        void EvidenceSet::save(const string& output_dir) const {
+            fs::create_directories(output_dir);
+            for (auto& [node_label, data] : this->node_label_to_data) {
+                string filename = node_label;
+                string filepath = get_filepath(output_dir, filename);
+                save_tensor_to_file(filepath, data);
+            }
+        }
+
+        EvidenceSet EvidenceSet::at(int row, int col) const {
+            EvidenceSet small_set;
+
+            for (const auto [label, data] : node_label_to_data) {
+                small_set.add_data(label, Tensor3(data.at(row, col)));
+            }
+
+            return small_set;
         }
 
         //----------------------------------------------------------------------

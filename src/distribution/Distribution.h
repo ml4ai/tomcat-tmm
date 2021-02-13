@@ -74,13 +74,8 @@ namespace tomcat {
              *
              * @param parameter_nodes_map: mapping between a parameter node's
              * timed name and its concrete object reference in an unrolled DBN
-             * @param time_step: time step of the node that owns the CPD in the
-             * unrolled DBN. It can be different from the time step of the
-             * parameter node if the latter is shared among nodes over several
-             * time steps.
              */
-            void update_dependencies(const Node::NodeMap& parameter_nodes_map,
-                                     int time_step);
+            void update_dependencies(const Node::NodeMap& parameter_nodes_map);
 
             /**
              * Update the sufficient statistics in the parameter nodes given the
@@ -189,6 +184,16 @@ namespace tomcat {
              * @return PDF/PMF
              */
             virtual double get_pdf(const Eigen::VectorXd& value) const = 0;
+
+            /**
+             * Returns the CDF for a given value.
+             *
+             * @param value: value
+             * @param reverse: computes p(x > value) instead of p(x <= value)
+             *
+             * @return PDF/PMF
+             */
+            virtual double get_cdf(double value, bool reverse) const = 0;
 
             /**
              * Creates a new unique pointer from a concrete instance of a

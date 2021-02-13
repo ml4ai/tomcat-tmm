@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 
+#include "AncestralSampler.h"
 #include "utils/Definitions.h"
 
 namespace tomcat {
@@ -56,12 +57,22 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void sample_latent(const std::shared_ptr<gsl_rng>& random_generator,
-                               int num_samples) override;
+            void sample_latent(const std::shared_ptr<gsl_rng>& random_generator) override;
 
             Tensor3 get_samples(const std::string& node_label) const override;
 
+            Tensor3 get_samples(const std::string& node_label,
+                                int low_time_step,
+                                int high_time_step) const override;
+
             void get_info(nlohmann::json& json) const override;
+
+            std::unique_ptr<Sampler> clone() const override;
+
+            std::unordered_set<std::string>
+            get_sampled_node_labels() const override;
+
+            void prepare() override;
 
           protected:
             //------------------------------------------------------------------
@@ -78,8 +89,8 @@ namespace tomcat {
                  * Struct that contains a collection of nodes separate in
                  * distinct lists to speed up processing.
                  */
-                std::vector<std::shared_ptr<Node>> sampled_nodes;
-                std::vector<std::shared_ptr<Node>> timer_nodes;
+                NodePtrVec sampled_nodes;
+                NodePtrVec timer_nodes;
 
                 // The nodes in this list cannot be processed in parallel
                 // over time because they can either depend on nodes across
@@ -88,23 +99,19 @@ namespace tomcat {
                 // random. The computation in these nodes will be
                 // parallelized over the data provided (vertical
                 // parallelization).
-                std::vector<std::shared_ptr<Node>>
-                    single_thread_over_time_nodes;
+                NodePtrVec single_thread_over_time_nodes;
 
                 // Parameter nodes can all be sampled in parallel since they
                 // are sampled from conjugacy
-                std::vector<std::vector<std::shared_ptr<Node>>>
-                    parameter_nodes_per_job;
+                std::vector<NodePtrVec> parameter_nodes_per_job;
 
                 // We divide data nodes in two categories: data nodes at even
                 // and odd time steps. This guarantees that nodes in each of
                 // these categories can be sampled in parallel as nodes from a
                 // time step can only depend on nodes from previous, current or
                 // subsequent time steps.
-                std::vector<std::vector<std::shared_ptr<Node>>>
-                    even_time_data_nodes_per_job;
-                std::vector<std::vector<std::shared_ptr<Node>>>
-                    odd_time_data_nodes_per_job;
+                std::vector<NodePtrVec> even_time_data_nodes_per_job;
+                std::vector<NodePtrVec> odd_time_data_nodes_per_job;
             };
 
             //------------------------------------------------------------------
@@ -118,6 +125,16 @@ namespace tomcat {
              * @return Node set
              */
             NodeSet get_node_set() const;
+
+            /**
+             * Checks if the node is within the sampling from the posterior
+             * range.
+             *
+             * @param node: node;
+             *
+             * @return true or false
+             */
+            bool is_in_sampling_range(const RVNodePtr& node) const;
 
             /**
              * Populates the nodes' assignments with initial values.
@@ -152,56 +169,46 @@ namespace tomcat {
              * @param random_generators_per_job: random number generators to
              * use in each job
              * @param nodes_per_job: list of data nodes to process in each job
-             * @param discard: whether samples generated must be discarded or
-             * not
-             * @param data_nodes: whether the nodes are data nodes or
-             * parameter notes otherwise
              */
             void sample_nodes_in_parallel(
                 const std::vector<std::shared_ptr<gsl_rng>>&
                     random_generators_per_job,
                 const std::vector<std::vector<std::shared_ptr<Node>>>&
-                    nodes_per_job,
-                bool discard,
-                bool data_nodes);
+                    nodes_per_job);
 
             /**
              * Samples a series of nodes from their posterior distribution.
              *
              * @param random_generator: random number generator
              * @param nodes: nodes to be processed
-             * @param discard: indicates whether the samples should be discarded
              * or stored
              */
             void run_sample_from_posterior_thread(
                 const std::shared_ptr<gsl_rng>& random_generator,
-                const std::vector<std::shared_ptr<Node>>& nodes,
-                bool discard);
+                const std::vector<std::shared_ptr<Node>>& nodes);
 
             /**
-             * Samples from the posterior distribution of a node. The posterior for a data node x is
-             * given by P(x|Pa(x))P(Ch1(x)|x)...P(Chk(x)|x), where Pa(x) is the
-             * parents of x and Chi(x) is the i-th child of x. P(Chi(x)|x) is a
-             * vector containing the pdf of the current value assigned to the
-             * i-th child f x for each one of the possible values x can take.
-             * For parameter nodes, the posterior is sampled from prior
-             * sufficient statistics updating via conjugacy.
+             * Samples from the posterior distribution of a node. The posterior
+             * for a data node x is given by
+             * P(x|Pa(x))P(Ch1(x)|x)...P(Chk(x)|x), where Pa(x) is the parents
+             * of x and Chi(x) is the i-th child of x. P(Chi(x)|x) is a vector
+             * containing the pdf of the current value assigned to the i-th
+             * child f x for each one of the possible values x can take. For
+             * parameter nodes, the posterior is sampled from prior sufficient
+             * statistics updating via conjugacy.
              *
              * @param random_generator_per_job: random number generator per
              * thread
              * @param node: node
-             * @param discard: indicates whether the sample should be discarded
-             * or stored
              * @param update_sufficient_statistics: indicates whether
              * sufficient statistics of the node's CPD's parameter's priors
              * must be updated after generating a sample from the node
              * (relevant for data nodes)
              */
-            void sample_from_posterior(const
-            std::vector<std::shared_ptr<gsl_rng>>&
+            void
+            sample_from_posterior(const std::vector<std::shared_ptr<gsl_rng>>&
                                       random_generator_per_job,
                                   const std::shared_ptr<Node>& node,
-                                  bool discard,
                                   bool update_sufficient_statistics = true);
 
             /**
@@ -212,13 +219,11 @@ namespace tomcat {
              * thread
              * @param single_thread_nodes: nodes that cannot be horizontally
              * split in multiple threads.
-             * @param discard: whether the sampled must be saved or discarded
              */
             void sample_single_thread_nodes(
                 const std::vector<std::shared_ptr<gsl_rng>>&
                     random_generator_per_job,
-                const std::vector<std::shared_ptr<Node>>& single_thread_nodes,
-                bool discard);
+                const std::vector<std::shared_ptr<Node>>& single_thread_nodes);
 
             /**
              * Update sufficient statistics of the timer nodes.
@@ -242,10 +247,14 @@ namespace tomcat {
              */
             void reset();
 
+            void print_nodes() const;
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
             int burn_in_period = 0;
+
+            int step_counter = 0;
 
             // Container to store the samples generated by this sampler.
             // Different from the Ancestral sampler, where the generated samples
@@ -256,13 +265,14 @@ namespace tomcat {
             // process.
             std::unordered_map<std::string, Tensor3> node_label_to_samples;
 
-            int iteration = 0;
-
             // Mutex to handle race condition when multiple threads try to
             // store samples at the same time.
             std::unique_ptr<std::mutex> keep_sample_mutex;
 
-            void print_nodes(const NodeSet& node_set) const;
+            // Selection of nodes used by the sampler. We store this
+            // information to avoid computing this list every time tha sample
+            // function is called.
+            NodeSet node_set;
         };
 
     } // namespace model

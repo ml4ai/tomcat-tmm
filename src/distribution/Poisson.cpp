@@ -1,5 +1,6 @@
 #include "Poisson.h"
 
+#include <gsl/gsl_cdf.h>
 #include <gsl/gsl_randist.h>
 
 #include "pgm/ConstantNode.h"
@@ -92,6 +93,18 @@ namespace tomcat {
         double Poisson::get_pdf(const Eigen::VectorXd& value) const {
             double lambda = this->parameters[0]->get_assignment()(0, 0);
             return gsl_ran_poisson_pdf(value(0), lambda);
+        }
+
+        double Poisson::get_cdf(double value, bool reverse) const {
+            double lambda = this->parameters[0]->get_assignment()(0, 0);
+
+            double cdf =
+                (value < 0) ? 0 : gsl_cdf_poisson_P((int)value, lambda);
+            if (reverse) {
+                cdf = 1 - cdf;
+            }
+
+            return cdf;
         }
 
         unique_ptr<Distribution> Poisson::clone() const {

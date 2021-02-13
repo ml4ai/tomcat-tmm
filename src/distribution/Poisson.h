@@ -86,6 +86,8 @@ namespace tomcat {
 
             double get_pdf(const Eigen::VectorXd& value) const override;
 
+            double get_cdf(double value, bool reverse) const override;
+
             std::unique_ptr<Distribution> clone() const override;
 
             std::string get_description() const override;
@@ -108,7 +110,6 @@ namespace tomcat {
             Eigen::VectorXd
             sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
                             double lambda) const;
-
         };
 
     } // namespace model

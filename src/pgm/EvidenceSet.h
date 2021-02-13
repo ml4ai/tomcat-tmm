@@ -23,7 +23,7 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Creates a blank DBNData object.             *
+             * Creates a blank DBNData object.
              */
             EvidenceSet();
 
@@ -194,6 +194,18 @@ namespace tomcat {
              * @param output_dir: directory where the data must be saved.
              */
             void save(const std::string& output_dir) const;
+
+            /**
+             * Retrieves an evidence set comprised by tensors with values
+             * from the row and column informed preserved (axis 1 and 2 of
+             * the tensor)
+             *
+             * @param row: matrix row to select
+             * @param col: matrix column to select
+             *
+             * @return Single point and time evidence set
+             */
+            EvidenceSet at(int row, int col) const;
 
             //------------------------------------------------------------------
             // Getters & Setters

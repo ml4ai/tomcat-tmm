@@ -77,38 +77,54 @@ namespace tomcat {
              * performed in parallel as they can be achieved by small matrix
              * operations. Therefore, this parameter is irrelevant in this
              * subclass.
+             * @param max_time_step_to_sample: ignore segments with time step
+             * larger than this value
              *
              * @return Timer values given controlled nodes' assignment.
              */
             Eigen::MatrixXd
             sample_from_posterior(const std::vector<std::shared_ptr<gsl_rng>>&
-                                      random_generator_per_job) override;
+                                      random_generator_per_job,
+                                  int max_time_step_to_sample) override;
 
             /**
              * Gets posterior weights for the left segment of a node such
              * that this timer node is the timer at the beginning of that
              * segment.
              *
-             * @param duration of the left segment for the sample_idx
-             * timer's assignment
+             * @param left_segment_duration of the left segment for the
+             * sample_idx timer's assignment
              * @param sample_idx: row of the assignment to consider when
              * calculating the weights.
              *
              * @return Left segment posterior weights
              */
-            Eigen::VectorXd
-            get_left_segment_posterior_weights(int left_segment_duration,
-                                               int sample_idx) const;
+            Eigen::VectorXd get_left_segment_posterior_weights(
+                const std::shared_ptr<const RandomVariableNode>&
+                    right_segment_state,
+                int left_segment_duration,
+                int last_time_step,
+                int sample_idx) const;
 
             /**
              * Computes the duration of the segments backwards.
+             *
+             * @param max_time_step_to_sample: if this node's time step if
+             * equal to the value informed here, consider it the last node of
+             * the model
              */
-            void update_backward_assignment();
+            void update_backward_assignment(int max_time_step_to_sample);
 
             // -----------------------------------------------------------------
             // Getters & Setters
             // -----------------------------------------------------------------
+            const Eigen::MatrixXd& get_forward_assignment() const;
+
+            void
+            set_forward_assignment(const Eigen::MatrixXd& forward_assignment);
+
             const Eigen::MatrixXd& get_backward_assignment() const;
+
             void
             set_backward_assignment(const Eigen::MatrixXd& backward_assignment);
 
@@ -134,10 +150,10 @@ namespace tomcat {
             // Data members
             // -----------------------------------------------------------------
 
-            // Size of the segments to the right (in time) of the timer node.
-            // Assignments of the node this timer node controls are counted
-            // backwards in time ans stored in this attribute.
-            Eigen::MatrixXd backward_assignment;
+            // Size of the segments (in time) to the left of the
+            // timer node. Assignments of the node this timer node controls are
+            // counted forward in time and stored in this attribute.
+            Eigen::MatrixXd forward_assignment;
 
             // Timed copy of the node controlled by this timer.
             std::shared_ptr<RandomVariableNode> controlled_node;

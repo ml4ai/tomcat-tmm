@@ -1,6 +1,7 @@
 #include "Gaussian.h"
 
 #include <gsl/gsl_randist.h>
+#include <gsl/gsl_cdf.h>
 
 #include "pgm/ConstantNode.h"
 
@@ -120,12 +121,24 @@ namespace tomcat {
         }
 
         double Gaussian::get_pdf(const Eigen::VectorXd& value) const {
-
             Eigen::VectorXd parameters = this->get_parameters(0);
             double mean = parameters(PARAMETER_INDEX::mean);
             double variance = parameters(PARAMETER_INDEX::variance);
 
             return gsl_ran_gaussian_pdf(value(0) - mean, sqrt(variance));
+        }
+
+        double Gaussian::get_cdf(double value, bool reverse) const {
+            Eigen::VectorXd parameters = this->get_parameters(0);
+            double mean = parameters(PARAMETER_INDEX::mean);
+            double variance = parameters(PARAMETER_INDEX::variance);
+
+            double cdf = gsl_cdf_gaussian_P(value - mean, sqrt(variance));
+            if (reverse) {
+                cdf = 1 - cdf;
+            }
+
+            return cdf;
         }
 
         unique_ptr<Distribution> Gaussian::clone() const {

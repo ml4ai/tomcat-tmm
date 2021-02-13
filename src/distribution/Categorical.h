@@ -69,7 +69,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-Eigen::VectorXd
+            Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
                    int parameter_idx) const override;
 
@@ -97,6 +97,8 @@ Eigen::VectorXd
                 const Eigen::VectorXd& sufficient_statistics) const override;
 
             double get_pdf(const Eigen::VectorXd& value) const override;
+
+            double get_cdf(double value, bool reverse) const override;
 
             std::unique_ptr<Distribution> clone() const override;
 

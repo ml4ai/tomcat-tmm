@@ -42,6 +42,10 @@ namespace tomcat {
             this->param_label_to_samples = trainer.param_label_to_samples;
         }
 
+        void DBNSamplingTrainer::prepare() {
+            this->sampler->prepare();
+        }
+
         void DBNSamplingTrainer::fit(const EvidenceSet& training_data) {
             this->sampler->set_num_in_plate_samples(
                 training_data.get_num_data_points());

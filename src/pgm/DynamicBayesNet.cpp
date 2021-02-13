@@ -45,13 +45,19 @@ namespace tomcat {
         void DynamicBayesNet::unroll(int time_steps, bool force) {
             if (time_steps != this->time_steps || force) {
                 this->reset();
-                this->time_steps = time_steps;
-                this->create_vertices_from_nodes();
-                this->create_edges();
+                this->expand(time_steps);
+            }
+        }
+
+        void DynamicBayesNet::expand(int new_time_steps) {
+            if (new_time_steps > 0) {
+                this->create_vertices_from_nodes(new_time_steps);
+                this->create_edges(new_time_steps);
+                this->set_timers_to_nodes(new_time_steps);
+                this->set_timed_copies_to_nodes(new_time_steps);
                 this->update_cpd_templates_dependencies();
                 this->set_parents_children_and_cpd_to_nodes();
-                this->set_timers_to_nodes();
-                this->set_timed_copies_to_nodes();
+                this->time_steps += new_time_steps;
             }
         }
 
@@ -64,33 +70,28 @@ namespace tomcat {
             this->nodes.clear();
         }
 
-        void DynamicBayesNet::create_vertices_from_nodes() {
+        void DynamicBayesNet::create_vertices_from_nodes(int new_time_steps) {
             for (const auto& node_template : this->node_templates) {
                 const shared_ptr<NodeMetadata>& metadata =
                     node_template->get_metadata();
+
+                // Start from the next time step available because the DBN
+                // may have already been unrolled by some time steps previously
+                int from_time =
+                    max(metadata->get_initial_time_step(), this->time_steps);
                 if (metadata->is_replicable()) {
-                    for (int t = metadata->get_initial_time_step();
-                         t < this->time_steps;
-                         t++) {
+                    int to_time = this->time_steps + new_time_steps - 1;
 
-                        VertexData vertex_data =
-                            this->add_vertex(node_template, t);
-
-                        if (vertex_data.node->get_metadata()->is_parameter()) {
-                            string node_name =
-                                vertex_data.node->get_timed_name();
-                            this->parameter_nodes_map[node_name] =
-                                vertex_data.node;
-                        }
+                    for (int t = from_time; t <= to_time; t++) {
+                        this->add_vertex(node_template, t);
                     }
                 }
                 else {
-                    VertexData vertex_data = this->add_vertex(
-                        node_template, metadata->get_initial_time_step());
-                    if (vertex_data.node->get_metadata()->is_parameter()) {
-                        this->parameter_nodes_map[vertex_data.node
-                                                      ->get_timed_name()] =
-                            vertex_data.node;
+                    // There's only one copy of this node in the unrolled DBN
+                    int t0 = metadata->get_initial_time_step();
+                    if (this->time_steps - 1 < t0 &&
+                        t0 <= this->time_steps + new_time_steps - 1) {
+                        this->add_vertex(node_template, t0);
                     }
                 }
             }
@@ -112,15 +113,9 @@ namespace tomcat {
             data.node->set_time_step(time_step);
             data.label = data.node->get_timed_name();
 
-            if (data.node->get_metadata()->has_replicable_parameter_parent()) {
-                // If a node has parameter nodes that are replicable, its
-                // replicas do not share the same CPD's and therefore it cannot
-                // use the CPD pointer inherited from its template.
-                data.node->clone_cpd_templates();
-            }
-
             // Save mapping between the vertice id and it's name.
-            this->name_to_id[data.node->get_timed_name()] = vertex_id;
+            string node_name = data.node->get_timed_name();
+            this->name_to_id[node_name] = vertex_id;
 
             // Include node as a property of the vertex in the graph.
             this->graph[vertex_id] = data;
@@ -128,47 +123,48 @@ namespace tomcat {
             // Include node in the list of created nodes
             this->label_to_nodes[data.node->get_metadata()->get_label()]
                 .push_back(data.node);
-
             this->nodes.push_back(data.node);
+            if (data.node->get_metadata()->is_parameter()) {
+                this->parameter_nodes_map[node_name] = data.node;
+            }
 
             return data;
         }
 
-        void DynamicBayesNet::create_edges() {
+        void DynamicBayesNet::create_edges(int new_time_steps) {
             for (const auto& node_template : this->node_templates) {
-                const shared_ptr<NodeMetadata> metadata =
+                const shared_ptr<NodeMetadata>& metadata =
                     node_template->get_metadata();
-
                 for (const auto& parent_link : metadata->get_parent_links()) {
                     if (metadata->is_replicable()) {
-                        for (int t = metadata->get_initial_time_step();
-                             t < this->time_steps;
-                             t++) {
+                        int from_time = max(metadata->get_initial_time_step(),
+                                            this->time_steps);
+                        int to_time = this->time_steps + new_time_steps - 1;
 
-                            this->add_edge(*(parent_link.parent_node_metadata),
-                                           *(node_template->get_metadata()),
+                        for (int t = from_time; t <= to_time; t++) {
+                            this->add_edge(*parent_link.parent_node_metadata,
+                                           *metadata,
                                            parent_link.time_crossing,
                                            t);
+
+                            if (metadata->is_timer()) {
+                                // Create link between instances of a timer node
+                                // over time.
+                                this->add_edge(*metadata, *metadata, true, t);
+                            }
                         }
                     }
                     else {
-                        this->add_edge(*(parent_link.parent_node_metadata),
-                                       *(node_template->get_metadata()),
-                                       parent_link.time_crossing,
-                                       metadata->get_initial_time_step());
-                    }
-                }
-
-                // Create link between instances of a timer node over time.
-                if (metadata->is_timer()) {
-                    for (int t = metadata->get_initial_time_step();
-                         t < this->time_steps;
-                         t++) {
-
-                        this->add_edge(*(node_template->get_metadata()),
-                                       *(node_template->get_metadata()),
-                                       true,
-                                       t);
+                        // There's only one copy of this node in the unrolled
+                        // DBN
+                        int t0 = metadata->get_initial_time_step();
+                        if (this->time_steps - 1 < t0 &&
+                            t0 <= this->time_steps + new_time_steps - 1) {
+                            this->add_edge(*parent_link.parent_node_metadata,
+                                           *metadata,
+                                           parent_link.time_crossing,
+                                           t0);
+                        }
                     }
                 }
             }
@@ -183,7 +179,7 @@ namespace tomcat {
             if (source_node_metadata.is_replicable()) {
                 if (time_crossing) {
                     // A replicable node (source) that shows up at time step t-1
-                    // and is linked to another node (target) that shpws up at
+                    // and is linked to another node (target) that shows up at
                     // time step t.
                     if (source_node_metadata.get_initial_time_step() <=
                         target_time_step - 1) {
@@ -205,7 +201,7 @@ namespace tomcat {
                     if (time_crossing) {
                         // A non-replicable node (source) that shows up once at
                         // its predefined initial time step (t) and is linked
-                        // once to another node (target) that shpws up at time
+                        // once to another node (target) that shows up at time
                         // step t.
                         if (source_node_metadata.get_initial_time_step() ==
                             target_time_step - 1) {
@@ -215,7 +211,7 @@ namespace tomcat {
                     else {
                         // A non-replicable node (source) that shows up once at
                         // its predefined initial time step (t) and is linked
-                        // once to another node (target) that shpws up at time
+                        // once to another node (target) that shows up at time
                         // step t+1.
                         if (source_node_metadata.get_initial_time_step() ==
                             target_time_step) {
@@ -282,13 +278,14 @@ namespace tomcat {
             }
         }
 
-        void DynamicBayesNet::set_timers_to_nodes() {
+        void DynamicBayesNet::set_timers_to_nodes(int num_timed_copies) {
+            int to_time = this->time_steps + num_timed_copies - 1;
+
             for (const auto& node_template : this->node_templates) {
                 if (const auto& timer_metadata =
                         node_template->get_metadata()->get_timer_metadata()) {
-                    int t0 =
-                        node_template->get_metadata()->get_initial_time_step();
-                    for (int t = t0; t < this->time_steps; t++) {
+                    int t0 = this->time_steps;
+                    for (int t = t0; t <= to_time; t++) {
                         string node_name =
                             node_template->get_metadata()->get_timed_name(t);
                         int node_id = this->name_to_id[node_name];
@@ -307,7 +304,9 @@ namespace tomcat {
             }
         }
 
-        void DynamicBayesNet::set_timed_copies_to_nodes() {
+        void DynamicBayesNet::set_timed_copies_to_nodes(int num_timed_copies) {
+            int to_time = this->time_steps + num_timed_copies - 1;
+
             for (const auto& node_template : this->node_templates) {
                 if (node_template->get_metadata()->is_replicable()) {
                     int t0 =
@@ -316,7 +315,7 @@ namespace tomcat {
                     auto timed_copies =
                         make_shared<vector<shared_ptr<RandomVariableNode>>>();
 
-                    for (int t = t0; t < this->time_steps; t++) {
+                    for (int t = t0; t <= to_time; t++) {
                         string node_name =
                             node_template->get_metadata()->get_timed_name(t);
                         int node_id = this->name_to_id[node_name];
@@ -329,32 +328,29 @@ namespace tomcat {
         }
 
         void DynamicBayesNet::update_cpd_templates_dependencies() {
+            // The updates are made using the node templates and they will
+            // reflect in the timed instances that share the same CPD. This
+            // is to avoid calling the update multiple times for the same
+            // CPD that has sharable distributions among the timed copies.
+
             for (const auto& node_template : this->node_templates) {
                 const shared_ptr<NodeMetadata> metadata =
                     node_template->get_metadata();
                 if (metadata->has_parameter_parents()) {
-                    if (metadata->is_replicable() &&
-                        metadata->has_replicable_parameter_parent()) {
-                        for (int t = metadata->get_initial_time_step();
-                             t < this->time_steps;
-                             t++) {
+                    int t =
+                        node_template->get_metadata()->get_initial_time_step();
+                    string node_name =
+                        node_template->get_metadata()->get_timed_name(t);
 
-                            int vertex_id = this->name_to_id.at(
-                                node_template->get_metadata()->get_timed_name(
-                                    t));
-                            VertexData vertex_data = this->graph[vertex_id];
-                            vertex_data.node->update_cpd_templates_dependencies(
-                                this->parameter_nodes_map, t);
-                        }
-                    }
-                    else {
-                        int t = node_template->get_metadata()
-                                    ->get_initial_time_step();
-                        int vertex_id = this->name_to_id.at(
-                            node_template->get_metadata()->get_timed_name(t));
-                        VertexData vertex_data = this->graph[vertex_id];
+                    if (this->time_steps <= t &&
+                        EXISTS(node_name, this->name_to_id)) {
+                        // We only need to update once (when the node is
+                        // created). Timed copies of future expansions of the
+                        // DBN will inherit the correct dependencies set here.
+                        int vertex_id = this->name_to_id.at(node_name);
+                        auto& vertex_data = this->graph[vertex_id];
                         vertex_data.node->update_cpd_templates_dependencies(
-                            this->parameter_nodes_map, t);
+                            this->parameter_nodes_map);
                     }
                 }
             }
@@ -535,9 +531,7 @@ namespace tomcat {
 
         int DynamicBayesNet::get_cardinality_of(
             const std::string& node_label) const {
-            return this->label_to_nodes.at(node_label)[0]
-                ->get_metadata()
-                ->get_cardinality();
+            return this->get_metadata_of(node_label)->get_cardinality();
         }
 
         bool DynamicBayesNet::has_node_with_label(
@@ -567,6 +561,59 @@ namespace tomcat {
             }
 
             return labels;
+        }
+
+        RVNodePtr DynamicBayesNet::get_node(const std::string& label,
+                                            int time_step) {
+            RVNodePtr node;
+            string name = NodeMetadata::get_timed_name(label, time_step);
+            if (EXISTS(name, this->name_to_id)) {
+                int id = this->name_to_id.at(name);
+                node = this->graph[id].node;
+            }
+
+            return node;
+        }
+
+        shared_ptr<NodeMetadata>
+        DynamicBayesNet::get_metadata_of(const std::string& node_label) const {
+            return this->label_to_nodes.at(node_label)[0]->get_metadata();
+        }
+
+        DynamicBayesNet DynamicBayesNet::clone(bool copy_data_node_assignment) {
+            DynamicBayesNet new_dbn(this->node_templates.size());
+            for(const auto& node_template : this->node_templates) {
+                new_dbn.add_node_template(node_template);
+            }
+            new_dbn.unroll(this->time_steps, true);
+
+            if (copy_data_node_assignment) {
+                for (auto& new_node : new_dbn.nodes) {
+                    RVNodePtr rv_new_node =
+                        dynamic_pointer_cast<RandomVariableNode>(new_node);
+                    RVNodePtr original_node =
+                        this->get_node(rv_new_node->get_metadata()->get_label(),
+                                       rv_new_node->get_time_step());
+
+                    rv_new_node->set_assignment(
+                        original_node->get_assignment());
+                }
+            }
+            else {
+                // Copy only assignments from parameter nodes
+                for (auto& [name, new_node] : new_dbn.parameter_nodes_map) {
+                    RVNodePtr rv_new_node =
+                        dynamic_pointer_cast<RandomVariableNode>(new_node);
+                    RVNodePtr original_node =
+                        dynamic_pointer_cast<RandomVariableNode>(
+                            this->parameter_nodes_map.at(name));
+
+                    rv_new_node->set_assignment(
+                        original_node->get_assignment());
+                }
+            }
+
+            return new_dbn;
         }
 
         //----------------------------------------------------------------------
