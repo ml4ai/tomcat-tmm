@@ -114,7 +114,7 @@ void execute_experiment_2c_part_a() {
     Experimentation experimentation(
         gen, "2c", Experimentation::MODEL_VERSION::v2, training_set, test_set);
 
-    experimentation.train_using_gibbs(50, 100, 8);
+    experimentation.train_using_gibbs(50, 100, 4);
     string model_dir = fmt::format("{}/2c", MODEL_DIR);
     experimentation.save_model(model_dir, true);
     experimentation.train_and_save();
@@ -329,7 +329,7 @@ void execute_experiment(const string& experiment_id) {
         execute_experiment_2b();
     }
     else if (experiment_id == "2c") {
-//        execute_experiment_2c_part_a();
+        execute_experiment_2c_part_a();
         execute_experiment_2c_part_b();
     }
     else if (experiment_id == "2c_a") {
@@ -421,10 +421,4 @@ int main(int argc, char* argv[]) {
     }
 
     execute_experiment(experiment_id);
-
-//    string filepath = "../../data/model/json/tomcatv02.json";
-//    DynamicBayesNet dbn = DynamicBayesNet::create_from_json(filepath);
-//    dbn.unroll(3, true);
-//    dbn.write_graphviz(cout);
-
 }

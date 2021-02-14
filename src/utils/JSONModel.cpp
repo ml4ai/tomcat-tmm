@@ -416,9 +416,9 @@ namespace tomcat {
                 if (json_cpd["constant"]) {
                     if (distribution == "categorical") {
                         int cardinality = rv_nodes.at(cpd_owner_label)
-                            .at(0)
-                            ->get_metadata()
-                            ->get_cardinality();
+                                              .at(0)
+                                              ->get_metadata()
+                                              ->get_cardinality();
                         create_constant_cpd<CategoricalCPD>(
                             json_cpd, cpd_owner_label, rv_nodes, cardinality);
                     }
@@ -428,9 +428,9 @@ namespace tomcat {
                     }
                     else if (distribution == "dirichlet") {
                         int sample_size = rv_nodes.at(cpd_owner_label)
-                            .at(0)
-                            ->get_metadata()
-                            ->get_sample_size();
+                                              .at(0)
+                                              ->get_metadata()
+                                              ->get_sample_size();
                         create_constant_cpd<DirichletCPD>(
                             json_cpd, cpd_owner_label, rv_nodes, sample_size);
                     }
@@ -508,7 +508,19 @@ namespace tomcat {
 
             vector<double> parameter_values =
                 split_string(json_cpd["parameters"], ",");
-            int rows = rv_nodes.at(cpd_owner_label).size();
+
+            int rows = 1;
+            if (rv_nodes.at(cpd_owner_label).at(0)->get_metadata()->is_parameter()) {
+                rows = rv_nodes.at(cpd_owner_label).size();
+            } else {
+                for (const string& index_node : json_cpd["index_nodes"]) {
+                    int cardinality = rv_nodes.at(index_node)
+                        .at(0)
+                        ->get_metadata()
+                        ->get_cardinality();
+                    rows *= cardinality;
+                }
+            }
             Eigen::MatrixXd cpd_table =
                 Eigen::Map<Eigen::Matrix<double,
                                          Eigen::Dynamic,
@@ -550,6 +562,9 @@ namespace tomcat {
                 split_list.push_back(token);
                 str.erase(0, pos + delimiter.length());
             }
+
+            double token = stod(str.substr(0, pos));
+            split_list.push_back(token);
 
             return split_list;
         }
