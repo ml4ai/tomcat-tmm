@@ -18,6 +18,9 @@ namespace tomcat {
 #define EPSILON 1E-15
 #define EMPTY_VECTOR Eigen::VectorXd(0)
 
+        /**
+         * General exception raised throughout the project
+         */
         struct TomcatModelException : public std::exception {
             std::string message;
 
@@ -27,6 +30,9 @@ namespace tomcat {
             const char* what() const throw() { return this->message.data(); }
         };
 
+        /**
+         * Auxiliary struct to measure the execution time within a block.
+         */
         struct Timer {
 
             typedef std::chrono::seconds seconds;

@@ -14,6 +14,7 @@
 #include "experiments/Experimentation.h"
 #include "experiments/TomcatTA3V2.h"
 #include "pgm/EvidenceSet.h"
+#include "utils/JSONModel.h"
 
 using namespace tomcat::model;
 using namespace std;
@@ -113,7 +114,7 @@ void execute_experiment_2c_part_a() {
     Experimentation experimentation(
         gen, "2c", Experimentation::MODEL_VERSION::v2, training_set, test_set);
 
-    experimentation.train_using_gibbs(50, 100, 8);
+    experimentation.train_using_gibbs(50, 100, 4);
     string model_dir = fmt::format("{}/2c", MODEL_DIR);
     experimentation.save_model(model_dir, true);
     experimentation.train_and_save();
