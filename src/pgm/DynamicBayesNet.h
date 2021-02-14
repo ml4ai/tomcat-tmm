@@ -75,6 +75,21 @@ namespace tomcat {
             DynamicBayesNet& operator=(DynamicBayesNet&&) = default;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Creates a model from nodes and connections defined in a json
+             * file.
+             *
+             * @param filepath: location where the json file is
+             *
+             * @return DBN
+             */
+            static DynamicBayesNet create_from_json(const std::string&
+            filepath);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 

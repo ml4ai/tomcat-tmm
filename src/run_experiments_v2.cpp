@@ -14,6 +14,7 @@
 #include "experiments/Experimentation.h"
 #include "experiments/TomcatTA3V2.h"
 #include "pgm/EvidenceSet.h"
+#include "utils/JSONModel.h"
 
 using namespace tomcat::model;
 using namespace std;
@@ -328,7 +329,7 @@ void execute_experiment(const string& experiment_id) {
         execute_experiment_2b();
     }
     else if (experiment_id == "2c") {
-        execute_experiment_2c_part_a();
+//        execute_experiment_2c_part_a();
         execute_experiment_2c_part_b();
     }
     else if (experiment_id == "2c_a") {
@@ -420,4 +421,10 @@ int main(int argc, char* argv[]) {
     }
 
     execute_experiment(experiment_id);
+
+//    string filepath = "../../data/model/json/tomcatv02.json";
+//    DynamicBayesNet dbn = DynamicBayesNet::create_from_json(filepath);
+//    dbn.unroll(3, true);
+//    dbn.write_graphviz(cout);
+
 }

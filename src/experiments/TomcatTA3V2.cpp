@@ -86,7 +86,10 @@ namespace tomcat {
                 dbn.add_node_template(node);
             }
 
-            this->model = make_shared<DynamicBayesNet>(dbn);
+            //            this->model = make_shared<DynamicBayesNet>(dbn);
+            string filepath = "../../data/model/json/tomcatv02.json";
+            this->model = make_shared<DynamicBayesNet>(
+                DynamicBayesNet::create_from_json(filepath));
             this->model->unroll(NUM_SECONDS, true);
         }
 

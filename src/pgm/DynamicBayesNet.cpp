@@ -3,9 +3,9 @@
 #include <boost/filesystem.hpp>
 #include <boost/graph/topological_sort.hpp>
 
-#include "pgm/ConstantNode.h"
 #include "pgm/TimerNode.h"
 #include "utils/FileHandler.h"
+#include "utils/JSONModel.h"
 
 namespace tomcat {
     namespace model {
@@ -22,6 +22,15 @@ namespace tomcat {
         }
 
         DynamicBayesNet::~DynamicBayesNet() {}
+
+        //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+
+        DynamicBayesNet
+        DynamicBayesNet::create_from_json(const string& filepath) {
+            return create_model_from_json(filepath);
+        }
 
         //----------------------------------------------------------------------
         // Member functions
@@ -76,7 +85,8 @@ namespace tomcat {
                     node_template->get_metadata();
 
                 // Start from the next time step available because the DBN
-                // may have already been unrolled by some time steps previously
+                // may have already been unrolled by some time steps
+                // previously
                 int from_time =
                     max(metadata->get_initial_time_step(), this->time_steps);
                 if (metadata->is_replicable()) {
@@ -87,7 +97,8 @@ namespace tomcat {
                     }
                 }
                 else {
-                    // There's only one copy of this node in the unrolled DBN
+                    // There's only one copy of this node in the unrolled
+                    // DBN
                     int t0 = metadata->get_initial_time_step();
                     if (this->time_steps - 1 < t0 &&
                         t0 <= this->time_steps + new_time_steps - 1) {
@@ -148,15 +159,15 @@ namespace tomcat {
                                            t);
 
                             if (metadata->is_timer()) {
-                                // Create link between instances of a timer node
-                                // over time.
+                                // Create link between instances of a timer
+                                // node over time.
                                 this->add_edge(*metadata, *metadata, true, t);
                             }
                         }
                     }
                     else {
-                        // There's only one copy of this node in the unrolled
-                        // DBN
+                        // There's only one copy of this node in the
+                        // unrolled DBN
                         int t0 = metadata->get_initial_time_step();
                         if (this->time_steps - 1 < t0 &&
                             t0 <= this->time_steps + new_time_steps - 1) {
@@ -178,18 +189,18 @@ namespace tomcat {
             int parent_time_step = -1;
             if (source_node_metadata.is_replicable()) {
                 if (time_crossing) {
-                    // A replicable node (source) that shows up at time step t-1
-                    // and is linked to another node (target) that shows up at
-                    // time step t.
+                    // A replicable node (source) that shows up at time step
+                    // t-1 and is linked to another node (target) that shows
+                    // up at time step t.
                     if (source_node_metadata.get_initial_time_step() <=
                         target_time_step - 1) {
                         parent_time_step = target_time_step - 1;
                     }
                 }
                 else {
-                    // A replicable node (source) that shows up at time step t
-                    // and is linked to another node (target) that also shows up
-                    // at time step t.
+                    // A replicable node (source) that shows up at time step
+                    // t and is linked to another node (target) that also
+                    // shows up at time step t.
                     if (source_node_metadata.get_initial_time_step() <=
                         target_time_step) {
                         parent_time_step = target_time_step;
@@ -199,20 +210,20 @@ namespace tomcat {
             else {
                 if (source_node_metadata.is_single_time_link()) {
                     if (time_crossing) {
-                        // A non-replicable node (source) that shows up once at
-                        // its predefined initial time step (t) and is linked
-                        // once to another node (target) that shows up at time
-                        // step t.
+                        // A non-replicable node (source) that shows up once
+                        // at its predefined initial time step (t) and is
+                        // linked once to another node (target) that shows
+                        // up at time step t.
                         if (source_node_metadata.get_initial_time_step() ==
                             target_time_step - 1) {
                             parent_time_step = target_time_step - 1;
                         }
                     }
                     else {
-                        // A non-replicable node (source) that shows up once at
-                        // its predefined initial time step (t) and is linked
-                        // once to another node (target) that shows up at time
-                        // step t+1.
+                        // A non-replicable node (source) that shows up once
+                        // at its predefined initial time step (t) and is
+                        // linked once to another node (target) that shows
+                        // up at time step t+1.
                         if (source_node_metadata.get_initial_time_step() ==
                             target_time_step) {
                             parent_time_step = target_time_step;
@@ -222,8 +233,8 @@ namespace tomcat {
                 else {
                     // A non-replicable node (source) that shows up once at
                     // its predefined initial time step (t) and is linked
-                    // to replicas of another node (target) over all time steps
-                    // starting at t.
+                    // to replicas of another node (target) over all time
+                    // steps starting at t.
                     if (source_node_metadata.get_initial_time_step() <=
                         target_time_step) {
                         parent_time_step =
@@ -256,8 +267,8 @@ namespace tomcat {
                     string label = parent_node->get_metadata()->get_label();
 
                     // Timer nodes do not index CPD tables as other discrete
-                    // parent nodes do. They have connections to other nodes in
-                    // the DBN only for effects of topological order when
+                    // parent nodes do. They have connections to other nodes
+                    // in the DBN only for effects of topological order when
                     // sampling.
                     if (!parent_node->get_metadata()->is_timer()) {
                         parent_labels.push_back(label);
@@ -345,8 +356,9 @@ namespace tomcat {
                     if (this->time_steps <= t &&
                         EXISTS(node_name, this->name_to_id)) {
                         // We only need to update once (when the node is
-                        // created). Timed copies of future expansions of the
-                        // DBN will inherit the correct dependencies set here.
+                        // created). Timed copies of future expansions of
+                        // the DBN will inherit the correct dependencies set
+                        // here.
                         int vertex_id = this->name_to_id.at(node_name);
                         auto& vertex_data = this->graph[vertex_id];
                         vertex_data.node->update_cpd_templates_dependencies(
@@ -357,7 +369,8 @@ namespace tomcat {
         }
 
         void DynamicBayesNet::check() {
-            // TODO - Implement the verifications needed to make sure the DBN is
+            // TODO - Implement the verifications needed to make sure the
+            // DBN is
             //  valid and prepared to be unrolled.
             //  Only allow conjugate priors
         }
@@ -392,9 +405,9 @@ namespace tomcat {
             int i = 0;
             if (from_roots_to_leaves) {
                 // The default behavior of the boost topological sort is to
-                // order from the leaves to the roots so if we want otherwise,
-                // the elements have to be inserted in reversed order in the
-                // final array.
+                // order from the leaves to the roots so if we want
+                // otherwise, the elements have to be inserted in reversed
+                // order in the final array.
                 i = vertex_ids.size() - 1;
             }
 
@@ -469,17 +482,17 @@ namespace tomcat {
 
         void DynamicBayesNet::load_from(const string& input_dir,
                                         bool freeze_nodes) {
-            // Parameters of the model should be in files with the same name as
-            // the parameters timed names. (eg. (Theta_S0,0).txt)
+            // Parameters of the model should be in files with the same name
+            // as the parameters timed names. (eg. (Theta_S0,0).txt)
             for (const auto& file :
                  boost::filesystem::directory_iterator(input_dir)) {
                 // Ignore directories
                 if (boost::filesystem::is_regular_file(file)) {
                     string filename = file.path().filename().string();
-                    string parameter_timed_name = remove_extension(filename);
+                    string parameter_timed_name = filename;
 
-                    // Only process the file's content if a parameter with the
-                    // same name exists in the model.
+                    // Only process the file's content if a parameter with
+                    // the same name exists in the model.
                     if (EXISTS(parameter_timed_name,
                                this->parameter_nodes_map)) {
 
@@ -582,7 +595,7 @@ namespace tomcat {
 
         DynamicBayesNet DynamicBayesNet::clone(bool copy_data_node_assignment) {
             DynamicBayesNet new_dbn(this->node_templates.size());
-            for(const auto& node_template : this->node_templates) {
+            for (const auto& node_template : this->node_templates) {
                 new_dbn.add_node_template(node_template);
             }
             new_dbn.unroll(this->time_steps, true);
