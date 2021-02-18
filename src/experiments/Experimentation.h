@@ -46,6 +46,17 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
+             * Initializes an experiment using cross validation.
+             *
+             * @param gen: random number generator
+             * @param experiment_id: id of the experiment
+             * @param model: model to experiment on
+             */
+            Experimentation(const std::shared_ptr<gsl_rng>& gen,
+                            const std::string& experiment_id,
+                            std::shared_ptr<DynamicBayesNet>& model);
+
+            /**
              * Initializes an experiment with fixed training and test data.
              *
              * @param gen: random number generator
@@ -101,7 +112,20 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+            void
+            set_gibbs_trainer(int burn_in, int num_samples, int num_jobs);
+
+            void
+            set_parameters_directory(const std::string& dir);
+
+
+
+
             void display_estimates();
+
+
+
+
 
             void load_model_from(const std::string& input_dir);
 
@@ -143,14 +167,12 @@ namespace tomcat {
                                          int equals_until = 0,
                                          int max_time_step = -1);
 
-          protected:
             //------------------------------------------------------------------
-            // Member functions
+            // Getters & Setters
             //------------------------------------------------------------------
+            void set_training_data(const EvidenceSet& training_data);
 
-            //------------------------------------------------------------------
-            // Data members
-            //------------------------------------------------------------------
+            void set_test_data(const EvidenceSet& test_data);
 
           private:
             //------------------------------------------------------------------
@@ -178,7 +200,13 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-            std::shared_ptr<gsl_rng> gen;
+            std::shared_ptr<gsl_rng> random_generator;
+
+            EvidenceSet training_data;
+
+            EvidenceSet test_data;
+
+            std::shared_ptr<DynamicBayesNet> model;
 
             std::shared_ptr<Tomcat> tomcat;
 

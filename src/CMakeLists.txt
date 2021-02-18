@@ -9,6 +9,11 @@ target_include_directories(tomcat_model_lib PRIVATE
 
 set(ALL_LIBS tomcat_model_lib ${EXTERNAL_LIBS})
 
+# Target for model training
+add_executable(train training.cpp)
+target_include_directories(train PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(train PRIVATE ${ALL_LIBS})
+
 # Target for online ToMCATß
 add_executable(TomcatModelOnline run_online_tomcat.cpp)
 target_include_directories(TomcatModelOnline PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

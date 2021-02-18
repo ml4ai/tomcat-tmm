@@ -13,12 +13,25 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
+        Experimentation::Experimentation(
+            const shared_ptr<gsl_rng>& gen,
+            const string& experiment_id,
+            std::shared_ptr<DynamicBayesNet>& model)
+            : random_generator(gen), experiment_id(experiment_id),
+              model(model) {
+
+            //            this->init_model(model_version);
+            //            this->data_splitter =
+            //                make_shared<DataSplitter>(training_set, test_set);
+            this->offline_estimation = make_shared<OfflineEstimation>();
+        }
+
         Experimentation::Experimentation(const shared_ptr<gsl_rng>& gen,
                                          const string& experiment_id,
                                          MODEL_VERSION model_version,
                                          const EvidenceSet& training_set,
                                          const EvidenceSet& test_set)
-            : gen(gen), experiment_id(experiment_id) {
+            : random_generator(gen), experiment_id(experiment_id) {
 
             this->init_model(model_version);
             this->data_splitter =
@@ -31,7 +44,7 @@ namespace tomcat {
                                          MODEL_VERSION model_version,
                                          const EvidenceSet& data,
                                          int num_folds)
-            : gen(gen), experiment_id(experiment_id) {
+            : random_generator(gen), experiment_id(experiment_id) {
 
             this->init_model(model_version);
             this->data_splitter =
@@ -41,7 +54,7 @@ namespace tomcat {
 
         Experimentation::Experimentation(const shared_ptr<gsl_rng>& gen,
                                          MODEL_VERSION model_version)
-            : gen(gen) {
+            : random_generator(gen) {
             this->init_model(model_version);
         }
 
@@ -58,6 +71,26 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+        void Experimentation::set_gibbs_trainer(int burn_in,
+                                                int num_samples,
+                                                int num_jobs) {
+            this->trainer = make_shared<DBNSamplingTrainer>(
+                this->random_generator,
+                make_shared<GibbsSampler>(this->model, burn_in, num_jobs),
+                num_samples);
+        }
+
+        void Experimentation::set_parameters_directory(const std::string& dir) {
+            string final_output_dir = dir;
+
+            this->saver = make_shared<DBNSaver>(
+                this->model, this->trainer, final_output_dir, true);
+        }
+
+
+
+
+
         void Experimentation::init_model(MODEL_VERSION model_version) {
             switch (model_version) {
             case v1: {
@@ -95,11 +128,13 @@ namespace tomcat {
                                                 int num_samples,
                                                 int num_jobs) {
             this->trainer = make_shared<DBNSamplingTrainer>(
-                this->gen,
+                this->random_generator,
                 make_shared<GibbsSampler>(
                     this->tomcat->get_model(), burn_in, num_jobs),
                 num_samples);
         }
+
+
 
         void Experimentation::save_model(const string& output_dir,
                                          bool save_partials) {
@@ -294,8 +329,10 @@ namespace tomcat {
         }
 
         void Experimentation::train_and_save() {
+            DataSplitter splitter(this->training_data, this->test_data);
+
             for (const auto& [training_data, test_data] :
-                 this->data_splitter->get_splits()) {
+                 splitter.get_splits()) {
                 this->trainer->prepare();
                 this->trainer->fit(training_data);
                 this->saver->save();
@@ -310,12 +347,21 @@ namespace tomcat {
 
             this->trainer->fit({});
             this->tomcat->generate_synthetic_data(
-                this->gen,
+                this->random_generator,
                 num_samples,
                 output_dir,
                 equals_until,
                 max_time_step,
                 this->data_generation_exclusions);
+        }
+
+        void
+        Experimentation::set_training_data(const EvidenceSet& training_data) {
+            this->training_data = training_data;
+        }
+
+        void Experimentation::set_test_data(const EvidenceSet& test_data) {
+            this->test_data = test_data;
         }
 
         //----------------------------------------------------------------------
