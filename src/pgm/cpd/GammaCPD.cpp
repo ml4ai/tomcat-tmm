@@ -148,5 +148,9 @@ namespace tomcat {
                 Eigen::VectorXd::Zero(this->sufficient_statistics.size());
         }
 
+        bool GammaCPD::is_continuous() const {
+            return false;
+        }
+
     } // namespace model
 } // namespace tomcat

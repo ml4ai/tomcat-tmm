@@ -76,10 +76,65 @@ namespace tomcat {
 
         string SamplerEstimator::get_name() const { return "sampler"; }
 
-        vector<double>
-        SamplerEstimator::estimate(const std::shared_ptr<Sampler>& sampler,
-                                   int data_point_idx,
-                                   int time_step) {
+//        vector<double>
+//        SamplerEstimator::estimate(const std::shared_ptr<Sampler>& sampler,
+//                                   int data_point_idx,
+//                                   int time_step) {
+//
+//            const auto& node_metadata =
+//                this->model->get_metadata_of(this->estimates.label);
+//            int node_initial_time_step = node_metadata->get_initial_time_step();
+//            Eigen::MatrixXd samples(0, 0);
+//            if (this->inference_horizon > 0) {
+//                samples = sampler->get_samples(this->estimates.label)(0, 0);
+//                samples = samples.block(
+//                    0, time_step + 1, samples.rows(), this->inference_horizon);
+//            }
+//            else {
+//                if (time_step >= node_initial_time_step) {
+//                    samples =
+//                        sampler->get_samples(this->estimates.label)(0, 0).col(
+//                            node_initial_time_step);
+//                }
+//            }
+//
+//            int k = 1;
+//            double low;
+//            double high;
+//            if (this->estimates.assignment.size() == 0) {
+//                // For each possible discrete value the node can take, we
+//                // compute the probability estimate for the node.
+//                k = sampler->get_model()->get_cardinality_of(
+//                    this->estimates.label);
+//            }
+//            else {
+//                low = this->estimates.assignment(0);
+//                high = this->estimates.assignment(0);
+//            }
+//
+//            vector<double> probabilities_per_class(k);
+//            if (samples.size() == 0) {
+//                fill_n(probabilities_per_class.begin(), k, NO_OBS);
+//            }
+//            else {
+//                for (int i = 0; i < k; i++) {
+//                    if (k > 1) {
+//                        low = i;
+//                        high = i;
+//                    }
+//
+//                    double probability =
+//                        this->get_probability_in_range(samples, low, high);
+//                    probabilities_per_class[i] = probability;
+//                }
+//            }
+//
+//            return probabilities_per_class;
+//        }
+
+        void SamplerEstimator::estimate(const std::shared_ptr<Sampler>& sampler,
+                                        int data_point_idx,
+                                        int time_step) {
 
             const auto& node_metadata =
                 this->model->get_metadata_of(this->estimates.label);
@@ -112,24 +167,37 @@ namespace tomcat {
                 high = this->estimates.assignment(0);
             }
 
-            vector<double> probabilities_per_class(k);
-            if (samples.size() == 0) {
-                fill_n(probabilities_per_class.begin(), k, NO_OBS);
+            if(this->estimates.estimates.empty()) {
+                this->estimates.estimates.resize(k);
             }
-            else {
-                for (int i = 0; i < k; i++) {
+
+            for (int i = 0; i < k; i++) {
+                double probability;
+                if (samples.size() == 0) {
+                    probability = NO_OBS;
+                }
+                else {
                     if (k > 1) {
                         low = i;
                         high = i;
                     }
 
-                    double probability =
+                    probability =
                         this->get_probability_in_range(samples, low, high);
-                    probabilities_per_class[i] = probability;
                 }
-            }
 
-            return probabilities_per_class;
+                // Add probability to the estimates
+                auto& estimates_matrix = this->estimates.estimates.at(i);
+                int new_rows = data_point_idx + 1;
+                int new_cols = time_step + 1;
+
+                if (estimates_matrix.rows() != new_rows ||
+                    estimates_matrix.cols() != new_cols) {
+                    estimates_matrix.conservativeResize(new_rows, new_cols);
+                }
+
+                estimates_matrix(data_point_idx, time_step) = probability;
+            }
         }
 
         void SamplerEstimator::set_estimates(

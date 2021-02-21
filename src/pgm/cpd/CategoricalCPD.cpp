@@ -327,5 +327,9 @@ namespace tomcat {
                                                prob_table);
         }
 
+        bool CategoricalCPD::is_continuous() const {
+            return false;
+        }
+
     } // namespace model
 } // namespace tomcat

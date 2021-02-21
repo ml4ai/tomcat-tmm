@@ -145,5 +145,9 @@ namespace tomcat {
                 Eigen::VectorXd::Zero(this->sufficient_statistics.size());
         }
 
+        bool DirichletCPD::is_continuous() const {
+            return false;
+        }
+
     } // namespace model
 } // namespace tomcat

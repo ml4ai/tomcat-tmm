@@ -79,6 +79,16 @@ namespace tomcat {
                                             const Tensor3& tensor);
 
             /**
+             * Returns the reference to the matrix in a given index of the
+             * first dimension of the tensor.
+             *
+             * @param i: index in the first dimension
+             *
+             * @return Matrix
+             */
+            Eigen::MatrixXd& operator[](int i);
+
+            /**
              * Returns assignable matrix for a given index of the first axis.
              *
              * @param i: index to select in the chosen axis

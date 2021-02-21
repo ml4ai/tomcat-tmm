@@ -35,6 +35,7 @@ namespace tomcat {
         void AncestralSampler::sample_latent(
             const shared_ptr<gsl_rng>& random_generator) {
 
+            this->init_sampling();
             NodeSet node_set = this->get_node_set();
 
             vector<shared_ptr<gsl_rng>> random_generators_per_job =
@@ -86,50 +87,60 @@ namespace tomcat {
             // until we reach the leaves. Sampling a node depends on the values
             // sampled from its parents. Therefore, a top-down topological order
             // of the nodes is used here.
-            for (auto& node : this->model->get_nodes_topological_order()) {
-                shared_ptr<RandomVariableNode> rv_node =
-                    dynamic_pointer_cast<RandomVariableNode>(node);
+            int from_time = this->min_time_step_to_sample;
+            for (int t = from_time; t <= this->max_time_step_to_sample; t++) {
+                for (auto& node :
+                    this->model->get_nodes_in_topological_order_at(t)) {
 
-                // We only generate samples for nodes within the time range
-                // set.
-                int t = rv_node->get_time_step();
-                int t_min = this->min_time_step_to_sample;
-                int t_max = this->max_time_step_to_sample >= 0
-                                ? this->max_time_step_to_sample
-                                : this->model->get_time_steps() - 1;
-                if (t < t_min || t > t_max) {
-                    continue;
+                    shared_ptr<RandomVariableNode> rv_node =
+                        dynamic_pointer_cast<RandomVariableNode>(node);
+
+                    // We only generate samples for nodes within the time range
+                    // set.
+                    int t = rv_node->get_time_step();
+                    int t_min = this->min_time_step_to_sample;
+                    int t_max = this->max_time_step_to_sample;
+                    if (t < t_min || t > t_max) {
+                        continue;
+                    }
+
+                    // If a node is frozen, we don't generate samples for it as it
+                    // already contains pre-defined samples.
+                    if (rv_node->is_frozen()) {
+                        continue;
+                    }
+
+                    // If the node is a parameter node, we only generate samples
+                    // for it if the sampler is trainable.
+                    bool is_parameter = node->get_metadata()->is_parameter();
+                    if (is_parameter && !this->trainable) {
+                        continue;
+                    }
+
+                    node_set.nodes_to_sample.push_back(node);
                 }
-
-                // If a node is frozen, we don't generate samples for it as it
-                // already contains pre-defined samples.
-                if (rv_node->is_frozen()) {
-                    continue;
-                }
-
-                // If the node is a parameter node, we only generate samples
-                // for it if the sampler is trainable.
-                bool is_parameter = node->get_metadata()->is_parameter();
-                if (is_parameter && !this->trainable) {
-                    continue;
-                }
-
-                node_set.nodes_to_sample.push_back(node);
             }
 
             return node_set;
+        }
+
+        void AncestralSampler::init_sampling() {
+            this->max_time_step_to_sample =
+                this->max_time_step_to_sample >= 0
+                ? this->max_time_step_to_sample
+                : this->model->get_time_steps() - 1;
         }
 
         void AncestralSampler::get_info(nlohmann::json& json) const {
             json["name"] = "ancestral";
         }
 
-        unique_ptr<Sampler> AncestralSampler::clone() const {
+        unique_ptr<Sampler> AncestralSampler::clone(bool unroll_model) const {
             unique_ptr<Sampler> new_sampler =
                 make_unique<AncestralSampler>(this->model, this->num_jobs);
             // Clone the model and the nodes in it
             new_sampler->set_model(
-                make_shared<DynamicBayesNet>(this->model->clone(true)));
+                make_shared<DynamicBayesNet>(this->model->clone(unroll_model)));
 
             return new_sampler;
         }
@@ -143,6 +154,7 @@ namespace tomcat {
 
             return labels;
         }
+
 
         //----------------------------------------------------------------------
         // Getters & Setters

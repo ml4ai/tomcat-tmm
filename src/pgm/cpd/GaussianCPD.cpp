@@ -118,5 +118,9 @@ namespace tomcat {
             throw invalid_argument("Not implemented yet.");
         }
 
+        bool GaussianCPD::is_continuous() const {
+            return false;
+        }
+
     } // namespace model
 } // namespace tomcat

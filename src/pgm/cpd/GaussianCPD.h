@@ -130,6 +130,8 @@ namespace tomcat {
 
             void reset_sufficient_statistics() override;
 
+            bool is_continuous() const override;
+
           protected:
             //------------------------------------------------------------------
             // Member functions

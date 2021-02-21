@@ -49,9 +49,9 @@ namespace tomcat {
             this->cpd = node.cpd;
             this->frozen = node.frozen;
             this->parents = node.parents;
-            this->children = node.children;
             this->timer = node.timer;
             this->timed_copies = node.timed_copies;
+            this->cached_posterior_weights = node.cached_posterior_weights;
         }
 
         string RandomVariableNode::get_description() const {
@@ -85,7 +85,6 @@ namespace tomcat {
             // connections of this new copy in a DBN
             new_node->cpd = nullptr;
             new_node->parents.clear();
-            new_node->children.clear();
             new_node->timer = nullptr;
             new_node->timed_copies = nullptr;
             return new_node;
@@ -107,16 +106,10 @@ namespace tomcat {
             return this->metadata->get_timed_name(this->time_step);
         }
 
-        void RandomVariableNode::reset_cpd_updated_status() {
-            this->cpd->reset_updated_status();
-        }
-
         void RandomVariableNode::update_cpd_templates_dependencies(
             const NodeMap& parameter_nodes_map) {
             for (auto& mapping : this->cpd_templates) {
-                if (!mapping.second->is_updated()) {
-                    mapping.second->update_dependencies(parameter_nodes_map);
-                }
+                mapping.second->update_dependencies(parameter_nodes_map);
             }
         }
 
@@ -130,7 +123,9 @@ namespace tomcat {
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
             const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
-            int max_time_step_to_sample) {
+            int min_time_step_to_sample,
+            int max_time_step_to_sample,
+            bool use_weights_cache) {
             Eigen::MatrixXd sample;
 
             if (this->metadata->is_parameter()) {
@@ -139,8 +134,11 @@ namespace tomcat {
             }
             else {
                 int num_jobs = random_generator_per_job.size();
-                Eigen::MatrixXd weights = this->get_posterior_weights(
-                    num_jobs, max_time_step_to_sample);
+                Eigen::MatrixXd weights =
+                    this->get_posterior_weights(num_jobs,
+                                                min_time_step_to_sample,
+                                                max_time_step_to_sample,
+                                                use_weights_cache);
                 sample = this->cpd->sample_from_posterior(
                     random_generator_per_job, weights, shared_from_this());
             }
@@ -150,12 +148,26 @@ namespace tomcat {
 
         Eigen::MatrixXd
         RandomVariableNode::get_posterior_weights(int num_jobs,
-                                                  int max_time_step_to_sample) {
-            int rows = this->get_size();
-            int cols = this->get_metadata()->get_cardinality();
-            Eigen::MatrixXd log_weights = Eigen::MatrixXd::Zero(rows, cols);
+                                                  int min_time_step_to_sample,
+                                                  int max_time_step_to_sample,
+                                                  bool use_weights_cache) {
 
-            for (auto& child : this->children) {
+            Eigen::MatrixXd log_weights(0, 0);
+            if (use_weights_cache) {
+                this->accumulate_cached_log_weights(min_time_step_to_sample);
+                log_weights =
+                    this->get_cached_log_weights(min_time_step_to_sample);
+            }
+
+            if (log_weights.size() == 0) {
+                int rows = this->get_size();
+                int cols = this->get_metadata()->get_cardinality();
+                log_weights = Eigen::MatrixXd::Zero(rows, cols);
+            }
+
+            for (auto& child : this->get_children_in_range(
+                     min_time_step_to_sample, max_time_step_to_sample)) {
+
                 shared_ptr<RandomVariableNode> rv_child =
                     dynamic_pointer_cast<RandomVariableNode>(child);
 
@@ -169,11 +181,12 @@ namespace tomcat {
                         shared_from_this(),
                         rv_child,
                         num_jobs);
+                Eigen::MatrixXd child_log_weights(0, 0);
+
                 if (this->get_metadata()->is_in_plate()) {
                     // Multiply weights of each one of the assignments
                     // separately.
-                    log_weights = (log_weights.array() +
-                                   (child_weights.array() + EPSILON).log());
+                    child_log_weights = (child_weights.array() + EPSILON).log();
                 }
                 else {
                     // Multiply the weights of each one of the assignments of
@@ -182,11 +195,16 @@ namespace tomcat {
                     // instances of the child node are also considered
                     // children of the off-plate node, and, therefore, their
                     // weights must be multiplied together.
-                    Eigen::MatrixXd agg_child_weights =
+                    child_log_weights =
                         (child_weights.array() + EPSILON).log().rowwise().sum();
-                    log_weights =
-                        (log_weights.array() + agg_child_weights.array());
                 }
+
+                if (use_weights_cache) {
+                    this->cache_current_log_weights(
+                        min_time_step_to_sample, rv_child, child_log_weights);
+                }
+
+                log_weights = (log_weights.array() + child_log_weights.array());
             }
 
             // Include posterior weights of immediate segments for nodes that
@@ -203,6 +221,129 @@ namespace tomcat {
             log_weights = log_weights.array().exp();
             Eigen::VectorXd sum_per_row = log_weights.rowwise().sum();
             return (log_weights.array().colwise() / sum_per_row.array());
+        }
+
+        void RandomVariableNode::accumulate_cached_log_weights(
+            int min_time_step_to_sample) {
+
+            if (this->metadata->is_multitime()) {
+                // Multi-time nodes can have weights computed previously
+                // cached when we perform forward inference. Other kinds of
+                // nodes do not have connections with previously processed
+                // nodes, therefore, they don't have any posterior weight to
+                // be cached.
+
+                if (min_time_step_to_sample >
+                    this->cached_posterior_weights.time_step + 1) {
+
+                    auto& cum_log_weights = this->cached_posterior_weights
+                                                .cum_log_weights_from_children;
+                    auto& prev_log_weights = this->cached_posterior_weights
+                                                 .log_weights_from_children;
+
+                    // Accumulate the previous weights
+                    if (cum_log_weights.size() == 0) {
+                        cum_log_weights = prev_log_weights;
+                    }
+                    else {
+                        cum_log_weights =
+                            cum_log_weights.array() + prev_log_weights.array();
+                    }
+
+                    this->cached_posterior_weights.time_step += 1;
+                }
+
+                // A node can be sampled multiple times before the lower time
+                // step moves forward, we clear the cached log weights below
+                // because we only accumulate the weights from the last
+                // sampling step before the next lower time step.
+                this->cached_posterior_weights.log_weights_from_children =
+                    Eigen::MatrixXd(0, 0);
+            }
+        }
+
+        Eigen::MatrixXd RandomVariableNode::get_cached_log_weights(
+            int min_time_step_to_sample) const {
+            Eigen::MatrixXd log_weights(0, 0);
+
+            if (this->metadata->is_multitime()) {
+                // Multitime nodes can have weights computed previously
+                // cached when we perform forward inference.
+
+                if (min_time_step_to_sample ==
+                    this->cached_posterior_weights.time_step + 1) {
+
+                    // Return the weights accumulated until the previous lower
+                    // time step.
+                    log_weights = this->cached_posterior_weights
+                                      .cum_log_weights_from_children;
+                }
+            }
+
+            return log_weights;
+        }
+
+        void RandomVariableNode::cache_current_log_weights(
+            int min_time_step_to_sample,
+            const RVNodePtr& child_node,
+            const Eigen::MatrixXd& log_weights) {
+
+            if (this->metadata->is_multitime()) {
+                if (child_node->get_time_step() == min_time_step_to_sample) {
+                    if (this->cached_posterior_weights.log_weights_from_children
+                            .size() == 0) {
+                        this->cached_posterior_weights
+                            .log_weights_from_children = log_weights;
+                    }
+                    else {
+                        // Sum of the log weights of all the children in the
+                        // lower time step.
+                        this->cached_posterior_weights
+                            .log_weights_from_children =
+                            this->cached_posterior_weights
+                                .log_weights_from_children.array() +
+                            log_weights.array();
+                    }
+                }
+            }
+        }
+
+        NodePtrVec
+        RandomVariableNode::get_children_in_range(int min_time_step,
+                                                  int max_time_step) {
+            NodePtrVec nodes;
+
+            if (!this->children_per_time_step.empty()) {
+                if (this->metadata->is_multitime()) {
+                    for (int t = min_time_step; t <= max_time_step; t++) {
+                        const auto& children =
+                            this->children_per_time_step.at(t);
+                        nodes.insert(
+                            nodes.end(), children.begin(), children.end());
+                    }
+                }
+                else {
+                    // Children in the same time step as the node
+                    if (min_time_step <= this->time_step &&
+                        this->time_step <= max_time_step) {
+                        const auto& children =
+                            this->children_per_time_step.at(0);
+                        nodes.insert(
+                            nodes.end(), children.begin(), children.end());
+                    }
+
+                    // Children in the next time step
+                    if (min_time_step <= this->time_step + 1 &&
+                        this->time_step + 1 <= max_time_step) {
+                        const auto& children =
+                            this->children_per_time_step.at(1);
+                        nodes.insert(
+                            nodes.end(), children.begin(), children.end());
+                    }
+                }
+            }
+
+            return nodes;
         }
 
         Eigen::MatrixXd RandomVariableNode::get_segments_log_posterior_weights(
@@ -382,6 +523,14 @@ namespace tomcat {
             return next;
         }
 
+        bool RandomVariableNode::is_continuous() const {
+            return this->cpd->is_continuous();
+        }
+
+        void RandomVariableNode::clear_cache() {
+            this->cached_posterior_weights = PosteriorWeightsCache();
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------
@@ -417,14 +566,42 @@ namespace tomcat {
             this->parents = parents;
         }
 
-        const vector<shared_ptr<Node>>&
-        RandomVariableNode::get_children() const {
-            return children;
-        }
-
         void RandomVariableNode::set_children(
             const vector<shared_ptr<Node>>& children) {
-            this->children = children;
+
+            this->children_per_time_step.clear();
+            for (const auto& child : children) {
+                const auto& rv_child =
+                    dynamic_pointer_cast<RandomVariableNode>(child);
+
+                if (this->metadata->is_multitime()) {
+                    int t = rv_child->get_time_step();
+
+                    if (this->children_per_time_step.size() <= t) {
+                        this->children_per_time_step.resize(t + 1);
+                    }
+
+                    this->children_per_time_step.at(t).push_back(child);
+                }
+                else {
+                    // It can only have children in the same time step and
+                    // the next one. Therefore, we only need a vector of
+                    // size 2 with the time steps relative to this node's
+                    // time step.
+                    if (this->children_per_time_step.empty()) {
+                        this->children_per_time_step.resize(2);
+                    }
+
+                    if (rv_child->get_time_step() == this->time_step) {
+                        this->children_per_time_step.at(0).push_back(child);
+                    }
+                    else {
+                        // Next time step since back edges are not allowed
+                        // in the implementation
+                        this->children_per_time_step.at(1).push_back(child);
+                    }
+                }
+            }
         }
 
         const shared_ptr<TimerNode>& RandomVariableNode::get_timer() const {

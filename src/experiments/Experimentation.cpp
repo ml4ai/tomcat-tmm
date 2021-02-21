@@ -1,7 +1,10 @@
 #include "Experimentation.h"
 
 #include <boost/filesystem.hpp>
+#include <nlohmann/json.hpp>
 
+#include "pipeline/estimation/CompoundSamplerEstimator.h"
+#include "pipeline/estimation/SamplerEstimator.h"
 #include "utils/FileHandler.h"
 
 namespace tomcat {
@@ -15,15 +18,15 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Experimentation::Experimentation(
             const shared_ptr<gsl_rng>& gen,
-            const string& experiment_id,
+            const std::string& experiment_id,
             std::shared_ptr<DynamicBayesNet>& model)
             : random_generator(gen), experiment_id(experiment_id),
               model(model) {
 
-            //            this->init_model(model_version);
-            //            this->data_splitter =
-            //                make_shared<DataSplitter>(training_set, test_set);
             this->offline_estimation = make_shared<OfflineEstimation>();
+            // Include the estimates updated at every time step in the final
+            // evaluation document.
+            this->offline_estimation->set_display_estimates(true);
         }
 
         Experimentation::Experimentation(const shared_ptr<gsl_rng>& gen,
@@ -80,16 +83,178 @@ namespace tomcat {
                 num_samples);
         }
 
-        void Experimentation::set_parameters_directory(const std::string& dir) {
-            string final_output_dir = dir;
+        void Experimentation::train_and_save(const std::string& params_dir,
+                                             int num_folds,
+                                             const EvidenceSet& training_data) {
+            string final_params_dir;
+            if (num_folds > 1) {
+                // One set of learned parameters per fold
+                final_params_dir = fmt::format("{}/fold{{}}", params_dir);
+            }
+            else {
+                final_params_dir = params_dir;
+            }
 
-            this->saver = make_shared<DBNSaver>(
-                this->model, this->trainer, final_output_dir, true);
+            DBNSaver model_saver(
+                this->model, this->trainer, final_params_dir, true);
+            DataSplitter splitter;
+            if (num_folds == 1) {
+                splitter = DataSplitter(training_data, {});
+            }
+            else {
+                splitter = DataSplitter(
+                    training_data, num_folds, this->random_generator);
+            }
+
+            for (const auto& [training_data, test_data] :
+                 splitter.get_splits()) {
+                this->trainer->prepare();
+                this->trainer->fit(training_data);
+                model_saver.save();
+            }
         }
 
+        void
+        Experimentation::add_estimators_from_json(const std::string& filepath,
+                                                  int burn_in,
+                                                  int num_samples,
+                                                  int num_jobs) {
+            fstream file;
+            file.open(filepath);
+            if (file.is_open()) {
+                nlohmann::json json_inference = nlohmann::json::parse(file);
 
+                if (json_inference.empty()) {
+                    stringstream ss;
+                    ss << "Nothing to Infer.";
+                    throw TomcatModelException(ss.str());
+                }
 
+                this->evaluation = make_shared<EvaluationAggregator>(
+                    EvaluationAggregator::METHOD::no_aggregation);
 
+                shared_ptr<CompoundSamplerEstimator> approximate_estimator;
+                if (!this->model->is_exact_inference_allowed()) {
+                    shared_ptr<GibbsSampler> gibbs_sampler =
+                        make_shared<GibbsSampler>(this->model, burn_in, num_jobs);
+                    approximate_estimator =
+                        make_shared<CompoundSamplerEstimator>(
+                            move(gibbs_sampler),
+                            this->random_generator,
+                            num_samples);
+                    this->offline_estimation->add_estimator(approximate_estimator);
+                }
+
+                for (const auto& inference_item : json_inference) {
+                    Eigen::VectorXd value(0);
+                    if (inference_item["value"] != "") {
+                        value = Eigen::VectorXd::Constant(
+                            1, stod((string)inference_item["value"]));
+                    }
+
+                    const string& variable_label = inference_item["variable"];
+
+                    shared_ptr<Estimator> model_estimator;
+                    if (this->model->is_exact_inference_allowed()) {
+                        model_estimator = make_shared<SumProductEstimator>(
+                            this->model,
+                            inference_item["horizon"],
+                            variable_label,
+                            value);
+
+                        this->offline_estimation->add_estimator(
+                            model_estimator);
+                    }
+                    else {
+                        shared_ptr<SamplerEstimator> sampler_estimator =
+                            make_shared<SamplerEstimator>(
+                                this->model,
+                                inference_item["horizon"],
+                                variable_label,
+                                value);
+                        approximate_estimator->add_base_estimator(
+                            sampler_estimator);
+                        model_estimator = sampler_estimator;
+                    }
+
+                    // Add baseline estimator
+                    //                    shared_ptr<Estimator>
+                    //                    baseline_estimator =
+                    //                        make_shared<TrainingFrequencyEstimator>(
+                    //                            this->tomcat->get_model(),
+                    //                            inference_item["horizon"],
+                    //                            variable_label,
+                    //                            value);
+                    //                    this->offline_estimation->add_estimator(baseline_estimator);
+
+                    // Evaluation metrics
+                    bool eval_last_only =
+                        this->model->get_nodes_by_label(variable_label)
+                            .size() == 1;
+                    this->evaluation->add_measure(make_shared<Accuracy>(
+                        model_estimator, 0.5, eval_last_only));
+                    //                    this->evaluation->add_measure(make_shared<Accuracy>(
+                    //                        baseline_estimator, 0.5,
+                    //                        eval_last_only));
+                    if (value.size() > 0) {
+                        this->evaluation->add_measure(
+                            make_shared<F1Score>(model_estimator, 0.5));
+                        //                        this->evaluation->add_measure(
+                        //                            make_shared<F1Score>(baseline_estimator,
+                        //                            0.5));
+                    }
+                }
+            }
+            else {
+                stringstream ss;
+                ss << "The file " << filepath << " does not exist.";
+                throw TomcatModelException(ss.str());
+            }
+        }
+
+        void Experimentation::evaluate_and_save(const std::string& params_dir,
+                                                int num_folds,
+                                                const std::string& eval_dir,
+                                                const EvidenceSet& test_data) {
+            fs::create_directories(eval_dir);
+            string filepath =
+                fmt::format("{}/{}.json", eval_dir, this->experiment_id);
+            ofstream output_file;
+            output_file.open(filepath);
+
+            string final_params_dir;
+            if (num_folds > 1) {
+                // One set of learned parameters per fold
+                final_params_dir = fmt::format("{}/fold{{}}", params_dir);
+            }
+            else {
+                final_params_dir = params_dir;
+            }
+
+            shared_ptr<DBNTrainer> loader =
+                make_shared<DBNLoader>(this->model, final_params_dir, true);
+            EvidenceSet empty_training;
+            shared_ptr<DataSplitter> data_splitter =
+                make_shared<DataSplitter>(empty_training, test_data);
+
+            Pipeline pipeline(this->experiment_id, output_file);
+            pipeline.set_data_splitter(data_splitter);
+            pipeline.set_model_trainer(loader);
+            pipeline.set_estimation_process(this->offline_estimation);
+            pipeline.set_aggregator(this->evaluation);
+            pipeline.execute();
+            output_file.close();
+        }
+
+        bool Experimentation::should_eval_last_only(const string& node_label) {
+            // If the node is not repeatable in the unrolled DBN, we evaluate
+            // the accuracy using the estimate in the last time step which will
+            // give us the distribution of the node given all the observations
+            // in the mission trial.
+            return this->tomcat->get_model()
+                       ->get_nodes_by_label(node_label)
+                       .size() == 1;
+        }
 
         void Experimentation::init_model(MODEL_VERSION model_version) {
             switch (model_version) {
@@ -133,8 +298,6 @@ namespace tomcat {
                     this->tomcat->get_model(), burn_in, num_jobs),
                 num_samples);
         }
-
-
 
         void Experimentation::save_model(const string& output_dir,
                                          bool save_partials) {
@@ -227,16 +390,6 @@ namespace tomcat {
                 this->evaluation = make_shared<EvaluationAggregator>(
                     EvaluationAggregator::METHOD::no_aggregation);
             }
-        }
-
-        bool Experimentation::should_eval_last_only(const string& node_label) {
-            // If the node is not repeatable in the unrolled DBN, we evaluate
-            // the accuracy using the estimate in the last time step which will
-            // give us the distribution of the node given all the observations
-            // in the mission trial.
-            return this->tomcat->get_model()
-                       ->get_nodes_by_label(node_label)
-                       .size() == 1;
         }
 
         void Experimentation::compute_eval_scores_for(

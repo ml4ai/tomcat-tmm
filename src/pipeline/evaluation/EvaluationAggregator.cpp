@@ -38,7 +38,7 @@ namespace tomcat {
         void EvaluationAggregator::evaluate(const EvidenceSet& test_data) {
             int i = 0;
 
-            cout << "Evaluating...";
+            cout << "\nEvaluating...\n";
             boost::progress_display progress(this->measures.size());
             for (auto& measure : this->measures) {
                 this->evaluations_per_measure[i].push_back(

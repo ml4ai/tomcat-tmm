@@ -97,7 +97,6 @@ namespace tomcat {
 
         void CPD::copy_cpd(const CPD& cpd) {
             this->id = cpd.id;
-            this->updated = cpd.updated;
             this->parent_label_to_indexing = cpd.parent_label_to_indexing;
             this->parent_node_order = cpd.parent_node_order;
             this->distributions = cpd.distributions;
@@ -109,7 +108,6 @@ namespace tomcat {
             for (auto& distribution : this->distributions) {
                 distribution->update_dependencies(parameter_nodes_map);
             }
-            this->updated = true;
         }
 
         Eigen::MatrixXd CPD::sample(
@@ -1055,8 +1053,6 @@ namespace tomcat {
             }
         }
 
-        void CPD::reset_updated_status() { this->updated = false; }
-
         void CPD::print(ostream& os) const { os << this->get_description(); }
 
         Eigen::MatrixXd CPD::get_table(int parameter_idx) const {
@@ -1091,8 +1087,6 @@ namespace tomcat {
         // Getters & Setters
         //------------------------------------------------------------------
         const string& CPD::get_id() const { return id; }
-
-        bool CPD::is_updated() const { return updated; }
 
         const CPD::TableOrderingMap& CPD::get_parent_label_to_indexing() const {
             return parent_label_to_indexing;

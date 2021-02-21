@@ -32,6 +32,11 @@ namespace tomcat {
 
             /**
              * Creates an instance of a KFold data splitter.
+             */
+            DataSplitter();
+
+            /**
+             * Creates an instance of a KFold data splitter.
              *
              * @param data: data to be split
              * @param num_folds: number of splits

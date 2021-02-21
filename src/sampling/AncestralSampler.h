@@ -53,7 +53,7 @@ namespace tomcat {
 
             void get_info(nlohmann::json& json) const override;
 
-            std::unique_ptr<Sampler> clone() const override;
+            std::unique_ptr<Sampler> clone(bool unroll_model) const override;
 
             std::unordered_set<std::string>
             get_sampled_node_labels() const override;
@@ -79,6 +79,11 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Initializations before starting the next sampling chunk.
+             */
+            void init_sampling();
 
             /**
              * Gets a collection of nodes split into lists for fast

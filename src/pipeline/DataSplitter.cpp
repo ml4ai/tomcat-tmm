@@ -12,6 +12,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
+        DataSplitter::DataSplitter() {}
+
         DataSplitter::DataSplitter(
             const EvidenceSet& data,
             int num_folds,

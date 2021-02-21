@@ -117,5 +117,9 @@ namespace tomcat {
             // Nothing to reset
         }
 
+        bool PoissonCPD::is_continuous() const {
+            return false;
+        }
+
     } // namespace model
 } // namespace tomcat

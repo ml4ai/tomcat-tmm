@@ -3,9 +3,9 @@
 #include <boost/filesystem.hpp>
 #include <boost/graph/topological_sort.hpp>
 
+#include "pgm/JSONModel.h"
 #include "pgm/TimerNode.h"
 #include "utils/FileHandler.h"
-#include "utils/JSONModel.h"
 
 namespace tomcat {
     namespace model {
@@ -42,6 +42,7 @@ namespace tomcat {
             if (node->get_metadata()->is_timer()) {
                 node_ptr = make_shared<TimerNode>(
                     *dynamic_cast<TimerNode*>(node->clone().get()));
+                this->exact_inference_allowed = false;
             }
             else {
                 node_ptr = make_shared<RandomVariableNode>(
@@ -64,9 +65,10 @@ namespace tomcat {
                 this->create_edges(new_time_steps);
                 this->set_timers_to_nodes(new_time_steps);
                 this->set_timed_copies_to_nodes(new_time_steps);
-                this->update_cpd_templates_dependencies();
+                this->update_cpd_templates_dependencies(new_time_steps);
                 this->set_parents_children_and_cpd_to_nodes();
                 this->time_steps += new_time_steps;
+                this->save_topological_list();
             }
         }
 
@@ -285,7 +287,15 @@ namespace tomcat {
                 // its parents.
                 shared_ptr<CPD> cpd = rv_node->get_cpd_for(parent_labels);
                 rv_node->set_cpd(cpd);
-                rv_node->reset_cpd_updated_status();
+
+                // If the node's CPD does not follow a discrete distribution,
+                // we cannot use the exact inference method implemented in
+                // this library.
+                // TODO - allow to use sum product when the continuous
+                //  distribution is Gaussian
+                if (rv_node->is_continuous()) {
+                    this->exact_inference_allowed = false;
+                }
             }
         }
 
@@ -338,7 +348,8 @@ namespace tomcat {
             }
         }
 
-        void DynamicBayesNet::update_cpd_templates_dependencies() {
+        void
+        DynamicBayesNet::update_cpd_templates_dependencies(int new_time_steps) {
             // The updates are made using the node templates and they will
             // reflect in the timed instances that share the same CPD. This
             // is to avoid calling the update multiple times for the same
@@ -348,23 +359,48 @@ namespace tomcat {
                 const shared_ptr<NodeMetadata> metadata =
                     node_template->get_metadata();
                 if (metadata->has_parameter_parents()) {
-                    int t =
-                        node_template->get_metadata()->get_initial_time_step();
-                    string node_name =
-                        node_template->get_metadata()->get_timed_name(t);
+                    int from_time = max(metadata->get_initial_time_step(),
+                                        this->time_steps);
+                    int to_time;
+                    if (metadata->is_replicable()) {
+                        // 1 is the max time step where parameter nodes can show
+                        // up.
+                        // TODO - change this if parameters can show up in
+                        //  nodes can show up in future positions. This is
+                        //  just to make the update of the CPD's faster since
+                        //  we only need to update one pointer to reflect in
+                        //  all of the copies of the node.
+                        to_time = min(this->time_steps + new_time_steps - 1, 1);
+                    }
+                    else {
+                        to_time = min(this->time_steps + new_time_steps - 1,
+                                      metadata->get_initial_time_step());
+                    }
 
-                    if (this->time_steps <= t &&
-                        EXISTS(node_name, this->name_to_id)) {
+                    for (int t = from_time; t <= to_time; t++) {
                         // We only need to update once (when the node is
                         // created). Timed copies of future expansions of
                         // the DBN will inherit the correct dependencies set
                         // here.
+                        string node_name = metadata->get_timed_name(t);
                         int vertex_id = this->name_to_id.at(node_name);
                         auto& vertex_data = this->graph[vertex_id];
                         vertex_data.node->update_cpd_templates_dependencies(
                             this->parameter_nodes_map);
                     }
                 }
+            }
+        }
+
+        void DynamicBayesNet::save_topological_list() {
+            this->topological_nodes_per_time =
+                vector<RVNodePtrVec>(this->time_steps);
+
+            for (const auto& node : this->get_nodes_topological_order()) {
+                const RVNodePtr& rv_node =
+                    dynamic_pointer_cast<RandomVariableNode>(node);
+                int t = rv_node->get_time_step();
+                this->topological_nodes_per_time.at(t).push_back(rv_node);
             }
         }
 
@@ -593,40 +629,58 @@ namespace tomcat {
             return this->label_to_nodes.at(node_label)[0]->get_metadata();
         }
 
-        DynamicBayesNet DynamicBayesNet::clone(bool copy_data_node_assignment) {
+        DynamicBayesNet DynamicBayesNet::clone(bool unroll) {
             DynamicBayesNet new_dbn(this->node_templates.size());
             for (const auto& node_template : this->node_templates) {
                 new_dbn.add_node_template(node_template);
             }
-            new_dbn.unroll(this->time_steps, true);
 
-            if (copy_data_node_assignment) {
-                for (auto& new_node : new_dbn.nodes) {
-                    RVNodePtr rv_new_node =
-                        dynamic_pointer_cast<RandomVariableNode>(new_node);
-                    RVNodePtr original_node =
-                        this->get_node(rv_new_node->get_metadata()->get_label(),
-                                       rv_new_node->get_time_step());
-
-                    rv_new_node->set_assignment(
-                        original_node->get_assignment());
-                }
-            }
-            else {
-                // Copy only assignments from parameter nodes
-                for (auto& [name, new_node] : new_dbn.parameter_nodes_map) {
-                    RVNodePtr rv_new_node =
-                        dynamic_pointer_cast<RandomVariableNode>(new_node);
-                    RVNodePtr original_node =
-                        dynamic_pointer_cast<RandomVariableNode>(
-                            this->parameter_nodes_map.at(name));
-
-                    rv_new_node->set_assignment(
-                        original_node->get_assignment());
-                }
+            if (unroll) {
+                new_dbn.unroll(this->time_steps, true);
             }
 
             return new_dbn;
+        }
+
+        void DynamicBayesNet::mirror_parameter_nodes_from(
+            const DynamicBayesNet& dbn) {
+
+            for (const auto& [parameter_name, parameter_node] :
+                 dbn.parameter_nodes_map) {
+                if (EXISTS(parameter_name, this->parameter_nodes_map)) {
+                    RVNodePtr rv_parameter_node =
+                        dynamic_pointer_cast<RandomVariableNode>(
+                            parameter_node);
+                    RVNodePtr original_node =
+                        dynamic_pointer_cast<RandomVariableNode>(
+                            this->parameter_nodes_map.at(parameter_name));
+
+                    original_node->set_assignment(
+                        parameter_node->get_assignment());
+                    if (rv_parameter_node->is_frozen()) {
+                        original_node->freeze();
+                    }
+                }
+            }
+        }
+
+        RVNodePtrVec DynamicBayesNet::get_nodes_in_topological_order() {
+            RVNodePtrVec nodes;
+
+            for (int t = 0; t < this->time_steps; t++) {
+                const auto& nodes_at_time_step =
+                    this->get_nodes_in_topological_order_at(t);
+                nodes.insert(nodes.end(),
+                             nodes_at_time_step.begin(),
+                             nodes_at_time_step.end());
+            }
+
+            return nodes;
+        }
+
+        RVNodePtrVec
+        DynamicBayesNet::get_nodes_in_topological_order_at(int time_step) {
+            return this->topological_nodes_per_time.at(time_step);
         }
 
         //----------------------------------------------------------------------
@@ -634,6 +688,10 @@ namespace tomcat {
         //----------------------------------------------------------------------
 
         int DynamicBayesNet::get_time_steps() const { return time_steps; }
+
+        bool DynamicBayesNet::is_exact_inference_allowed() const {
+            return false; // exact_inference_allowed;
+        }
 
     } // namespace model
 } // namespace tomcat

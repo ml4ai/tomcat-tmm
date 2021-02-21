@@ -143,6 +143,8 @@ namespace tomcat {
                              const std::string& cpd_owner_label,
                              int cpd_owner_cardinality) override;
 
+            bool is_continuous() const override;
+
           protected:
             //------------------------------------------------------------------
             // Member functions

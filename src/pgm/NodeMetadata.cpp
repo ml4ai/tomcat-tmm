@@ -102,10 +102,8 @@ namespace tomcat {
                                            "continuous distribution.");
             }
 
-            if (!parent_node->replicable && !parent_node->single_time_link &&
-                !time_crossing) {
-                throw TomcatModelException("The parent node is "
-                                           "non-replicable and multi-time, "
+            if (parent_node->is_multitime() && !time_crossing) {
+                throw TomcatModelException("The parent node is multi-time, "
                                            "therefore its connections must "
                                            "cross time.");
             }
@@ -113,6 +111,12 @@ namespace tomcat {
             if (parent_node->is_timer()) {
                 throw TomcatModelException("A timer cannot be parent of "
                                            "another node.");
+            }
+
+            if (parent_node->is_replicable() && !this->is_replicable()) {
+                throw TomcatModelException("This implementation does not "
+                                           "support a non-replicable node to "
+                                           "be child of a replicable one.");
             }
 
             // At least one of the parents of the node that owns this metadata
@@ -130,6 +134,10 @@ namespace tomcat {
 
         string NodeMetadata::get_timed_name(int time_step) const {
             return NodeMetadata::get_timed_name(this->label, time_step);
+        }
+
+        bool NodeMetadata::is_multitime() const {
+            return !this->replicable && !this->single_time_link;
         }
 
         //----------------------------------------------------------------------

@@ -1,8 +1,3 @@
-/**
- * This source file implements the experiments described in details in the
- * document experimentation.pdf for the version 1.0 of the ToMCAT model.
- */
-
 #include <string>
 #include <vector>
 
@@ -19,10 +14,10 @@ using namespace tomcat::model;
 using namespace std;
 namespace po = boost::program_options;
 
-void train(const string& experiment_id,
-           const string& model_json,
+void train(const string& model_json,
            const string& data_dir,
            const string& params_dir,
+           int num_folds,
            int num_time_steps,
            int burn_in,
            int num_samples,
@@ -34,26 +29,26 @@ void train(const string& experiment_id,
         DynamicBayesNet ::create_from_json(model_json));
     model->unroll(num_time_steps, true);
 
-    Experimentation experimentation(random_generator, experiment_id, model);
-    experimentation.set_training_data(training_data);
+    Experimentation experimentation(random_generator, "", model);
     experimentation.set_gibbs_trainer(burn_in, num_samples, num_jobs);
-    experimentation.set_parameters_directory(params_dir);
-    experimentation.train_and_save();
+    experimentation.train_and_save(params_dir, num_folds, training_data);
 }
 
 int main(int argc, char* argv[]) {
-    string experiment_id;
     string model_json;
     string data_dir;
     string params_dir;
+    int num_folds;
     int num_time_steps;
     int burn_in;
     int num_samples;
     int num_jobs;
 
     po::options_description desc("Allowed options");
-    desc.add_options()("help,h", "Produce this help message")(
-        "exp_id", po::value<string>(&experiment_id), "Experiment identifier.")(
+    desc.add_options()(
+        "help,h",
+        "This executable trains a model via Gibbs sampling procedure, and "
+        "saves the learned parameters to an informed directory.")(
         "model_json",
         po::value<string>(&model_json)->required(),
         "Filepath of the json file containing the model definition.")(
@@ -63,6 +58,10 @@ int main(int argc, char* argv[]) {
         "params_dir",
         po::value<string>(&params_dir)->required(),
         "Directory where the trained model's parameters must be saved.")(
+        "k",
+        po::value<int>(&num_folds)->default_value(1),
+        "Number of folds for cross-validation training. If set to 1, the full"
+        " training data is used.")(
         "T",
         po::value<int>(&num_time_steps)->default_value(600),
         "Number of time steps to unroll the model into.")(
@@ -85,10 +84,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    train(experiment_id,
-          model_json,
+    train(model_json,
           data_dir,
           params_dir,
+          num_folds,
           num_time_steps,
           burn_in,
           num_samples,

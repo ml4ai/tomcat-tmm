@@ -112,20 +112,23 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void
-            set_gibbs_trainer(int burn_in, int num_samples, int num_jobs);
+            void set_gibbs_trainer(int burn_in, int num_samples, int num_jobs);
 
-            void
-            set_parameters_directory(const std::string& dir);
+            void train_and_save(const std::string& params_dir,
+                                int num_folds,
+                                const EvidenceSet& training_data);
 
+            void add_estimators_from_json(const std::string& filepath,
+                                          int burn_in,
+                                          int num_samples,
+                                          int num_jobs);
 
-
+            void evaluate_and_save(const std::string& params_dir,
+                                   int num_folds,
+                                   const std::string& eval_dir,
+                                   const EvidenceSet& test_data);
 
             void display_estimates();
-
-
-
-
 
             void load_model_from(const std::string& input_dir);
 

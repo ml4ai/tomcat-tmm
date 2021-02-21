@@ -14,7 +14,7 @@
 #include "experiments/Experimentation.h"
 #include "experiments/TomcatTA3V2.h"
 #include "pgm/EvidenceSet.h"
-#include "utils/JSONModel.h"
+#include "pgm/JSONModel.h"
 
 using namespace tomcat::model;
 using namespace std;

@@ -221,12 +221,6 @@ namespace tomcat {
                 const std::shared_ptr<RandomVariableNode>& cpd_owner);
 
             /**
-             * Marks the CPD as not updated to force dependency update on a
-             * subsequent call to the member function update_dependencies.
-             */
-            void reset_updated_status();
-
-            /**
              * Prints a short description of the distribution.
              *
              * @param os: output stream
@@ -429,12 +423,19 @@ namespace tomcat {
              */
             virtual void reset_sufficient_statistics() = 0;
 
+            /**
+             * Indicates whether the CPD follows a continuous distribution
+             * or not.
+             *
+             * @return Whether the CPD follows a continuous distribution
+             * or not.
+             */
+            virtual bool is_continuous() const = 0;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
             const std::string& get_id() const;
-
-            bool is_updated() const;
 
             const TableOrderingMap& get_parent_label_to_indexing() const;
 
@@ -483,10 +484,6 @@ namespace tomcat {
 
             // List of distributions per parents' assignments
             std::vector<std::shared_ptr<Distribution>> distributions;
-
-            // It indicates whether the CPD was updated with concrete instances
-            // of the nodes it depends on
-            bool updated = false;
 
             // Maps an indexing node's label to its indexing struct.
             TableOrderingMap parent_label_to_indexing;

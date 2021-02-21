@@ -732,16 +732,16 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hmm, HMM) {
         make_shared<SamplerEstimator>(pre_trained_model, 0, TC);
 
     shared_ptr<GibbsSampler> gibbs =
-        make_shared<GibbsSampler>(pre_trained_model, 300, 4);
+        make_shared<GibbsSampler>(pre_trained_model, 0, 1);
     gibbs->set_show_progress(false);
     gibbs->set_trainable(false);
     CompoundSamplerEstimator sampler_estimator(
-        pre_trained_model, gibbs, gen, 5000);
-    sampler_estimator.add_estimator(green_estimator_h1);
-    sampler_estimator.add_estimator(yellow_estimator_h1);
-    sampler_estimator.add_estimator(green_estimator_h3);
-    sampler_estimator.add_estimator(yellow_estimator_h3);
-    sampler_estimator.add_estimator(tc_estimator);
+        pre_trained_model, gibbs, gen, 2000);
+    sampler_estimator.add_base_estimator(green_estimator_h1);
+    sampler_estimator.add_base_estimator(yellow_estimator_h1);
+    sampler_estimator.add_base_estimator(green_estimator_h3);
+    sampler_estimator.add_base_estimator(yellow_estimator_h3);
+    sampler_estimator.add_base_estimator(tc_estimator);
 
     // Green node is observed
     EvidenceSet data;
@@ -819,13 +819,13 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
             pre_trained_model, 1, GREEN, VectorXd::Constant(1, 1));
 
     shared_ptr<GibbsSampler> gibbs =
-        make_shared<GibbsSampler>(pre_trained_model, 1000, 4);
+        make_shared<GibbsSampler>(pre_trained_model, 0, 1);
     gibbs->set_show_progress(false);
     gibbs->set_trainable(false);
     CompoundSamplerEstimator sampler_estimator(
-        pre_trained_model, gibbs, gen, 3000);
-    sampler_estimator.add_estimator(state_estimator_h1);
-    sampler_estimator.add_estimator(green_estimator_h1);
+        pre_trained_model, gibbs, gen, 10000);
+    sampler_estimator.add_base_estimator(state_estimator_h1);
+    sampler_estimator.add_base_estimator(green_estimator_h1);
 
     // Green node is observed
     EvidenceSet data;
@@ -842,7 +842,7 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
     MatrixXd green_estimates_h1 =
         green_estimator_h1->get_estimates().estimates[0];
 
-    double tolerance = 0.03;
+    double tolerance = 0.02;
 
     MatrixXd expected_state_h1(1, 3);
     expected_state_h1 << 0.6321, 0.3412, 0.1748;

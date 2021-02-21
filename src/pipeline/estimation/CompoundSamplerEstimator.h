@@ -34,20 +34,16 @@ namespace tomcat {
             /**
              * Creates an instance of a sampler estimator.
              *
-             * @param model: DBN
              * @param sampler: sampler responsible to generate samples from
              * the model
              * @param random_generator: random number generator
              * @param num_samples: number of samples to generate to
              * approximate the estimated distributions
-             * @param num_jobs: number of threads to split computation into
              */
             CompoundSamplerEstimator(
-                const std::shared_ptr<DynamicBayesNet>& model,
                 const std::shared_ptr<Sampler>& sampler,
                 const std::shared_ptr<gsl_rng>& random_generator,
-                int num_samples,
-                int num_jobs = 1);
+                int num_samples);
 
             ~CompoundSamplerEstimator();
 
@@ -67,7 +63,11 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+            void cleanup() override;
+
             void prepare() override;
+
+            void keep_estimates() override;
 
             void estimate(const EvidenceSet& new_data) override;
 
@@ -75,13 +75,18 @@ namespace tomcat {
 
             std::string get_name() const override;
 
+            bool is_computing_estimates_for(const std::string& node_label) const override;
+
+            std::vector<std::shared_ptr<const Estimator>>
+            get_base_estimators() const override;
+
             /**
              * Adds a concrete estimator to this compound estimator.
              *
              * @param estimator: concrete estimator
              */
-            void
-            add_estimator(const std::shared_ptr<SamplerEstimator>& estimator);
+            void add_base_estimator(
+                const std::shared_ptr<SamplerEstimator>& estimator);
 
           private:
             //------------------------------------------------------------------
@@ -96,63 +101,28 @@ namespace tomcat {
             void copy(const CompoundSamplerEstimator& estimator);
 
             /**
-             * Compute estimates for a block of data points in a single thread.
+             * Adds a new data collection to the nodes of this estimator's
+             * model.
              *
-             * @param random_generator: random number generator unique to the
-             * thread
-             * @param sampler: sampler unique to the thread
-             * @param new_data: observations
-             * @param time_step: time step for the inference
-             * @param initial_data_idx: index of the first data point from
-             * observation to be used in the estimates computed by this thread
-             * @param data_size: number of data points estimates are being
-             * computed for in the thread
-             */
-            void run_estimation_thread(
-                const std::shared_ptr<gsl_rng>& random_generator,
-                const std::shared_ptr<Sampler>& sampler,
-                const EvidenceSet& new_data,
-                int time_step,
-                int initial_data_idx,
-                int data_size);
-
-            /**
-             * Adds a new data collection to the nodes from a model.
-             *
-             * @param model: model to add the data to
              * @param new_data: new data
              * @param time_step: data's column (time step) to use
              */
-            void
-            add_data_to_nodes(const std::shared_ptr<DynamicBayesNet>& model,
-                              const EvidenceSet& new_data,
-                              int time_step);
-
-            /**
-             * Updates latent nodes' CPDs with constant distributions given by
-             * the posteriors computed empirically from the samples generated at
-             * a given time step for a given data.
-             *
-             * @param sampler: sampler used to compute the posteriors
-             * @param time_step: time step of the latent nodes to be updated
-             */
-            void save_posteriors(const std::shared_ptr<Sampler>& sampler,
-                                 int time_step);
+            void add_data_to_nodes(const EvidenceSet& new_data, int time_step);
 
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
 
-            std::vector<std::shared_ptr<gsl_rng>> random_generator_per_job;
+            std::shared_ptr<gsl_rng> random_generator;
 
-            std::vector<std::shared_ptr<Sampler>> sampler_per_job;
+            std::shared_ptr<Sampler> sampler;
 
             int num_samples;
 
             // Next time step to generate samples to.
             int next_time_step = 0;
 
-            std::vector<std::shared_ptr<SamplerEstimator>> estimators;
+            std::vector<std::shared_ptr<SamplerEstimator>> base_estimators;
         };
 
     } // namespace model

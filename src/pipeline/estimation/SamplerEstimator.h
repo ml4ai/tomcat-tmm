@@ -4,10 +4,10 @@
 #include <mutex>
 #include <vector>
 
-#include "utils/Definitions.h"
 #include "pipeline/estimation/Estimator.h"
-#include "sampling/Sampler.h"
 #include "sampling/AncestralSampler.h"
+#include "sampling/Sampler.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -80,6 +80,7 @@ namespace tomcat {
             std::string get_name() const override;
 
             /**
+             * TODO - remove
              * Variant of the estimate function. This function is called by
              * the compound sampler estimator to inform this class that
              * samples were generated considering observations given by a
@@ -94,14 +95,18 @@ namespace tomcat {
              * @param time_step: last time step of observations used while
              * generating the samples
              */
-            std::vector<double>
-            estimate(const std::shared_ptr<Sampler>& sampler,
-                     int data_point_idx,
-                     int time_step);
+//            std::vector<double>
+//            estimate(const std::shared_ptr<Sampler>& sampler,
+//                     int data_point_idx,
+//                     int time_step);
+
+            void estimate(const std::shared_ptr<Sampler>& sampler,
+                          int data_point_idx,
+                          int time_step);
 
             /**
              * Set a portion of estimates computed by a single thread.
-             *
+             * TODO - remove
              * @param probabilities_per_class: probabilities estimated
              * @param initial_data_idx: index o the first data point used in
              * the estimation

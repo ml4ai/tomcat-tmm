@@ -54,6 +54,10 @@ namespace tomcat {
             return os;
         }
 
+        Eigen::MatrixXd& Tensor3::operator[](int i) {
+            return this->tensor[i];
+        }
+
         Eigen::MatrixXd Tensor3::operator()(int i, int axis) const {
             array<int, 3> shape = this->get_shape();
             Eigen::MatrixXd matrix;

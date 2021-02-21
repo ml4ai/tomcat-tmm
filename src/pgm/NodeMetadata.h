@@ -204,6 +204,13 @@ namespace tomcat {
              */
             std::string get_timed_name(int time_step) const;
 
+            /**
+             * Whether the node is non replicable and not single time link.
+             *
+             * @return
+             */
+            bool is_multitime() const;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
