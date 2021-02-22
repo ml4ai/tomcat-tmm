@@ -83,42 +83,43 @@ namespace tomcat {
                 num_samples);
         }
 
-        void Experimentation::train_and_save(const std::string& params_dir,
+        void Experimentation::train_and_save(const string& params_dir,
                                              int num_folds,
-                                             const EvidenceSet& training_data) {
+                                             const EvidenceSet& data) {
             string final_params_dir;
-            if (num_folds > 1) {
-                // One set of learned parameters per fold
-                final_params_dir = fmt::format("{}/fold{{}}", params_dir);
+            DataSplitter splitter;
+            if (num_folds == 1) {
+                EvidenceSet empty_test_data;
+                splitter = DataSplitter(data, empty_test_data);
+                final_params_dir = params_dir;
             }
             else {
-                final_params_dir = params_dir;
+                splitter = DataSplitter(
+                    data, num_folds, this->random_generator);
+                final_params_dir = fmt::format("{}/fold{{}}", params_dir);
+                splitter.save_indices(params_dir);
             }
 
             DBNSaver model_saver(
                 this->model, this->trainer, final_params_dir, true);
-            DataSplitter splitter;
-            if (num_folds == 1) {
-                splitter = DataSplitter(training_data, {});
-            }
-            else {
-                splitter = DataSplitter(
-                    training_data, num_folds, this->random_generator);
-            }
 
+            int fold = 1;
             for (const auto& [training_data, test_data] :
                  splitter.get_splits()) {
+                cout << "------------\n";
+                cout << "Fold " << fold++ << endl;
+                cout << "------------\n\n";
+
                 this->trainer->prepare();
                 this->trainer->fit(training_data);
                 model_saver.save();
             }
         }
 
-        void
-        Experimentation::add_estimators_from_json(const std::string& filepath,
-                                                  int burn_in,
-                                                  int num_samples,
-                                                  int num_jobs) {
+        void Experimentation::add_estimators_from_json(const string& filepath,
+                                                       int burn_in,
+                                                       int num_samples,
+                                                       int num_jobs) {
             fstream file;
             file.open(filepath);
             if (file.is_open()) {
@@ -126,7 +127,8 @@ namespace tomcat {
 
                 if (json_inference.empty()) {
                     stringstream ss;
-                    ss << "Nothing to Infer.";
+                    ss << "Nothing to Infer. The file " << filepath
+                       << "is empty.";
                     throw TomcatModelException(ss.str());
                 }
 
@@ -136,13 +138,15 @@ namespace tomcat {
                 shared_ptr<CompoundSamplerEstimator> approximate_estimator;
                 if (!this->model->is_exact_inference_allowed()) {
                     shared_ptr<GibbsSampler> gibbs_sampler =
-                        make_shared<GibbsSampler>(this->model, burn_in, num_jobs);
+                        make_shared<GibbsSampler>(
+                            this->model, burn_in, num_jobs);
                     approximate_estimator =
                         make_shared<CompoundSamplerEstimator>(
                             move(gibbs_sampler),
                             this->random_generator,
                             num_samples);
-                    this->offline_estimation->add_estimator(approximate_estimator);
+                    this->offline_estimation->add_estimator(
+                        approximate_estimator);
                 }
 
                 for (const auto& inference_item : json_inference) {
@@ -212,30 +216,33 @@ namespace tomcat {
             }
         }
 
-        void Experimentation::evaluate_and_save(const std::string& params_dir,
+        void Experimentation::evaluate_and_save(const string& params_dir,
                                                 int num_folds,
-                                                const std::string& eval_dir,
-                                                const EvidenceSet& test_data) {
+                                                const string& eval_dir,
+                                                const EvidenceSet& data) {
             fs::create_directories(eval_dir);
             string filepath =
                 fmt::format("{}/{}.json", eval_dir, this->experiment_id);
             ofstream output_file;
             output_file.open(filepath);
 
+            shared_ptr<DataSplitter> data_splitter;
             string final_params_dir;
             if (num_folds > 1) {
                 // One set of learned parameters per fold
                 final_params_dir = fmt::format("{}/fold{{}}", params_dir);
+                data_splitter = make_shared<DataSplitter>(data, params_dir);
             }
             else {
                 final_params_dir = params_dir;
+                EvidenceSet empty_training_data;
+                data_splitter =
+                    make_shared<DataSplitter>(empty_training_data, data);
             }
 
             shared_ptr<DBNTrainer> loader =
                 make_shared<DBNLoader>(this->model, final_params_dir, true);
             EvidenceSet empty_training;
-            shared_ptr<DataSplitter> data_splitter =
-                make_shared<DataSplitter>(empty_training, test_data);
 
             Pipeline pipeline(this->experiment_id, output_file);
             pipeline.set_data_splitter(data_splitter);
@@ -244,6 +251,28 @@ namespace tomcat {
             pipeline.set_aggregator(this->evaluation);
             pipeline.execute();
             output_file.close();
+        }
+
+        void Experimentation::generate_synthetic_data(
+            const string& params_dir,
+            const string& data_dir,
+            int num_data_samples,
+            int num_time_steps,
+            int equal_samples_time_step_limit,
+            const unordered_set<string>& exclusions,
+            int num_jobs) {
+
+            this->model->unroll(num_time_steps, true);
+            shared_ptr<DBNTrainer> loader =
+                make_shared<DBNLoader>(this->model, params_dir, true);
+            loader->fit({});
+
+            AncestralSampler sampler(this->model, num_jobs);
+            sampler.set_num_in_plate_samples(num_data_samples);
+            sampler.set_equal_samples_time_step_limit(
+                equal_samples_time_step_limit);
+            sampler.sample(this->random_generator, num_data_samples);
+            sampler.save_samples_to_folder(data_dir, exclusions);
         }
 
         bool Experimentation::should_eval_last_only(const string& node_label) {

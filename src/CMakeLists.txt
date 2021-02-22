@@ -14,9 +14,13 @@ add_executable(train training.cpp)
 target_include_directories(train PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(train PRIVATE ${ALL_LIBS})
 
-add_executable(eval evaluation.cpp)
-target_include_directories(eval PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(eval PRIVATE ${ALL_LIBS})
+add_executable(evaluate evaluation.cpp)
+target_include_directories(evaluate PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(evaluate PRIVATE ${ALL_LIBS})
+
+add_executable(generate data_generation.cpp)
+target_include_directories(generate PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(generate PRIVATE ${ALL_LIBS})
 
 # Target for online ToMCAT
 add_executable(TomcatModelOnline run_online_tomcat.cpp)

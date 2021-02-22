@@ -101,6 +101,12 @@ namespace tomcat {
             void copy(const CompoundSamplerEstimator& estimator);
 
             /**
+             * Unfreeze nodes that were frozen during the estimations for a
+             * single data point.
+             */
+            void unfreeze_nodes();
+
+            /**
              * Adds a new data collection to the nodes of this estimator's
              * model.
              *
@@ -123,6 +129,9 @@ namespace tomcat {
             int next_time_step = 0;
 
             std::vector<std::shared_ptr<SamplerEstimator>> base_estimators;
+
+            // Collection of frozen nodes at a given time step
+            RVNodePtrVec frozen_nodes;
         };
 
     } // namespace model

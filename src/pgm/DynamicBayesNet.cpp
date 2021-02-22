@@ -690,7 +690,7 @@ namespace tomcat {
         int DynamicBayesNet::get_time_steps() const { return time_steps; }
 
         bool DynamicBayesNet::is_exact_inference_allowed() const {
-            return false; // exact_inference_allowed;
+            return exact_inference_allowed;
         }
 
     } // namespace model

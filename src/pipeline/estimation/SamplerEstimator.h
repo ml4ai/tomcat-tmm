@@ -80,7 +80,6 @@ namespace tomcat {
             std::string get_name() const override;
 
             /**
-             * TODO - remove
              * Variant of the estimate function. This function is called by
              * the compound sampler estimator to inform this class that
              * samples were generated considering observations given by a
@@ -95,29 +94,9 @@ namespace tomcat {
              * @param time_step: last time step of observations used while
              * generating the samples
              */
-//            std::vector<double>
-//            estimate(const std::shared_ptr<Sampler>& sampler,
-//                     int data_point_idx,
-//                     int time_step);
-
             void estimate(const std::shared_ptr<Sampler>& sampler,
                           int data_point_idx,
                           int time_step);
-
-            /**
-             * Set a portion of estimates computed by a single thread.
-             * TODO - remove
-             * @param probabilities_per_class: probabilities estimated
-             * @param initial_data_idx: index o the first data point used in
-             * the estimation
-             * @param data_size: number of data points estimated
-             * @param time_step: time step of the estimation
-             */
-            void set_estimates(
-                const std::vector<Eigen::VectorXd>& probabilities_per_class,
-                int initial_data_idx,
-                int data_size,
-                int time_step);
 
           private:
             //------------------------------------------------------------------

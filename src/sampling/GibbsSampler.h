@@ -289,9 +289,6 @@ namespace tomcat {
             // their time steps are out of the inference range. This list is
             // only erased in the prepare method of this class.
             NodePtrVec multitime_sampled_nodes;
-
-            // Whether node's cache must be cleared before generating samples.
-            bool clear_nodes_cache = false;
         };
 
     } // namespace model

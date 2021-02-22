@@ -116,7 +116,7 @@ namespace tomcat {
 
             void train_and_save(const std::string& params_dir,
                                 int num_folds,
-                                const EvidenceSet& training_data);
+                                const EvidenceSet& data);
 
             void add_estimators_from_json(const std::string& filepath,
                                           int burn_in,
@@ -126,7 +126,16 @@ namespace tomcat {
             void evaluate_and_save(const std::string& params_dir,
                                    int num_folds,
                                    const std::string& eval_dir,
-                                   const EvidenceSet& test_data);
+                                   const EvidenceSet& data);
+
+            void generate_synthetic_data(
+                const std::string& params_dir,
+                const std::string& data_dir,
+                int num_data_samples,
+                int num_time_steps,
+                int equal_samples_time_step_limit,
+                const std::unordered_set<std::string>& exclusions,
+                int num_jobs);
 
             void display_estimates();
 

@@ -232,6 +232,10 @@ namespace tomcat {
                 // nodes do not have connections with previously processed
                 // nodes, therefore, they don't have any posterior weight to
                 // be cached.
+                if(min_time_step_to_sample < this->cached_posterior_weights.time_step) {
+                    this->clear_cache();
+                    return;
+                }
 
                 if (min_time_step_to_sample >
                     this->cached_posterior_weights.time_step + 1) {

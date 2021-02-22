@@ -189,28 +189,6 @@ namespace tomcat {
                 // Add probability to the estimates
                 auto& estimates_matrix = this->estimates.estimates.at(i);
                 int new_rows = data_point_idx + 1;
-                int new_cols = time_step + 1;
-
-                if (estimates_matrix.rows() != new_rows ||
-                    estimates_matrix.cols() != new_cols) {
-                    estimates_matrix.conservativeResize(new_rows, new_cols);
-                }
-
-                estimates_matrix(data_point_idx, time_step) = probability;
-            }
-        }
-
-        void SamplerEstimator::set_estimates(
-            const std::vector<Eigen::VectorXd>& probabilities_per_class,
-            int initial_data_idx,
-            int data_size,
-            int time_step) {
-
-            scoped_lock lock(*this->update_estimates_mutex);
-            for (int k = 0; k < probabilities_per_class.size(); k++) {
-                auto& estimates_matrix = this->estimates.estimates.at(k);
-                int new_rows = max((int)estimates_matrix.rows(),
-                                   initial_data_idx + data_size);
                 int new_cols = max((int)estimates_matrix.cols(), time_step + 1);
 
                 if (estimates_matrix.rows() != new_rows ||
@@ -218,9 +196,7 @@ namespace tomcat {
                     estimates_matrix.conservativeResize(new_rows, new_cols);
                 }
 
-                estimates_matrix.block(
-                    initial_data_idx, time_step, data_size, 1) =
-                    probabilities_per_class.at(k);
+                estimates_matrix(data_point_idx, time_step) = probability;
             }
         }
 

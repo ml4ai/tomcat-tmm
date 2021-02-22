@@ -1,13 +1,12 @@
 #include <string>
 #include <vector>
+#include <memory>
 
 #include <boost/program_options.hpp>
-#include <eigen3/Eigen/Dense>
-#include <fmt/format.h>
 #include <gsl/gsl_rng.h>
 
+#include "pgm/DynamicBayesNet.h"
 #include "experiments/Experimentation.h"
-#include "experiments/TomcatTA3.h"
 #include "pgm/EvidenceSet.h"
 
 using namespace tomcat::model;
@@ -58,18 +57,18 @@ int main(int argc, char* argv[]) {
         "params_dir",
         po::value<string>(&params_dir)->required(),
         "Directory where the trained model's parameters must be saved.")(
-        "k",
+        "K",
         po::value<int>(&num_folds)->default_value(1),
         "Number of folds for cross-validation training. If set to 1, the full"
         " training data is used.")(
         "T",
-        po::value<int>(&num_time_steps)->default_value(600),
+        po::value<int>(&num_time_steps)->default_value(600)->required(),
         "Number of time steps to unroll the model into.")(
         "burn_in",
-        po::value<int>(&burn_in)->default_value(100),
+        po::value<int>(&burn_in)->default_value(100)->required(),
         "Number of samples to generate until posterior convergence.")(
         "samples",
-        po::value<int>(&num_samples)->default_value(100),
+        po::value<int>(&num_samples)->default_value(100)->required(),
         "Number of samples used to estimate the parameters of the model "
         "after the burn-in period.")(
         "jobs",

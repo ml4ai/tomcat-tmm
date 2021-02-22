@@ -95,6 +95,7 @@ namespace tomcat {
             int max_time_step =
                 this->next_time_step + new_data.get_time_steps();
             for (int d = 0; d < new_data.get_num_data_points(); d++) {
+                this->sampler->prepare();
                 for (int t = this->next_time_step; t < max_time_step; t++) {
                     this->sampler->set_min_initialization_time_step(t);
                     this->sampler->set_min_time_step_to_sample(t);
@@ -115,9 +116,17 @@ namespace tomcat {
                         ++(*progress);
                     }
                 }
+
+                this->unfreeze_nodes();
             }
 
             this->next_time_step = max_time_step;
+        }
+
+        void CompoundSamplerEstimator::unfreeze_nodes() {
+            for(const auto& node : this->frozen_nodes) {
+                node->unfreeze();
+            }
         }
 
         void
@@ -133,6 +142,7 @@ namespace tomcat {
                     node->unfreeze();
                     node->set_assignment(data);
                     node->freeze();
+                    this->frozen_nodes.push_back(node);
                 }
             }
         }

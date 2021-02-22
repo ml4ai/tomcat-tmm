@@ -1,13 +1,12 @@
+#include <memory>
 #include <string>
 #include <vector>
 
 #include <boost/program_options.hpp>
-#include <eigen3/Eigen/Dense>
-#include <fmt/format.h>
 #include <gsl/gsl_rng.h>
 
 #include "experiments/Experimentation.h"
-#include "experiments/TomcatTA3.h"
+#include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 
 using namespace tomcat::model;
@@ -16,8 +15,8 @@ namespace po = boost::program_options;
 
 void evaluate(const string& experiment_id,
               const string& model_json,
-              const string& data_dir,
               const string& params_dir,
+              const string& data_dir,
               const string& eval_dir,
               const string& inference_json,
               int num_folds,
@@ -35,7 +34,6 @@ void evaluate(const string& experiment_id,
     Experimentation experimentation(random_generator, experiment_id, model);
     experimentation.add_estimators_from_json(
         inference_json, burn_in, num_samples, num_jobs);
-    test_data.keep_first(2);
     experimentation.evaluate_and_save(
         params_dir, num_folds, eval_dir, test_data);
 }
@@ -43,8 +41,8 @@ void evaluate(const string& experiment_id,
 int main(int argc, char* argv[]) {
     string experiment_id;
     string model_json;
-    string data_dir;
     string params_dir;
+    string data_dir;
     string eval_dir;
     string inference_json;
     int num_time_steps;
@@ -66,12 +64,12 @@ int main(int argc, char* argv[]) {
         "model_json",
         po::value<string>(&model_json)->required(),
         "Filepath of the json file containing the model definition.")(
-        "data_dir",
-        po::value<string>(&data_dir)->required(),
-        "Directory where the data (evidence) is located.")(
         "params_dir",
         po::value<string>(&params_dir)->required(),
         "Directory where the pre-trained model's parameters are saved.")(
+        "data_dir",
+        po::value<string>(&data_dir)->required(),
+        "Directory where the data (evidence) is located.")(
         "eval_dir",
         po::value<string>(&eval_dir)->required(),
         "Directory where the evaluation file must be saved.")(
@@ -79,19 +77,20 @@ int main(int argc, char* argv[]) {
         po::value<string>(&inference_json)->required(),
         "Filepath of the json file containing the variables and inference "
         "horizons to be evaluated by the pre-trained model.")(
-        "k",
-        po::value<int>(&num_folds)->default_value(1),
+        "K",
+        po::value<int>(&num_folds)->default_value(1)->required(),
         "Number of folds for evaluation using cross-validation. This assumes "
         "the model was pre-trained using the same number of folds here "
-        "defined.")("T",
-                    po::value<int>(&num_time_steps)->default_value(600),
-                    "Number of time steps to unroll the model into.")(
+        "defined.")(
+        "T",
+        po::value<int>(&num_time_steps)->default_value(600)->required(),
+        "Number of time steps to unroll the model into.")(
         "burn_in",
-        po::value<int>(&burn_in)->default_value(100),
+        po::value<int>(&burn_in)->default_value(100)->required(),
         "Number of samples to generate until posterior convergence if "
         "approximate inference is used for evaluation.")(
         "samples",
-        po::value<int>(&num_samples)->default_value(100),
+        po::value<int>(&num_samples)->default_value(100)->required(),
         "Number of samples used to estimate the parameters of the model "
         "after the burn-in period if approximate inference is used for "
         "evaluation.")("jobs",
@@ -108,8 +107,8 @@ int main(int argc, char* argv[]) {
 
     evaluate(experiment_id,
              model_json,
-             data_dir,
              params_dir,
+             data_dir,
              eval_dir,
              inference_json,
              num_folds,

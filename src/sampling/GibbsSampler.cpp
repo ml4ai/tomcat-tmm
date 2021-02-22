@@ -50,7 +50,6 @@ namespace tomcat {
             this->step_counter = sampler.step_counter;
             this->keep_sample_mutex = make_unique<mutex>();
             this->multitime_sampled_nodes = sampler.multitime_sampled_nodes;
-            this->clear_nodes_cache = sampler.clear_nodes_cache;
         }
 
         void GibbsSampler::print_nodes() const {
@@ -120,6 +119,13 @@ namespace tomcat {
                     progress->restart(this->num_samples);
                 }
 
+                // We sample multitime nodes here so that when this sampler
+                // is being used as an estimator, these nodes can be updated
+                // according to its new posterior given the sampled values
+                // for the nodes in the new sampling range.
+                this->sample_sequential_time_nodes(
+                    random_generators_per_job, this->multitime_sampled_nodes);
+
                 this->sample_parallel_time_nodes(
                     random_generators_per_job,
                     node_set.even_time_data_nodes_per_job);
@@ -132,16 +138,11 @@ namespace tomcat {
                     random_generators_per_job,
                     node_set.nodes_sampled_in_sequence);
 
-                // We sample multitime nodes here so that when this sampler
-                // is being used as an estimator, these nodes can be updated
-                // according to its new posterior given the sampled values
-                // for the nodes in the new sampling range.
-                this->sample_sequential_time_nodes(
-                    random_generators_per_job, this->multitime_sampled_nodes);
-
-                this->sample_sequential_time_nodes(
-                    random_generators_per_job,
-                    node_set.nodes_in_inference_horizon);
+                if(this->step_counter >= this->burn_in_period) {
+                    this->sample_sequential_time_nodes(
+                        random_generators_per_job,
+                        node_set.nodes_in_inference_horizon);
+                }
 
                 if (trainable) {
                     this->update_timer_sufficient_statistics(
@@ -151,8 +152,6 @@ namespace tomcat {
                         random_generators_per_job,
                         node_set.parameter_nodes_per_job);
                 }
-
-                this->clear_nodes_cache = false;
 
                 if (this->show_progress) {
                     ++(*progress);
@@ -425,9 +424,6 @@ namespace tomcat {
                     // We estimate the posterior and sample from it. If this
                     // sampler is used for forward inference, we cache past
                     // posterior weights to speed up computation.
-                    if(this->clear_nodes_cache) {
-                        rv_node->clear_cache();
-                    }
                     sample = rv_node->sample_from_posterior(
                         random_generator_per_job,
                         this->min_time_step_to_sample,
@@ -596,7 +592,6 @@ namespace tomcat {
             Sampler::prepare();
             this->node_label_to_samples.clear();
             this->multitime_sampled_nodes.clear();
-            this->clear_nodes_cache = true;
         }
 
     } // namespace model
