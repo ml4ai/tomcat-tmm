@@ -28,7 +28,6 @@ namespace tomcat {
                     "An assignment must be given for estimations with "
                     "inference horizon greater than 0.");
             }
-
         }
 
         SumProductEstimator::~SumProductEstimator() {}
@@ -58,6 +57,11 @@ namespace tomcat {
             this->factor_graph =
                 FactorGraph::create_from_unrolled_dbn(*this->model);
             this->factor_graph.store_topological_traversal_per_time_step();
+
+            if (this->inference_horizon > 0) {
+                this->factor_graph.create_aggregate_potential(
+                    this->estimates.label, this->estimates.assignment(0, 0));
+            }
         }
 
         void SumProductEstimator::estimate(const EvidenceSet& new_data) {
@@ -81,9 +85,10 @@ namespace tomcat {
             }
             for (int t = this->next_time_step; t < total_time; t++) {
 
-                this->compute_forward_messages(this->factor_graph, t, new_data);
+                this->compute_forward_messages(
+                    this->factor_graph, t, new_data, false);
                 this->compute_backward_messages(
-                    this->factor_graph, t, new_data);
+                    this->factor_graph, t, new_data, false);
 
                 if (this->inference_horizon > 0) {
                     int discrete_assignment = this->estimates.assignment[0];
@@ -144,7 +149,8 @@ namespace tomcat {
         void SumProductEstimator::compute_forward_messages(
             const FactorGraph& factor_graph,
             int time_step,
-            const EvidenceSet& new_data) {
+            const EvidenceSet& new_data,
+            bool in_future) {
 
             for (auto& node :
                  factor_graph.get_vertices_topological_order_in(time_step)) {
@@ -161,8 +167,8 @@ namespace tomcat {
                         Tensor3 node_data = new_data[node->get_label()];
                         Eigen::VectorXd data_in_time_step = node_data(0, 0).col(
                             time_step - this->next_time_step);
-                        variable_node->set_data_at(time_step,
-                                                   data_in_time_step);
+                        variable_node->set_data_at(
+                            time_step, data_in_time_step, in_future);
                     }
                     else {
                         variable_node->erase_data_at(time_step);
@@ -222,7 +228,8 @@ namespace tomcat {
         void SumProductEstimator::compute_backward_messages(
             const FactorGraph& factor_graph,
             int time_step,
-            const EvidenceSet& new_data) {
+            const EvidenceSet& new_data,
+            bool in_future) {
 
             for (auto& node : factor_graph.get_vertices_topological_order_in(
                      time_step, false)) {
@@ -242,7 +249,13 @@ namespace tomcat {
                     // data sets can be processes at once.
                     int num_rows = max(1, new_data.get_num_data_points());
                     int num_cols = dynamic_pointer_cast<VariableNode>(node)
-                                       ->get_cardinality();
+                                         ->get_cardinality();
+
+                    if(in_future && node->get_label() == this->estimates.label) {
+                        // In a positive inference horizon, messages of an
+                        // estimated node are aggregated.
+                        num_cols = 2;
+                    }
 
                     node->set_incoming_message_from(
                         MessageNode::END_NODE_LABEL,
@@ -305,39 +318,50 @@ namespace tomcat {
             // occurence of an assignment in the inference_horizon, we
             // compute the complement of not observing the assignment in
             // any of the time steps in the inference horizon.
-            int opposite_assignment = 1 - assignment;
             Eigen::MatrixXd opposite_assignment_matrix =
-                Eigen::MatrixXd::Constant(
-                    num_data_points, 1, opposite_assignment);
+                Eigen::MatrixXd::Zero(num_data_points, 1);
             EvidenceSet horizon_data;
             horizon_data.add_data(node_label,
                                   Tensor3(opposite_assignment_matrix));
             Eigen::VectorXd estimated_probabilities;
 
+            // This will make the factor graoh to aggregate the CPD table of
+            // the node below such that it becomes a binary CPD distribution,
+            // where 0 is the probability of the node's value to be different
+            // from the assignment we are looking for, and 1 is the
+            // probability that the node's value is the assignment of
+            // interest. After we compute the predictions, we restore the
+            // original table. By doing this, we can compute p(x_{t+1} =
+            // assignment or x_{t+2} = assignment or ... x_{t+h} =
+            // assignment) by computing 1 - p(x_{t+1} != assignment and x_{t+2}
+            // !=  assignment and ... x_{t+h} != assignment) without having
+            // to iterate over all possible combinations of sequences in
+            // which assignment does not shows up.
+            this->factor_graph.use_aggregate_potential(node_label, assignment);
             for (int h = 1; h <= this->inference_horizon; h++) {
                 // Simulate new data coming and compute estimates in a regular
                 // way.
                 this->next_time_step = time_step + h;
                 this->compute_forward_messages(
-                    this->factor_graph, time_step + h, horizon_data);
+                    this->factor_graph, time_step + h, horizon_data, true);
                 this->compute_backward_messages(
-                    this->factor_graph, time_step + h, horizon_data);
+                    this->factor_graph, time_step + h, horizon_data, true);
 
                 Eigen::MatrixXd marginal = factor_graph.get_marginal_for(
                     node_label, time_step + h, false);
 
                 if (estimated_probabilities.size() == 0) {
-                    estimated_probabilities = marginal.col(opposite_assignment);
+                    estimated_probabilities = marginal.col(0);
                 }
                 else {
-                    estimated_probabilities =
-                        estimated_probabilities.array() *
-                        marginal.col(opposite_assignment).array();
+                    estimated_probabilities = estimated_probabilities.array() *
+                                              marginal.col(0).array();
                 }
             }
             // Adjust the time counter back to it's original position.
             this->next_time_step -= (time_step + this->inference_horizon);
             this->factor_graph.erase_incoming_messages_beyond(time_step);
+            this->factor_graph.use_original_potential(node_label);
 
             estimated_probabilities = 1 - estimated_probabilities.array();
 
@@ -350,7 +374,7 @@ namespace tomcat {
             if (this->estimates.estimates.size() < index + 1) {
                 this->estimates.estimates.push_back(Eigen::MatrixXd(0, 0));
             }
-            hstack(this->estimates.estimates[index], new_column);
+            matrix_hstack(this->estimates.estimates[index], new_column);
         }
 
         void SumProductEstimator::estimate_backward_in_time(
@@ -382,9 +406,9 @@ namespace tomcat {
                 // Adjust messages in the previous time slice to account for the
                 // new message that was passed backward.
                 this->compute_forward_messages(
-                    this->factor_graph, t - 1, new_data);
+                    this->factor_graph, t - 1, new_data, false);
                 this->compute_backward_messages(
-                    this->factor_graph, t - 1, new_data);
+                    this->factor_graph, t - 1, new_data, false);
             }
         }
 

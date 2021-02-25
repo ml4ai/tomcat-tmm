@@ -122,7 +122,7 @@ namespace tomcat {
             for (const auto& file : fs::directory_iterator(data_folder_path)) {
                 string filename = file.path().filename().string();
                 if (fs::is_regular_file(file) &&
-                    filename.find("metadata") == string::npos) {
+                    file.path().extension() == "") {
 
                     string node_label = remove_extension(filename);
                     Tensor3 data = read_tensor_from_file(file.path().string());
@@ -227,6 +227,34 @@ namespace tomcat {
             }
 
             return small_set;
+        }
+
+        void EvidenceSet::vstack(const EvidenceSet& other) {
+            for (const auto& label : other.get_node_labels()) {
+                if (this->has_data_for(label)) {
+                    this->node_label_to_data.at(label).vstack(
+                        other.node_label_to_data.at(label));
+                }
+                else {
+                    this->add_data(label, other.node_label_to_data.at(label));
+                }
+            }
+
+            this->num_data_points += other.get_num_data_points();
+        }
+
+        void EvidenceSet::hstack(const EvidenceSet& other) {
+            for (const auto& label : other.get_node_labels()) {
+                if (this->has_data_for(label)) {
+                    this->node_label_to_data.at(label).hstack(
+                        other.node_label_to_data.at(label));
+                }
+                else {
+                    this->add_data(label, other.node_label_to_data.at(label));
+                }
+            }
+
+            this->time_steps += other.get_time_steps();
         }
 
         //----------------------------------------------------------------------

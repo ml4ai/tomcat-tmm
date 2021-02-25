@@ -39,6 +39,11 @@ namespace tomcat {
             Tensor3();
 
             /**
+             * Creates a tensor with one value.
+             */
+            Tensor3(double value);
+
+            /**
              * Creates tensor with one matrix.
              */
             Tensor3(const Eigen::MatrixXd& matrix);
@@ -354,8 +359,21 @@ namespace tomcat {
              */
             Tensor3 coeff_wise_and(int axis) const;
 
+            /**
+             * Appends the content of another tensor into this tensor along the
+             * second dimension of the tensors.
+             *
+             * @param other: tensor to append
+             */
+            void vstack(const Tensor3& other);
 
-
+            /**
+             * Appends the content of another tensor into this tensor along the
+             * third dimension of the tensors.
+             *
+             * @param other: tensor to append
+             */
+            void hstack(const Tensor3& other);
 
           private:
             //------------------------------------------------------------------

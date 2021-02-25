@@ -1,6 +1,7 @@
 {
   "nodes": {
     "timers": [
+
     ],
     "parameters": [
       {
@@ -37,7 +38,7 @@
           {
             "distribution": "dirichlet",
             "constant": true,
-            "parameters": "1, 0, 0",
+            "parameters": "1, 1, 1",
             "index_nodes": []
           }
         ]
@@ -159,10 +160,10 @@
         ]
       },
       {
-        "label": "Task",
+        "label": "Green",
         "first_time_step": 1,
         "in_plate": true,
-        "cardinality": 3,
+        "cardinality": 2,
         "sample_size": 1,
         "replicable": true,
         "timer": "",
@@ -170,7 +171,7 @@
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "1, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1",
+            "parameters": "1, 1E-15, 1, 1E-15, 1E-15, 1, 1, 1E-15",
             "index_nodes": [
               "State"
             ]
@@ -178,7 +179,26 @@
         ]
       },
       {
-        "label": "Area",
+        "label": "Yellow",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 1E-15, 1, 1E-15, 1, 1E-15, 1E-15, 1",
+            "index_nodes": [
+              "State"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Room",
         "first_time_step": 1,
         "in_plate": true,
         "cardinality": 2,
@@ -226,12 +246,17 @@
     },
     {
       "parent": "State",
-      "child": "Task",
+      "child": "Green",
       "time_crossing": false
     },
     {
       "parent": "State",
-      "child": "Area",
+      "child": "Yellow",
+      "time_crossing": false
+    },
+    {
+      "parent": "State",
+      "child": "Room",
       "time_crossing": false
     }
   ]

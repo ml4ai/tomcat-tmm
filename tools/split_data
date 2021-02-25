@@ -42,9 +42,9 @@ while IFS= read -r trial; do
 done < $TRAIN_LIST
 
 # Create symbolic links in the evaluation directory for the files listed in
-# eval_list.txt
+# eval_list.txt. We only get the latest version published (version 3).
 while IFS= read -r trial; do
-  for file in $(ls "$ORIGINAL_DATA_DIR" | egrep -i "trial-$trial");
+  for file in $(ls "$ORIGINAL_DATA_DIR" | egrep -i "trial-$trial" | egrep -i "Vers-3");
   do
     ln -s "$ORIGINAL_DATA_DIR/$file" $EVAL_DIR
   done

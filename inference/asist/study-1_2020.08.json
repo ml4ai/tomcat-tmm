@@ -1,0 +1,17 @@
+[
+  {
+    "variable": "Task",
+    "horizon": 1,
+    "value": "1"
+  },
+  {
+    "variable": "Task",
+    "horizon": 1,
+    "value": "2"
+  },
+  {
+    "variable": "TrainingCondition",
+    "horizon": 0,
+    "value": ""
+  }
+]

@@ -26,92 +26,125 @@ TRAIN_SAMPLES_DIR = $(SAMPLES_DIR)/train
 EVAL_SAMPLES_DIR = $(SAMPLES_DIR)/eval
 
 # Training & evaluation
-MODEL_DIR = data/model/asist/$(STUDY_ID)
+PARAMS_DIR = data/params/asist/$(STUDY_ID)
 EVAL_DIR = data/eval/asist/$(STUDY_ID)
-EVAL_PATH = $(EVAL_DIR)/evaluations.json
+EVAL_FILENAME = evaluations
+EVAL_PATH = $(EVAL_DIR)/$(EVAL_FILENAME).json
 PARTIALS_DIR = $(EVAL_DIR)/partials
-REPORT_PATH = $(EVAL_DIR)/report.txt
 
+REPORT_GEN_SCRIPT = tools/asist/create_study-1_2020.08_report.py
+REPORT_PATH = $(EVAL_DIR)/study-1_2020.08_report.txt
 
-# Number of seconds ahead predictions are made for victim rescue
-HORIZON = 1
+# Path to the file containing the model configuration
+MODEL_PATH = models/tomcat-v02.json
+
+# Path to the file containing the inferences to be performed
+INFERENCE_PATH = inference/asist/study-1_2020.08.json
 
 # Phony targets
 .PHONY: all
 .PHONY: sync
 .PHONY: create_splits
-.PHONY: test
 .PHONY: split
-.PHONY: convert
+.PHONY: convert_train
+.PHONY: convert_eval
 .PHONY: build
 .PHONY: train
 .PHONY: eval
 .PHONY: report
-.PHONY: TomcatASISTFall20
 
-all: sync create_splits split convert build train eval report
+all: build create_splits split convert_train convert_eval train eval report
+
+# Builds the system so that the training and evaluation targets can check
+# if there's a new version of the executable as a prerequisite.
+build:
+	@cd $(BUILD_DIR) && make -j convert
+	@cd $(BUILD_DIR) && make -j train
+	@cd $(BUILD_DIR) && make -j evaluate
 
 sync:
 	@echo ""
 	./tools/sync_asist_data
 
 create_splits:
-	@mkdir -p $(MESSAGES_DIR)
+	@mkdir -p $(TRAIN_MESSAGES_DIR) $(EVAL_MESSAGES_DIR)
 	@touch -a $(TRAIN_TRIALS_FILE)
 	@touch -a $(EVAL_TRIALS_FILE)
 
-# This assumes requires that the files train_list.txt and eval_list.txt are
+split: $(TRAIN_MESSAGES_DIR) $(EVAL_MESSAGES_DIR)
+
+# This requires that the files train_list.txt and eval_list.txt are
 # pre-filled with some trial numbers.
-split: $(TRAIN_TRIALS_FILE) $(EVAL_TRIALS_FILE)
+$(TRAIN_MESSAGES_DIR): ./tools/split_data $(TRAIN_TRIALS_FILE) \
+					   $(EVAL_TRIALS_FILE)
 ifeq ($(SPLIT_DEFINED), 0)
 	$(error "Fill $(TRAIN_TRIALS_FILE) and $(EVAL_TRIALS_FILE) with \
 	appropriate trial numbers.")
 endif
 	@echo ""
-	./tools/split_data
+	$@
 
-# Parses messages from the testbed and converts them to matrices of
-# observations. One matrix for each observable node in the model.
-convert: sync split $(MAP_CONFIG_PATH) $(TRAIN_MESSAGES_DIR)
+$(EVAL_MESSAGES_DIR): ./tools/split_data $(TRAIN_TRIALS_FILE) \
+					  $(EVAL_TRIALS_FILE)
+ifeq ($(SPLIT_DEFINED), 0)
+	$(error "Fill $(TRAIN_TRIALS_FILE) and $(EVAL_TRIALS_FILE) with \
+	appropriate trial numbers.")
+endif
 	@echo ""
-	@cd $(BUILD_DIR) && make -j TomcatConverter
+	$@
+
+# Parses messages from the test bed and converts them to matrices of
+# observations. One matrix for each observable node in the model.
+convert_train: $(TRAIN_SAMPLES_DIR)/*
+
+$(TRAIN_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(TRAIN_MESSAGES_DIR)/*
+	@echo ""
+	@cd $(BUILD_DIR) && make -j convert
 	@echo "Converting training data..."
-	@./$(BUILD_DIR)/bin/TomcatConverter --map_config $(MAP_CONFIG_PATH) \
-		--messages_dir $(TRAIN_MESSAGES_DIR) --output_dir $(TRAIN_SAMPLES_DIR)
+	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_CONFIG_PATH) \
+		--messages_dir $(TRAIN_MESSAGES_DIR) --data_dir $(TRAIN_SAMPLES_DIR) \
+		--seconds 600 --step_size 1
+
+convert_eval: $(EVAL_SAMPLES_DIR)/*
+
+$(EVAL_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(EVAL_MESSAGES_DIR)/*
+	@echo ""
+	@cd $(BUILD_DIR) && make -j convert
 	@echo "Converting evaluation data..."
-	@./$(BUILD_DIR)/bin/TomcatConverter --map_config $(MAP_CONFIG_PATH) \
-		--messages_dir $(EVAL_MESSAGES_DIR) --output_dir $(EVAL_SAMPLES_DIR)
+	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_CONFIG_PATH) \
+		--messages_dir $(EVAL_MESSAGES_DIR) --data_dir $(EVAL_SAMPLES_DIR) \
+		--seconds 600 --step_size 1
 
-# Builds the system so that the training and evaluation targets can check
-# if there's a new version of the executable as a prerequisite.
-build:
-	@cd $(BUILD_DIR) && make -j TomcatASISTFall20
+# The model only needs to be retrained if the executable changed, or if any of
+# the files in $(TRAIN_SAMPLES_DIR) changed. # We insert and remove a dummy file
+# to change the modification date of the directory
+train: $(PARAMS_DIR)
 
-train: $(MODEL_DIR)/*
+$(PARAMS_DIR): $(BUILD_DIR)/bin/train $(TRAIN_SAMPLES_DIR)/*
+	@echo ""
+	@echo "Training model..."
+	@./$< --model_json $(MODEL_PATH) --data_dir $(TRAIN_SAMPLES_DIR) \
+	    --params_dir $@ --T 600 --burn_in 50 --samples 100 --jobs 4
+	@touch $@/dummy.txt
+	@rm $@/dummy.txt
 
+# The model only needs to be re-evaluated if either the executable changed, or
+# the model's parameters - saved in the directory $(PARAMS_DIR) - changed, or
+# the evaluation data changed.
 eval: $(EVAL_PATH)
+
+$(EVAL_PATH): $(BUILD_DIR)/bin/evaluate $(PARAMS_DIR) \
+			  $(EVAL_SAMPLES_DIR)/* $(INFERENCE_PATH)
+	@echo ""
+	@echo "Evaluating model..."
+	@./$< --exp_id $(EVAL_FILENAME) --model_json $(MODEL_PATH) \
+	    --data_dir $(EVAL_SAMPLES_DIR) --params_dir $(PARAMS_DIR) \
+		--eval_dir $(EVAL_DIR) --inference_json $(INFERENCE_PATH) \
+ 	    --T 600
 
 report: $(REPORT_PATH)
 
-# The model only needs to be retrained if the executable changed, or if any of
-# the files in $(TRAIN_SAMPLES_DIR) changed.
-$(MODEL_DIR)/*: $(BUILD_DIR)/bin/TomcatASISTFall20 $(TRAIN_SAMPLES_DIR)/*
+$(REPORT_PATH): $(REPORT_GEN_SCRIPT) $(EVAL_SAMPLES_DIR)/conversion_log.json \
+                $(EVAL_PATH)
 	@echo ""
-	@echo "Training model..."
-	@./$< --type 0 --data_dir $(TRAIN_SAMPLES_DIR) --model_dir $(@D)
-
-# The model only needs to be re-evaluated if the executable changed, or
-# if the model's parameters, saved in the directory $(MODEL_DIR), changed, or
-# if the eval data changed.
-$(EVAL_PATH): $(BUILD_DIR)/bin/TomcatASISTFall20 $(MODEL_DIR)/* \
-			  $(EVAL_SAMPLES_DIR)/*
-	@echo ""
-	@echo "Evaluating model..."
-	@./$< --type 1 --data_dir $(EVAL_SAMPLES_DIR) --model_dir $(MODEL_DIR) \
-		--eval_dir $(EVAL_DIR) --horizon $(HORIZON)
-
-$(REPORT_PATH): $(EVAL_SAMPLES_DIR)/metadata.json tools/create_asist_report.py \
- 			  $(EVAL_PATH)
-	@echo ""
-	@python3 tools/create_asist_report.py $(EVAL_PATH) $(PARTIALS_DIR) $< \
-	         $(HORIZON) $@
+	@python3 $< $(EVAL_PATH) $(EVAL_SAMPLES_DIR)/conversion_log.json $@

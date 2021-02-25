@@ -207,6 +207,22 @@ namespace tomcat {
              */
             EvidenceSet at(int row, int col) const;
 
+            /**
+             * Appends the content of another set into this set along the
+             * second dimension of the tensors.
+             *
+             * @param other: data to append
+             */
+            void vstack(const EvidenceSet& other);
+
+            /**
+             * Appends the content of another set into this set along the
+             * third dimension of the tensors.
+             *
+             * @param other: data to append
+             */
+            void hstack(const EvidenceSet& other);
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------

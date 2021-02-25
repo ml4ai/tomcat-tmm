@@ -23,7 +23,8 @@ void evaluate(const string& experiment_id,
               int num_time_steps,
               int burn_in,
               int num_samples,
-              int num_jobs) {
+              int num_jobs,
+              bool baseline) {
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
     EvidenceSet test_data(data_dir);
@@ -33,9 +34,9 @@ void evaluate(const string& experiment_id,
 
     Experimentation experimentation(random_generator, experiment_id, model);
     experimentation.add_estimators_from_json(
-        inference_json, burn_in, num_samples, num_jobs);
+        inference_json, burn_in, num_samples, num_jobs, baseline);
     experimentation.evaluate_and_save(
-        params_dir, num_folds, eval_dir, test_data);
+        params_dir, num_folds, eval_dir, test_data, baseline);
 }
 
 int main(int argc, char* argv[]) {
@@ -50,6 +51,7 @@ int main(int argc, char* argv[]) {
     int burn_in;
     int num_samples;
     int num_jobs;
+    bool baseline;
 
     po::options_description desc("Allowed options");
     desc.add_options()(
@@ -69,10 +71,11 @@ int main(int argc, char* argv[]) {
         "Directory where the pre-trained model's parameters are saved.")(
         "data_dir",
         po::value<string>(&data_dir)->required(),
-        "Directory where the data (evidence) is located.")(
-        "eval_dir",
-        po::value<string>(&eval_dir)->required(),
-        "Directory where the evaluation file must be saved.")(
+        "Directory where the data (evidence) is located. If baseline is set "
+        "to true, this should be the training set used to compute empirical "
+        "frequencies.")("eval_dir",
+                        po::value<string>(&eval_dir)->required(),
+                        "Directory where the evaluation file must be saved.")(
         "inference_json",
         po::value<string>(&inference_json)->required(),
         "Filepath of the json file containing the variables and inference "
@@ -95,7 +98,11 @@ int main(int argc, char* argv[]) {
         "after the burn-in period if approximate inference is used for "
         "evaluation.")("jobs",
                        po::value<int>(&num_jobs)->default_value(4),
-                       "Number of jobs used for multi-thread training.");
+                       "Number of jobs used for multi-thread training.")(
+        "baseline",
+        po::bool_switch(&baseline)->default_value(false),
+        "Whether the baseline estimator based on frequencies of the samples in"
+        " the training data must be used.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -115,5 +122,6 @@ int main(int argc, char* argv[]) {
              num_time_steps,
              burn_in,
              num_samples,
-             num_jobs);
+             num_jobs,
+             baseline);
 }

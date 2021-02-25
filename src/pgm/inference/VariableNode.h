@@ -88,9 +88,14 @@ namespace tomcat {
              *
              * @param time_step: time step where the data must be set
              * @param data: vector with node's values from several data sets
+             * @param aggregate: whether the data is result of an aggregate
+             * computation. If true, the message of this node must be
+             * 2-dimensional (either 0 or 1).
              *
              */
-            void set_data_at(int time_step, const Eigen::VectorXd& data);
+            void set_data_at(int time_step,
+                             const Eigen::VectorXd& data,
+                             bool aggregate);
 
             /**
              * If there's data assigned to a node in a given time step, remove

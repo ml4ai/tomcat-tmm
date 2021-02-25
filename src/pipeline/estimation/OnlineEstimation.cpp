@@ -92,19 +92,19 @@ namespace tomcat {
         EvidenceSet OnlineEstimation::get_next_data_from_pending_messages() {
             EvidenceSet new_data;
 
-            while (!this->messages_to_process.empty() && new_data.empty()) {
-                nlohmann::json message = this->messages_to_process.front();
-                this->messages_to_process.pop();
-                unordered_map<string, double> observations_per_node =
-                    this->message_converter->convert_online(message);
-                if (!observations_per_node.empty()) {
-                    for (const auto& [node_label, value] :
-                         observations_per_node) {
-                        Tensor3 data(Eigen::MatrixXd::Constant(1, 1, value));
-                        new_data.add_data(node_label, data);
-                    }
-                }
-            }
+//            while (!this->messages_to_process.empty() && new_data.empty()) {
+//                nlohmann::json message = this->messages_to_process.front();
+//                this->messages_to_process.pop();
+//                unordered_map<string, double> observations_per_node =
+//                    this->message_converter->convert_online(message);
+//                if (!observations_per_node.empty()) {
+//                    for (const auto& [node_label, value] :
+//                         observations_per_node) {
+//                        Tensor3 data(Eigen::MatrixXd::Constant(1, 1, value));
+//                        new_data.add_data(node_label, data);
+//                    }
+//                }
+//            }
 
             return new_data;
         }

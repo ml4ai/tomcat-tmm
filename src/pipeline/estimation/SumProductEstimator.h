@@ -86,10 +86,13 @@ namespace tomcat {
              * @param time_step: time step to process
              * @param new_data: observed values for time steps not already
              * processed by the method
+             * @param in_future: whether the computations are being performed
+             * in the future (inside a positive inference horizon)
              */
             void compute_forward_messages(const FactorGraph& factor_graph,
                                           int time_step,
-                                          const EvidenceSet& new_data);
+                                          const EvidenceSet& new_data,
+                                          bool in_future);
 
             /**
              * Computes messages from children to parent nodes in a given time
@@ -99,10 +102,13 @@ namespace tomcat {
              * @param time_step: time step to process
              * @param new_data: observed values for time steps not already
              * processed by the method
+             * @param in_future: whether the computations are being performed
+             * in the future (inside a positive inference horizon)
              */
             void compute_backward_messages(const FactorGraph& factor_graph,
                                            int time_step,
-                                           const EvidenceSet& new_data);
+                                           const EvidenceSet& new_data,
+                                           bool in_future);
 
             /**
              * Computes the a node's marginal for a given assignment in the

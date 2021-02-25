@@ -190,8 +190,9 @@ namespace tomcat {
 
             /**
              * Returns factor nodes that are connected to nodes in a given time
-             * step and the previous one. Transition factor nodes from the repeatable time step are return
-             * whenever the given time step is greater than the repeatable one.
+             * step and the previous one. Transition factor nodes from the
+             * repeatable time step are return whenever the given time step is
+             * greater than the repeatable one.
              *
              * @param time_step: factor nodes' time step
              *
@@ -199,6 +200,31 @@ namespace tomcat {
              */
             std::unordered_set<std::shared_ptr<FactorNode>>
             get_transition_factors_at(int time_step) const;
+
+            /**
+             * Creates an aggregate potential for a given factor node.
+             *
+             * @param node_label: node's label associated with the factor node
+             * @param value: aggregation key value
+             */
+            void create_aggregate_potential(const std::string& node_label,
+                                            int value);
+
+            /**
+             * Sets the aggregate potential for a given factor node as the
+             * working one.
+             *
+             * @param node_label: node's label associated with the factor node
+             * @param value: aggregation key value
+             */
+            void use_aggregate_potential(const std::string& node_label,
+                                         int value);
+
+            /**
+             * Uses the factor node's original potential. The one without
+             * aggregation.
+             */
+            void use_original_potential(const std::string& node_label);
 
           private:
             //------------------------------------------------------------------

@@ -4,6 +4,7 @@
 
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
+#include <boost/filesystem.hpp>
 
 #include <gsl/gsl_randist.h>
 
@@ -255,6 +256,8 @@ namespace tomcat {
         }
 
         void DataSplitter::save_indices(const std::string& indices_dir) const {
+            boost::filesystem::create_directories(indices_dir);
+
             string filepath = fmt::format("{}/indices.json", indices_dir);
             ofstream indices_file;
             indices_file.open(filepath);
