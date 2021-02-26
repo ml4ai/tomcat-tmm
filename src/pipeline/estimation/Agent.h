@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -26,8 +27,16 @@ namespace tomcat {
 
             /**
              * Creates an agent with a given ID.
+             *
+             * @param id: agent's ID
+             * @param estimates_topic: message topic where estimates must be
+             * published to
+             * @param log_topic: message topic where processing log must be
+             * published to
              */
-            Agent(const std::string& id);
+            Agent(const std::string& id,
+                  const std::string& estimates_topic,
+                  const std::string& log_topic);
 
             virtual ~Agent();
 
@@ -74,16 +83,51 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Estimator>>& estimators,
                 int time_step) const = 0;
 
+            /**
+             * Gets a list of all topics this agent has to subscribe to.
+             *
+             * @return Set of relevant message topics.
+             */
+            virtual std::unordered_set<std::string>
+            get_topics_to_subscribe() const = 0;
+
+            /**
+             * Builds a log message with a given text.
+             *
+             * @return Log message.
+             */
+            virtual nlohmann::json
+            build_log_message(const std::string& log) const = 0;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
             const std::string& get_id() const;
 
+            const std::string& get_estimates_topic() const;
+
+            const std::string& get_log_topic() const;
+
           protected:
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            /**
+             * Copy attributes from another agent.
+             *
+             * @param agent: another agent.
+             */
+            void copy(const Agent& agent);
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
             std::string id;
+
+            std::string estimates_topic;
+
+            std::string log_topic;
         };
 
     } // namespace model

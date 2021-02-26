@@ -60,9 +60,9 @@ namespace tomcat {
                           60,
                           this->config.num_connection_trials,
                           this->config.milliseconds_before_retrial);
-            this->subscribe(this->config.state_topic);
-            this->subscribe(this->config.events_topic);
-            this->subscribe(this->config.trial_topic);
+            for (const string& topic : this->agent->get_topics_to_subscribe()) {
+                this->subscribe(topic);
+            }
             thread estimation_thread(&OnlineEstimation::run_estimation_thread,
                                      this);
             this->loop();
@@ -92,7 +92,6 @@ namespace tomcat {
             EvidenceSet new_data;
 
             while (!this->messages_to_process.empty() && new_data.empty()) {
-                nlohmann::json log;
                 nlohmann::json message = this->messages_to_process.front();
                 this->messages_to_process.pop();
                 new_data.hstack(this->agent->message_to_data(message));
@@ -105,10 +104,19 @@ namespace tomcat {
             try {
                 nlohmann::json message = this->agent->estimates_to_message(
                     this->estimators, this->time_step);
-                this->publish(this->config.estimates_topic, message.dump());
+                const string& topic = this->agent->get_estimates_topic();
+                this->publish(topic, message.dump());
             }
             catch (out_of_range& e) {
-                this->publish(this->config.log_topic, "max_time_step_reached");
+                const string& topic = this->agent->get_log_topic();
+                if (topic != "") {
+                    stringstream ss;
+                    ss << "The maximum time step defined for the mission has "
+                          "been reached. Shutting down agent...";
+                    string message =
+                        this->agent->build_log_message(ss.str()).dump();
+                    this->publish(topic, message);
+                }
                 this->running = false;
             }
         }
@@ -127,7 +135,14 @@ namespace tomcat {
         }
 
         void OnlineEstimation::on_time_out() {
-            this->publish(this->config.log_topic, "time_out");
+            const string& topic = this->agent->get_log_topic();
+            if (topic != "") {
+                stringstream ss;
+                ss << "Connection time out!";
+                string message =
+                    this->agent->build_log_message(ss.str()).dump();
+                this->publish(topic, ss.str());
+            }
         }
 
         void OnlineEstimation::get_info(nlohmann::json& json) const {

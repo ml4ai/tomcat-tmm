@@ -11,8 +11,11 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         ASISTAgent::ASISTAgent(const string& id,
+                               const string& estimates_topic,
+                               const string& log_topic,
                                const ASISTMessageConverter& message_converter)
-            : Agent(id), message_converter(message_converter) {}
+            : Agent(id, estimates_topic, log_topic),
+              message_converter(message_converter) {}
 
         ASISTAgent::~ASISTAgent() {}
 
@@ -20,10 +23,11 @@ namespace tomcat {
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         ASISTAgent::ASISTAgent(const ASISTAgent& agent)
-            : Agent(agent.id), message_converter(agent.message_converter) {}
+            : Agent(agent.id, agent.estimates_topic, agent.log_topic),
+              message_converter(agent.message_converter) {}
 
         ASISTAgent& ASISTAgent::operator=(const ASISTAgent& agent) {
-            this->id = agent.id;
+            Agent::copy(agent);
             this->message_converter = agent.message_converter;
             return *this;
         }
@@ -66,14 +70,15 @@ namespace tomcat {
                     NodeEstimates estimates =
                         base_estimator->get_estimates_at(time_step);
 
-//                    size_t timestamp =
-//                        mission_init +
-//                        (time_step + base_estimator->get_inference_horizon()) *
-//                            time_step_size;
-//                    message["Timestamp"] = timestamp;
+                    //                    size_t timestamp =
+                    //                        mission_init +
+                    //                        (time_step +
+                    //                        base_estimator->get_inference_horizon())
+                    //                        *
+                    //                            time_step_size;
+                    //                    message["Timestamp"] = timestamp;
 
                     message["Timestamp"] = "TODO";
-
 
                     if (estimates.label == "TrainingCondition") {
                         message["TrainingCondition TriageSignal"] =
@@ -100,5 +105,23 @@ namespace tomcat {
 
             return messages;
         }
+
+        unordered_set<string> ASISTAgent::get_topics_to_subscribe() const {
+            return this->message_converter.get_used_topics();
+        }
+
+        nlohmann::json ASISTAgent::build_log_message(const string& log) const {
+            nlohmann::json message;
+
+            message["TA"] = "TA1";
+            message["Team"] = "UAZ";
+            message["AgentID"] = this->id;
+            message["Trial"] =
+                this->message_converter.get_mission_trial_number();
+            message["log"] = log;
+
+            return message;
+        }
+
     } // namespace model
 } // namespace tomcat

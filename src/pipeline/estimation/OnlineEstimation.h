@@ -37,17 +37,6 @@ namespace tomcat {
                 int port;
                 int num_connection_trials;
                 int milliseconds_before_retrial;
-
-                // Topics to subscribe to
-                std::string state_topic = "observations/state";
-                std::string chat_topic = "observations/chat";
-                std::string events_topic = "observations/events/#";
-                std::string self_report_topic = "observations/self_reports";
-                std::string trial_topic = "trial";
-
-                // Topics to publish to
-                std::string estimates_topic = "estimates";
-                std::string log_topic = "log";
             };
 
             //------------------------------------------------------------------

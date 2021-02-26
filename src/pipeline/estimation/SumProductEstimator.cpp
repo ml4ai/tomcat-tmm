@@ -80,7 +80,8 @@ namespace tomcat {
             unique_ptr<boost::progress_display> progress;
 
             if (this->show_progress) {
-                cout << "Sum-Product (h = " << this->inference_horizon << ")";
+                cout << this->estimates.label
+                     << " (h = " << this->inference_horizon << ")";
                 progress = make_unique<boost::progress_display>(total_time);
             }
             for (int t = this->next_time_step; t < total_time; t++) {
@@ -249,9 +250,10 @@ namespace tomcat {
                     // data sets can be processes at once.
                     int num_rows = max(1, new_data.get_num_data_points());
                     int num_cols = dynamic_pointer_cast<VariableNode>(node)
-                                         ->get_cardinality();
+                                       ->get_cardinality();
 
-                    if(in_future && node->get_label() == this->estimates.label) {
+                    if (in_future &&
+                        node->get_label() == this->estimates.label) {
                         // In a positive inference horizon, messages of an
                         // estimated node are aggregated.
                         num_cols = 2;

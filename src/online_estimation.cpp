@@ -25,6 +25,8 @@ namespace po = boost::program_options;
 void start_agent(const string& agent_id,
                  const string& model_json,
                  const string& params_dir,
+                 const string& estimates_topic,
+                 const string& log_topic,
                  const string& broker_address,
                  int broker_port,
                  int num_connection_trials,
@@ -46,8 +48,8 @@ void start_agent(const string& agent_id,
 
     ASISTMessageConverter message_converter(
         num_seconds, time_step_size, map_json);
-    shared_ptr<ASISTAgent> agent =
-        make_shared<ASISTAgent>(agent_id, message_converter);
+    shared_ptr<ASISTAgent> agent = make_shared<ASISTAgent>(
+        agent_id, estimates_topic, log_topic, message_converter);
 
     Experimentation experimentation(random_generator,
                                     model,
@@ -65,6 +67,8 @@ int main(int argc, char* argv[]) {
     string agent_id;
     string model_json;
     string params_dir;
+    string estimates_topic;
+    string log_topic;
     string broker_address;
     string map_json;
     string inference_json;
@@ -93,11 +97,20 @@ int main(int argc, char* argv[]) {
         "params_dir",
         po::value<string>(&params_dir)->required(),
         "Directory where the pre-trained model's parameters are saved.")(
-        "address",
-        po::value<string>(&broker_address)
-            ->default_value("localhost")
+        "estimates_topic",
+        po::value<string>(&estimates_topic)
+            ->default_value("uaz/estimates")
             ->required(),
-        "Address to connect to the message broker.\n")(
+        "Message topic where estimates must be published to.\n")(
+        "log_topic",
+        po::value<string>(&log_topic)->default_value("uaz/log"),
+        "Message topic where processing log must be published to. If blank, "
+        "no log is published to the message bus."
+        ".\n")("address",
+               po::value<string>(&broker_address)
+                   ->default_value("localhost")
+                   ->required(),
+               "Address to connect to the message broker.\n")(
         "port",
         po::value<unsigned int>(&broker_port)->default_value(1883)->required(),
         "Port to connect to the message broker.")(
@@ -152,6 +165,8 @@ int main(int argc, char* argv[]) {
     start_agent(agent_id,
                 model_json,
                 params_dir,
+                estimates_topic,
+                log_topic,
                 broker_address,
                 broker_port,
                 num_connection_trials,

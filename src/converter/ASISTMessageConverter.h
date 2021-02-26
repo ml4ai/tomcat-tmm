@@ -71,6 +71,14 @@ namespace tomcat {
              */
             std::time_t get_initial_timestamp() const;
 
+            /**
+             * Gets message topics used to data extraction.
+             *
+             * @return Message topics.
+             */
+            std::unordered_set<std::string>
+            get_used_topics() const;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------

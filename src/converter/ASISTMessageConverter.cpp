@@ -62,13 +62,7 @@ namespace tomcat {
 
                     const string& topic = json_message["topic"];
 
-                    if (topic == "trial" ||
-                        (topic == "observations/events/mission") ||
-                        topic == "observations/state" ||
-                        topic == "observations/events/player/triage" ||
-                        topic == "observations/events/player/location" ||
-                        topic == "observations/events/player/beep") {
-
+                    if (EXISTS(topic, this->get_used_topics())) {
                         const string& timestamp =
                             json_message["header"]["timestamp"];
                         messages[timestamp] = json_message;
@@ -79,6 +73,19 @@ namespace tomcat {
             }
 
             return messages;
+        }
+
+        unordered_set<string> ASISTMessageConverter::get_used_topics() const {
+            unordered_set<string> topics;
+
+            topics.insert("trial");
+            topics.insert("observations/events/mission");
+            topics.insert("observations/state");
+            topics.insert("observations/events/player/triage");
+            topics.insert("observations/events/player/location");
+            topics.insert("observations/events/player/beep");
+
+            return topics;
         }
 
         EvidenceSet ASISTMessageConverter::get_data_from_message(
@@ -151,7 +158,7 @@ namespace tomcat {
                     }
 
                     try {
-                        string trial = json_message["trial_number"];
+                        string trial = json_message["data"]["trial_number"];
                         // Remove first character which is the letter T.
                         this->mission_trial_number = stoi(trial.substr(1));
                     }
