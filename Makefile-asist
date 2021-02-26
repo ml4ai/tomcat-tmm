@@ -39,7 +39,7 @@ REPORT_PATH = $(EVAL_DIR)/study-1_2020.08_report.txt
 MODEL_PATH = models/tomcat-v02.json
 
 # Path to the file containing the inferences to be performed
-INFERENCE_PATH = inference/asist/study-1_2020.08.json
+INFERENCE_PATH = asist/study-1_2020.08/inference.json
 
 # Phony targets
 .PHONY: all
