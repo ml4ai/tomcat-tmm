@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include <boost/filesystem.hpp>
 #include <nlohmann/json.hpp>
 
 #include "pgm/EvidenceSet.h"
@@ -60,13 +61,13 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-            * Converts messages from files in a given folder to files for each
-            * observable node, consisting of tensors with the observations for
-            * each mission sample and time step in the mission.
-            *
-            * @param messages_dir: directory where the message files are
-            * @param data_dir: directory where data must be saved
-            */
+             * Converts messages from files in a given folder to files for each
+             * observable node, consisting of tensors with the observations for
+             * each mission sample and time step in the mission.
+             *
+             * @param messages_dir: directory where the message files are
+             * @param data_dir: directory where data must be saved
+             */
             void convert_messages(const std::string& messages_dir,
                                   const std::string& data_dir);
 
@@ -87,6 +88,21 @@ namespace tomcat {
             virtual EvidenceSet
             get_data_from_message(const nlohmann::json& json_message,
                                   nlohmann::json& json_mission_log) = 0;
+
+            /**
+             * Checks if a file is a valid message file.
+             *
+             * @param filename: filename
+             *
+             * @return True if it's valid.
+             */
+            virtual bool is_valid_message_file(
+                const boost::filesystem::directory_entry& file) const = 0;
+
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
+            int get_time_step_size() const;
 
           protected:
             //------------------------------------------------------------------

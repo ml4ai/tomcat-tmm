@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
     po::options_description desc("Allowed options");
     desc.add_options()(
         "help,h",
-        "This executable evaluates a series of predictions or "
+        "This program evaluates a series of predictions or "
         "inferences over a set of variables and horizons on a pre-trained "
         "model. If the model does not support exact inference (e.g. the model "
         "has at least one variable under a semi-Markov assumption or that "
@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
         "after the burn-in period if approximate inference is used for "
         "evaluation.")("jobs",
                        po::value<int>(&num_jobs)->default_value(4),
-                       "Number of jobs used for multi-thread training.")(
+                       "Number of jobs used for multi-thread inference.")(
         "baseline",
         po::bool_switch(&baseline)->default_value(false),
         "Whether the baseline estimator based on frequencies of the samples in"

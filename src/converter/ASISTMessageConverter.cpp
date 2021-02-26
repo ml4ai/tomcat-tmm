@@ -1,6 +1,7 @@
-#include "TA3MessageConverter.h"
+#include "ASISTMessageConverter.h"
 
 #include <fstream>
+#include <iomanip>
 
 #include <fmt/format.h>
 
@@ -12,7 +13,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        TA3MessageConverter::TA3MessageConverter(
+        ASISTMessageConverter::ASISTMessageConverter(
             int num_seconds,
             int time_step_size,
             const std::string& map_filepath)
@@ -21,18 +22,18 @@ namespace tomcat {
             this->load_map_area_configuration(map_filepath);
         }
 
-        TA3MessageConverter::~TA3MessageConverter() {}
+        ASISTMessageConverter::~ASISTMessageConverter() {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        TA3MessageConverter::TA3MessageConverter(
-            const TA3MessageConverter& converter) {
+        ASISTMessageConverter::ASISTMessageConverter(
+            const ASISTMessageConverter& converter) {
             this->copy_converter(converter);
         }
 
-        TA3MessageConverter&
-        TA3MessageConverter::operator=(const TA3MessageConverter& converter) {
+        ASISTMessageConverter& ASISTMessageConverter::operator=(
+            const ASISTMessageConverter& converter) {
             this->copy_converter(converter);
             return *this;
         }
@@ -41,7 +42,7 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
         map<string, nlohmann::json>
-        TA3MessageConverter::filter(const string& messages_filepath) const {
+        ASISTMessageConverter::filter(const string& messages_filepath) const {
             map<string, nlohmann::json> messages;
 
             ifstream file_reader(messages_filepath);
@@ -80,7 +81,7 @@ namespace tomcat {
             return messages;
         }
 
-        EvidenceSet TA3MessageConverter::get_data_from_message(
+        EvidenceSet ASISTMessageConverter::get_data_from_message(
             const nlohmann::json& json_message,
             nlohmann::json& json_mission_log) {
 
@@ -98,6 +99,13 @@ namespace tomcat {
                     this->mission_started = true;
                     this->elapsed_time_steps = 0;
 
+                    if (this->training_condition.is_empty()) {
+                        // In case the message for training condition arrives
+                        // later, this will set the training condition as non
+                        // observed at time 0.
+                        this->training_condition = Tensor3(NO_OBS);
+                    }
+
                     data.add_data("TrainingCondition",
                                   this->training_condition);
                     data.add_data("Area", Tensor3(NO_OBS));
@@ -112,6 +120,16 @@ namespace tomcat {
                     const string& timestamp =
                         json_message["header"]["timestamp"];
                     json_mission_log["initial_timestamp"] = timestamp;
+
+                    // Convert to timestamp and save locally
+                    //                    tm t{};
+                    //                    istringstream ss(timestamp);
+                    //                    ss >> get_time(&t,
+                    //                    "%Y-%m-%dT%H:%M:%S.%%Z"); if
+                    //                    (!ss.fail()) {
+                    //                        this->mission_initial_timestamp =
+                    //                        mktime(&t);
+                    //                    }
                 }
                 else if (json_message["topic"] == "trial") {
                     int value;
@@ -130,6 +148,15 @@ namespace tomcat {
                     catch (invalid_argument& exp) {
                         throw TomcatModelException(fmt::format(
                             "Invalid training condition {}.", value));
+                    }
+
+                    try {
+                        string trial = json_message["trial_number"];
+                        // Remove first character which is the letter T.
+                        this->mission_trial_number = stoi(trial.substr(1));
+                    }
+                    catch (invalid_argument& exp) {
+                        this->mission_trial_number = -1;
                     }
                 }
             }
@@ -183,7 +210,15 @@ namespace tomcat {
             return data;
         }
 
-        void TA3MessageConverter::load_map_area_configuration(
+        bool ASISTMessageConverter::is_valid_message_file(
+            const boost::filesystem::directory_entry& file) const {
+            const string& filename = file.path().filename().string();
+            return filename.find("HSRData_TrialMessages") != string::npos &&
+                   filename.find("Vers-3") != string::npos &&
+                   file.path().extension().string() == ".metadata";
+        }
+
+        void ASISTMessageConverter::load_map_area_configuration(
             const string& map_filepath) {
 
             fstream map_file;
@@ -204,7 +239,7 @@ namespace tomcat {
             }
         }
 
-        int TA3MessageConverter::get_elapsed_time(const string& time) {
+        int ASISTMessageConverter::get_elapsed_time(const string& time) {
             int minutes = 0;
             int seconds = 0;
 
@@ -218,7 +253,7 @@ namespace tomcat {
             return this->time_steps - (seconds + minutes * 60);
         }
 
-        void TA3MessageConverter::fill_victim_saving_observation(
+        void ASISTMessageConverter::fill_victim_saving_observation(
             const nlohmann::json& json_message) {
 
             if (json_message["data"]["triage_state"] == "IN_PROGRESS") {
@@ -234,7 +269,7 @@ namespace tomcat {
             }
         }
 
-        void TA3MessageConverter::fill_room_observation(
+        void ASISTMessageConverter::fill_room_observation(
             const nlohmann::json& json_message) {
 
             if (json_message["data"].contains("entered_area_id")) {
@@ -256,7 +291,7 @@ namespace tomcat {
             }
         }
 
-        void TA3MessageConverter::fill_beep_observation(
+        void ASISTMessageConverter::fill_beep_observation(
             const nlohmann::json& json_message) {
 
             const string beep = json_message["data"]["message"];
@@ -266,6 +301,20 @@ namespace tomcat {
             else if (beep == "Beep Beep") {
                 this->beep = Tensor3(2);
             }
+        }
+
+        time_t ASISTMessageConverter::get_initial_timestamp() const {
+            time_t t;
+
+            return t;
+        }
+
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        int ASISTMessageConverter::get_mission_trial_number() const {
+            return mission_trial_number;
         }
 
     } // namespace model

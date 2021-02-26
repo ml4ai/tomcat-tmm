@@ -7,7 +7,7 @@
 
 #include <boost/program_options.hpp>
 
-#include "converter/TA3MessageConverter.h"
+#include "converter/ASISTMessageConverter.h"
 
 using namespace tomcat::model;
 using namespace std;
@@ -20,7 +20,7 @@ void extract_data_from_messages(const string& map_json,
                                 int num_seconds,
                                 int time_step_size) {
 
-    TA3MessageConverter converter(num_seconds, time_step_size, map_json);
+    ASISTMessageConverter converter(num_seconds, time_step_size, map_json);
     converter.convert_messages(messages_dir, data_dir);
 }
 

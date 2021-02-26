@@ -412,7 +412,8 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     data.add_data(GREEN, sampler.get_samples(GREEN));
     data.add_data(YELLOW, sampler.get_samples(YELLOW));
 
-    // Fix some THETA_STATE_GIVEN_STATE_TC_PBAE to avoid permutation of TC and PBAE.
+    // Fix some THETA_STATE_GIVEN_STATE_TC_PBAE to avoid permutation of TC and
+    // PBAE.
     for (int i : {0, 1, 2, 3}) {
         stringstream label;
         label << THETA_STATE_GIVEN_STATE_TC_PBAE << "_" << i;
@@ -735,8 +736,8 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hmm, HMM) {
         make_shared<GibbsSampler>(pre_trained_model, 0, 1);
     gibbs->set_show_progress(false);
     gibbs->set_trainable(false);
-    CompoundSamplerEstimator sampler_estimator(
-        pre_trained_model, gibbs, gen, 2000);
+    CompoundSamplerEstimator sampler_estimator(gibbs, gen, 2000);
+    sampler_estimator.set_show_progress(false);
     sampler_estimator.add_base_estimator(green_estimator_h1);
     sampler_estimator.add_base_estimator(yellow_estimator_h1);
     sampler_estimator.add_base_estimator(green_estimator_h3);
@@ -822,16 +823,14 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
         make_shared<GibbsSampler>(pre_trained_model, 0, 1);
     gibbs->set_show_progress(false);
     gibbs->set_trainable(false);
-    CompoundSamplerEstimator sampler_estimator(
-        pre_trained_model, gibbs, gen, 10000);
+    CompoundSamplerEstimator sampler_estimator(gibbs, gen, 10000);
+    sampler_estimator.set_show_progress(false);
     sampler_estimator.add_base_estimator(state_estimator_h1);
     sampler_estimator.add_base_estimator(green_estimator_h1);
 
     // Green node is observed
     EvidenceSet data;
     data.add_data(GREEN, sampler.get_samples(GREEN));
-
-    cout << data[GREEN](0, 0) << endl;
 
     sampler_estimator.prepare();
     sampler_estimator.estimate(data);

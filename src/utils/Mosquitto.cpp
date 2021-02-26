@@ -1,6 +1,7 @@
 #include "Mosquitto.h"
 
 #include <iostream>
+#include <thread>
 #include <unistd.h>
 
 #define MAX_NUM_RECONNECTIONS 5
@@ -98,12 +99,11 @@ void Mosquitto::mosquitto_callback_on_message(
 //----------------------------------------------------------------------
 // Virtual functions
 //----------------------------------------------------------------------
-void Mosquitto::on_connected() { cout << "Connected!" << endl; }
+void Mosquitto::on_connected() { }
 
 void Mosquitto::on_error(const string& error_message) {}
 
-void Mosquitto::on_message(const string& topic,
-                           const string& message) {}
+void Mosquitto::on_message(const string& topic, const string& message) {}
 
 void Mosquitto::on_time_out() {}
 
@@ -115,17 +115,38 @@ void Mosquitto::copy_wrapper(const Mosquitto& mosquitto) {
     this->running = mosquitto.running;
 }
 
-void Mosquitto::connect(const string& address, int port, int alive_delay) {
-    int error_code = mosquitto_connect(
-        this->mqtt_client, address.c_str(), port, alive_delay);
-    if (error_code != MOSQ_ERR_SUCCESS) {
+void Mosquitto::connect(const string& address,
+                        int port,
+                        int alive_delay,
+                        int trials,
+                        int milliseconds_before_retrial) {
+    while (!this->running && trials > 0) {
+        cout << "Trying to connect to " << address << ":" << port << "..."
+             << endl;
+        this_thread::sleep_for(chrono::milliseconds(1000));
+        int error_code = mosquitto_connect(
+            this->mqtt_client, address.c_str(), port, alive_delay);
+        if (error_code != MOSQ_ERR_SUCCESS) {
+            trials--;
+            if (trials > 0) {
+                cout << "Fail! Waiting to retry once more..." << endl;
+                this_thread::sleep_for(
+                    chrono::milliseconds(milliseconds_before_retrial));
+            }
+        }
+        else {
+            cout << "Connection established!" << endl;
+            this->running = true;
+        }
+    }
+
+    if (!this->running) {
         stringstream ss;
         ss << "It was not possible to establish connection with the "
               "message broker at "
            << address << ":" << port;
         this->on_error(ss.str());
     }
-    this->running = true;
 }
 
 void Mosquitto::subscribe(const string& topic) {

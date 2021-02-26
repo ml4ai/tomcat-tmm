@@ -26,6 +26,10 @@ add_executable(convert message_conversion.cpp)
 target_include_directories(convert PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(convert PRIVATE ${ALL_LIBS})
 
+add_executable(start_agent online_estimation.cpp)
+target_include_directories(start_agent PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(start_agent PRIVATE ${ALL_LIBS})
+
 option(CODE_COVERAGE "Enable coverage reporting" OFF)
 
 # Todo make code coverage work on Linux as well.

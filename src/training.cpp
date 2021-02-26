@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     po::options_description desc("Allowed options");
     desc.add_options()(
         "help,h",
-        "This executable trains a model via Gibbs sampling procedure, and "
+        "This program trains a model via Gibbs sampling procedure, and "
         "saves the learned parameters to an informed directory.")(
         "model_json",
         po::value<string>(&model_json)->required(),

@@ -58,8 +58,12 @@ class Mosquitto {
      * @param port: remote broker port
      * @param keep_alive_for: delay in seconds for pings for the connection to
      * stay alive
+     * @param trials: number of attempts to establish connection
+     * @param milliseconds_before_retrial: number of milliseconds to wait
+     * before retry to connect
      */
-    void connect(const std::string& address, int port, int alive_delay);
+    void connect(const std::string& address, int port, int alive_delay, int trials,
+                 int milliseconds_before_retrial);
 
     /**
      * Subscribes to a topic.

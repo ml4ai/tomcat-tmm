@@ -1,6 +1,7 @@
 #include "MessageConverter.h"
 
-#include <boost/filesystem.hpp>
+#include <iomanip>
+
 #include <boost/progress.hpp>
 #include <unordered_set>
 
@@ -137,9 +138,7 @@ namespace tomcat {
             for (const auto& file : fs::directory_iterator(messages_dir)) {
                 string filename = file.path().filename().string();
                 if ((fs::is_regular_file(file)) &&
-                    filename.find("HSRData_TrialMessages") != string::npos &&
-                    filename.find("Vers-3") != string::npos &&
-                    file.path().extension().string() == ".metadata") {
+                    this->is_valid_message_file(file)) {
 
                     if (!EXISTS(filename, processed_files)) {
                         unprocessed_files.insert(filename);
@@ -149,6 +148,11 @@ namespace tomcat {
 
             return unprocessed_files;
         }
+
+        int MessageConverter::get_time_step_size() const {
+            return time_step_size;
+        }
+
 
     } // namespace model
 } // namespace tomcat

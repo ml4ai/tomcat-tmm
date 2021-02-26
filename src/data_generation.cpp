@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
     po::options_description desc("Allowed options");
     desc.add_options()(
         "help,h",
-        "This executable generates synthetic data from a pre-trained model.")(
+        "This program generates synthetic data from a pre-trained model.")(
         "model_json",
         po::value<string>(&model_json)->required(),
         "Filepath of the json file containing the model definition.")(

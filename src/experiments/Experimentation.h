@@ -9,10 +9,12 @@
 
 
 #include "pgm/EvidenceSet.h"
-#include "pipeline/estimation/OfflineEstimation.h"
+#include "pipeline/estimation/EstimationProcess.h"
 #include "pipeline/evaluation/EvaluationAggregator.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pipeline/training/DBNTrainer.h"
+#include "converter/MessageConverter.h"
+#include "pipeline/estimation/Agent.h"
 
 namespace tomcat {
     namespace model {
@@ -27,15 +29,40 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Initializes an experiment using cross validation.
+             * Initializes an experiment for offline estimation.
              *
              * @param gen: random number generator
              * @param experiment_id: id of the experiment
              * @param model: model to experiment on
+             * @param real_time_estimation: whether estimates are computed on
+             * the fly
              */
             Experimentation(const std::shared_ptr<gsl_rng>& gen,
                             const std::string& experiment_id,
-                            std::shared_ptr<DynamicBayesNet>& model);
+                            const std::shared_ptr<DynamicBayesNet>& model);
+
+            /**
+             * Initializes an agent for online estimation.
+             *
+             * @param gen: random number generator
+             * @param model: model to compute estimates from
+             * @param agent: agent who talks to the message bus
+             * @param broker_address: address of the message broker
+             * @param broker_port: port of the message broker
+             * @param num_connection_trials: number of attempts to connect
+             * with the message broker
+             * @param milliseconds_before_retrial: milliseconds to wait
+             * before retrying to connect with the message broker in case of
+             * fail to connect previously
+             */
+            Experimentation(
+                const std::shared_ptr<gsl_rng>& gen,
+                const std::shared_ptr<DynamicBayesNet>& model,
+                const std::shared_ptr<Agent>& agent,
+                const std::string& broker_address,
+                int broker_port,
+                int num_connection_trials,
+                int milliseconds_before_retrial);
 
             ~Experimentation();
 
@@ -120,6 +147,24 @@ namespace tomcat {
                                    bool baseline);
 
             /**
+             * Evaluates a pre-trained model and save the evaluations to a
+             * json file in a given directory.
+             *
+             * @param params_dir: directory where the parameters of a
+             * pre-trained model are saved
+             * @param num_folds: number of folds (>1 for experiments with
+             * cross-validation)
+             * @param eval_dir: directory where the final evaluation file
+             * must be saved
+             * @param data: test data (training data if the baseline
+             * estimator is chosen), or full data fo experiments with
+             * cross-validation
+             * @param baseline: whether to use the baseline estimator based
+             * on frequencies of values of training samples
+             */
+            void start_real_time_estimation(const std::string& params_dir);
+
+            /**
              * Generates data samples from a pre-trained model.
              *
              * @param params_dir: directory where the parameters of a
@@ -155,7 +200,7 @@ namespace tomcat {
 
             std::shared_ptr<DBNTrainer> trainer;
 
-            std::shared_ptr<OfflineEstimation> offline_estimation;
+            std::shared_ptr<EstimationProcess> estimation;
 
             std::shared_ptr<EvaluationAggregator> evaluation;
 

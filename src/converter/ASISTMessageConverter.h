@@ -22,7 +22,7 @@ namespace tomcat {
          * Converts messages from the TA3 testbed to a format that the model can
          * process.
          */
-        class TA3MessageConverter : public MessageConverter {
+        class ASISTMessageConverter : public MessageConverter {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -35,23 +35,23 @@ namespace tomcat {
              * @param time_step_size: seconds between observations
              * @param map_filepath: path of the map configuration json file
              */
-            TA3MessageConverter(int num_seconds,
-                                int time_step_size,
-                                const std::string& map_filepath);
+            ASISTMessageConverter(int num_seconds,
+                                  int time_step_size,
+                                  const std::string& map_filepath);
 
-            ~TA3MessageConverter();
+            ~ASISTMessageConverter();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            TA3MessageConverter(const TA3MessageConverter& converter);
+            ASISTMessageConverter(const ASISTMessageConverter& converter);
 
-            TA3MessageConverter&
-            operator=(const TA3MessageConverter& converter);
+            ASISTMessageConverter&
+            operator=(const ASISTMessageConverter& converter);
 
-            TA3MessageConverter(TA3MessageConverter&&) = default;
+            ASISTMessageConverter(ASISTMessageConverter&&) = default;
 
-            TA3MessageConverter& operator=(TA3MessageConverter&&) = default;
+            ASISTMessageConverter& operator=(ASISTMessageConverter&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -60,6 +60,21 @@ namespace tomcat {
             EvidenceSet
             get_data_from_message(const nlohmann::json& json_message,
                                   nlohmann::json& json_mission_log) override;
+
+            bool is_valid_message_file(
+                const boost::filesystem::directory_entry& file) const override;
+
+            /**
+             * Gets the initial timestamp of a running mission.
+             *
+             * @return Timestamp.
+             */
+            std::time_t get_initial_timestamp() const;
+
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
+            int get_mission_trial_number() const;
 
           protected:
             //------------------------------------------------------------------
@@ -92,7 +107,6 @@ namespace tomcat {
              * @return Elapsed time in seconds.
              */
             int get_elapsed_time(const std::string& time);
-
 
             /**
              * Returns observation related to victim saving.
@@ -133,6 +147,8 @@ namespace tomcat {
             // received. Messages received before the mission starts will be
             // ignored.
             bool mission_started = false;
+            time_t mission_initial_timestamp;
+            int mission_trial_number = -1;
 
             Tensor3 training_condition;
             Tensor3 area;

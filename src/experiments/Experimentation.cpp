@@ -1,15 +1,16 @@
 #include "Experimentation.h"
 
 #include <boost/filesystem.hpp>
-#include <nlohmann/json.hpp>
 #include <fmt/format.h>
+#include <nlohmann/json.hpp>
 
-#include "pipeline/estimation/CompoundSamplerEstimator.h"
-#include "pipeline/estimation/SamplerEstimator.h"
-#include "utils/FileHandler.h"
 #include "pipeline/DBNSaver.h"
 #include "pipeline/DataSplitter.h"
 #include "pipeline/Pipeline.h"
+#include "pipeline/estimation/CompoundSamplerEstimator.h"
+#include "pipeline/estimation/OfflineEstimation.h"
+#include "pipeline/estimation/OnlineEstimation.h"
+#include "pipeline/estimation/SamplerEstimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
 #include "pipeline/estimation/TrainingFrequencyEstimator.h"
 #include "pipeline/evaluation/Accuracy.h"
@@ -18,7 +19,7 @@
 #include "pipeline/training/DBNSamplingTrainer.h"
 #include "sampling/GibbsSampler.h"
 #include "utils/Definitions.h"
-
+#include "utils/FileHandler.h"
 
 namespace tomcat {
     namespace model {
@@ -31,15 +32,35 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Experimentation::Experimentation(
             const shared_ptr<gsl_rng>& gen,
-            const std::string& experiment_id,
-            std::shared_ptr<DynamicBayesNet>& model)
+            const string& experiment_id,
+            const shared_ptr<DynamicBayesNet>& model)
             : random_generator(gen), experiment_id(experiment_id),
               model(model) {
 
-            this->offline_estimation = make_shared<OfflineEstimation>();
+            this->estimation = make_shared<OfflineEstimation>();
             // Include the estimates updated at every time step in the final
             // evaluation document.
-            this->offline_estimation->set_display_estimates(true);
+            this->estimation->set_display_estimates(true);
+        }
+
+        Experimentation::Experimentation(
+            const shared_ptr<gsl_rng>& gen,
+            const shared_ptr<DynamicBayesNet>& model,
+            const std::shared_ptr<Agent>& agent,
+            const string& broker_address,
+            int broker_port,
+            int num_connection_trials,
+            int milliseconds_before_retrial)
+            : random_generator(gen), model(model) {
+
+            OnlineEstimation::MessageBrokerConfiguration config;
+            config.timeout = INT32_MAX;
+            config.address = broker_address;
+            config.port = broker_port;
+            config.num_connection_trials = num_connection_trials;
+            config.milliseconds_before_retrial = milliseconds_before_retrial;
+            this->estimation =
+                make_shared<OnlineEstimation>(config, agent);
         }
 
         Experimentation::~Experimentation() {}
@@ -119,8 +140,7 @@ namespace tomcat {
                             move(gibbs_sampler),
                             this->random_generator,
                             num_samples);
-                    this->offline_estimation->add_estimator(
-                        approximate_estimator);
+                    this->estimation->add_estimator(approximate_estimator);
                 }
 
                 for (const auto& inference_item : json_inference) {
@@ -140,8 +160,7 @@ namespace tomcat {
                                 inference_item["horizon"],
                                 variable_label,
                                 value);
-                        this->offline_estimation->add_estimator(
-                            model_estimator);
+                        this->estimation->add_estimator(model_estimator);
                     }
                     else {
                         if (this->model->is_exact_inference_allowed()) {
@@ -151,8 +170,7 @@ namespace tomcat {
                                 variable_label,
                                 value);
 
-                            this->offline_estimation->add_estimator(
-                                model_estimator);
+                            this->estimation->add_estimator(model_estimator);
                         }
                         else {
                             shared_ptr<SamplerEstimator> sampler_estimator =
@@ -207,17 +225,16 @@ namespace tomcat {
             else {
                 final_params_dir = params_dir;
                 EvidenceSet empty_set;
-                if(baseline) {
+                if (baseline) {
                     // The baseline method outputs probabilities as the
                     // frequencies in the values of the samples used for
                     // training. If this executable is called with baseline
                     // set, we assume that the content of the parameter data
                     // is the training data.
-                    data_splitter =
-                        make_shared<DataSplitter>(data, empty_set);
-                } else {
-                    data_splitter =
-                        make_shared<DataSplitter>(empty_set, data);
+                    data_splitter = make_shared<DataSplitter>(data, empty_set);
+                }
+                else {
+                    data_splitter = make_shared<DataSplitter>(empty_set, data);
                 }
             }
 
@@ -228,10 +245,28 @@ namespace tomcat {
             Pipeline pipeline(this->experiment_id, output_file);
             pipeline.set_data_splitter(data_splitter);
             pipeline.set_model_trainer(loader);
-            pipeline.set_estimation_process(this->offline_estimation);
+            pipeline.set_estimation_process(this->estimation);
             pipeline.set_aggregator(this->evaluation);
             pipeline.execute();
             output_file.close();
+        }
+
+        void Experimentation::start_real_time_estimation(
+            const std::string& params_dir) {
+            // Data comes from the message bus
+            EvidenceSet empty_set;
+            shared_ptr<DataSplitter> data_splitter =
+                make_shared<DataSplitter>(empty_set, empty_set);
+
+            shared_ptr<DBNTrainer> loader =
+                make_shared<DBNLoader>(this->model, params_dir, true);
+            EvidenceSet empty_training;
+
+            Pipeline pipeline;
+            pipeline.set_data_splitter(data_splitter);
+            pipeline.set_model_trainer(loader);
+            pipeline.set_estimation_process(this->estimation);
+            pipeline.execute();
         }
 
         void Experimentation::generate_synthetic_data(
