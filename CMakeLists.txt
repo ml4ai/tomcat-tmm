@@ -36,6 +36,7 @@ find_package(
         filesystem
         program_options
         thread
+        graph
         REQUIRED)
 
 # Json library is being used for writing evaluations to an output stream
