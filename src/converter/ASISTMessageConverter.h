@@ -65,13 +65,6 @@ namespace tomcat {
                 const boost::filesystem::directory_entry& file) const override;
 
             /**
-             * Gets the initial timestamp of a running mission.
-             *
-             * @return Timestamp.
-             */
-            std::time_t get_initial_timestamp() const;
-
-            /**
              * Gets message topics used to data extraction.
              *
              * @return Message topics.
@@ -82,6 +75,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
+            std::time_t get_mission_initial_timestamp() const;
+
             int get_mission_trial_number() const;
 
           protected:

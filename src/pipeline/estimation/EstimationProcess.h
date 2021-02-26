@@ -110,6 +110,9 @@ namespace tomcat {
 
             void set_display_estimates(bool display_estimates);
 
+            const std::vector<std::shared_ptr<Estimator>>&
+            get_estimators() const;
+
           protected:
             //------------------------------------------------------------------
             // Member functions

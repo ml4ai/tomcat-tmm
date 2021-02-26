@@ -94,9 +94,9 @@ namespace tomcat {
 
             EvidenceSet data;
 
-            if (this->new_mission) {
+            if (this->mission_finished) {
                 this->mission_started = false;
-                this->new_mission = false;
+                this->mission_finished = false;
             }
 
             if (!this->mission_started) {
@@ -104,7 +104,7 @@ namespace tomcat {
                     json_message["data"]["mission_state"] == "Start") {
 
                     this->mission_started = true;
-                    this->elapsed_time_steps = 0;
+                    this->elapsed_time_steps = 1;
 
                     if (this->training_condition.is_empty()) {
                         // In case the message for training condition arrives
@@ -128,15 +128,16 @@ namespace tomcat {
                         json_message["header"]["timestamp"];
                     json_mission_log["initial_timestamp"] = timestamp;
 
-                    // Convert to timestamp and save locally
-                    //                    tm t{};
-                    //                    istringstream ss(timestamp);
-                    //                    ss >> get_time(&t,
-                    //                    "%Y-%m-%dT%H:%M:%S.%%Z"); if
-                    //                    (!ss.fail()) {
-                    //                        this->mission_initial_timestamp =
-                    //                        mktime(&t);
-                    //                    }
+                    tm t{};
+                    istringstream ss(timestamp);
+                    // The precision of the timestamp will be in seconds.
+                    // milliseconds are ignored. This can be reaccessed later
+                    // if necessary. The milliseconds could be stored in a
+                    // separate attribute of this class.
+                    ss >> get_time(&t, "%Y-%m-%dT%T");
+                    if (!ss.fail()) {
+                        this->mission_initial_timestamp = mktime(&t);
+                    }
                 }
                 else if (json_message["topic"] == "trial") {
                     int value;
@@ -169,11 +170,11 @@ namespace tomcat {
             }
             else {
                 if (json_message["topic"] == "observations/state") {
-                    int elapsed_time = this->get_elapsed_time(
-                        json_message["data"]["mission_timer"]);
+                    const string& timer = json_message["data"]["mission_timer"];
+                    int elapsed_time = this->get_elapsed_time(timer);
 
                     if (elapsed_time ==
-                        this->elapsed_time_steps + this->time_step_size) {
+                        this->elapsed_time_steps + this->time_step_size - 1) {
                         data.add_data("TrainingCondition",
                                       this->training_condition);
                         data.add_data("Area", this->area);
@@ -197,6 +198,10 @@ namespace tomcat {
                         if (elapsed_time > this->time_steps / 2 &&
                             ((int)this->task.at(0, 0, 0)) == 2) {
                             this->task = Tensor3(0);
+                        }
+
+                        if (this->elapsed_time_steps == this->time_steps) {
+                            this->mission_finished = true;
                         }
                     }
                 }
@@ -310,15 +315,12 @@ namespace tomcat {
             }
         }
 
-        time_t ASISTMessageConverter::get_initial_timestamp() const {
-            time_t t;
-
-            return t;
-        }
-
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
+        time_t ASISTMessageConverter::get_mission_initial_timestamp() const {
+            return mission_initial_timestamp;
+        }
 
         int ASISTMessageConverter::get_mission_trial_number() const {
             return mission_trial_number;

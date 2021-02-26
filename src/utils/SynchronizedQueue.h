@@ -57,6 +57,13 @@ namespace tomcat {
                 this->queue.pop();
             }
 
+            void clear() {
+                std::scoped_lock lock(this->mutex);
+                while(!this->queue.empty()) {
+                    this->queue.pop();
+                }
+            }
+
           private:
             //------------------------------------------------------------------
             // Data members

@@ -262,6 +262,10 @@ namespace tomcat {
                 make_shared<DBNLoader>(this->model, params_dir, true);
             EvidenceSet empty_training;
 
+            for(auto& estimator : this->estimation->get_estimators()) {
+                estimator->set_show_progress(false);
+            }
+
             Pipeline pipeline;
             pipeline.set_data_splitter(data_splitter);
             pipeline.set_model_trainer(loader);

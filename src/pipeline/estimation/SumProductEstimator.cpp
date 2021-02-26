@@ -340,6 +340,7 @@ namespace tomcat {
             // to iterate over all possible combinations of sequences in
             // which assignment does not shows up.
             this->factor_graph.use_aggregate_potential(node_label, assignment);
+            int curr_next_time_step = this->next_time_step;
             for (int h = 1; h <= this->inference_horizon; h++) {
                 // Simulate new data coming and compute estimates in a regular
                 // way.
@@ -361,7 +362,7 @@ namespace tomcat {
                 }
             }
             // Adjust the time counter back to it's original position.
-            this->next_time_step -= (time_step + this->inference_horizon);
+            this->next_time_step = curr_next_time_step;
             this->factor_graph.erase_incoming_messages_beyond(time_step);
             this->factor_graph.use_original_potential(node_label);
 

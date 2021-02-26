@@ -130,5 +130,10 @@ namespace tomcat {
             EstimationProcess::display_estimates = display_estimates;
         }
 
+        const vector<std::shared_ptr<Estimator>>&
+        EstimationProcess::get_estimators() const {
+            return estimators;
+        }
+
     } // namespace model
 } // namespace tomcat

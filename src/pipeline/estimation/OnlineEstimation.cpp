@@ -42,6 +42,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void OnlineEstimation::prepare() {
             EstimationProcess::prepare();
+            this->messages_to_process.clear();
             this->time_step = 0;
         }
 
@@ -63,6 +64,7 @@ namespace tomcat {
             for (const string& topic : this->agent->get_topics_to_subscribe()) {
                 this->subscribe(topic);
             }
+            cout << "Waiting for mission to start..." << endl;
             thread estimation_thread(&OnlineEstimation::run_estimation_thread,
                                      this);
             this->loop();
@@ -81,9 +83,30 @@ namespace tomcat {
                     for (auto estimator : this->estimators) {
                         EstimationProcess::estimate(estimator, new_data);
                     }
-
                     this->publish_last_estimates();
-                    this->time_step++;
+
+                    if (this->time_step == 0) {
+                        cout << "Agent " << this->agent->get_id()
+                             << " is awake \\o/ and working..." << endl;
+                    }
+
+                    if (this->agent->is_mission_finished()) {
+                        const string& topic = this->agent->get_log_topic();
+                        if (topic != "") {
+                            stringstream ss;
+                            ss << "The maximum time step defined for the "
+                                  "mission has been reached. Waiting for a new "
+                                  "mission to start...";
+                            string message =
+                                this->agent->build_log_message(ss.str()).dump();
+                            this->publish(topic, message);
+                        }
+                        cout << "Waiting for a new mission to start..." << endl;
+                        this->prepare();
+                    }
+                    else {
+                        this->time_step++;
+                    }
                 }
             }
         }
@@ -101,24 +124,10 @@ namespace tomcat {
         }
 
         void OnlineEstimation::publish_last_estimates() {
-            try {
-                nlohmann::json message = this->agent->estimates_to_message(
-                    this->estimators, this->time_step);
-                const string& topic = this->agent->get_estimates_topic();
-                this->publish(topic, message.dump());
-            }
-            catch (out_of_range& e) {
-                const string& topic = this->agent->get_log_topic();
-                if (topic != "") {
-                    stringstream ss;
-                    ss << "The maximum time step defined for the mission has "
-                          "been reached. Shutting down agent...";
-                    string message =
-                        this->agent->build_log_message(ss.str()).dump();
-                    this->publish(topic, message);
-                }
-                this->running = false;
-            }
+            nlohmann::json message = this->agent->estimates_to_message(
+                this->estimators, this->time_step);
+            const string& topic = this->agent->get_estimates_topic();
+            this->publish(topic, message.dump());
         }
 
         void OnlineEstimation::on_error(const string& error_message) {

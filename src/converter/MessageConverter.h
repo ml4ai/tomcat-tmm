@@ -71,6 +71,11 @@ namespace tomcat {
             void convert_messages(const std::string& messages_dir,
                                   const std::string& data_dir);
 
+            /*
+             * Clears cache and prepare to process a new mission.
+             */
+            void start_new_mission();
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -104,6 +109,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             int get_time_step_size() const;
 
+            bool is_mission_finished() const;
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -133,10 +140,8 @@ namespace tomcat {
             // Number of time steps in a mission
             int time_steps;
 
-            // Indicates whether the messages should be processed as for a
-            // new mission. This is used by the online conversion to
-            // recognize when to restart processing messages.
-            bool new_mission;
+            // Whether the timer has reached zero
+            bool mission_finished = false;
 
           private:
             /**

@@ -59,17 +59,21 @@ namespace tomcat {
 
                     int next_time_step = 0;
                     EvidenceSet mission_data;
-                    this->new_mission = true;
+                    this->start_new_mission();
                     for (const auto& [timestamp, message] : messages) {
                         EvidenceSet new_data = this->get_data_from_message(
                             message, json_mission_log);
                         if (!new_data.empty()) {
                             mission_data.hstack(new_data);
                             next_time_step += this->time_step_size;
-                        }
 
-                        if (next_time_step >= this->time_steps) {
-                            break;
+                            // mission_finished can be set to true in
+                            // get_data_from_message if the maximum number of
+                            // time steps was reached.
+                            if (next_time_step >= this->time_steps ||
+                                this->mission_finished) {
+                                break;
+                            }
                         }
                     }
 
@@ -149,10 +153,15 @@ namespace tomcat {
             return unprocessed_files;
         }
 
+        void MessageConverter::start_new_mission() { this->mission_finished = true; }
+
         int MessageConverter::get_time_step_size() const {
             return time_step_size;
         }
 
+        bool MessageConverter::is_mission_finished() const {
+            return mission_finished;
+        }
 
     } // namespace model
 } // namespace tomcat

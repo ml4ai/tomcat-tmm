@@ -99,6 +99,18 @@ namespace tomcat {
             virtual nlohmann::json
             build_log_message(const std::string& log) const = 0;
 
+            /**
+             * Prepare agent to process a new mission.
+             */
+            virtual void restart() = 0;
+
+            /**
+             * Whether the mission timer has reached zero.
+             *
+             * @return True if mission ended.
+             */
+            virtual bool is_mission_finished() const = 0;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------

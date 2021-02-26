@@ -1,5 +1,8 @@
 #include "ASISTAgent.h"
 
+#include <iomanip>
+#include <time.h>
+
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -44,10 +47,6 @@ namespace tomcat {
             const std::vector<std::shared_ptr<Estimator>>& estimators,
             int time_step) const {
 
-            size_t mission_init =
-                this->message_converter.get_initial_timestamp();
-            int time_step_size = this->message_converter.get_time_step_size();
-
             nlohmann::json messages = nlohmann::json::array();
 
             for (const auto& estimator : estimators) {
@@ -70,15 +69,15 @@ namespace tomcat {
                     NodeEstimates estimates =
                         base_estimator->get_estimates_at(time_step);
 
-                    //                    size_t timestamp =
-                    //                        mission_init +
-                    //                        (time_step +
-                    //                        base_estimator->get_inference_horizon())
-                    //                        *
-                    //                            time_step_size;
-                    //                    message["Timestamp"] = timestamp;
-
-                    message["Timestamp"] = "TODO";
+                    int seconds_elapsed =
+                        (time_step + base_estimator->get_inference_horizon()) *
+                        this->message_converter.get_time_step_size();
+                    time_t timestamp = this->message_converter
+                                           .get_mission_initial_timestamp() +
+                                       seconds_elapsed;
+                    stringstream ss;
+                    ss << put_time(localtime(&timestamp), "%Y-%m-%dT%T.000Z");
+                    message["Timestamp"] = ss.str();
 
                     if (estimates.label == "TrainingCondition") {
                         message["TrainingCondition TriageSignal"] =
@@ -121,6 +120,14 @@ namespace tomcat {
             message["log"] = log;
 
             return message;
+        }
+
+        void ASISTAgent::restart() {
+            this->message_converter.start_new_mission();
+        }
+
+        bool ASISTAgent::is_mission_finished() const {
+            return this->message_converter.is_mission_finished();
         }
 
     } // namespace model

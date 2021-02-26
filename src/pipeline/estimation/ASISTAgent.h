@@ -64,6 +64,10 @@ namespace tomcat {
             nlohmann::json build_log_message(const std::string& log) const
             override;
 
+            void restart() override;
+
+            bool is_mission_finished() const override;
+
           private:
             //------------------------------------------------------------------
             // Data members
