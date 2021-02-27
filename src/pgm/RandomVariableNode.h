@@ -394,12 +394,6 @@ namespace tomcat {
 
             NodePtrVec parents;
 
-            std::vector<NodePtrVec> children_per_time_step;
-
-            // If set, the amount of time this node stays in the current
-            // state, is defined by the timer's assignment (semi-Markov model).
-            std::shared_ptr<TimerNode> timer;
-
             // Vector of instance of the current node in each one of the time
             // steps from its initial appearance until the last one. This
             // allows us easy access to any other instance in time.
@@ -413,7 +407,7 @@ namespace tomcat {
             struct PosteriorWeightsCache {
                 Eigen::MatrixXd cum_log_weights_from_children;
                 Eigen::MatrixXd log_weights_from_children;
-                int time_step = 0;
+                int time_step = -1;
             };
 
             //------------------------------------------------------------------
@@ -505,6 +499,14 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
+
+            std::vector<NodePtrVec> children_per_time_step;
+
+            std::vector<NodePtrVec> timer_children_per_time_step;
+
+            // If set, the amount of time this node stays in the current
+            // state, is defined by the timer's assignment (semi-Markov model).
+            std::shared_ptr<TimerNode> timer;
 
             // Stores posterior weights computed for children in time steps
             // previous to the minimum time step to which posteriors are

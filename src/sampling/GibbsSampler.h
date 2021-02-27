@@ -248,6 +248,14 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Node>>& timer_nodes);
 
             /**
+             * Update backward assignment of timer nodes.
+             *
+             * @param timer_nodes: timer nodes
+             */
+            void update_timer_backward_assignment(
+                const std::vector<std::shared_ptr<Node>>& timer_nodes);
+
+            /**
              * Stores a new sample in the local samples' container.
              *
              * @param node: Node which the sample was generated for

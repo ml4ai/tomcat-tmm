@@ -280,7 +280,7 @@ namespace tomcat {
                 rv_node->set_parents(parent_nodes);
 
                 vector<shared_ptr<Node>> child_nodes =
-                    this->get_child_nodes_of(node, true);
+                    this->get_child_nodes_of(node, false);
                 rv_node->set_children(child_nodes);
 
                 // Set node's actual CPD based on the concrete instance of

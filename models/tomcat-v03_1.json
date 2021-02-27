@@ -7,22 +7,22 @@
           {
             "distribution": "poisson",
             "constant": false,
-            "parameters": "LambdaStateTimerGivenState",
-            "index_nodes": ["State"]
+            "parameters": "LambdaStateTimerGivenState.TC",
+            "index_nodes": ["State", "TrainingCondition"]
           }
         ]
       }
     ],
     "parameters": [
       {
-        "label": "LambdaStateTimerGivenState",
+        "label": "LambdaStateTimerGivenState.TC",
         "prior": false,
         "sample_size": 1,
         "cpds": [
           {
             "distribution": "gamma",
             "constant": true,
-            "parameters": "1, 1, 1, 1, 1, 1, 1, 1",
+            "parameters": "1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1",
             "index_nodes": []
           }
         ]
@@ -80,14 +80,14 @@
         ]
       },
       {
-        "label": "ThetaStateGivenState.TC.PBAE",
+        "label": "ThetaStateGivenState.PBAE",
         "prior": false,
         "sample_size": 4,
         "cpds": [
           {
             "distribution": "dirichlet",
             "constant": true,
-            "parameters": "1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15 , 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15",
+            "parameters": "1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1, 1E-15, 1, 1, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15",
             "index_nodes": []
           }
         ]
@@ -96,7 +96,7 @@
     "data": [
       {
         "label": "TrainingCondition",
-        "first_time_step": 1,
+        "first_time_step": 0,
         "in_plate": true,
         "cardinality": 3,
         "sample_size": 1,
@@ -129,10 +129,9 @@
           {
             "distribution": "categorical",
             "constant": false,
-            "parameters": "ThetaStateGivenState.TC.PBAE",
+            "parameters": "ThetaStateGivenState.PBAE",
             "index_nodes": [
               "State",
-              "TrainingCondition",
               "PBAE"
             ]
           }
@@ -225,7 +224,7 @@
   "connections": [
     {
       "parent": "TrainingCondition",
-      "child": "State",
+      "child": "StateTimer",
       "time_crossing": true
     },
     {

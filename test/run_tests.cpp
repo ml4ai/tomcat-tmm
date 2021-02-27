@@ -506,26 +506,54 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm, HSMM) {
 
     // Generate a bunch of samples to train a model from the scratch.
     AncestralSampler sampler(oracle);
-    sampler.sample(gen, 400);
+    sampler.sample(gen, 300);
 
     DBNPtr model = create_model(false, true);
     model->unroll(70, true);
 
     shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
     shared_ptr<GibbsSampler> gibbs_sampler =
-        make_shared<GibbsSampler>(model, 100, 4);
+        make_shared<GibbsSampler>(model, 50, 1);
     gibbs_sampler->set_show_progress(false);
-    DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
+    DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 100);
 
     double tolerance = 0.05;
     CPDTableCollection tables = this->create_cpd_tables(false);
 
     // Check parameter learning when State is not provided.
     EvidenceSet data;
-    data.add_data(TC, sampler.get_samples(TC));
+    // data.add_data(TC, sampler.get_samples(TC));
+//    data.add_data(STATE, sampler.get_samples(STATE));
     data.add_data(PBAE, sampler.get_samples(PBAE));
     data.add_data(GREEN, sampler.get_samples(GREEN));
     data.add_data(YELLOW, sampler.get_samples(YELLOW));
+
+    const shared_ptr<RandomVariableNode>& theta_tc =
+        dynamic_pointer_cast<RandomVariableNode>(
+            model->get_nodes_by_label(THETA_TC)[0]);
+    theta_tc->set_assignment(tables.tc_prior);
+    theta_tc->freeze();
+
+    for (int i = 6; i < NUM_LAMBDA_TIMER_GIVEN_TC_STATE;
+         i += 1) {
+        stringstream label;
+        label << LAMBDA_TIMER_GIVEN_TC_STATE << '_' << i;
+        const shared_ptr<RandomVariableNode>& lambda_timer =
+            dynamic_pointer_cast<RandomVariableNode>(
+                model->get_nodes_by_label(label.str())[0]);
+        lambda_timer->set_assignment(tables.timer_given_tc_state.row(i));
+        lambda_timer->freeze();
+    }
+
+    for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_PBAE; i += 1) {
+        stringstream label;
+        label << THETA_STATE_GIVEN_STATE_PBAE << '_' << i;
+        const shared_ptr<RandomVariableNode>& theta_state =
+            dynamic_pointer_cast<RandomVariableNode>(
+                model->get_nodes_by_label(label.str())[0]);
+        theta_state->set_assignment(tables.state_given_state_pbae.row(i));
+        theta_state->freeze();
+    }
 
     // Set and freeze the PI_GREEN_GIVEN_STATE and PI_GREEN_YELLOW_STATE
     //  to avoid permutation of the possible values of State.
@@ -551,6 +579,10 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm, HSMM) {
 
     trainer.prepare();
     trainer.fit(data);
+
+//    cout << sampler.get_samples(TC)(0, 0).col(0);
+//    cout << "-----------------------" << endl;
+    cout << gibbs_sampler->get_samples(TC)(0, 0).col(0);
 
     MatrixXd estimated_theta_tc =
         model->get_nodes_by_label(THETA_TC)[0]->get_assignment();

@@ -469,16 +469,46 @@ namespace tomcat {
             int initial_row = processing_block.first;
             int num_rows = processing_block.second;
 
-            Eigen::MatrixXd weights(num_rows, cardinality);
+            Eigen::MatrixXd weights =
+                Eigen::MatrixXd::Ones(num_rows, cardinality);
             for (int i = initial_row; i < initial_row + num_rows; i++) {
                 int distribution_idx = distribution_indices[i];
+
+                bool use_cdf = false;
+                if (cpd_owner->get_metadata()->is_timer()) {
+                    // If the node to which we are computing the weights is
+                    // parent of a timer node, we ignore weights in the
+                    // middle of a segment and only care for the ones in the
+                    // beginning of a new segment.
+                    const auto& timer =
+                        dynamic_pointer_cast<const TimerNode>(cpd_owner);
+                    int timer_value = timer->get_forward_assignment()(i, 0);
+                    if (timer_value != 0) {
+                        // Middle of a segment
+                        continue;
+                    }
+
+                    int segment_duration = timer->get_backward_assignment()(i, 0);
+                    if (!timer->get_next(segment_duration)->get_next()) {
+                        // If the timer is the last right segment. We use the
+                        // CDF instead.
+                        use_cdf = true;
+                    }
+                }
 
                 for (int j = 0; j < cardinality; j++) {
                     const auto& distribution =
                         this->distributions[distribution_idx +
                                             j * distribution_index_offset];
-                    weights(i - initial_row, j) = distribution->get_pdf(
-                        cpd_owner->get_assignment().row(i));
+
+                    if(use_cdf) {
+                        //p(x >= val)
+                        weights(i - initial_row, j) = distribution->get_cdf(
+                            cpd_owner->get_assignment()(i, 0) - 1, true);
+                    } else {
+                        weights(i - initial_row, j) = distribution->get_pdf(
+                            cpd_owner->get_assignment().row(i));
+                    }
                 }
             }
 
@@ -1003,7 +1033,7 @@ namespace tomcat {
             for (int i = 0; i < data_size; i++) {
                 int distribution_idx = distribution_indices[i];
 
-                double value = value = values(i, 0);
+                double value = values(i, 0);
                 bool add_to_list = false;
                 if (cpd_owner->get_metadata()->is_timer()) {
                     // Only add to the sufficient statistics, when the timer
@@ -1028,9 +1058,6 @@ namespace tomcat {
                             // a state transition or when t = 0 (there's no
                             // previous node in time);
                             add_to_list = true;
-                        }
-                        else {
-                            add_to_list = false;
                         }
                     }
                     else {

@@ -171,18 +171,14 @@ namespace tomcat {
                 shared_ptr<RandomVariableNode> rv_child =
                     dynamic_pointer_cast<RandomVariableNode>(child);
 
-                if (rv_child->get_time_step() > max_time_step_to_sample) {
-                    continue;
-                }
-
                 Eigen::MatrixXd child_weights =
                     rv_child->get_cpd()->get_posterior_weights(
                         rv_child->get_parents(),
                         shared_from_this(),
                         rv_child,
                         num_jobs);
-                Eigen::MatrixXd child_log_weights(0, 0);
 
+                Eigen::MatrixXd child_log_weights(0, 0);
                 if (this->get_metadata()->is_in_plate()) {
                     // Multiply weights of each one of the assignments
                     // separately.
@@ -232,7 +228,9 @@ namespace tomcat {
                 // nodes do not have connections with previously processed
                 // nodes, therefore, they don't have any posterior weight to
                 // be cached.
-                if(min_time_step_to_sample < this->cached_posterior_weights.time_step) {
+                if (min_time_step_to_sample <
+                    this->cached_posterior_weights.time_step) {
+                    // We are running a new estimation process
                     this->clear_cache();
                     return;
                 }
@@ -292,6 +290,15 @@ namespace tomcat {
             const RVNodePtr& child_node,
             const Eigen::MatrixXd& log_weights) {
 
+            if (child_node->get_metadata()->is_timer()) {
+                // We don't cache posterior weights of timer nodes because
+                // it's a structural node. Samples in the future can change
+                // the structure in the past (size of segments). Therefore,
+                // we cannot cache and always have to compute the weights of
+                // previous timer nodes.
+                return;
+            }
+
             if (this->metadata->is_multitime()) {
                 if (child_node->get_time_step() == min_time_step_to_sample) {
                     if (this->cached_posterior_weights.log_weights_from_children
@@ -341,6 +348,40 @@ namespace tomcat {
                         this->time_step + 1 <= max_time_step) {
                         const auto& children =
                             this->children_per_time_step.at(1);
+                        nodes.insert(
+                            nodes.end(), children.begin(), children.end());
+                    }
+                }
+            }
+
+            // Timer nodes
+            if (!this->timer_children_per_time_step.empty()) {
+                if (this->metadata->is_multitime()) {
+                    // All timer nodes since the beginning as samples in a
+                    // timer at time t might change the size of a segment.
+                    // Then we need to recompute weights in the past.
+                    for (int t = 0; t <= max_time_step; t++) {
+                        const auto& children =
+                            this->timer_children_per_time_step.at(t);
+                        nodes.insert(
+                            nodes.end(), children.begin(), children.end());
+                    }
+                }
+                else {
+                    // Children in the same time step as the node
+                    if (min_time_step <= this->time_step &&
+                        this->time_step <= max_time_step) {
+                        const auto& children =
+                            this->timer_children_per_time_step.at(0);
+                        nodes.insert(
+                            nodes.end(), children.begin(), children.end());
+                    }
+
+                    // Children in the next time step
+                    if (min_time_step <= this->time_step + 1 &&
+                        this->time_step + 1 <= max_time_step) {
+                        const auto& children =
+                            this->timer_children_per_time_step.at(1);
                         nodes.insert(
                             nodes.end(), children.begin(), children.end());
                     }
@@ -574,35 +615,49 @@ namespace tomcat {
             const vector<shared_ptr<Node>>& children) {
 
             this->children_per_time_step.clear();
+            this->timer_children_per_time_step.clear();
             for (const auto& child : children) {
+                if (child == this->timer) {
+                    // If a timer is a child of this node, it will only
+                    // be added to the list of children to have posterior
+                    // weights processed if it does not control this node,
+                    // since such dependency is handled separately by the
+                    // segment weights posterior computations.
+                    continue;
+                }
                 const auto& rv_child =
                     dynamic_pointer_cast<RandomVariableNode>(child);
+
+                auto* container = &this->children_per_time_step;
+                if(child->get_metadata()->is_timer()) {
+                    container = &this->timer_children_per_time_step;
+                }
 
                 if (this->metadata->is_multitime()) {
                     int t = rv_child->get_time_step();
 
-                    if (this->children_per_time_step.size() <= t) {
-                        this->children_per_time_step.resize(t + 1);
+                    if (container->size() <= t) {
+                        container->resize(t + 1);
                     }
 
-                    this->children_per_time_step.at(t).push_back(child);
+                    container->at(t).push_back(child);
                 }
                 else {
-                    // It can only have children in the same time step and
-                    // the next one. Therefore, we only need a vector of
-                    // size 2 with the time steps relative to this node's
-                    // time step.
-                    if (this->children_per_time_step.empty()) {
-                        this->children_per_time_step.resize(2);
+                    // Per this implementation, this node can only have
+                    // children in the same time step or the next one.
+                    // Therefore, we only need a vector of size 2 with the time
+                    // steps relative to this node's time step.
+                    if (container->empty()) {
+                        container->resize(2);
                     }
 
                     if (rv_child->get_time_step() == this->time_step) {
-                        this->children_per_time_step.at(0).push_back(child);
+                        container->at(0).push_back(child);
                     }
                     else {
                         // Next time step since back edges are not allowed
                         // in the implementation
-                        this->children_per_time_step.at(1).push_back(child);
+                        container->at(1).push_back(child);
                     }
                 }
             }

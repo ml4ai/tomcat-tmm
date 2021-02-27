@@ -119,10 +119,6 @@ namespace tomcat {
                     progress->restart(this->num_samples);
                 }
 
-                // We sample multitime nodes here so that when this sampler
-                // is being used as an estimator, these nodes can be updated
-                // according to its new posterior given the sampled values
-                // for the nodes in the new sampling range.
                 this->sample_sequential_time_nodes(
                     random_generators_per_job, this->multitime_sampled_nodes);
 
@@ -138,13 +134,15 @@ namespace tomcat {
                     random_generators_per_job,
                     node_set.nodes_sampled_in_sequence);
 
-                if(this->step_counter >= this->burn_in_period) {
+                if (this->step_counter >= this->burn_in_period) {
                     this->sample_sequential_time_nodes(
                         random_generators_per_job,
                         node_set.nodes_in_inference_horizon);
                 }
 
                 if (trainable) {
+                    this->update_timer_backward_assignment(node_set
+                    .timer_nodes);
                     this->update_timer_sufficient_statistics(
                         node_set.timer_nodes);
 
@@ -321,8 +319,14 @@ namespace tomcat {
             // filled backwards (d, d-1, d-2... instead of 0, 1, 2, ...).
             // Therefore we sample the timer nodes from their posterior to fix
             // the counters.
-            for (auto& timer_node : timer_nodes) {
-                this->sample_from_posterior({nullptr}, timer_node, false);
+            for (int i = 0; i < timer_nodes.size(); i++) {
+                const auto& timer = timer_nodes.at(i);
+                this->sample_from_posterior({nullptr}, timer, false);
+
+                const auto& reverse_timer =
+                    timer_nodes.at(timer_nodes.size() - i - 1);
+                dynamic_pointer_cast<TimerNode>(reverse_timer)
+                    ->update_backward_assignment(this->max_time_step_to_sample);
             }
         }
 
@@ -422,8 +426,11 @@ namespace tomcat {
                     !this->is_in_inference_horizon(rv_node) ||
                     this->inference_horizon == 0) {
                     // We estimate the posterior and sample from it. If this
-                    // sampler is used for forward inference, we cache past
-                    // posterior weights to speed up computation.
+                    // sampler is used for forward inference (samples are
+                    // generated forward in time and we never go back to the
+                    // past), we cache the posterior weights of multi-time
+                    // nodes in the current time step to be used when making
+                    // estimations in the future time step.
                     sample = rv_node->sample_from_posterior(
                         random_generator_per_job,
                         this->min_time_step_to_sample,
@@ -526,10 +533,15 @@ namespace tomcat {
                         dynamic_pointer_cast<TimerNode>(timer_nodes.at(j));
                     timer->update_parents_sufficient_statistics();
                 }
+            }
+        }
 
-                const auto& reverse_timer = dynamic_pointer_cast<TimerNode>(
-                    timer_nodes.at(timer_nodes.size() - j - 1));
-                reverse_timer->update_backward_assignment(
+        void GibbsSampler::update_timer_backward_assignment(
+            const std::vector<std::shared_ptr<Node>>& timer_nodes) {
+            for (int j = timer_nodes.size() - 1; j >= 0; j--) {
+                const auto& timer =
+                    dynamic_pointer_cast<TimerNode>(timer_nodes.at(j));
+                timer->update_backward_assignment(
                     this->max_time_step_to_sample);
             }
         }
