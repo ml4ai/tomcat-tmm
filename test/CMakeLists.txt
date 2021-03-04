@@ -7,9 +7,11 @@ message(${TEST_LIBS})
 add_executable(TomcatTest run_tests.cpp)
 add_executable(test_graph test_graph.cpp read_json.cpp read_json.h)
 
+
 target_include_directories (TomcatTest PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(TomcatTest PRIVATE ${TEST_LIBS})
 
 target_include_directories (test_graph PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(test_graph PRIVATE Boost::graph)
+
 add_test(NAME all_tests COMMAND TomcatTest)
