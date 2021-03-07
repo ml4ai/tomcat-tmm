@@ -96,7 +96,6 @@ class gen_graph {
 
         json j_file_room;
         json j_file_portal;
-        json j_file_victim;
 
         try {
             file_name = "../../test/data/saturn_room.json";
@@ -175,7 +174,7 @@ class gen_graph {
             edge_array[i] = this->edge_list[i];
         }
 
-        // time cost for each connection
+        // time cost for each transition
         float transmission_delay[] = {};
 
 // declare a graph object, adding the edges and edge properties
@@ -203,40 +202,43 @@ class gen_graph {
         boost::property_map<Graph, edge_weight_t>::type trans_delay =
             get(edge_weight, g);
 
-        std::cout << "vertices(g) = ";
-        typedef graph_traits<Graph>::vertex_iterator vertex_iter;
-        std::pair<vertex_iter, vertex_iter> vp;
-        for (vp = vertices(g); vp.first != vp.second; ++vp.first)
-            std::cout << node_name[get(vertex_id, *vp.first)] << " ";
-        std::cout << std::endl;
-
-        std::cout << "edges(g) = ";
-        graph_traits<Graph>::edge_iterator ei, ei_end;
-        for (tie(ei, ei_end) = edges(g); ei != ei_end; ++ei)
-            std::cout << "(" << node_name[get(vertex_id, source(*ei, g))] << ","
-                      << node_name[get(vertex_id, target(*ei, g))] << ") ";
-        std::cout << std::endl;
-
-        std::for_each(
-            vertices(g).first, vertices(g).second, exercise_vertex<Graph>(g, this->node_id_list));
-
-        std::map<std::string, std::string> graph_attr, vertex_attr, edge_attr;
-        graph_attr["size"] = "3,3";
-        graph_attr["rankdir"] = "LR";
-        graph_attr["ratio"] = "fill";
-        vertex_attr["shape"] = "circle";
-
-        boost::write_graphviz(
-            std::cout,
-            g,
-            make_label_writer(node_name),
-            make_label_writer(trans_delay),
-            make_graph_attributes_writer(graph_attr, vertex_attr, edge_attr));
+//  uncomment this section to help generate a graph if needed
+//        boost::write_graphviz(
+//            std::cout,
+//            g,
+//            make_label_writer(node_name),
+//            make_label_writer(trans_delay),
+//            make_graph_attributes_writer(graph_attr, vertex_attr, edge_attr));
 
         return g;
     }
 
-//    void process_json() { generate_graph(); }
+    void get_vertices(Graph g){
+        boost::property_map<Graph, vertex_index_t>::type vertex_id =
+            get(vertex_index, g);
+        std::cout << "vertices(g) = ";
+        typedef graph_traits<Graph>::vertex_iterator vertex_iter;
+        std::pair<vertex_iter, vertex_iter> vp;
+        for (vp = vertices(g); vp.first != vp.second; ++vp.first)
+            std::cout << this->node_id_list[get(vertex_id, *vp.first)] << " ";
+        std::cout << std::endl;
+    }
+
+    void get_edges(Graph g){
+        boost::property_map<Graph, vertex_index_t>::type vertex_id =
+            get(vertex_index, g);
+        std::cout << "edges(g) = ";
+        graph_traits<Graph>::edge_iterator ei, ei_end;
+        for (tie(ei, ei_end) = edges(g); ei != ei_end; ++ei)
+            std::cout << "(" << this->node_id_list[get(vertex_id, source(*ei, g))] << ","
+                      << this->node_id_list[get(vertex_id, target(*ei, g))] << ") ";
+        std::cout << std::endl;
+    }
+
+    void get_connections(Graph g){
+        std::for_each(
+            vertices(g).first, vertices(g).second, exercise_vertex<Graph>(g, this->node_id_list));
+    }
 
     vector<float> process_loc(string loc) {
         loc.erase(std::remove(loc.begin(), loc.end(), '('), loc.end());
