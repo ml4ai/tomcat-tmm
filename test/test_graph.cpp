@@ -85,33 +85,39 @@ template <class Graph> struct exercise_vertex {
 };
 
 //int main(int, char*[]) {
-//    read_json rj = read_json(10);
-//    rj.m_nI = 5;
-//    rj.testBindFun(1);
 //
 //    // create a typedef for the Graph type
 //    typedef adjacency_list<vecS,
 //        vecS,
-//        bidirectionalS,
+//        undirectedS,
 //        no_property,
 //        property<edge_weight_t, float>>
 //        Graph;
 //
 //    // Make convenient labels for the vertices
 //    enum { A, B, C, D, E, N };
+//    int nodes[] = {0, 1, 2, 3, 4};
 //    const int num_vertices = N;
-//    const char* name = "ABCDE";
+////    const char* name = "ABCDE";
+//    string name[] = {"as", "ba", "cs", "ddd", "ess"};
+////    vector<string> name;
+////    name.push_back("aa");
+////    name.push_back("aas");
+////    name.push_back("asa");
+////    name.push_back("ada");
+////    name.push_back("asa");
+//    cout << name[2] << endl;
 //
 //    // writing out the edges in the graph
 //    typedef std::pair<int, int> Edge;
 //    Edge edge_array[] = {
-//        Edge(A, B),
-//        Edge(A, D),
-//        Edge(C, A),
-//        Edge(D, C),
-//        Edge(C, E),
-//        Edge(B, D),
-//        Edge(D, E),
+//        Edge(nodes[0], nodes[1]),
+//        Edge(nodes[0], nodes[3]),
+//        Edge(nodes[2], nodes[0]),
+//        Edge(nodes[3], nodes[2]),
+//        Edge(nodes[3], nodes[4]),
+//        Edge(nodes[1], nodes[3]),
+//        Edge(nodes[3], nodes[4]),
 //    };
 //    const int num_edges = sizeof(edge_array) / sizeof(edge_array[0]);
 //
@@ -175,22 +181,7 @@ template <class Graph> struct exercise_vertex {
 
 
 int main() {
-    const string difficulty[3] = { "easy", "medium", "hard"};
-    read_json rj = read_json(difficulty[0]);  // select difficulty to generate a graph representation
+    read_json rj = read_json();  //
     rj.process_json();
-
-
-
-//    rj.set_difficulty(difficulty[0]);
-//    string read_json::difficulty = difficulty[0];
-//    cout << read_json::difficulty <<endl;
-//    cout << rj.difficulty <<endl;
-//    rj.read_json_file();
-
-//    rj.m_nI = 5;
-//    rj.testBindFun(1);
-//
-//    json j;
-
 }
 
