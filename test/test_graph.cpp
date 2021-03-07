@@ -10,5 +10,7 @@ using namespace std;
 int main() {
     gen_graph gg = gen_graph();  // initialize a gen_graph class to process the json map of Saturn
     gen_graph::Graph g = gg.generate_graph();
+
+    return EXIT_SUCCESS;
 }
 
