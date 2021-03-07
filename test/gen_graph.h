@@ -2,8 +2,8 @@
 // Created by Liang Zhang on 3/1/21.
 //
 
-#ifndef TOMCAT_TMM_READ_JSON_H
-#define TOMCAT_TMM_READ_JSON_H
+#ifndef TOMCAT_TMM_GEN_GRAPH_H
+#define TOMCAT_TMM_GEN_GRAPH_H
 
 #include "json.hpp"
 #include <boost/graph/adjacency_list.hpp>
@@ -21,10 +21,10 @@ using json = nlohmann::json;
 using namespace std;
 using namespace boost;
 
-class read_json {
+class gen_graph {
   public:
-    read_json() {}
-    ~read_json() {}
+    gen_graph() {}
+    ~gen_graph() {}
 
     typedef adjacency_list<vecS,
                            vecS,
@@ -90,7 +90,7 @@ class read_json {
 
     };
 
-    Graph read_json_file() {
+    Graph generate_graph() {
         //        typedef std::pair<int, int> Edge;
         string file_name;
 
@@ -236,7 +236,7 @@ class read_json {
         return g;
     }
 
-    void process_json() { read_json_file(); }
+//    void process_json() { generate_graph(); }
 
     vector<float> process_loc(string loc) {
         loc.erase(std::remove(loc.begin(), loc.end(), '('), loc.end());
@@ -292,4 +292,4 @@ class read_json {
     }
 };
 
-#endif // TOMCAT_TMM_READ_JSON_H
+#endif // TOMCAT_TMM_GEN_GRAPH_H

@@ -5,7 +5,7 @@ set(TEST_LIBS
 message(${TEST_LIBS})
 
 add_executable(TomcatTest run_tests.cpp)
-add_executable(test_graph test_graph.cpp read_json.cpp read_json.h)
+add_executable(test_graph test_graph.cpp gen_graph.cpp gen_graph.h)
 
 
 target_include_directories (TomcatTest PRIVATE ${PROJECT_SOURCE_DIR}/src)
