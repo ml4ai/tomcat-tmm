@@ -1,6 +1,10 @@
 //=======================================================================
-// generating the graph-based representation for Saturn map using Boost Graph Library
+// This code generates the graph-based representation for the saturn map using Boost Graph Library.
+// The room and portal information are stored in the saturn_room.json and saturn_portal.json under the data folder.
+// The vertices represent the rooms and the portals (doors, openings, etc).
+// The edges show the connectivity between the two adjacent nodes in the graph.
 // Author: Liang Zhang
+// Email: liangzh@email.arizona.edu
 //
 
 #include "gen_graph.h"

@@ -1,5 +1,7 @@
 //
-// Created by Liang Zhang on 3/1/21.
+// This class supports to generate the graph-based representation for the saturn map.
+// Author: Liang Zhang
+// Email: liangzh@email.arizona.edu
 //
 
 #ifndef TOMCAT_TMM_GEN_GRAPH_H
