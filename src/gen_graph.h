@@ -1,7 +1,6 @@
 //
-// This class supports to generate the graph-based representation for the saturn map.
-// Author: Liang Zhang
-// Email: liangzh@email.arizona.edu
+// This class supports to generate the graph-based representation for the saturn
+// map. Author: Liang Zhang Email: liangzh@email.arizona.edu
 //
 
 #ifndef TOMCAT_TMM_GEN_GRAPH_H
@@ -38,6 +37,10 @@ class gen_graph {
     typedef std::pair<int, int> Edge;
     vector<string> node_id_list;
     vector<Edge> edge_list;
+    int room_number = 0;
+    int portal_number = 0;
+    string json_file_name = "../../data/Saturn_1.0_sm_v1.0.json";
+    Graph graph;
 
     template <class Graph> struct exercise_vertex {
       private:
@@ -89,30 +92,17 @@ class gen_graph {
                 std::cout << node_id_list[get(vertex_id, *ai)] << " ";
             std::cout << std::endl;
         }
-
     };
 
-    Graph generate_graph() {
-        //        typedef std::pair<int, int> Edge;
-        string file_name;
-
-        json j_file_room;
-        json j_file_portal;
-
+    // saturn map parser
+    void json_parser() {
+        json j_file;
         try {
-            file_name = "../../test/data/saturn_room.json";
-            std::ifstream in_room(file_name);
-            if (!in_room) {
+            std::ifstream in(this->json_file_name);
+            if (!in) {
                 std::cout << "Failed to open file" << endl;
             }
-            j_file_room = json::parse(in_room);
-
-            file_name = "../../test/data/saturn_portal.json";
-            std::ifstream in_portal(file_name);
-            if (!in_portal) {
-                std::cout << "Failed to open file" << endl;
-            }
-            j_file_portal = json::parse(in_portal);
+            j_file = json::parse(in);
         }
         catch (std::exception& e) {
             std::cout << "Exception:" << endl;
@@ -120,44 +110,39 @@ class gen_graph {
         }
 
         // process room data
-        for (int i = 0; i < j_file_room.at("id").size(); i++) {
-            string room_id = j_file_room.at("id")[i];
-            process_id(room_id);
-
-            this->node_id_list.push_back(room_id);
-
-            string loc = j_file_room.at("loc")[i];
-            vector<float> locs = process_loc(loc);
-
-            string j_conn = j_file_room.at("connections")[i];
-            vector<string> connections = process_connections(j_conn);
+        for (int i = 0; i < j_file.at("locations").size(); i++) {
+            if (!j_file.at("locations")[i].contains("child_locations")) {
+                string room_id = j_file.at("locations")[i].at("id");
+                this->node_id_list.push_back(room_id);
+                this->room_number++;
+            }
         }
 
-        // get the number of rooms
-        int room_number = this->node_id_list.size();
-
         // process portal data
-        for (int i = 0; i < j_file_portal.at("id").size(); i++) {
-            string portal_id = j_file_portal.at("id")[i];
-            process_id(portal_id);
-
+        for (int i = 0; i < j_file.at("connections").size(); i++) {
+            string portal_id = j_file.at("connections")[i].at("id");
             this->node_id_list.push_back(portal_id);
+            this->portal_number++;
+
             int current_node_no = this->node_id_list.size() - 1;
 
-            string loc = j_file_portal.at("loc")[i];
-            vector<float> locs = process_loc(loc);
+            int conn_num = j_file.at("connections")[i].at("connected_locations").size();
 
-            string j_conn = j_file_portal.at("connections")[i];
-            vector<string> connections = process_connections(j_conn);
-            for (int i = 0; i < connections.size(); i++) {
-                for (int j = 0; j < room_number; j++) {
-                    if (this->node_id_list[j] == connections[i]) {
-                        this->edge_list.push_back(Edge(current_node_no, j));
+            for (int j = 0; j < conn_num; j++) {
+                for (int k = 0; k < this->room_number; k++) {
+                    if (this->node_id_list[k] == j_file.at("connections")[i].at("connected_locations")[j]) {
+                        this->edge_list.push_back(Edge(current_node_no, k));
                         break;
                     }
                 }
             }
         }
+    }
+
+    Graph generate_graph() {
+        //        typedef std::pair<int, int> Edge;
+        string file_name;
+        json_parser();
 
         int node_number = this->node_id_list.size();
         int node_no[node_number];
@@ -177,7 +162,7 @@ class gen_graph {
         }
 
         // time cost for each transition
-        float transmission_delay[] = {};
+        float transmission_delay[edge_number];
 
 // declare a graph object, adding the edges and edge properties
 #if defined(BOOST_MSVC) && BOOST_MSVC <= 1300
@@ -204,18 +189,20 @@ class gen_graph {
         boost::property_map<Graph, edge_weight_t>::type trans_delay =
             get(edge_weight, g);
 
-//  uncomment this section to help generate a graph if needed
-//        boost::write_graphviz(
-//            std::cout,
-//            g,
-//            make_label_writer(node_name),
-//            make_label_writer(trans_delay),
-//            make_graph_attributes_writer(graph_attr, vertex_attr, edge_attr));
-
+        //  uncomment this section to help generate a graph if needed
+        //        boost::write_graphviz(
+        //            std::cout,
+        //            g,
+        //            make_label_writer(node_name),
+        //            make_label_writer(trans_delay),
+        //            make_graph_attributes_writer(graph_attr, vertex_attr,
+        //            edge_attr));
+        this->graph = g;
         return g;
     }
 
-    void get_vertices(Graph g){
+    void get_vertices() {
+        Graph g = this->graph;
         boost::property_map<Graph, vertex_index_t>::type vertex_id =
             get(vertex_index, g);
         std::cout << "vertices(g) = ";
@@ -226,21 +213,61 @@ class gen_graph {
         std::cout << std::endl;
     }
 
-    void get_edges(Graph g){
+    void get_edges() {
+        Graph g = this->graph;
         boost::property_map<Graph, vertex_index_t>::type vertex_id =
             get(vertex_index, g);
         std::cout << "edges(g) = ";
         graph_traits<Graph>::edge_iterator ei, ei_end;
         for (tie(ei, ei_end) = edges(g); ei != ei_end; ++ei)
-            std::cout << "(" << this->node_id_list[get(vertex_id, source(*ei, g))] << ","
-                      << this->node_id_list[get(vertex_id, target(*ei, g))] << ") ";
+            std::cout << "("
+                      << this->node_id_list[get(vertex_id, source(*ei, g))]
+                      << ","
+                      << this->node_id_list[get(vertex_id, target(*ei, g))]
+                      << ") ";
         std::cout << std::endl;
     }
 
-    void get_connections(Graph g){
-        std::for_each(
-            vertices(g).first, vertices(g).second, exercise_vertex<Graph>(g, this->node_id_list));
+    void get_connections() {
+        Graph g = this->graph;
+        std::for_each(vertices(g).first,
+                      vertices(g).second,
+                      exercise_vertex<Graph>(g, this->node_id_list));
     }
+
+    void get_vertex_number(){
+        std::cout << this->node_id_list.size() << std::endl;
+    }
+
+    void get_edge_number(){
+        std::cout << this->edge_list.size() << std::endl;
+    }
+
+    void get_adjacent(string id){
+        int id_idx = -1;
+        for (int i = 0; i < this->node_id_list.size();i++){
+            if (this->node_id_list[i] == id){
+                id_idx = i;
+                break;
+            }
+        }
+        if (id_idx == -1){
+            std::cout << "no connections to this node!" << std::endl;
+            return;
+        }
+        else {
+            std::cout << "connections: " << std::endl;
+            for (int i = 0; i < this->edge_list.size(); i++) {
+                if (this->edge_list[i].first == id_idx) {
+                    std::cout << this->node_id_list[this->edge_list[i].second] << std::endl;
+                }
+                if (this->edge_list[i].second == id_idx) {
+                    std::cout << this->node_id_list[this->edge_list[i].first] << std::endl;
+                }
+            }
+        }
+    }
+
 
     vector<float> process_loc(string loc) {
         loc.erase(std::remove(loc.begin(), loc.end(), '('), loc.end());

@@ -14,9 +14,12 @@ using namespace std;
 int main() {
     gen_graph gg = gen_graph();  // initialize a gen_graph object to process the json map of Saturn
     gen_graph::Graph g = gg.generate_graph();  // generate the graph-based map
-    gg.get_vertices(g);  // get vertices info
-    gg.get_edges(g);  // get edges info
-    gg.get_connections(g);  // get connection info
+    gg.get_vertices();  // get all vertices info
+    gg.get_edges();  // get all edges info
+    gg.get_connections();  // get all connection info
+    gg.get_vertex_number();  // get the vertices number
+    gg.get_edge_number();   // get the edges number
+    gg.get_adjacent("tkt_5");  // get the adjacent vertices
 
     return EXIT_SUCCESS;
 }
