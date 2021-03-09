@@ -243,7 +243,7 @@ class gen_graph {
         std::cout << this->edge_list.size() << std::endl;
     }
 
-    void get_adjacent(string id){
+    void get_adjacent_vertices(string id){
         int id_idx = -1;
         for (int i = 0; i < this->node_id_list.size();i++){
             if (this->node_id_list[i] == id){

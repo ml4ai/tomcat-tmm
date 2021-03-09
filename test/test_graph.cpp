@@ -19,7 +19,7 @@ int main() {
     gg.get_connections();  // get all connection info
     gg.get_vertex_number();  // get the vertices number
     gg.get_edge_number();   // get the edges number
-    gg.get_adjacent("tkt_5");  // get the adjacent vertices
+    gg.get_adjacent_vertices("tkt_5");  // get the adjacent vertices
 
     return EXIT_SUCCESS;
 }
