@@ -197,6 +197,13 @@ namespace tomcat {
             this->num_data_points = num_samples;
         }
 
+        void EvidenceSet::keep_only(int data_idx) {
+            for (auto& [node_label, data] : this->node_label_to_data) {
+                data = data.slice(data_idx, data_idx + 1, 1);
+            }
+            this->num_data_points = 1;
+        }
+
         void EvidenceSet::shrink_up_to(int time_step) {
             for (auto& [node_label, data] : this->node_label_to_data) {
                 data = data.slice(0, time_step + 1, 2);

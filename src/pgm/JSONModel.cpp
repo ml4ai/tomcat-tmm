@@ -559,6 +559,9 @@ namespace tomcat {
             size_t pos;
             while ((pos = str.find(delimiter)) != string::npos) {
                 double token = stod(str.substr(0, pos));
+                if(token == 0) {
+                    token = EPSILON; // For numerical stability.
+                }
                 split_list.push_back(token);
                 str.erase(0, pos + delimiter.length());
             }

@@ -3,7 +3,11 @@
 #include <iomanip>
 #include <time.h>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 #include "utils/EigenExtensions.h"
+
+namespace pt = boost::posix_time;
 
 namespace tomcat {
     namespace model {
@@ -13,10 +17,11 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        ASISTAgent::ASISTAgent(const string& id,
-                               const string& estimates_topic,
-                               const string& log_topic,
-                               const ASISTMessageConverter& message_converter)
+        ASISTAgent::ASISTAgent(
+            const string& id,
+            const string& estimates_topic,
+            const string& log_topic,
+            const shared_ptr<ASISTMessageConverter>& message_converter)
             : Agent(id, estimates_topic, log_topic),
               message_converter(message_converter) {}
 
@@ -40,7 +45,10 @@ namespace tomcat {
         //----------------------------------------------------------------------
         EvidenceSet ASISTAgent::message_to_data(const nlohmann::json& message) {
             nlohmann::json log;
-            return this->message_converter.get_data_from_message(message, log);
+            EvidenceSet data =
+                this->message_converter->get_data_from_message(message, log);
+
+            return data;
         }
 
         nlohmann::json ASISTAgent::estimates_to_message(
@@ -54,46 +62,70 @@ namespace tomcat {
                      estimator->get_base_estimators()) {
 
                     nlohmann::json message;
-                    message["TA"] = "TA1";
-                    message["Team"] = "UAZ";
-                    message["AgentID"] = this->id;
-                    message["Trial"] =
-                        this->message_converter.get_mission_trial_number();
-                    message["TrainingCondition TriageSignal"] = "n.a";
-                    message["TrainingCondition TriageNoSignal"] = "n.a";
-                    message["TrainingCondition NoTriageNoSignal"] = "n.a";
-                    message["VictimType Green"] = "n.a";
-                    message["VictimType Yellow"] = "n.a";
-                    message["VictimType Confidence"] = "n.a";
+
+                    // Header
+                    message["header"] = nlohmann::json();
+                    nlohmann::json& header_message = message["header"];
+                    string current_timestamp =
+                        pt::to_iso_extended_string(
+                            pt::microsec_clock::universal_time()) +
+                        "Z";
+                    header_message["timestamp"] = current_timestamp;
+                    header_message["message_type"] = "estimation";
+                    header_message["version"] = "1.0";
+
+                    // Message
+                    message["msg"] = nlohmann::json();
+                    nlohmann::json& msg_message = message["msg"];
+                    msg_message["experiment_id"] =
+                        this->message_converter->get_experiment_id();
+                    msg_message["timestamp"] = current_timestamp;
+                    msg_message["source"] = "tomcat-tmm";
+                    msg_message["version"] = "1.0";
+
+                    // Estimations
+                    message["data"] = nlohmann::json();
+                    nlohmann::json& data_message = message["data"];
+                    data_message["TA"] = "TA1";
+                    data_message["Team"] = "UAZ";
+                    data_message["AgentID"] = this->id;
+                    data_message["Trial"] =
+                        this->message_converter->get_mission_trial_number();
+                    data_message["TrainingCondition TriageSignal"] = "n.a";
+                    data_message["TrainingCondition TriageNoSignal"] = "n.a";
+                    data_message["TrainingCondition NoTriageNoSignal"] = "n.a";
+                    data_message["VictimType Green"] = "n.a";
+                    data_message["VictimType Yellow"] = "n.a";
+                    data_message["VictimType Confidence"] = "n.a";
 
                     NodeEstimates estimates =
                         base_estimator->get_estimates_at(time_step);
 
                     int seconds_elapsed =
                         (time_step + base_estimator->get_inference_horizon()) *
-                        this->message_converter.get_time_step_size();
+                        this->message_converter->get_time_step_size();
                     time_t timestamp = this->message_converter
-                                           .get_mission_initial_timestamp() +
+                                           ->get_mission_initial_timestamp() +
                                        seconds_elapsed;
                     stringstream ss;
                     ss << put_time(localtime(&timestamp), "%Y-%m-%dT%T.000Z");
-                    message["Timestamp"] = ss.str();
+                    data_message["Timestamp"] = ss.str();
 
                     if (estimates.label == "TrainingCondition") {
-                        message["TrainingCondition TriageSignal"] =
+                        data_message["TrainingCondition TriageSignal"] =
                             to_string(estimates.estimates.at(0));
-                        message["TrainingCondition TriageNoSignal"] =
+                        data_message["TrainingCondition TriageNoSignal"] =
                             to_string(estimates.estimates.at(1));
-                        message["TrainingCondition NoTriageNoSignal"] =
+                        data_message["TrainingCondition NoTriageNoSignal"] =
                             to_string(estimates.estimates.at(2));
                     }
                     else if (estimates.label == "Task") {
                         if (estimates.assignment(0) == 1) {
-                            message["VictimType Green"] =
+                            data_message["VictimType Green"] =
                                 to_string(estimates.estimates.at(0));
                         }
                         else if (estimates.assignment(0) == 2) {
-                            message["VictimType Yellow"] =
+                            data_message["VictimType Yellow"] =
                                 to_string(estimates.estimates.at(0));
                         }
                     }
@@ -106,7 +138,7 @@ namespace tomcat {
         }
 
         unordered_set<string> ASISTAgent::get_topics_to_subscribe() const {
-            return this->message_converter.get_used_topics();
+            return this->message_converter->get_used_topics();
         }
 
         nlohmann::json ASISTAgent::build_log_message(const string& log) const {
@@ -116,18 +148,18 @@ namespace tomcat {
             message["Team"] = "UAZ";
             message["AgentID"] = this->id;
             message["Trial"] =
-                this->message_converter.get_mission_trial_number();
+                this->message_converter->get_mission_trial_number();
             message["log"] = log;
 
             return message;
         }
 
         void ASISTAgent::restart() {
-            this->message_converter.start_new_mission();
+            this->message_converter->start_new_mission();
         }
 
         bool ASISTAgent::is_mission_finished() const {
-            return this->message_converter.is_mission_finished();
+            return this->message_converter->is_mission_finished();
         }
 
     } // namespace model

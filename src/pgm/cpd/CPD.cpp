@@ -488,7 +488,8 @@ namespace tomcat {
                         continue;
                     }
 
-                    int segment_duration = timer->get_backward_assignment()(i, 0);
+                    int segment_duration =
+                        timer->get_backward_assignment()(i, 0);
                     if (!timer->get_next(segment_duration)->get_next()) {
                         // If the timer is the last right segment. We use the
                         // CDF instead.
@@ -501,11 +502,12 @@ namespace tomcat {
                         this->distributions[distribution_idx +
                                             j * distribution_index_offset];
 
-                    if(use_cdf) {
-                        //p(x >= val)
+                    if (use_cdf) {
+                        // p(x >= val)
                         weights(i - initial_row, j) = distribution->get_cdf(
                             cpd_owner->get_assignment()(i, 0) - 1, true);
-                    } else {
+                    }
+                    else {
                         weights(i - initial_row, j) = distribution->get_pdf(
                             cpd_owner->get_assignment().row(i));
                     }
@@ -1081,6 +1083,24 @@ namespace tomcat {
         }
 
         void CPD::print(ostream& os) const { os << this->get_description(); }
+
+        string CPD::get_description() const {
+            stringstream ss;
+
+            int i;
+            int size = this->parent_node_order.size() - 1;
+            for (i = 0; i < size; i++) {
+                ss << this->parent_node_order.at(i)->get_label() << ", ";
+            }
+            if (!this->parent_node_order.empty()) {
+                ss << this->parent_node_order.at(i)->get_label();
+            }
+            ss << "\n";
+            ss << this->get_table(0) << "\n";
+            ss << this->get_name() << "\n";
+
+            return ss.str();
+        }
 
         Eigen::MatrixXd CPD::get_table(int parameter_idx) const {
             Eigen::MatrixXd table;

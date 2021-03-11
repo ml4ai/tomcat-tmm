@@ -7,14 +7,13 @@
 
 #include <gsl/gsl_rng.h>
 
-
+#include "converter/MessageConverter.h"
+#include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/estimation/Agent.h"
 #include "pipeline/estimation/EstimationProcess.h"
 #include "pipeline/evaluation/EvaluationAggregator.h"
-#include "pgm/DynamicBayesNet.h"
 #include "pipeline/training/DBNTrainer.h"
-#include "converter/MessageConverter.h"
-#include "pipeline/estimation/Agent.h"
 
 namespace tomcat {
     namespace model {
@@ -55,14 +54,13 @@ namespace tomcat {
              * before retrying to connect with the message broker in case of
              * fail to connect previously
              */
-            Experimentation(
-                const std::shared_ptr<gsl_rng>& gen,
-                const std::shared_ptr<DynamicBayesNet>& model,
-                const std::shared_ptr<Agent>& agent,
-                const std::string& broker_address,
-                int broker_port,
-                int num_connection_trials,
-                int milliseconds_before_retrial);
+            Experimentation(const std::shared_ptr<gsl_rng>& gen,
+                            const std::shared_ptr<DynamicBayesNet>& model,
+                            const std::shared_ptr<Agent>& agent,
+                            const std::string& broker_address,
+                            int broker_port,
+                            int num_connection_trials,
+                            int milliseconds_before_retrial);
 
             ~Experimentation();
 
@@ -189,6 +187,17 @@ namespace tomcat {
                 int equal_samples_time_step_limit,
                 const std::unordered_set<std::string>& exclusions,
                 int num_jobs);
+
+            /**
+             * Prints the model structure and/or CPDs to files in a given
+             * directory.
+             *
+             * @param params_dir: directory where the parameters of a
+             * pre-trained model are saved
+             * @param model_dir: directory where model's info must be saved
+             */
+            void print_model(const std::string& params_dir,
+                             const std::string& model_dir);
 
           private:
             //------------------------------------------------------------------

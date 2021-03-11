@@ -395,6 +395,11 @@ namespace tomcat {
             virtual std::unique_ptr<CPD> clone() const = 0;
 
             /**
+             * Gets the name of the distributions handled by the CPD.
+             */
+            virtual std::string get_name() const = 0;
+
+            /**
              * Adds a set of values to the sufficient statistics of this CPD.
              *
              * @param sample: Sample to add to the sufficient statistics.
@@ -456,13 +461,6 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Returns a short description of the CPD.
-             *
-             * @return CPD's description.
-             */
-            virtual std::string get_description() const = 0;
-
-            /**
              * Clones the distributions (and the nodes associated to them) of
              * the CPD.
              */
@@ -501,6 +499,13 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Returns a short description of the CPD.
+             *
+             * @return CPD's description.
+             */
+            std::string get_description() const;
 
             /**
              * Fills CPD's unique identifier formed by the concatenation of the

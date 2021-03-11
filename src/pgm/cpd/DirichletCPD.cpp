@@ -94,16 +94,8 @@ namespace tomcat {
             }
         }
 
-        string DirichletCPD::get_description() const {
-            stringstream ss;
-
-            ss << "Dirichlet CPD: {\n";
-            for (auto& alpha : this->distributions) {
-                ss << " " << *alpha << "\n";
-            }
-            ss << "}";
-
-            return ss.str();
+        string DirichletCPD::get_name() const {
+            return "Dirichlet";
         }
 
         void DirichletCPD::add_to_sufficient_statistics(

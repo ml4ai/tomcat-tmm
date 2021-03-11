@@ -7,7 +7,8 @@
 
 #include <boost/program_options.hpp>
 
-#include "converter/ASISTMessageConverter.h"
+#include "converter/ASISTMultiPlayerMessageConverter.h"
+#include "converter/ASISTSinglePlayerMessageConverter.h"
 
 using namespace tomcat::model;
 using namespace std;
@@ -17,11 +18,21 @@ void extract_data_from_messages(const string& map_json,
                                 const string& messages_dir,
                                 const string& data_dir,
                                 bool multiplayer,
+                                int num_players,
                                 int num_seconds,
                                 int time_step_size) {
 
-    ASISTMessageConverter converter(num_seconds, time_step_size, map_json);
-    converter.convert_messages(messages_dir, data_dir);
+    shared_ptr<ASISTMessageConverter> converter;
+    if (multiplayer) {
+        converter = make_shared<ASISTMultiPlayerMessageConverter>(
+            num_seconds, time_step_size, map_json, num_players);
+    }
+    else {
+        converter = make_shared<ASISTSinglePlayerMessageConverter>(
+            num_seconds, time_step_size, map_json);
+    }
+
+    converter->convert_messages(messages_dir, data_dir);
 }
 
 int main(int argc, char* argv[]) {
@@ -29,6 +40,7 @@ int main(int argc, char* argv[]) {
     string messages_dir;
     string data_dir;
     bool multiplayer;
+    int num_players;
     int num_seconds;
     int time_step_size;
 
@@ -49,6 +61,9 @@ int main(int argc, char* argv[]) {
         "multiplayer",
         po::bool_switch(&multiplayer)->required(),
         "Whether the messages come from a multiplayer mission.")(
+        "players",
+        po::value<int>(&num_players)->default_value(3),
+        "Number of players in the multiplayer mission.")(
         "seconds",
         po::value<int>(&num_seconds)->required(),
         "Number of seconds in the mission.")(
@@ -68,6 +83,7 @@ int main(int argc, char* argv[]) {
                                messages_dir,
                                data_dir,
                                multiplayer,
+                               num_players,
                                num_seconds,
                                time_step_size);
 }

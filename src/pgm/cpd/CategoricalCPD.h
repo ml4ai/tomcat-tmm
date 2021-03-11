@@ -119,7 +119,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             std::unique_ptr<CPD> clone() const override;
 
-            std::string get_description() const override;
+            std::string get_name() const override;
 
             void add_to_sufficient_statistics(
                 const std::vector<double>& values) override;

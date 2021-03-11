@@ -570,14 +570,6 @@ namespace tomcat {
             return edges;
         }
 
-        void
-        DynamicBayesNet::write_graphviz(std::ostream& output_stream) const {
-            boost::write_graphviz(output_stream,
-                                  this->graph,
-                                  boost::make_label_writer(boost::get(
-                                      &VertexData::label, this->graph)));
-        }
-
         int DynamicBayesNet::get_cardinality_of(
             const std::string& node_label) const {
             return this->get_metadata_of(node_label)->get_cardinality();
@@ -681,6 +673,26 @@ namespace tomcat {
         RVNodePtrVec
         DynamicBayesNet::get_nodes_in_topological_order_at(int time_step) {
             return this->topological_nodes_per_time.at(time_step);
+        }
+
+        void DynamicBayesNet::print_graph(std::ostream& output_stream) const {
+            boost::write_graphviz(output_stream,
+                                  this->graph,
+                                  boost::make_label_writer(boost::get(
+                                      &VertexData::label, this->graph)));
+        }
+
+        void DynamicBayesNet::print_cpds(ostream& output_stream) const {
+            for (const auto& node : this->node_templates) {
+                // CPDs are updated in the concrete node instance, not in the
+                // template.
+                string node_name = node->get_metadata()->get_timed_name(
+                    node->get_metadata()->get_initial_time_step());
+                if (EXISTS(node_name, this->name_to_id)) {
+                    int id = this->name_to_id.at(node_name);
+                    this->graph[id].node->print_cpds(output_stream);
+                }
+            }
         }
 
         //----------------------------------------------------------------------

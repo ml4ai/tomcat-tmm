@@ -90,16 +90,8 @@ namespace tomcat {
             }
         }
 
-        string GaussianCPD::get_description() const {
-            stringstream ss;
-
-            ss << "Gaussian CPD: {\n";
-            for (auto& parameters : this->distributions) {
-                ss << *parameters << "\n";
-            }
-            ss << "}";
-
-            return ss.str();
+        string GaussianCPD::get_name() const {
+            return "Gaussian";
         }
 
         void GaussianCPD::add_to_sufficient_statistics(

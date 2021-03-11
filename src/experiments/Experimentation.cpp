@@ -59,8 +59,7 @@ namespace tomcat {
             config.port = broker_port;
             config.num_connection_trials = num_connection_trials;
             config.milliseconds_before_retrial = milliseconds_before_retrial;
-            this->estimation =
-                make_shared<OnlineEstimation>(config, agent);
+            this->estimation = make_shared<OnlineEstimation>(config, agent);
         }
 
         Experimentation::~Experimentation() {}
@@ -209,11 +208,6 @@ namespace tomcat {
                                                 const string& eval_dir,
                                                 const EvidenceSet& data,
                                                 bool baseline) {
-            fs::create_directories(eval_dir);
-            string filepath =
-                fmt::format("{}/{}.json", eval_dir, this->experiment_id);
-            ofstream output_file;
-            output_file.open(filepath);
 
             shared_ptr<DataSplitter> data_splitter;
             string final_params_dir;
@@ -242,6 +236,12 @@ namespace tomcat {
                 make_shared<DBNLoader>(this->model, final_params_dir, true);
             EvidenceSet empty_training;
 
+            fs::create_directories(eval_dir);
+            string filepath =
+                fmt::format("{}/{}.json", eval_dir, this->experiment_id);
+            ofstream output_file;
+            output_file.open(filepath);
+
             Pipeline pipeline(this->experiment_id, output_file);
             pipeline.set_data_splitter(data_splitter);
             pipeline.set_model_trainer(loader);
@@ -262,7 +262,7 @@ namespace tomcat {
                 make_shared<DBNLoader>(this->model, params_dir, true);
             EvidenceSet empty_training;
 
-            for(auto& estimator : this->estimation->get_estimators()) {
+            for (auto& estimator : this->estimation->get_estimators()) {
                 estimator->set_show_progress(false);
             }
 
@@ -293,6 +293,29 @@ namespace tomcat {
                 equal_samples_time_step_limit);
             sampler.sample(this->random_generator, num_data_samples);
             sampler.save_samples_to_folder(data_dir, exclusions);
+        }
+
+        void Experimentation::print_model(const std::string& params_dir,
+                                          const std::string& model_dir) {
+
+            this->model->unroll(3, true);
+            shared_ptr<DBNTrainer> loader =
+                make_shared<DBNLoader>(this->model, params_dir, true);
+            loader->fit({});
+
+            fs::create_directories(model_dir);
+            ofstream output_file;
+            string graph_filepath = get_filepath(model_dir, "graph.viz");
+            output_file.open(graph_filepath);
+            this->model->print_graph(output_file);
+            output_file.close();
+
+            if(params_dir != "") {
+                string cpds_filepath = get_filepath(model_dir, "cpds.txt");
+                output_file.open(cpds_filepath);
+                this->model->print_cpds(output_file);
+                output_file.close();
+            }
         }
 
     } // namespace model

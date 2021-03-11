@@ -34,7 +34,7 @@ namespace tomcat {
             ASISTAgent(const std::string& id,
                        const std::string& estimates_topic,
                        const std::string& log_topic,
-                       const ASISTMessageConverter& message_converter);
+                       const std::shared_ptr<ASISTMessageConverter>& message_converter);
 
             virtual ~ASISTAgent();
 
@@ -72,7 +72,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-            ASISTMessageConverter message_converter;
+            std::shared_ptr<ASISTMessageConverter> message_converter;
         };
 
     } // namespace model

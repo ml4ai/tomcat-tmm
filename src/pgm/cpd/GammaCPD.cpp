@@ -93,16 +93,8 @@ namespace tomcat {
             }
         }
 
-        string GammaCPD::get_description() const {
-            stringstream ss;
-
-            ss << "Gamma CPD: {\n";
-            for (auto& parameters : this->distributions) {
-                ss << *parameters << "\n";
-            }
-            ss << "}";
-
-            return ss.str();
+        string GammaCPD::get_name() const {
+            return "Gamma";
         }
 
         void

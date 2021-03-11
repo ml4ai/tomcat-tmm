@@ -65,7 +65,7 @@ namespace tomcat {
                             message, json_mission_log);
                         if (!new_data.empty()) {
                             mission_data.hstack(new_data);
-                            next_time_step += this->time_step_size;
+                            next_time_step += 1;
 
                             // mission_finished can be set to true in
                             // get_data_from_message if the maximum number of

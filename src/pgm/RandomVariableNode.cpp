@@ -116,7 +116,6 @@ namespace tomcat {
         Eigen::MatrixXd RandomVariableNode::sample(
             const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
             int num_samples) const {
-
             return this->cpd->sample(
                 random_generator_per_job, num_samples, shared_from_this());
         }
@@ -262,6 +261,10 @@ namespace tomcat {
                 this->cached_posterior_weights.log_weights_from_children =
                     Eigen::MatrixXd(0, 0);
             }
+        }
+
+        void RandomVariableNode::clear_cache() {
+            this->cached_posterior_weights = PosteriorWeightsCache();
         }
 
         Eigen::MatrixXd RandomVariableNode::get_cached_log_weights(
@@ -572,8 +575,12 @@ namespace tomcat {
             return this->cpd->is_continuous();
         }
 
-        void RandomVariableNode::clear_cache() {
-            this->cached_posterior_weights = PosteriorWeightsCache();
+        void RandomVariableNode::print_cpds(std::ostream& output_stream) const {
+            for (const auto& [id, cpd] : this->cpd_templates) {
+                output_stream << this->get_metadata()->get_label() << " | ";
+                cpd->print(output_stream);
+                output_stream << endl;
+            }
         }
 
         // ---------------------------------------------------------------------

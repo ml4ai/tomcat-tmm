@@ -1,0 +1,19 @@
+# .dockerignore taken from https://stackoverflow.com/a/51429852
+# Ignore everything
+**
+# Allow files and directories
+!/CMakeLists.txt
+!/Makefile-asist
+!/src
+!/build/bin
+!/data/params/asist/study-1_2020.08
+!/data/maps/asist/Falcon_v1.0.json
+!/tools
+!/test
+
+# Ignore unnecessary files inside allowed directories
+# This should go after the allowed directories
+**/*~
+**/*.swp
+**/.DS_Store
+**/Thumbs.db

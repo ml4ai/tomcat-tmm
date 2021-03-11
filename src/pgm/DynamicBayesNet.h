@@ -213,13 +213,6 @@ namespace tomcat {
             std::vector<Edge> get_edges() const;
 
             /**
-             * Write the graph content in graphviz format.
-             *
-             * @param output_stream: output stream to write the graph.
-             */
-            void write_graphviz(std::ostream& output_stream) const;
-
-            /**
              * Returns the cardinality of any node derived from a given label.
              *
              * @param node_label: template node's label
@@ -311,6 +304,20 @@ namespace tomcat {
              * @param List of nodes.
              */
             RVNodePtrVec get_nodes_in_topological_order_at(int time_step);
+
+            /**
+             * Write the graph content in graphviz format.
+             *
+             * @param output_stream: output stream to write the graph.
+             */
+            void print_graph(std::ostream& output_stream) const;
+
+            /**
+             * Print CPDs of the template nodes in the model.
+             *
+             * @param output_stream: output stream to write the CPDs.
+             */
+            void print_cpds(std::ostream& output_stream) const;
 
             // --------------------------------------------------------
             // Getters & Setters

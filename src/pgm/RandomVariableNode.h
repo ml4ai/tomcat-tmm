@@ -252,9 +252,11 @@ namespace tomcat {
             bool is_continuous() const;
 
             /**
-             * Resets saved data used to speed up the sampling process.
+             * Writes the node's CPDs to an output stream.
+             *
+             * @param output_stream: output stream to write the CPDs
              */
-            void clear_cache();
+            void print_cpds(std::ostream& output_stream) const;
 
             // -----------------------------------------------------------------
             // Virtual functions
@@ -495,6 +497,11 @@ namespace tomcat {
             void cache_current_log_weights(int min_time_step_to_sample,
                                    const RVNodePtr& child_node,
                                    const Eigen::MatrixXd& log_weights);
+
+            /**
+             * Resets saved data used to speed up the sampling process.
+             */
+            void clear_cache();
 
             //------------------------------------------------------------------
             // Data members

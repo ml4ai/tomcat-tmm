@@ -90,15 +90,8 @@ namespace tomcat {
             }
         }
 
-        string CategoricalCPD::get_description() const {
-            stringstream ss;
-            ss << "Categorical CPD: {\n";
-            for (auto& probabilities : this->distributions) {
-                ss << " " << *probabilities << "\n";
-            }
-            ss << "}";
-
-            return ss.str();
+        string CategoricalCPD::get_name() const {
+            return "Categorical";
         }
 
         void CategoricalCPD::add_to_sufficient_statistics(

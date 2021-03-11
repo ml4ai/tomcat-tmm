@@ -53,7 +53,7 @@ INFERENCE_PATH = asist/study-1_2020.08/inference.json
 .PHONY: eval
 .PHONY: report
 
-all: build create_splits split convert_train convert_eval map train eval report
+all: build create_splits split convert_train convert_eval train eval report
 
 # Builds the system so that the training and evaluation targets can check
 # if there's a new version of the executable as a prerequisite.
@@ -92,8 +92,6 @@ ifeq ($(SPLIT_DEFINED), 0)
 endif
 	@echo ""
 	$@
-
-map: $(MAP_CONFIG_PATH)
 
 $(MAP_CONFIG_PATH):
 	mkdir -p $(@D)
@@ -147,3 +145,10 @@ $(EVAL_PATH): $(BUILD_DIR)/bin/evaluate $(PARAMS_DIR) \
 	    --data_dir $(EVAL_SAMPLES_DIR) --params_dir $(PARAMS_DIR) \
 		--eval_dir $(EVAL_DIR) --inference_json $(INFERENCE_PATH) \
  	    --T 600
+
+report: $(REPORT_PATH)
+
+$(REPORT_PATH): $(REPORT_GEN_SCRIPT) $(EVAL_SAMPLES_DIR)/conversion_log.json \
+                $(EVAL_PATH)
+	@echo ""
+	@python3 $< $(EVAL_PATH) $(EVAL_SAMPLES_DIR)/conversion_log.json $@

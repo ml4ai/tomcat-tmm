@@ -5,7 +5,7 @@
 #include <boost/program_options.hpp>
 #include <gsl/gsl_rng.h>
 
-#include "converter/ASISTMessageConverter.h"
+#include "converter/ASISTSinglePlayerMessageConverter.h"
 #include "experiments/Experimentation.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
@@ -27,8 +27,7 @@ void start_agent(const string& agent_id,
                  const string& params_dir,
                  const string& estimates_topic,
                  const string& log_topic,
-                 const string& broker_address,
-                 int broker_port,
+                 const string& broker_json,
                  int num_connection_trials,
                  int milliseconds_before_retrial,
                  const string& map_json,
@@ -46,10 +45,25 @@ void start_agent(const string& agent_id,
     int num_time_steps = num_seconds / time_step_size;
     model->unroll(num_time_steps, true);
 
-    ASISTMessageConverter message_converter(
-        num_seconds, time_step_size, map_json);
+    shared_ptr<ASISTMessageConverter> message_converter =
+        make_shared<ASISTSinglePlayerMessageConverter>(
+            num_seconds, time_step_size, map_json);
     shared_ptr<ASISTAgent> agent = make_shared<ASISTAgent>(
         agent_id, estimates_topic, log_topic, message_converter);
+
+    string broker_address = "localhost";
+    int broker_port = 1883;
+    fstream file;
+    file.open(broker_json);
+    if (file.is_open()) {
+        nlohmann::json broker = nlohmann::json::parse(file);
+        if (broker.contains("address")) {
+            broker_address = broker["address"];
+        }
+        if (broker.contains("port")) {
+            broker_port = broker["port"];
+        }
+    }
 
     Experimentation experimentation(random_generator,
                                     model,
@@ -69,10 +83,9 @@ int main(int argc, char* argv[]) {
     string params_dir;
     string estimates_topic;
     string log_topic;
-    string broker_address;
+    string broker_json;
     string map_json;
     string inference_json;
-    unsigned int broker_port;
     unsigned int num_connection_trials;
     unsigned int milliseconds_before_retrial;
     unsigned int num_seconds;
@@ -106,14 +119,10 @@ int main(int argc, char* argv[]) {
         po::value<string>(&log_topic)->default_value("uaz/log"),
         "Message topic where processing log must be published to. If blank, "
         "no log is published to the message bus."
-        ".\n")("address",
-               po::value<string>(&broker_address)
-                   ->default_value("localhost")
-                   ->required(),
-               "Address to connect to the message broker.\n")(
-        "port",
-        po::value<unsigned int>(&broker_port)->default_value(1883)->required(),
-        "Port to connect to the message broker.")(
+        ".\n")("broker_json",
+               po::value<string>(&broker_json),
+               "Json containing the address and port of the message broker to"
+               " connect to.\n")(
         "conn_trials",
         po::value<unsigned int>(&num_connection_trials)
             ->default_value(5)
@@ -167,8 +176,7 @@ int main(int argc, char* argv[]) {
                 params_dir,
                 estimates_topic,
                 log_topic,
-                broker_address,
-                broker_port,
+                broker_json,
                 num_connection_trials,
                 milliseconds_before_retrial,
                 map_json,
