@@ -1,0 +1,16 @@
+version: '3'
+
+networks:
+  asist_net:
+   external: true    
+    
+services:
+  uaz_tmm_agent:
+    image: uaz_tmm_agent:latest
+    container_name: uaz_tmm_agent
+    networks:
+      asist_net:
+        aliases:
+          - uaz_tmm_agent
+    working_dir: ./build/bin
+    entrypoint: "./start_agent"
