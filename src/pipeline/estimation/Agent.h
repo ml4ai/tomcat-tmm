@@ -77,9 +77,9 @@ namespace tomcat {
              * estimates
              * @param time_step: time step for which estimates were computed
              *
-             * @return Message.
+             * @return Messages.
              */
-            virtual nlohmann::json estimates_to_message(
+            virtual std::vector<nlohmann::json> estimates_to_message(
                 const std::vector<std::shared_ptr<Estimator>>& estimators,
                 int time_step) const = 0;
 

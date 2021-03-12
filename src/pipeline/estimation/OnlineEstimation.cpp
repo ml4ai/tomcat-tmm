@@ -124,10 +124,13 @@ namespace tomcat {
         }
 
         void OnlineEstimation::publish_last_estimates() {
-            nlohmann::json message = this->agent->estimates_to_message(
+            vector<nlohmann::json> messages = this->agent->estimates_to_message(
                 this->estimators, this->time_step);
             const string& topic = this->agent->get_estimates_topic();
-            this->publish(topic, message.dump());
+
+            for(const auto& message : messages) {
+                this->publish(topic, message.dump());
+            }
         }
 
         void OnlineEstimation::on_error(const string& error_message) {

@@ -34,7 +34,8 @@ namespace tomcat {
             ASISTAgent(const std::string& id,
                        const std::string& estimates_topic,
                        const std::string& log_topic,
-                       const std::shared_ptr<ASISTMessageConverter>& message_converter);
+                       const std::shared_ptr<ASISTMessageConverter>&
+                           message_converter);
 
             virtual ~ASISTAgent();
 
@@ -54,15 +55,15 @@ namespace tomcat {
             //------------------------------------------------------------------
             EvidenceSet message_to_data(const nlohmann::json& message) override;
 
-            nlohmann::json estimates_to_message(
+            std::vector<nlohmann::json> estimates_to_message(
                 const std::vector<std::shared_ptr<Estimator>>& estimators,
                 int time_step) const override;
 
             std::unordered_set<std::string>
             get_topics_to_subscribe() const override;
 
-            nlohmann::json build_log_message(const std::string& log) const
-            override;
+            nlohmann::json
+            build_log_message(const std::string& log) const override;
 
             void restart() override;
 

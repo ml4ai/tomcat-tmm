@@ -51,11 +51,11 @@ namespace tomcat {
             return data;
         }
 
-        nlohmann::json ASISTAgent::estimates_to_message(
+        vector<nlohmann::json> ASISTAgent::estimates_to_message(
             const std::vector<std::shared_ptr<Estimator>>& estimators,
             int time_step) const {
 
-            nlohmann::json messages = nlohmann::json::array();
+            vector<nlohmann::json> messages;
 
             for (const auto& estimator : estimators) {
                 for (const auto& base_estimator :
