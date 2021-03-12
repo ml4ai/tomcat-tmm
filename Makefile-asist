@@ -14,7 +14,7 @@ all: study-1_2020.08 study-2_pilot-2_2021.02
 study-1_2020.08 study-2_pilot-2_2021.02:
 	@echo ""
 	@echo "Pulling $@ files..."
-	@scp -r $(SERVER):$(ASIST_SERVER_DIR)/$@ data/asist/
+	@scp -r $(SERVER):$(ASIST_SERVER_DIR)/$@ data/asist/$@
 	@cp tools/asist/Makefile-asist-$@ data/asist/$@/Makefile
 	@if [ -f data/asist/$@/params.tar.gz ]; then \
 		cd data/asist/$@ && tar -xzf params.tar.gz && rm params.tar.gz; \
