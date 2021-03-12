@@ -58,10 +58,10 @@ void start_agent(const string& agent_id,
             broker_port = broker["port"];
         }
         if (broker.contains("estimates_topic")) {
-            broker_port = broker["estimates_topic"];
+            estimates_topic = broker["estimates_topic"];
         }
         if (broker.contains("log_topic")) {
-            broker_port = broker["log_topic"];
+            log_topic = broker["log_topic"];
         }
     }
 
