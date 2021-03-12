@@ -1,149 +1,21 @@
-# The name of the Google Cloud Source folder where the ASIST HSR data resides.
-STUDY_ID = study-1_2020.08
+# This Makefile is responsible for downloading directories for specific ASIST
+# studies from laplace and place them under the data/ folder.
 
-# Binaries required for the ASIST evaluation analyses
-BUILD_DIR = build
-
-# File that contains configurations of the Falcon map. It must be manually
-# downloaded from the link below and placed in the directory data/maps/asist.
-# It's a pre-requisite for message conversion.
-# https://gitlab.asist.aptima.com/asist/testbed/-/tree/master/Agents/IHMCLocationMonitor/ConfigFolder
-MAP_CONFIG_PATH = data/maps/asist/Falcon_v1.0.json
-
-# Original data from the message bus
-MESSAGES_DIR = data/asist/$(STUDY_ID)_split
-TRAIN_MESSAGES_DIR = $(MESSAGES_DIR)/train
-EVAL_MESSAGES_DIR = $(MESSAGES_DIR)/eval
-TRAIN_TRIALS_FILE = $(MESSAGES_DIR)/train_list.txt
-EVAL_TRIALS_FILE = $(MESSAGES_DIR)/eval_list.txt
-
-# Check if trials were defined to training and/or evaluation
-SPLIT_DEFINED=$(shell [ -s $(TRAIN_TRIALS_FILE) ] || [ -s $(EVAL_TRIALS_FILE) ] && echo 1 || echo 0 )
-
-# Converted data
-SAMPLES_DIR = data/samples/asist/$(STUDY_ID)
-TRAIN_SAMPLES_DIR = $(SAMPLES_DIR)/train
-EVAL_SAMPLES_DIR = $(SAMPLES_DIR)/eval
-
-# Training & evaluation
-PARAMS_DIR = data/params/asist/$(STUDY_ID)
-EVAL_DIR = data/eval/asist/$(STUDY_ID)
-EVAL_FILENAME = evaluations
-EVAL_PATH = $(EVAL_DIR)/$(EVAL_FILENAME).json
-PARTIALS_DIR = $(EVAL_DIR)/partials
-
-REPORT_GEN_SCRIPT = tools/asist/create_study-1_2020.08_report.py
-REPORT_PATH = $(EVAL_DIR)/study-1_2020.08_report.txt
-
-# Path to the file containing the model configuration
-MODEL_PATH = models/tomcat-v02.json
-
-# Path to the file containing the inferences to be performed
-INFERENCE_PATH = asist/study-1_2020.08/inference.json
+SERVER = laplace
+ASIST_SERVER_DIR = /work/paulosoares/data/asist
 
 # Phony targets
 .PHONY: all
-.PHONY: sync
-.PHONY: create_splits
-.PHONY: split
-.PHONY: convert_train
-.PHONY: convert_eval
-.PHONY: build
-.PHONY: train
-.PHONY: eval
-.PHONY: report
+.PHONY: study-1_2020.08
+.PHONY: study-2_pilot-2_2021.02
 
-all: build create_splits split convert_train convert_eval map train eval report
+all: study-1_2020.08 study-2_pilot-2_2021.02
 
-# Builds the system so that the training and evaluation targets can check
-# if there's a new version of the executable as a prerequisite.
-build:
-	@cd $(BUILD_DIR) && make -j convert
-	@cd $(BUILD_DIR) && make -j train
-	@cd $(BUILD_DIR) && make -j evaluate
-
-sync:
+study-1_2020.08 study-2_pilot-2_2021.02:
 	@echo ""
-	./tools/sync_asist_data
-
-create_splits:
-	@mkdir -p $(TRAIN_MESSAGES_DIR) $(EVAL_MESSAGES_DIR)
-	@touch -a $(TRAIN_TRIALS_FILE)
-	@touch -a $(EVAL_TRIALS_FILE)
-
-split: $(TRAIN_MESSAGES_DIR) $(EVAL_MESSAGES_DIR)
-
-# This requires that the files train_list.txt and eval_list.txt are
-# pre-filled with some trial numbers.
-$(TRAIN_MESSAGES_DIR): ./tools/split_data $(TRAIN_TRIALS_FILE) \
-					   $(EVAL_TRIALS_FILE)
-ifeq ($(SPLIT_DEFINED), 0)
-	$(error "Fill $(TRAIN_TRIALS_FILE) and $(EVAL_TRIALS_FILE) with \
-	appropriate trial numbers.")
-endif
-	@echo ""
-	$@
-
-$(EVAL_MESSAGES_DIR): ./tools/split_data $(TRAIN_TRIALS_FILE) \
-					  $(EVAL_TRIALS_FILE)
-ifeq ($(SPLIT_DEFINED), 0)
-	$(error "Fill $(TRAIN_TRIALS_FILE) and $(EVAL_TRIALS_FILE) with \
-	appropriate trial numbers.")
-endif
-	@echo ""
-	$@
-
-map: $(MAP_CONFIG_PATH)
-
-$(MAP_CONFIG_PATH):
-	mkdir -p $(@D)
-	scp laplace:/data/asist/$(@F) $@
-
-# Parses messages from the test bed and converts them to matrices of
-# observations. One matrix for each observable node in the model.
-convert_train: $(TRAIN_SAMPLES_DIR)/*
-
-$(TRAIN_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(TRAIN_MESSAGES_DIR)/*
-	@echo ""
-	@cd $(BUILD_DIR) && make -j convert
-	@echo "Converting training data..."
-	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_CONFIG_PATH) \
-		--messages_dir $(TRAIN_MESSAGES_DIR) --data_dir $(TRAIN_SAMPLES_DIR) \
-		--seconds 600 --step_size 1
-
-convert_eval: $(EVAL_SAMPLES_DIR)/*
-
-$(EVAL_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(EVAL_MESSAGES_DIR)/*
-	@echo ""
-	@cd $(BUILD_DIR) && make -j convert
-	@echo "Converting evaluation data..."
-	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_CONFIG_PATH) \
-		--messages_dir $(EVAL_MESSAGES_DIR) --data_dir $(EVAL_SAMPLES_DIR) \
-		--seconds 600 --step_size 1
-
-# The model only needs to be retrained if the executable changed, or if any of
-# the files in $(TRAIN_SAMPLES_DIR) changed. # We insert and remove a dummy file
-# to change the modification date of the directory
-train: $(PARAMS_DIR)
-
-$(PARAMS_DIR): $(BUILD_DIR)/bin/train $(TRAIN_SAMPLES_DIR)/*
-	@echo ""
-	@echo "Training model..."
-	@./$< --model_json $(MODEL_PATH) --data_dir $(TRAIN_SAMPLES_DIR) \
-	    --params_dir $@ --T 600 --burn_in 50 --samples 100 --jobs 4
-	@touch $@/dummy.txt
-	@rm $@/dummy.txt
-
-# The model only needs to be re-evaluated if either the executable changed, or
-# the model's parameters - saved in the directory $(PARAMS_DIR) - changed, or
-# the evaluation data changed.
-eval: $(EVAL_PATH)
-
-$(EVAL_PATH): $(BUILD_DIR)/bin/evaluate $(PARAMS_DIR) \
-			  $(EVAL_SAMPLES_DIR)/* $(INFERENCE_PATH)
-	@echo ""
-	@echo "Evaluating model..."
-	@./$< --exp_id $(EVAL_FILENAME) --model_json $(MODEL_PATH) \
-	    --data_dir $(EVAL_SAMPLES_DIR) --params_dir $(PARAMS_DIR) \
-		--eval_dir $(EVAL_DIR) --inference_json $(INFERENCE_PATH) \
- 	    --T 600
+	@echo "Pulling $@ files..."
+	@scp -r $(SERVER):$(ASIST_SERVER_DIR)/$@ data/asist/
+	@cp tools/asist/Makefile-asist-$@ data/asist/$@/Makefile
+	@if [ -f data/asist/$@/params.tar.gz ]; then \
+		cd data/asist/$@ && tar -xzf params.tar.gz && rm params.tar.gz; \
+	fi

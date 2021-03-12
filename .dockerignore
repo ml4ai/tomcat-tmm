@@ -6,8 +6,10 @@
 !/Makefile-asist
 !/src
 !/build/bin
-!/data/params/asist/study-1_2020.08
-!/data/maps/asist/Falcon_v1.0.json
+!/data/asist/study-2_pilot-2_2021.02/params
+!/data/asist/study-2_pilot-2_2021.02/broker.json
+!/data/asist/study-2_pilot-2_2021.02/inference.json
+!/data/asist/study-2_pilot-2_2021.02/Makefile
 !/tools
 !/test
 

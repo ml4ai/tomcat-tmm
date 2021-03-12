@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# Script responsible for copying (via symbolic links) a group of message from
+# specific trials from a folder to another. The trial numbers are defined in
+# a file. The environment variables ORIGINAL_MSG_DIR, TRIALS_FILE and
+# TARGET_MSG_DIR have to be defined before executing this script.
+
+set -euo pipefail
+
+# Always clear the directory to avoid links to old files
+rm -rf $TARGET_MSG_DIR
+
+if [ -f $TRIALS_FILE ]; then
+  mkdir -p $TARGET_MSG_DIR
+
+  ABS_ORIGINAL_MSG_DIR="$(cd $ORIGINAL_MSG_DIR >/dev/null 2>&1 && pwd)"
+
+  while IFS= read -r trial; do
+    for file in $(ls "$ABS_ORIGINAL_MSG_DIR" | egrep -i "trial-[T0]*"$trial"_Team");
+    do
+      ln -s "$ABS_ORIGINAL_MSG_DIR/$file" $TARGET_MSG_DIR
+    done
+  done < $TRIALS_FILE
+fi
+
+exit 0
+

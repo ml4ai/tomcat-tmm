@@ -91,12 +91,6 @@ namespace tomcat {
                     data_message["AgentID"] = this->id;
                     data_message["Trial"] =
                         this->message_converter->get_mission_trial_number();
-                    data_message["TrainingCondition TriageSignal"] = "n.a";
-                    data_message["TrainingCondition TriageNoSignal"] = "n.a";
-                    data_message["TrainingCondition NoTriageNoSignal"] = "n.a";
-                    data_message["VictimType Green"] = "n.a";
-                    data_message["VictimType Yellow"] = "n.a";
-                    data_message["VictimType Confidence"] = "n.a";
 
                     NodeEstimates estimates =
                         base_estimator->get_estimates_at(time_step);
@@ -111,23 +105,23 @@ namespace tomcat {
                     ss << put_time(localtime(&timestamp), "%Y-%m-%dT%T.000Z");
                     data_message["Timestamp"] = ss.str();
 
-                    if (estimates.label == "TrainingCondition") {
-                        data_message["TrainingCondition TriageSignal"] =
-                            to_string(estimates.estimates.at(0));
-                        data_message["TrainingCondition TriageNoSignal"] =
-                            to_string(estimates.estimates.at(1));
-                        data_message["TrainingCondition NoTriageNoSignal"] =
-                            to_string(estimates.estimates.at(2));
+                    if (estimates.assignment.size() ==  0) {
+                        // Probability of each value
+                        int k = base_estimator->get_model()
+                            ->get_metadata_of(estimates.label)
+                            ->get_cardinality();
+                        Eigen::MatrixXd probs(1, k);
+                        for (int i = 0; i < k; i++) {
+                            probs(1, i) = data_message[estimates.label] =
+                                estimates.estimates.at(i)(0, 0);
+                        }
+                        data_message[estimates.label] =
+                            to_string(probs);
                     }
-                    else if (estimates.label == "Task") {
-                        if (estimates.assignment(0) == 1) {
-                            data_message["VictimType Green"] =
-                                to_string(estimates.estimates.at(0));
-                        }
-                        else if (estimates.assignment(0) == 2) {
-                            data_message["VictimType Yellow"] =
-                                to_string(estimates.estimates.at(0));
-                        }
+                    else {
+                        // The probability of a specific assignment
+                        data_message[estimates.label] =
+                            to_string(estimates.estimates.at(0));
                     }
 
                     messages.push_back(message);
