@@ -61,11 +61,6 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-
-            EvidenceSet
-            get_data_from_message(const nlohmann::json& json_message,
-                                  nlohmann::json& json_mission_log) override;
-
             bool is_valid_message_file(
                 const boost::filesystem::directory_entry& file) const override;
 
@@ -84,10 +79,24 @@ namespace tomcat {
             void
             copy_converter(const ASISTMultiPlayerMessageConverter& converter);
 
+            EvidenceSet parse_before_mission_start(
+                const nlohmann::json& json_message,
+                nlohmann::json& json_mission_log) override;
+
+            EvidenceSet parse_after_mission_start(
+                const nlohmann::json& json_message,
+                nlohmann::json& json_mission_log) override;
+
+            void fill_observation(const nlohmann::json& json_message) override;
+
+            void prepare_for_new_mission() override;
+
           private:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+
 
             /**
              * Loads map of area configuration as a hash map to easily determine
@@ -97,48 +106,10 @@ namespace tomcat {
              */
             void load_map_area_configuration(const std::string& map_filepath);
 
-            /**
-             * Parse message before mission starts.
-             *
-             * @param json_message: json message.
-             * @param json_mission_log: includes info to be put in the
-             * conversion metadata file.
-             *
-             * @return Data collected from the parsed message.
-             */
-            EvidenceSet
-            parse_before_mission_start(const nlohmann::json& json_message,
-                                       nlohmann::json& json_mission_log);
-
-            /**
-             * Parse message before mission starts.
-             *
-             * @param json_message: json message.
-             * @param json_mission_log: includes info to be put in the
-             * conversion metadata file.
-             *
-             * @return Data collected from the parsed message.
-             */
-            EvidenceSet
-            parse_after_mission_start(const nlohmann::json& json_message,
-                                      nlohmann::json& json_mission_log);
-
-            /**
-             * Parse message and fill the appropriate observation tensor.
-             *
-             * @param json_message: json message with a particular observation.
-             */
-            void fill_observation(const nlohmann::json& json_message);
-
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
 
-            // Indicates whether a message informing about the mission start was
-            // received. Messages received before the mission starts will be
-            // ignored.
-            bool mission_started = false;
-            int elapsed_time = 0;
             int num_players;
 
             // IDs are sequential numbers starting from zero and indicate the

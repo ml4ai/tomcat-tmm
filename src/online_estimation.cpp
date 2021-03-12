@@ -25,8 +25,6 @@ namespace po = boost::program_options;
 void start_agent(const string& agent_id,
                  const string& model_json,
                  const string& params_dir,
-                 const string& estimates_topic,
-                 const string& log_topic,
                  const string& broker_json,
                  int num_connection_trials,
                  int milliseconds_before_retrial,
@@ -45,14 +43,10 @@ void start_agent(const string& agent_id,
     int num_time_steps = num_seconds / time_step_size;
     model->unroll(num_time_steps, true);
 
-    shared_ptr<ASISTMessageConverter> message_converter =
-        make_shared<ASISTSinglePlayerMessageConverter>(
-            num_seconds, time_step_size, map_json);
-    shared_ptr<ASISTAgent> agent = make_shared<ASISTAgent>(
-        agent_id, estimates_topic, log_topic, message_converter);
-
     string broker_address = "localhost";
     int broker_port = 1883;
+    string estimates_topic = "uaz/estimates";
+    string log_topic = "uaz/log";
     fstream file;
     file.open(broker_json);
     if (file.is_open()) {
@@ -63,7 +57,19 @@ void start_agent(const string& agent_id,
         if (broker.contains("port")) {
             broker_port = broker["port"];
         }
+        if (broker.contains("estimates_topic")) {
+            broker_port = broker["estimates_topic"];
+        }
+        if (broker.contains("log_topic")) {
+            broker_port = broker["log_topic"];
+        }
     }
+
+    shared_ptr<ASISTMessageConverter> message_converter =
+        make_shared<ASISTSinglePlayerMessageConverter>(
+            num_seconds, time_step_size, map_json);
+    shared_ptr<ASISTAgent> agent = make_shared<ASISTAgent>(
+        agent_id, estimates_topic, log_topic, message_converter);
 
     Experimentation experimentation(random_generator,
                                     model,
@@ -81,8 +87,6 @@ int main(int argc, char* argv[]) {
     string agent_id;
     string model_json;
     string params_dir;
-    string estimates_topic;
-    string log_topic;
     string broker_json;
     string map_json;
     string inference_json;
@@ -110,19 +114,10 @@ int main(int argc, char* argv[]) {
         "params_dir",
         po::value<string>(&params_dir)->required(),
         "Directory where the pre-trained model's parameters are saved.")(
-        "estimates_topic",
-        po::value<string>(&estimates_topic)
-            ->default_value("uaz/estimates")
-            ->required(),
-        "Message topic where estimates must be published to.\n")(
-        "log_topic",
-        po::value<string>(&log_topic)->default_value("uaz/log"),
-        "Message topic where processing log must be published to. If blank, "
-        "no log is published to the message bus."
-        ".\n")("broker_json",
-               po::value<string>(&broker_json),
-               "Json containing the address and port of the message broker to"
-               " connect to.\n")(
+        "broker_json",
+        po::value<string>(&broker_json),
+        "Json containing the address and port of the message broker to"
+        " connect to.\n")(
         "conn_trials",
         po::value<unsigned int>(&num_connection_trials)
             ->default_value(5)
@@ -174,8 +169,6 @@ int main(int argc, char* argv[]) {
     start_agent(agent_id,
                 model_json,
                 params_dir,
-                estimates_topic,
-                log_topic,
                 broker_json,
                 num_connection_trials,
                 milliseconds_before_retrial,

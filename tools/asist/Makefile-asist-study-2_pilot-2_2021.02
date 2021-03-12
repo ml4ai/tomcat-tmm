@@ -12,7 +12,7 @@
 # explicitly target execution)
 
 SERVER = laplace
-ASIST_SERVER_DIR = /work/paulosoares/data/asist
+ASIST_SERVER_DIR = /data/asist
 
 # The name of the Google Cloud Source folder where the ASIST HSR data resides.
 STUDY_ID = study-2_pilot-2_2021.02
@@ -45,7 +45,6 @@ PARAMS_DIR = params
 # For estimation
 INFERENCE_PATH = inference.json
 BROKER_PATH = broker.json
-TOPIC = uaz/estimates
 
 # Phony targets
 .PHONY: all
@@ -69,15 +68,13 @@ build:
 
 # Synchronize message folder with the GSC
 sync:
-	@echo ""
-	@GCS_DIR=$(STUDY_ID) DATA_DIR=$(MSG_DIR) ../../../tools/sync_asist_data
+	@GCS_DIR=$(STUDY_ID) DATA_DIR=$(MSG_DIR) ../../../tools/asist/sync_asist_data
 
 split: $(TRAIN_MSG_DIR)
 
 # Creates symbolic links for the message files in the folder split_messages
 # according to the trial numbers defined for training.
-$(TRAIN_MSG_DIR): ../../../tools/split_asist_data $(TRAIN_TRIALS_FILE)
-	@echo ""
+$(TRAIN_MSG_DIR): ../../../tools/asist/split_asist_data $(TRAIN_TRIALS_FILE)
 	@echo "Reserving training messages..."
 	@ORIGINAL_MSG_DIR=$(MSG_DIR) TRIALS_FILE=$(TRAIN_TRIALS_FILE) \
 	TARGET_MSG_DIR=$@ ./$<
@@ -87,7 +84,6 @@ $(TRAIN_MSG_DIR): ../../../tools/split_asist_data $(TRAIN_TRIALS_FILE)
 map: $(MAP_PATH)
 
 $(MAP_PATH):
-	@echo ""
 	@echo "Downloading map..."
 	@mkdir -p $(@D)
 	@scp $(SERVER):$(ASIST_SERVER_DIR)/maps/$(@F) $(MAP_PATH)
@@ -97,7 +93,6 @@ $(MAP_PATH):
 convert: $(TRAIN_SAMPLES_DIR)
 
 $(TRAIN_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(TRAIN_MSG_DIR)
-	@echo ""
 	@echo "Converting training data..."
 	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_PATH) \
 		--messages_dir $(TRAIN_MSG_DIR) --data_dir $(TRAIN_SAMPLES_DIR) \
@@ -110,7 +105,6 @@ train: $(PARAMS_DIR)
 # We insert and remove a dummy file to change the modification date of the
 # directory
 $(PARAMS_DIR): $(BUILD_DIR)/bin/train $(TRAIN_SAMPLES_DIR)/conversion_log.json
-	@echo ""
 	@echo "Training model..."
 	@./$< --model_json $(MODEL_PATH) --data_dir $(TRAIN_SAMPLES_DIR) \
 	    --params_dir $@ --T 450 --burn_in 50 --samples 100 --jobs 4
@@ -118,7 +112,6 @@ $(PARAMS_DIR): $(BUILD_DIR)/bin/train $(TRAIN_SAMPLES_DIR)/conversion_log.json
 	@rm $@/dummy.txt
 
 upload: $(PARAMS_DIR)
-	@echo ""
 	@echo "Compressing parameters..."
 	@tar --exclude partials/ --exclude '.DS_Store' -zcf params.tar.gz params
 	@echo "Uploading parameters to Laplace..."
@@ -131,6 +124,6 @@ start: $(MAP_PATH)
 	--model_json $(MODEL_PATH) --params_dir $(PARAMS_DIR) \
 	--broker_json $(BROKER_PATH) --map_json $(MAP_PATH) --seconds 900 \
 	--step_size 2 --inference_json $(INFERENCE_PATH) \
- 	--estimates_topic $(TOPIC) --burn_in 1 --samples 100 --jobs 4
+ 	--burn_in 1 --samples 100 --jobs 4
 
 

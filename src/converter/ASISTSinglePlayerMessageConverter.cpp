@@ -72,21 +72,15 @@ namespace tomcat {
             return topics;
         }
 
-        EvidenceSet ASISTSinglePlayerMessageConverter::get_data_from_message(
+        EvidenceSet
+        ASISTSinglePlayerMessageConverter::parse_before_mission_start(
             const nlohmann::json& json_message,
             nlohmann::json& json_mission_log) {
 
             EvidenceSet data;
-
-            if (this->mission_finished) {
-                this->mission_started = false;
-                this->mission_finished = false;
-            }
-
-            if (!this->mission_started) {
-                if (json_message["topic"] == "observations/events/mission" &&
-                    json_message["data"]["mission_state"] == "Start") {
-
+            if (json_message["header"]["message_type"] == "event" &&
+                json_message["msg"]["sub_type"] == "Event:MissionState") {
+                if (json_message["data"]["mission_state"] == "Start") {
                     this->mission_started = true;
                     this->elapsed_time = this->time_step_size;
 
@@ -123,90 +117,145 @@ namespace tomcat {
                         this->mission_initial_timestamp = mktime(&t);
                     }
                 }
-                else if (json_message["topic"] == "trial") {
-                    int value;
-                    try {
-                        value =
-                            stoi((string)json_message["data"]["condition"]) - 1;
-
-                        if (value <= 2) {
-                            this->training_condition = Tensor3(value);
-                        }
-                        else {
-                            throw TomcatModelException(
-                                "Training condition > 2.");
-                        }
-                    }
-                    catch (invalid_argument& exp) {
-                        throw TomcatModelException(fmt::format(
-                            "Invalid training condition {}.", value));
-                    }
-
-                    try {
-                        string trial = json_message["data"]["trial_number"];
-                        // Remove first character which is the letter T.
-                        this->mission_trial_number = stoi(trial.substr(1));
-                    }
-                    catch (invalid_argument& exp) {
-                        this->mission_trial_number = -1;
-                    }
-
-                    this->experiment_id = json_message["msg"]["experiment_id"];
+                else if (json_message["data"]["mission_state"] == "Stop") {
+                    this->mission_finished = true;
                 }
             }
-            else {
-                if (json_message["topic"] == "observations/state") {
-                    const string& timer = json_message["data"]["mission_timer"];
-                    int elapsed_time = this->get_elapsed_time(timer);
+            else if (json_message["header"]["message_type"] == "trial" &&
+                     json_message["msg"]["sub_type"] == "start") {
+                int value;
+                try {
+                    value = stoi((string)json_message["data"]["condition"]) - 1;
 
-                    if (elapsed_time ==
-                        this->elapsed_time + this->time_step_size) {
-                        data.add_data("TrainingCondition",
-                                      this->training_condition);
-                        data.add_data("Area", this->area);
-                        data.add_data("Task", this->task);
-                        data.add_data("Beep", this->beep);
-
-                        // Event that happens at a single time step.
-                        // Therefore, we must reset the value after saving.
-                        this->beep = Tensor3(0);
-
-                        // If the player starts to rescue a yellow victim close
-                        // to the time limit to rescue this kind of victim (half
-                        // of the mission total time) and he doesn't finish
-                        // before this limit, there's no SUCCESSFUL or
-                        // UNSUCCESSFUL message reported by the testbed. In that
-                        // case, we need to reset the observation manually
-                        // here, otherwise, an observation for yellow (value 2)
-                        // will be emitted until the end of the game.
-                        if (elapsed_time > this->time_steps / 2 &&
-                            ((int)this->task.at(0, 0, 0)) == 2) {
-                            this->task = Tensor3(0);
-                        }
-
-                        this->elapsed_time += this->time_step_size;
-                        if (this->elapsed_time ==
-                            this->time_steps * this->time_step_size) {
-                            this->mission_finished = true;
-                        }
+                    if (value <= 2) {
+                        this->training_condition = Tensor3(value);
+                    }
+                    else {
+                        throw TomcatModelException("Training condition > 2.");
                     }
                 }
-                else if (json_message["topic"] ==
-                         "observations/events/player/triage") {
-                    this->fill_victim_saving_observation(json_message);
+                catch (invalid_argument& exp) {
+                    throw TomcatModelException(
+                        fmt::format("Invalid training condition {}.", value));
                 }
-                else if (json_message["topic"] ==
-                         "observations/events/player/location") {
-                    this->fill_room_observation(json_message);
+
+                try {
+                    string trial = json_message["data"]["trial_number"];
+                    // Remove first character which is the letter T.
+                    this->mission_trial_number = stoi(trial.substr(1));
                 }
-                else if (json_message["topic"] ==
-                         "observations/events/player/beep") {
-                    this->fill_beep_observation(json_message);
+                catch (invalid_argument& exp) {
+                    this->mission_trial_number = -1;
                 }
+
+                this->experiment_id = json_message["msg"]["experiment_id"];
             }
 
             return data;
         }
+
+        EvidenceSet
+        ASISTSinglePlayerMessageConverter::parse_after_mission_start(
+            const nlohmann::json& json_message,
+            nlohmann::json& json_mission_log) {
+
+            EvidenceSet data;
+            if (json_message["header"]["message_type"] == "observation" &&
+                json_message["msg"]["sub_type"] == "state") {
+                const string& timer = json_message["data"]["mission_timer"];
+                int elapsed_time = this->get_elapsed_time(timer);
+
+                if (elapsed_time == this->elapsed_time + this->time_step_size) {
+                    // Every time there's a transition, we store the last
+                    // observations collected.
+
+                    data.add_data("TrainingCondition",
+                                  this->training_condition);
+                    data.add_data("Area", this->area);
+                    data.add_data("Task", this->task);
+                    data.add_data("Beep", this->beep);
+
+                    // Event that happens at a single time step.
+                    // Therefore, we must reset the value after saving.
+                    this->beep = Tensor3(0);
+
+                    // If the player starts to rescue a yellow victim close
+                    // to the time limit to rescue this kind of victim (half
+                    // of the mission total time) and he doesn't finish
+                    // before this limit, there's no SUCCESSFUL or
+                    // UNSUCCESSFUL message reported by the testbed. In that
+                    // case, we need to reset the observation manually
+                    // here, otherwise, an observation for yellow (value 2)
+                    // will be emitted until the end of the game.
+                    if (elapsed_time > this->time_steps / 2 &&
+                        ((int)this->task.at(0, 0, 0)) == 2) {
+                        this->task = Tensor3(0);
+                    }
+
+                    this->elapsed_time += this->time_step_size;
+                    if (this->elapsed_time >=
+                        this->time_steps * this->time_step_size) {
+                        this->mission_finished = true;
+                    }
+                }
+            }
+            else {
+                this->fill_observation(json_message);
+            }
+
+            return data;
+        }
+
+        void ASISTSinglePlayerMessageConverter::fill_observation(
+            const nlohmann::json& json_message) {
+
+            if (json_message["header"]["message_type"] == "event" &&
+                json_message["msg"]["sub_type"] == "Event:Triage") {
+                if (json_message["data"]["triage_state"] == "IN_PROGRESS") {
+                    if (json_message["data"]["color"] == "Green") {
+                        this->task = Tensor3(1);
+                    }
+                    else if (json_message["data"]["color"] == "Yellow") {
+                        this->task = Tensor3(2);
+                    }
+                }
+                else {
+                    this->task = Tensor3(0);
+                }
+            }
+            else if (json_message["header"]["message_type"] == "event" &&
+                     json_message["msg"]["sub_type"] == "Event:location") {
+                if (json_message["data"].contains("entered_area_id")) {
+                    // Old version of the location monitor. Do not convert.
+                    throw TomcatModelException(
+                        "Old version of the location monitor.");
+                }
+
+                if (json_message["data"].contains("locations")) {
+                    string room_id = json_message["data"]["locations"][0]["id"];
+                    if (EXISTS(room_id, this->map_area_configuration)) {
+                        if (this->map_area_configuration.at(room_id)) {
+                            this->area = Tensor3(1);
+                        }
+                        else {
+                            this->area = Tensor3(0);
+                        }
+                    }
+                }
+            }
+            else if (json_message["header"]["message_type"] == "event" &&
+                     json_message["msg"]["sub_type"] == "Event:Beep") {
+                const string beep = json_message["data"]["message"];
+                if (beep == "Beep") {
+                    this->beep = Tensor3(1);
+                }
+                else if (beep == "Beep Beep") {
+                    this->beep = Tensor3(2);
+                }
+            }
+        }
+
+        void ASISTSinglePlayerMessageConverter::prepare_for_new_mission() {}
 
         bool ASISTSinglePlayerMessageConverter::is_valid_message_file(
             const boost::filesystem::directory_entry& file) const {
@@ -234,56 +283,6 @@ namespace tomcat {
                 ss << "Map configuration file in " << map_filepath
                    << " does not exist.";
                 throw TomcatModelException(ss.str());
-            }
-        }
-
-        void ASISTSinglePlayerMessageConverter::fill_victim_saving_observation(
-            const nlohmann::json& json_message) {
-
-            if (json_message["data"]["triage_state"] == "IN_PROGRESS") {
-                if (json_message["data"]["color"] == "Green") {
-                    this->task = Tensor3(1);
-                }
-                else if (json_message["data"]["color"] == "Yellow") {
-                    this->task = Tensor3(2);
-                }
-            }
-            else {
-                this->task = Tensor3(0);
-            }
-        }
-
-        void ASISTSinglePlayerMessageConverter::fill_room_observation(
-            const nlohmann::json& json_message) {
-
-            if (json_message["data"].contains("entered_area_id")) {
-                // Old version of the location monitor. Do not convert.
-                throw TomcatModelException(
-                    "Old version of the location monitor.");
-            }
-
-            if (json_message["data"].contains("locations")) {
-                string room_id = json_message["data"]["locations"][0]["id"];
-                if (EXISTS(room_id, this->map_area_configuration)) {
-                    if (this->map_area_configuration.at(room_id)) {
-                        this->area = Tensor3(1);
-                    }
-                    else {
-                        this->area = Tensor3(0);
-                    }
-                }
-            }
-        }
-
-        void ASISTSinglePlayerMessageConverter::fill_beep_observation(
-            const nlohmann::json& json_message) {
-
-            const string beep = json_message["data"]["message"];
-            if (beep == "Beep") {
-                this->beep = Tensor3(1);
-            }
-            else if (beep == "Beep Beep") {
-                this->beep = Tensor3(2);
             }
         }
 

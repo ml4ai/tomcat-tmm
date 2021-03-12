@@ -22,6 +22,29 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+        EvidenceSet ASISTMessageConverter::get_data_from_message(
+            const nlohmann::json& json_message,
+            nlohmann::json& json_mission_log) {
+
+            if (this->mission_finished) {
+                this->mission_started = false;
+                this->mission_finished = false;
+                this->prepare_for_new_mission();
+            }
+
+            EvidenceSet data;
+            if (!this->mission_started) {
+                data = this->parse_before_mission_start(json_message,
+                                                        json_mission_log);
+            }
+            else {
+                data = this->parse_after_mission_start(json_message,
+                                                       json_mission_log);
+            }
+
+            return data;
+        }
+
         map<string, nlohmann::json>
         ASISTMessageConverter::filter(const string& messages_filepath) const {
             map<string, nlohmann::json> messages;

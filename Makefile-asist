@@ -2,7 +2,7 @@
 # studies from laplace and place them under the data/ folder.
 
 SERVER = laplace
-ASIST_SERVER_DIR = /work/paulosoares/data/asist
+ASIST_SERVER_DIR = /data/asist
 
 # Phony targets
 .PHONY: all

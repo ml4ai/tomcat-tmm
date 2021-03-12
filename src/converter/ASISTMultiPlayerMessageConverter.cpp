@@ -94,36 +94,14 @@ namespace tomcat {
             return topics;
         }
 
-        EvidenceSet ASISTMultiPlayerMessageConverter::get_data_from_message(
-            const nlohmann::json& json_message,
-            nlohmann::json& json_mission_log) {
-
-            if (this->mission_finished) {
-                this->mission_started = false;
-                this->mission_finished = false;
-                this->player_name_to_id.clear();
-            }
-
-            EvidenceSet data;
-            if (!this->mission_started) {
-                data = this->parse_before_mission_start(json_message,
-                                                        json_mission_log);
-            }
-            else {
-                data = this->parse_after_mission_start(json_message,
-                                                       json_mission_log);
-            }
-
-            return data;
-        }
-
         EvidenceSet
         ASISTMultiPlayerMessageConverter::parse_before_mission_start(
             const nlohmann::json& json_message,
             nlohmann::json& json_mission_log) {
 
             EvidenceSet data;
-            if (json_message["topic"] == "observations/state") {
+            if (json_message["header"]["message_type"] == "observation" &&
+                json_message["msg"]["sub_type"] == "state") {
                 const string& player_name = json_message["data"]["playername"];
 
                 // Detect new players and add to the list
@@ -140,7 +118,8 @@ namespace tomcat {
                     }
                 }
             }
-            else if (json_message["topic"] == "observations/events/mission") {
+            else if (json_message["header"]["message_type"] == "event" &&
+                     json_message["msg"]["sub_type"] == "Event:MissionState") {
                 if (json_message["data"]["mission_state"] == "Start") {
                     if (this->player_name_to_id.size() != this->num_players) {
                         throw TomcatModelException(
@@ -183,7 +162,8 @@ namespace tomcat {
                     this->mission_finished = true;
                 }
             }
-            else if (json_message["topic"] == "trial") {
+            else if (json_message["header"]["message_type"] == "trial" &&
+                     json_message["msg"]["sub_type"] == "start") {
                 try {
                     string trial = json_message["data"]["trial_number"];
                     // Remove first character which is the letter T.
@@ -204,12 +184,12 @@ namespace tomcat {
             nlohmann::json& json_mission_log) {
 
             EvidenceSet data;
-            if (json_message["topic"] == "observations/state") {
+            if (json_message["header"]["message_type"] == "observation" &&
+                json_message["msg"]["sub_type"] == "state") {
                 const string& timer = json_message["data"]["mission_timer"];
                 int elapsed_time = this->get_elapsed_time(timer);
 
-                if (elapsed_time ==
-                    this->elapsed_time + this->time_step_size) {
+                if (elapsed_time == this->elapsed_time + this->time_step_size) {
                     // Every time there's a transition, we store the last
                     // observations collected.
 
@@ -253,8 +233,8 @@ namespace tomcat {
 
             int player_id = this->player_name_to_id.at(player_name);
 
-            if (json_message["topic"] ==
-                "observations/events/player/tool_used") {
+            if (json_message["header"]["message_type"] == "event" &&
+                json_message["msg"]["sub_type"] == "Event:ToolUsed") {
                 const string& target_block =
                     json_message["data"]["target_block_type"];
                 const string& tool = json_message["data"]["tool_type"];
@@ -270,16 +250,17 @@ namespace tomcat {
                     this->task_per_player[player_id] = Tensor3(SAVING_CRITICAL);
                 }
             }
-            else if (json_message["topic"] ==
-                     "observations/events/player/victim_picked_up") {
+            else if (json_message["header"]["message_type"] == "event" &&
+                     json_message["msg"]["sub_type"] ==
+                         "Event:VictimPickedUp") {
                 this->task_per_player[player_id] = Tensor3(CARRYING_VICTIM);
             }
-            else if (json_message["topic"] ==
-                     "observations/events/player/victim_placed") {
+            else if (json_message["header"]["message_type"] == "event" &&
+                     json_message["msg"]["sub_type"] == "Event:VictimPlaced") {
                 this->task_per_player[player_id] = Tensor3(NO_TASK);
             }
-            else if (json_message["topic"] ==
-                     "observations/events/player/role_selected") {
+            else if (json_message["header"]["message_type"] == "event" &&
+                     json_message["msg"]["sub_type"] == "Event:RoleSelected") {
                 string role = json_message["data"]["new_role"];
                 if (role == "search") {
                     this->role_per_player[player_id] = Tensor3(SEARCH);
@@ -294,6 +275,10 @@ namespace tomcat {
                     this->role_per_player[player_id] = Tensor3(NO_ROLE);
                 }
             }
+        }
+
+        void ASISTMultiPlayerMessageConverter::prepare_for_new_mission() {
+            this->player_name_to_id.clear();
         }
 
         bool ASISTMultiPlayerMessageConverter::is_valid_message_file(

@@ -62,6 +62,14 @@ namespace tomcat {
             virtual std::unordered_set<std::string> get_used_topics() const = 0;
 
             //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            EvidenceSet
+            get_data_from_message(const nlohmann::json& json_message,
+                                  nlohmann::json& json_mission_log) override;
+
+            //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
             std::time_t get_mission_initial_timestamp() const;
@@ -71,6 +79,48 @@ namespace tomcat {
             const std::string& get_experiment_id() const;
 
           protected:
+            //------------------------------------------------------------------
+            // Pure virtual functions
+            //------------------------------------------------------------------
+            /**
+             * Parse message before mission starts.
+             *
+             * @param json_message: json message.
+             * @param json_mission_log: includes info to be put in the
+             * conversion metadata file.
+             *
+             * @return Data collected from the parsed message.
+             */
+            virtual EvidenceSet
+            parse_before_mission_start(const nlohmann::json& json_message,
+                                       nlohmann::json& json_mission_log) = 0;
+
+            /**
+             * Parse message before mission starts.
+             *
+             * @param json_message: json message.
+             * @param json_mission_log: includes info to be put in the
+             * conversion metadata file.
+             *
+             * @return Data collected from the parsed message.
+             */
+            virtual EvidenceSet
+            parse_after_mission_start(const nlohmann::json& json_message,
+                                      nlohmann::json& json_mission_log) = 0;
+
+            /**
+             * Parse message and fill the appropriate observation tensor.
+             *
+             * @param json_message: json message with a particular observation.
+             */
+            virtual void
+            fill_observation(const nlohmann::json& json_message) = 0;
+
+            /**
+             * Clea nup before new mission starts
+             */
+            virtual void prepare_for_new_mission() = 0;
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -99,6 +149,12 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
+            // Indicates whether a message informing about the mission start was
+            // received. Messages received before the mission starts will be
+            // ignored.
+            bool mission_started = false;
+            int elapsed_time = 0;
+
             time_t mission_initial_timestamp;
 
             int mission_trial_number = -1;

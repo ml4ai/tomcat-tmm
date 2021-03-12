@@ -13,7 +13,7 @@
 # 7. Generating final report (requires explicitly target execution)
 
 SERVER = laplace
-ASIST_SERVER_DIR = /work/paulosoares/data/asist
+ASIST_SERVER_DIR = /data/asist
 
 # The name of the Google Cloud Source folder where the ASIST HSR data resides.
 STUDY_ID = study-1_2020.08
@@ -77,21 +77,18 @@ build:
 
 # Synchronize message folder with the GSC
 sync:
-	@echo ""
-	@GCS_DIR=$(STUDY_ID) DATA_DIR=$(MSG_DIR) ../../../tools/sync_asist_data
+	@GCS_DIR=$(STUDY_ID) DATA_DIR=$(MSG_DIR) ../../../tools/asist/sync_asist_data
 
 split: $(TRAIN_MSG_DIR) $(EVAL_MSG_DIR)
 
 # Creates symbolic links for the message files in the folder split_messages
 # according to the trial numbers defined for training.
-$(TRAIN_MSG_DIR): ../../../tools/split_asist_data $(TRAIN_TRIALS_FILE)
-	@echo ""
+$(TRAIN_MSG_DIR): ../../../tools/asist/split_asist_data $(TRAIN_TRIALS_FILE)
 	@echo "Reserving training messages..."
 	@ORIGINAL_MSG_DIR=$(MSG_DIR) TRIALS_FILE=$(TRAIN_TRIALS_FILE) \
 	TARGET_MSG_DIR=$@ ./$<
 
-$(EVAL_MSG_DIR): ../../../tools/split_asist_data $(EVAL_TRIALS_FILE)
-	@echo ""
+$(EVAL_MSG_DIR): ../../../tools/asist/split_asist_data $(EVAL_TRIALS_FILE)
 	@echo "Reserving eval messages..."
 	@ORIGINAL_MSG_DIR=$(MSG_DIR) TRIALS_FILE=$(EVAL_TRIALS_FILE) \
 	TARGET_MSG_DIR=$@ ./$<
@@ -101,7 +98,6 @@ $(EVAL_MSG_DIR): ../../../tools/split_asist_data $(EVAL_TRIALS_FILE)
 map: $(MAP_PATH)
 
 $(MAP_PATH):
-	@echo ""
 	@echo "Downloading map..."
 	@mkdir -p $(@D)
 	@scp $(SERVER):$(ASIST_SERVER_DIR)/maps/$(@F) $(MAP_PATH)
@@ -111,14 +107,12 @@ $(MAP_PATH):
 convert: $(TRAIN_SAMPLES_DIR) $(EVAL_SAMPLES_DIR)
 
 $(TRAIN_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(TRAIN_MSG_DIR)
-	@echo ""
 	@echo "Converting training data..."
 	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_PATH) \
 		--messages_dir $(TRAIN_MSG_DIR) --data_dir $(TRAIN_SAMPLES_DIR) \
 		--seconds 600 --step_size 1
 
 $(EVAL_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(EVAL_MSG_DIR)
-	@echo ""
 	@echo "Converting evaluation data..."
 	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_PATH) \
 		--messages_dir $(EVAL_MSG_DIR) --data_dir $(EVAL_SAMPLES_DIR) \
@@ -131,7 +125,6 @@ train: $(PARAMS_DIR)
 # We insert and remove a dummy file to change the modification date of the
 # directory
 $(PARAMS_DIR): $(BUILD_DIR)/bin/train $(TRAIN_SAMPLES_DIR)/conversion_log.json
-	@echo ""
 	@echo "Training model..."
 	@./$< --model_json $(MODEL_PATH) --data_dir $(TRAIN_SAMPLES_DIR) \
 	    --params_dir $@ --T 600 --burn_in 50 --samples 100 --jobs 4
@@ -139,7 +132,6 @@ $(PARAMS_DIR): $(BUILD_DIR)/bin/train $(TRAIN_SAMPLES_DIR)/conversion_log.json
 	@rm $@/dummy.txt
 
 upload: $(PARAMS_DIR)
-	@echo ""
 	@echo "Compressing parameters..."
 	@tar --exclude partials/ --exclude '.DS_Store' -zcf params.tar.gz params
 	@echo "Uploading parameters to Laplace..."
@@ -151,7 +143,6 @@ upload: $(PARAMS_DIR)
 # the evaluation data changed.
 $(EVAL_PATH): build $(BUILD_DIR)/bin/evaluate $(PARAMS_DIR) $(INFERENCE_PATH) \
 $(MAP_PATH)
-	@echo ""
 	@echo "Evaluating model..."
 	@./$(BUILD_DIR)/bin/evaluate --exp_id $(STUDY_ID) --model_json $(MODEL_PATH) \
 	    --data_dir $(EVAL_SAMPLES_DIR) --params_dir $(PARAMS_DIR) \
@@ -162,5 +153,4 @@ eval: $(REPORT_PATH)
 
 $(REPORT_PATH): ../../../tools/asist/create_study-1_2020.08_report.py \
 $(EVAL_PATH)
-	@echo ""
 	@python3 $< $(EVAL_PATH) $(EVAL_SAMPLES_DIR)/conversion_log.json $@

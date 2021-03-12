@@ -59,11 +59,6 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-
-            EvidenceSet
-            get_data_from_message(const nlohmann::json& json_message,
-                                  nlohmann::json& json_mission_log) override;
-
             bool is_valid_message_file(
                 const boost::filesystem::directory_entry& file) const override;
 
@@ -82,6 +77,18 @@ namespace tomcat {
             void
             copy_converter(const ASISTSinglePlayerMessageConverter& converter);
 
+            EvidenceSet parse_before_mission_start(
+                const nlohmann::json& json_message,
+                nlohmann::json& json_mission_log) override;
+
+            EvidenceSet parse_after_mission_start(
+                const nlohmann::json& json_message,
+                nlohmann::json& json_mission_log) override;
+
+            void fill_observation(const nlohmann::json& json_message) override;
+
+            void prepare_for_new_mission() override;
+
           private:
             //------------------------------------------------------------------
             // Member functions
@@ -95,57 +102,19 @@ namespace tomcat {
              */
             void load_map_area_configuration(const std::string& map_filepath);
 
-            /**
-             * Returns observation related to victim saving.
-             *
-             * @param json_message: json message containing a victim saving
-             * event.
-             *
-             * @return Victim saving event observation.
-             */
-            void
-            fill_victim_saving_observation(const nlohmann::json& json_message);
-
-            /**
-             * Returns observation related to being in a room or not.
-             *
-             * @param json_message: json message containing information about
-             * the room the player is in.
-             *
-             * @return Room observation.
-             */
-            void fill_room_observation(const nlohmann::json& json_message);
-
-            /**
-             * Returns observation about the beep event.
-             *
-             * @param json_message: json message containing information about
-             * the beep played.
-             *
-             * @return Observation regarding the beep playing.
-             */
-            void fill_beep_observation(const nlohmann::json& json_message);
-
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-
-            // Indicates whether a message informing about the mission start was
-            // received. Messages received before the mission starts will be
-            // ignored.
-            bool mission_started = false;
-
-            Tensor3 training_condition;
-            Tensor3 area;
-            Tensor3 task;
-            Tensor3 beep;
-
-            int elapsed_time = 0;
 
             // Stores the id of all possible areas in the map along with a flag
             // indicating whether the area is a room or not (e.g, yard, hallway
             // etc.).
             std::unordered_map<std::string, bool> map_area_configuration;
+
+            Tensor3 training_condition;
+            Tensor3 area;
+            Tensor3 task;
+            Tensor3 beep;
         };
 
     } // namespace model
