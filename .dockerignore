@@ -6,10 +6,12 @@
 !/Makefile-asist
 !/src
 !/build/bin
+!/models/tomcat-v04.json
 !/data/asist/study-2_pilot-2_2021.02/params
 !/data/asist/study-2_pilot-2_2021.02/broker.json
 !/data/asist/study-2_pilot-2_2021.02/inference.json
 !/data/asist/study-2_pilot-2_2021.02/Makefile
+!/data/asist/study-2_pilot-2_2021.02/map/Saturn_1.0_sm_v1.0.json
 !/tools
 !/test
 
