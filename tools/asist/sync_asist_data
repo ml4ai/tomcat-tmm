@@ -8,5 +8,5 @@ set -euo pipefail
 
 mkdir -p $DATA_DIR
 gsutil -m rsync -r \
-    -x ".*\.flv$|.*\.sav$|.*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*.png$|.*.PNG$|.*\.csv$|.*Competency.*|.*Condition.*$|Materials/.*$|TrialMessages.*$|Analyses/.*$|.*Posttrial.*$|.*Pretrial.*$|.*EyeTracking.*$" \
+    -x ".*\.mkv|.*\.flv$|.*\.sav$|.*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*.png$|.*.PNG$|.*\.csv$|.*Competency.*|.*Condition.*$|Materials/.*$|TrialMessages.*$|Analyses/.*$|.*Posttrial.*$|.*Pretrial.*$|.*EyeTracking.*$" \
     gs://studies.aptima.com/$GCS_DIR $DATA_DIR

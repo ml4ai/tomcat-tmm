@@ -90,6 +90,7 @@ namespace tomcat {
             topics.insert("observations/events/player/victim_picked_up");
             topics.insert("observations/events/player/victim_placed");
             topics.insert("observations/events/player/role_selected");
+            topics.insert("observations/events/player/triage");
 
             return topics;
         }
@@ -106,7 +107,8 @@ namespace tomcat {
 
                 // Detect new players and add to the list
                 if (player_name != "ASU_MC") {
-                    if (!EXISTS(player_name, this->player_name_to_id)) {
+                    if (!EXISTS(player_name, this->player_name_to_id) &&
+                    this->player_name_to_id.size() < this->num_players) {
                         int id = this->player_name_to_id.size();
                         this->player_name_to_id[player_name] = id;
 
@@ -121,12 +123,13 @@ namespace tomcat {
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] == "Event:MissionState") {
                 if (json_message["data"]["mission_state"] == "Start") {
-                    if (this->player_name_to_id.size() != this->num_players) {
-                        throw TomcatModelException(
-                            fmt::format("Number of players found is different"
-                                        " than {}.",
-                                        this->num_players));
-                    }
+//                    TODO - Allow less participants than expected
+//                    if (this->player_name_to_id.size() != this->num_players) {
+//                        throw TomcatModelException(
+//                            fmt::format("Number of players found is different"
+//                                        " than {}.",
+//                                        this->num_players));
+//                    }
 
                     this->mission_started = true;
                     this->elapsed_time = this->time_step_size;
@@ -199,12 +202,12 @@ namespace tomcat {
                         data.add_data(fmt::format("RoleP{}", i + 1),
                                       this->role_per_player.at(i));
 
-                        // Carry a victim is a task that has an explicit
-                        // end event. We don't reset the last observation
+                        // Carrying ans saving a victim are tasks that have an
+                        // explicit end event. We don't reset the last observation
                         // for this task then. It's going to be reset when
                         // its ending is detected.
                         int last_task = this->role_per_player.at(i)(0, 0)(0, 0);
-                        if (last_task != CARRYING_VICTIM) {
+                        if (last_task == CLEARING_RUBBLE) {
                             this->task_per_player[i] = Tensor3(NO_TASK);
                         }
                     }
@@ -234,20 +237,25 @@ namespace tomcat {
             int player_id = this->player_name_to_id.at(player_name);
 
             if (json_message["header"]["message_type"] == "event" &&
-                json_message["msg"]["sub_type"] == "Event:ToolUsed") {
-                const string& target_block =
-                    json_message["data"]["target_block_type"];
-                const string& tool = json_message["data"]["tool_type"];
-                if (target_block == "Gravel" && tool == "hammer") {
-                    this->task_per_player[player_id] = Tensor3(CLEARING_RUBBLE);
+                json_message["msg"]["sub_type"] == "Event:ToolUsed" &&
+                json_message["data"]["target_block_type"] == "minecraft:gravel" &&
+                json_message["data"]["tool_type"] == "HAMMER") {
+                this->task_per_player[player_id] = Tensor3(CLEARING_RUBBLE);
+            }
+            else if (json_message["header"]["message_type"] == "event" &&
+                     json_message["msg"]["sub_type"] == "Event:Triage") {
+                if (json_message["data"]["triage_state"] == "IN_PROGRESS") {
+                    if (json_message["data"]["color"] == "Green") {
+                        this->task_per_player[player_id] =
+                            Tensor3(SAVING_REGULAR);
+                    }
+                    else if (json_message["data"]["color"] == "Yellow") {
+                        this->task_per_player[player_id] =
+                            Tensor3(SAVING_CRITICAL);
+                    }
                 }
-                else if (target_block == "Victim Block 1" &&
-                         tool == "medicalkit") {
-                    this->task_per_player[player_id] = Tensor3(SAVING_REGULAR);
-                }
-                else if (target_block == "Victim Block 2" &&
-                         tool == "medicalkit") {
-                    this->task_per_player[player_id] = Tensor3(SAVING_CRITICAL);
+                else {
+                    this->task_per_player[player_id] = Tensor3(NO_TASK);
                 }
             }
             else if (json_message["header"]["message_type"] == "event" &&
@@ -262,20 +270,20 @@ namespace tomcat {
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] == "Event:RoleSelected") {
                 string role = json_message["data"]["new_role"];
-                if (role == "search") {
+                if (role == "Search_Specialist") {
                     this->role_per_player[player_id] = Tensor3(SEARCH);
                 }
-                else if (role == "hammer") {
+                else if (role == "Hazardous_Material_Specialist") {
                     this->role_per_player[player_id] = Tensor3(HAMMER);
                 }
-                else if (role == "medical") {
+                else if (role == "Medical_Specialist") {
                     this->role_per_player[player_id] = Tensor3(MEDICAL);
                 }
                 else {
                     this->role_per_player[player_id] = Tensor3(NO_ROLE);
                 }
             }
-        }
+        } // namespace model
 
         void ASISTMultiPlayerMessageConverter::prepare_for_new_mission() {
             this->player_name_to_id.clear();
