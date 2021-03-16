@@ -284,7 +284,6 @@ namespace tomcat {
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] == "Event:RoleSelected") {
                 string role = json_message["data"]["new_role"];
-                cout << role << endl;
                 if (role == "Search_Specialist" || role == "search") {
                     this->role_per_player[player_id] = Tensor3(SEARCH);
                 }

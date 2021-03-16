@@ -145,7 +145,6 @@ namespace tomcat {
             }
 
             this->next_time_step += new_data.get_time_steps();
-            cout << new_data << endl;
         }
 
         void SumProductEstimator::compute_forward_messages(
