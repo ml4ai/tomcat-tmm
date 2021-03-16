@@ -13,4 +13,4 @@ services:
         aliases:
           - uaz_tmm_agent
     working_dir: /tomcat-tmm/data/asist/study-2_pilot-2_2021.02
-    entrypoint: ["./../../../build/bin/start_agent", "--agent_id", "ToMCAT", "--params_dir", "params", "--model_json", "../../../models/tomcat-v04.json", "--broker_json", "broker.json", "--map_json", "map/Saturn_1.0_sm_v1.0.json", "--seconds", "900", "--step_size", "1", "--inference_json", "inference.json", "--burn_in", "1", "--samples", "100", "--jobs", "4"]
+    entrypoint: ["./../../../build/bin/start_agent", "--agent_id", "ToMCAT", "--params_dir", "params", "--model_json", "../../../models/tomcat-v04.json", "--broker_json", "broker.json", "--map_json", "map/Saturn_1.0_sm_v1.0.json", "--seconds", "900", "--step_size", "1", "--inference_json", "inference.json", "--burn_in", "1", "--samples", "100", "--jobs", "4", "--multiplayer"]
