@@ -241,8 +241,9 @@ namespace tomcat {
 
             if (json_message["header"]["message_type"] == "event" &&
                 json_message["msg"]["sub_type"] == "Event:ToolUsed" &&
-                json_message["data"]["target_block_type"] ==
-                    "minecraft:gravel" &&
+                (json_message["data"]["target_block_type"] ==
+                     "minecraft:gravel" ||
+                 json_message["data"]["target_block_type"] == "Gravel") &&
                 json_message["data"]["tool_type"] == "HAMMER") {
                 this->task_per_player[player_id] = Tensor3(CLEARING_RUBBLE);
             }
@@ -252,17 +253,14 @@ namespace tomcat {
                     if (json_message["data"]["color"] == "Green") {
                         this->task_per_player[player_id] =
                             Tensor3(SAVING_REGULAR);
-                        cout << "Triage Green Detected" << endl;
                     }
                     else if (json_message["data"]["color"] == "Yellow") {
                         this->task_per_player[player_id] =
                             Tensor3(SAVING_CRITICAL);
-                        cout << "Triage Yellow Detected" << endl;
                     }
                 }
                 else {
                     this->task_per_player[player_id] = Tensor3(NO_TASK);
-                    cout << "Triage Ended" << endl;
                 }
             }
             else if (json_message["header"]["message_type"] == "event" &&
@@ -277,13 +275,14 @@ namespace tomcat {
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] == "Event:RoleSelected") {
                 string role = json_message["data"]["new_role"];
-                if (role == "Search_Specialist") {
+                if (role == "Search_Specialist" || role == "search") {
                     this->role_per_player[player_id] = Tensor3(SEARCH);
                 }
-                else if (role == "Hazardous_Material_Specialist") {
+                else if (role == "Hazardous_Material_Specialist" ||
+                         role == "hammer") {
                     this->role_per_player[player_id] = Tensor3(HAMMER);
                 }
-                else if (role == "Medical_Specialist") {
+                else if (role == "Medical_Specialist" || role == "medical") {
                     this->role_per_player[player_id] = Tensor3(MEDICAL);
                 }
                 else {
