@@ -34,8 +34,6 @@ namespace tomcat {
             : ASISTMessageConverter(num_seconds, time_step_size),
               num_players(num_players) {
 
-            this->task_per_player.resize(num_players);
-            this->role_per_player.resize(num_players);
             this->load_map_area_configuration(map_filepath);
         }
 
@@ -168,25 +166,29 @@ namespace tomcat {
                     this->mission_finished = true;
                 }
             }
-            else if (json_message["header"]["message_type"] == "trial" &&
-                     json_message["msg"]["sub_type"] == "start") {
-                try {
-                    string trial = json_message["data"]["trial_number"];
-                    // Remove first character which is the letter T.
-                    this->mission_trial_number = stoi(trial.substr(1));
-                }
-                catch (invalid_argument& exp) {
-                    this->mission_trial_number = -1;
-                }
+            else if (json_message["header"]["message_type"] == "trial") {
+                if (json_message["msg"]["sub_type"] == "start") {
+                    try {
+                        string trial = json_message["data"]["trial_number"];
+                        // Remove first character which is the letter T.
+                        this->mission_trial_number = stoi(trial.substr(1));
+                    }
+                    catch (invalid_argument& exp) {
+                        this->mission_trial_number = -1;
+                    }
 
-                this->experiment_id = json_message["msg"]["experiment_id"];
+                    this->experiment_id = json_message["msg"]["experiment_id"];
+                }
+                else if (json_message["msg"]["sub_type"] == "stop") {
+                    this->mission_finished = true;
+                }
             }
             else if (!this->mission_finished) {
                 this->fill_observation(json_message);
             }
 
             return data;
-        }
+        } // namespace model
 
         EvidenceSet ASISTMultiPlayerMessageConverter::parse_after_mission_start(
             const nlohmann::json& json_message,
@@ -224,6 +226,10 @@ namespace tomcat {
                         this->mission_finished = true;
                     }
                 }
+            }
+            else if (json_message["header"]["message_type"] == "trial" &&
+                     json_message["msg"]["sub_type"] == "stop") {
+                this->mission_finished = true;
             }
             else {
                 this->fill_observation(json_message);
