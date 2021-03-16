@@ -194,7 +194,7 @@ namespace tomcat {
 
                 this->experiment_id = json_message["msg"]["experiment_id"];
             }
-            else {
+            else if (!this->mission_finished){
                 this->fill_observation(json_message);
             }
 
