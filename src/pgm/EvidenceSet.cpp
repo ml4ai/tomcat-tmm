@@ -29,7 +29,7 @@ namespace tomcat {
         ostream& operator<<(ostream& os, const EvidenceSet& set) {
             for (const auto& [label, data] : set.node_label_to_data) {
                 os << label << "\n";
-                os << data << endl;
+                os << data;
             }
 
             return os;

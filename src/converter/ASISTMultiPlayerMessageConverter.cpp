@@ -275,6 +275,7 @@ namespace tomcat {
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] == "Event:RoleSelected") {
                 string role = json_message["data"]["new_role"];
+                cout << role << endl;
                 if (role == "Search_Specialist" || role == "search") {
                     this->role_per_player[player_id] = Tensor3(SEARCH);
                 }
@@ -289,7 +290,7 @@ namespace tomcat {
                     this->role_per_player[player_id] = Tensor3(NO_ROLE);
                 }
             }
-        } // namespace model
+        }
 
         void ASISTMultiPlayerMessageConverter::prepare_for_new_mission() {
             this->player_name_to_id.clear();
