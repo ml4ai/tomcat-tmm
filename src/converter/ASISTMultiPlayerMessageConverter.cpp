@@ -112,6 +112,11 @@ namespace tomcat {
                         int id = this->player_name_to_id.size();
                         this->player_name_to_id[player_name] = id;
 
+                        // Players start in the moving/waiting state,
+                        // with no role associated
+                        this->task_per_player.push_back({Tensor3(NO_TASK)});
+                        this->role_per_player.push_back({Tensor3(NO_TASK)});
+
                         if (!json_mission_log.contains("players")) {
                             json_mission_log["players"] =
                                 nlohmann::json::array();
@@ -138,14 +143,22 @@ namespace tomcat {
                     this->elapsed_time = this->time_step_size;
 
                     for (int i = 0; i < this->num_players; i++) {
-                        // Players start in the moving/waiting state,
-                        // with no role associated
-                        this->task_per_player[i] = Tensor3(NO_TASK);
-                        this->role_per_player[i] = Tensor3(NO_ROLE);
-                        data.add_data(fmt::format("TaskP{}", i + 1),
-                                      Tensor3(NO_TASK));
-                        data.add_data(fmt::format("RoleP{}", i + 1),
-                                      Tensor3(NO_ROLE));
+                        for (int i = 0; i < this->num_players; i++) {
+                            data.add_data(fmt::format("TaskP{}", i + 1),
+                                          this->task_per_player.at(i));
+                            data.add_data(fmt::format("RoleP{}", i + 1),
+                                          this->role_per_player.at(i));
+
+                            // Carrying ans saving a victim are tasks that have
+                            // an explicit end event. We don't reset the last
+                            // observation for this task then. It's going to be
+                            // reset when its ending is detected.
+                            int last_task =
+                                this->task_per_player.at(i)(0, 0)(0, 0);
+                            if (last_task == CLEARING_RUBBLE) {
+                                this->task_per_player[i] = Tensor3(NO_TASK);
+                            }
+                        }
                     }
 
                     // Store initial timestamp
@@ -181,6 +194,9 @@ namespace tomcat {
 
                 this->experiment_id = json_message["msg"]["experiment_id"];
             }
+            else {
+                this->fill_observation(json_message);
+            }
 
             return data;
         }
@@ -209,7 +225,7 @@ namespace tomcat {
                         // explicit end event. We don't reset the last
                         // observation for this task then. It's going to be
                         // reset when its ending is detected.
-                        int last_task = this->role_per_player.at(i)(0, 0)(0, 0);
+                        int last_task = this->task_per_player.at(i)(0, 0)(0, 0);
                         if (last_task == CLEARING_RUBBLE) {
                             this->task_per_player[i] = Tensor3(NO_TASK);
                         }
