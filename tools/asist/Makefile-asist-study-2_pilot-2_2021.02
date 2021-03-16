@@ -89,14 +89,15 @@ $(MAP_PATH):
 	@scp $(SERVER):$(ASIST_SERVER_DIR)/maps/$(@F) $(MAP_PATH)
 
 # Parses messages from the test bed and converts them to matrices of
-# observations. One matrix for each observable node in the model.
+# observations. One matrix for each observable node in the model. We always
+# try to convert, if there's nothing to convert, the program will handle that.
 convert: $(TRAIN_SAMPLES_DIR)
 
-$(TRAIN_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(TRAIN_MSG_DIR)
+$(TRAIN_SAMPLES_DIR):
 	@echo "Converting training data..."
 	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_PATH) \
 		--messages_dir $(TRAIN_MSG_DIR) --data_dir $(TRAIN_SAMPLES_DIR) \
-		--seconds 900 --step_size 2 --multiplayer
+		--seconds 900 --step_size 1 --multiplayer
 
 # The model only needs to be retrained if the executable changed, or if any of
 # the files in $(TRAIN_SAMPLES_DIR) changed.
@@ -107,7 +108,7 @@ train: $(PARAMS_DIR)
 $(PARAMS_DIR): $(BUILD_DIR)/bin/train $(TRAIN_SAMPLES_DIR)/conversion_log.json
 	@echo "Training model..."
 	@./$< --model_json $(MODEL_PATH) --data_dir $(TRAIN_SAMPLES_DIR) \
-	    --params_dir $@ --T 450 --burn_in 50 --samples 100 --jobs 4
+	    --params_dir $@ --T 900 --burn_in 50 --samples 100 --jobs 4
 	@touch $@/dummy.txt
 	@rm $@/dummy.txt
 
@@ -123,7 +124,7 @@ start: $(MAP_PATH)
 	@./$(BUILD_DIR)/bin/start_agent --agent_id "ToMCAT" \
 	--model_json $(MODEL_PATH) --params_dir $(PARAMS_DIR) \
 	--broker_json $(BROKER_PATH) --map_json $(MAP_PATH) --seconds 900 \
-	--step_size 2 --inference_json $(INFERENCE_PATH) \
+	--step_size 1 --inference_json $(INFERENCE_PATH) \
  	--burn_in 1 --samples 100 --jobs 4
 
 

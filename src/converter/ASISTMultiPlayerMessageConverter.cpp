@@ -108,7 +108,7 @@ namespace tomcat {
                 // Detect new players and add to the list
                 if (player_name != "ASU_MC") {
                     if (!EXISTS(player_name, this->player_name_to_id) &&
-                    this->player_name_to_id.size() < this->num_players) {
+                        this->player_name_to_id.size() < this->num_players) {
                         int id = this->player_name_to_id.size();
                         this->player_name_to_id[player_name] = id;
 
@@ -123,13 +123,16 @@ namespace tomcat {
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] == "Event:MissionState") {
                 if (json_message["data"]["mission_state"] == "Start") {
-//                    TODO - Allow less participants than expected
-//                    if (this->player_name_to_id.size() != this->num_players) {
-//                        throw TomcatModelException(
-//                            fmt::format("Number of players found is different"
-//                                        " than {}.",
-//                                        this->num_players));
-//                    }
+                    //                    TODO - Allow less participants than
+                    //                    expected if
+                    //                    (this->player_name_to_id.size() !=
+                    //                    this->num_players) {
+                    //                        throw TomcatModelException(
+                    //                            fmt::format("Number of players
+                    //                            found is different"
+                    //                                        " than {}.",
+                    //                                        this->num_players));
+                    //                    }
 
                     this->mission_started = true;
                     this->elapsed_time = this->time_step_size;
@@ -203,9 +206,9 @@ namespace tomcat {
                                       this->role_per_player.at(i));
 
                         // Carrying ans saving a victim are tasks that have an
-                        // explicit end event. We don't reset the last observation
-                        // for this task then. It's going to be reset when
-                        // its ending is detected.
+                        // explicit end event. We don't reset the last
+                        // observation for this task then. It's going to be
+                        // reset when its ending is detected.
                         int last_task = this->role_per_player.at(i)(0, 0)(0, 0);
                         if (last_task == CLEARING_RUBBLE) {
                             this->task_per_player[i] = Tensor3(NO_TASK);
@@ -238,7 +241,8 @@ namespace tomcat {
 
             if (json_message["header"]["message_type"] == "event" &&
                 json_message["msg"]["sub_type"] == "Event:ToolUsed" &&
-                json_message["data"]["target_block_type"] == "minecraft:gravel" &&
+                json_message["data"]["target_block_type"] ==
+                    "minecraft:gravel" &&
                 json_message["data"]["tool_type"] == "HAMMER") {
                 this->task_per_player[player_id] = Tensor3(CLEARING_RUBBLE);
             }
@@ -248,10 +252,12 @@ namespace tomcat {
                     if (json_message["data"]["color"] == "Green") {
                         this->task_per_player[player_id] =
                             Tensor3(SAVING_REGULAR);
+                        cout << "Triage Green Detected" << endl;
                     }
                     else if (json_message["data"]["color"] == "Yellow") {
                         this->task_per_player[player_id] =
                             Tensor3(SAVING_CRITICAL);
+                        cout << "Triage Yellow Detected" << endl;
                     }
                 }
                 else {
@@ -294,6 +300,7 @@ namespace tomcat {
             const string& filename = file.path().filename().string();
             return filename.find("TrialMessages") != string::npos &&
                    filename.find("Training") == string::npos &&
+                   filename.find("PlanningASR") == string::npos &&
                    file.path().extension().string() == ".metadata";
         }
 

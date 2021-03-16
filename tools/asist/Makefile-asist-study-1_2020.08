@@ -103,16 +103,17 @@ $(MAP_PATH):
 	@scp $(SERVER):$(ASIST_SERVER_DIR)/maps/$(@F) $(MAP_PATH)
 
 # Parses messages from the test bed and converts them to matrices of
-# observations. One matrix for each observable node in the model.
+# observations. One matrix for each observable node in the model. We always
+# try to convert, if there's nothing to convert, the program will handle that.
 convert: $(TRAIN_SAMPLES_DIR) $(EVAL_SAMPLES_DIR)
 
-$(TRAIN_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(TRAIN_MSG_DIR)
+$(TRAIN_SAMPLES_DIR):
 	@echo "Converting training data..."
 	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_PATH) \
 		--messages_dir $(TRAIN_MSG_DIR) --data_dir $(TRAIN_SAMPLES_DIR) \
 		--seconds 600 --step_size 1
 
-$(EVAL_SAMPLES_DIR): $(MAP_CONFIG_PATH) $(EVAL_MSG_DIR)
+$(EVAL_SAMPLES_DIR):
 	@echo "Converting evaluation data..."
 	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_PATH) \
 		--messages_dir $(EVAL_MSG_DIR) --data_dir $(EVAL_SAMPLES_DIR) \
