@@ -128,36 +128,23 @@ namespace tomcat {
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] == "Event:MissionState") {
                 if (json_message["data"]["mission_state"] == "Start") {
-                    //                    TODO - Allow less participants than
-                    //                    expected if
-                    //                    (this->player_name_to_id.size() !=
-                    //                    this->num_players) {
-                    //                        throw TomcatModelException(
-                    //                            fmt::format("Number of players
-                    //                            found is different"
-                    //                                        " than {}.",
-                    //                                        this->num_players));
-                    //                    }
-
                     this->mission_started = true;
                     this->elapsed_time = this->time_step_size;
+                    this->num_players = this->player_name_to_id.size();
 
                     for (int i = 0; i < this->num_players; i++) {
-                        for (int i = 0; i < this->num_players; i++) {
-                            data.add_data(fmt::format("TaskP{}", i + 1),
-                                          this->task_per_player.at(i));
-                            data.add_data(fmt::format("RoleP{}", i + 1),
-                                          this->role_per_player.at(i));
+                        data.add_data(fmt::format("TaskP{}", i + 1),
+                                      this->task_per_player.at(i));
+                        data.add_data(fmt::format("RoleP{}", i + 1),
+                                      this->role_per_player.at(i));
 
-                            // Carrying ans saving a victim are tasks that have
-                            // an explicit end event. We don't reset the last
-                            // observation for this task then. It's going to be
-                            // reset when its ending is detected.
-                            int last_task =
-                                this->task_per_player.at(i)(0, 0)(0, 0);
-                            if (last_task == CLEARING_RUBBLE) {
-                                this->task_per_player[i] = Tensor3(NO_TASK);
-                            }
+                        // Carrying ans saving a victim are tasks that have
+                        // an explicit end event. We don't reset the last
+                        // observation for this task then. It's going to be
+                        // reset when its ending is detected.
+                        int last_task = this->task_per_player.at(i)(0, 0)(0, 0);
+                        if (last_task == CLEARING_RUBBLE) {
+                            this->task_per_player[i] = Tensor3(NO_TASK);
                         }
                     }
 
@@ -194,7 +181,7 @@ namespace tomcat {
 
                 this->experiment_id = json_message["msg"]["experiment_id"];
             }
-            else if (!this->mission_finished){
+            else if (!this->mission_finished) {
                 this->fill_observation(json_message);
             }
 
