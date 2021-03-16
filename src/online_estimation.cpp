@@ -5,6 +5,7 @@
 #include <boost/program_options.hpp>
 #include <gsl/gsl_rng.h>
 
+#include "converter/ASISTMultiPlayerMessageConverter.h"
 #include "converter/ASISTSinglePlayerMessageConverter.h"
 #include "experiments/Experimentation.h"
 #include "pgm/DynamicBayesNet.h"
@@ -34,7 +35,9 @@ void start_agent(const string& agent_id,
                  const string& inference_json,
                  int burn_in,
                  int num_samples,
-                 int num_jobs) {
+                 int num_jobs,
+                 bool multiplayer,
+                 int num_players) {
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
 
@@ -65,11 +68,17 @@ void start_agent(const string& agent_id,
         }
     }
 
-    shared_ptr<ASISTMessageConverter> message_converter =
-        make_shared<ASISTSinglePlayerMessageConverter>(
+    shared_ptr<ASISTMessageConverter> converter;
+    if (multiplayer) {
+        converter = make_shared<ASISTMultiPlayerMessageConverter>(
+            num_seconds, time_step_size, map_json, num_players);
+    }
+    else {
+        converter = make_shared<ASISTSinglePlayerMessageConverter>(
             num_seconds, time_step_size, map_json);
+    }
     shared_ptr<ASISTAgent> agent = make_shared<ASISTAgent>(
-        agent_id, estimates_topic, log_topic, message_converter);
+        agent_id, estimates_topic, log_topic, converter);
 
     Experimentation experimentation(random_generator,
                                     model,
@@ -97,6 +106,8 @@ int main(int argc, char* argv[]) {
     unsigned int burn_in;
     unsigned int num_samples;
     unsigned int num_jobs;
+    unsigned int num_players;
+    bool multiplayer;
 
     po::options_description desc("Allowed options");
     desc.add_options()(
@@ -156,7 +167,13 @@ int main(int argc, char* argv[]) {
         "after the burn-in period if approximate inference is used.")(
         "jobs",
         po::value<unsigned int>(&num_jobs)->default_value(4),
-        "Number of jobs used for multi-thread inference.");
+        "Number of jobs used for multi-thread inference.")(
+        "multiplayer",
+        po::bool_switch(&multiplayer),
+        "Whether the messages come from a multiplayer mission.")(
+        "players",
+        po::value<unsigned int>(&num_players)->default_value(3),
+        "Number of players in the multiplayer mission.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -178,5 +195,7 @@ int main(int argc, char* argv[]) {
                 inference_json,
                 burn_in,
                 num_samples,
-                num_jobs);
+                num_jobs,
+                multiplayer,
+                num_players);
 }

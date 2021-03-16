@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
         po::value<string>(&data_dir)->required(),
         "Directory where the data must be saved.")(
         "multiplayer",
-        po::bool_switch(&multiplayer)->required(),
+        po::bool_switch(&multiplayer),
         "Whether the messages come from a multiplayer mission.")(
         "players",
         po::value<int>(&num_players)->default_value(3),
