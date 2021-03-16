@@ -51,6 +51,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Operator overload
             //------------------------------------------------------------------
+            friend std::ostream& operator<<(std::ostream& os,
+                                            const EvidenceSet& set);
 
             /**
              * Returns data for a given node.

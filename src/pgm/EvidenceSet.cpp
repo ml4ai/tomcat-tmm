@@ -26,6 +26,15 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Operator overload
         //----------------------------------------------------------------------
+        ostream& operator<<(ostream& os, const EvidenceSet& set) {
+            for (const auto& [label, data] : set.node_label_to_data) {
+                os << label << "\n";
+                os << data << endl;
+            }
+
+            return os;
+        }
+
         const Tensor3& EvidenceSet::operator[](const string& node_label) const {
             return this->node_label_to_data.at(node_label);
         }

@@ -262,6 +262,7 @@ namespace tomcat {
                 }
                 else {
                     this->task_per_player[player_id] = Tensor3(NO_TASK);
+                    cout << "Triage Ended" << endl;
                 }
             }
             else if (json_message["header"]["message_type"] == "event" &&
