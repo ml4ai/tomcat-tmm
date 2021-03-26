@@ -1,117 +1,22 @@
-# The name of the Google Cloud Source folder where the ASIST HSR data resides.
-STUDY_ID = study-1_2020.08
+# This Makefile is responsible for downloading directories for specific ASIST
+# studies from laplace and place them under the data/ folder.
 
-# Binaries required for the ASIST evaluation analyses
-BUILD_DIR = build
-
-# File that contains configurations of the Falcon map. It must be manually
-# downloaded from the link below and placed in the directory data/maps/asist.
-# It's a pre-requisite for message conversion.
-# https://gitlab.asist.aptima.com/asist/testbed/-/tree/master/Agents/IHMCLocationMonitor/ConfigFolder
-MAP_CONFIG_PATH = data/maps/asist/Falcon_v1.0.json
-
-# Original data from the message bus
-MESSAGES_DIR = data/asist/$(STUDY_ID)_split
-TRAIN_MESSAGES_DIR = $(MESSAGES_DIR)/train
-EVAL_MESSAGES_DIR = $(MESSAGES_DIR)/eval
-TRAIN_TRIALS_FILE = $(MESSAGES_DIR)/train_list.txt
-EVAL_TRIALS_FILE = $(MESSAGES_DIR)/eval_list.txt
-
-# Check if trials were defined to training and/or evaluation
-SPLIT_DEFINED=$(shell [ -s $(TRAIN_TRIALS_FILE) ] || [ -s $(EVAL_TRIALS_FILE) ] && echo 1 || echo 0 )
-
-# Converted data
-SAMPLES_DIR = data/samples/asist/$(STUDY_ID)
-TRAIN_SAMPLES_DIR = $(SAMPLES_DIR)/train
-EVAL_SAMPLES_DIR = $(SAMPLES_DIR)/eval
-
-# Training & evaluation
-MODEL_DIR = data/model/asist/$(STUDY_ID)
-EVAL_DIR = data/eval/asist/$(STUDY_ID)
-EVAL_PATH = $(EVAL_DIR)/evaluations.json
-PARTIALS_DIR = $(EVAL_DIR)/partials
-REPORT_PATH = $(EVAL_DIR)/report.txt
-
-
-# Number of seconds ahead predictions are made for victim rescue
-HORIZON = 1
+SERVER = laplace
+ASIST_SERVER_DIR = /data/asist
 
 # Phony targets
 .PHONY: all
-.PHONY: sync
-.PHONY: create_splits
-.PHONY: test
-.PHONY: split
-.PHONY: convert
-.PHONY: build
-.PHONY: train
-.PHONY: eval
-.PHONY: report
-.PHONY: TomcatASISTFall20
+.PHONY: study-1_2020.08
+.PHONY: study-2_pilot-2_2021.02
 
-all: sync create_splits split convert build train eval report
+all: study-1_2020.08 study-2_pilot-2_2021.02
 
-sync:
+study-1_2020.08 study-2_pilot-2_2021.02:
 	@echo ""
-	./tools/sync_asist_data
-
-create_splits:
-	@mkdir -p $(MESSAGES_DIR)
-	@touch -a $(TRAIN_TRIALS_FILE)
-	@touch -a $(EVAL_TRIALS_FILE)
-
-# This assumes requires that the files train_list.txt and eval_list.txt are
-# pre-filled with some trial numbers.
-split: $(TRAIN_TRIALS_FILE) $(EVAL_TRIALS_FILE)
-ifeq ($(SPLIT_DEFINED), 0)
-	$(error "Fill $(TRAIN_TRIALS_FILE) and $(EVAL_TRIALS_FILE) with \
-	appropriate trial numbers.")
-endif
-	@echo ""
-	./tools/split_data
-
-# Parses messages from the testbed and converts them to matrices of
-# observations. One matrix for each observable node in the model.
-convert: sync split $(MAP_CONFIG_PATH) $(TRAIN_MESSAGES_DIR)
-	@echo ""
-	@cd $(BUILD_DIR) && make -j TomcatConverter
-	@echo "Converting training data..."
-	@./$(BUILD_DIR)/bin/TomcatConverter --map_config $(MAP_CONFIG_PATH) \
-		--messages_dir $(TRAIN_MESSAGES_DIR) --output_dir $(TRAIN_SAMPLES_DIR)
-	@echo "Converting evaluation data..."
-	@./$(BUILD_DIR)/bin/TomcatConverter --map_config $(MAP_CONFIG_PATH) \
-		--messages_dir $(EVAL_MESSAGES_DIR) --output_dir $(EVAL_SAMPLES_DIR)
-
-# Builds the system so that the training and evaluation targets can check
-# if there's a new version of the executable as a prerequisite.
-build:
-	@cd $(BUILD_DIR) && make -j TomcatASISTFall20
-
-train: $(MODEL_DIR)/*
-
-eval: $(EVAL_PATH)
-
-report: $(REPORT_PATH)
-
-# The model only needs to be retrained if the executable changed, or if any of
-# the files in $(TRAIN_SAMPLES_DIR) changed.
-$(MODEL_DIR)/*: $(BUILD_DIR)/bin/TomcatASISTFall20 $(TRAIN_SAMPLES_DIR)/*
-	@echo ""
-	@echo "Training model..."
-	@./$< --type 0 --data_dir $(TRAIN_SAMPLES_DIR) --model_dir $(@D)
-
-# The model only needs to be re-evaluated if the executable changed, or
-# if the model's parameters, saved in the directory $(MODEL_DIR), changed, or
-# if the eval data changed.
-$(EVAL_PATH): $(BUILD_DIR)/bin/TomcatASISTFall20 $(MODEL_DIR)/* \
-			  $(EVAL_SAMPLES_DIR)/*
-	@echo ""
-	@echo "Evaluating model..."
-	@./$< --type 1 --data_dir $(EVAL_SAMPLES_DIR) --model_dir $(MODEL_DIR) \
-		--eval_dir $(EVAL_DIR) --horizon $(HORIZON)
-
-$(REPORT_PATH): $(EVAL_SAMPLES_DIR)/metadata.json tools/create_asist_report.py \
- 			  $(EVAL_PATH)
-	@echo ""
-	@python3 tools/create_asist_report.py $(EVAL_PATH) $(PARTIALS_DIR) $< \
-	         $(HORIZON) $@
+	@echo "Pulling $@ files..."
+	@mkdir -p data/asist
+	@scp -r $(SERVER):$(ASIST_SERVER_DIR)/$@ data/asist/
+	@cp tools/asist/Makefile-asist-$@ data/asist/$@/Makefile
+	@if [ -f data/asist/$@/params.tar.gz ]; then \
+		cd data/asist/$@ && tar -xzf params.tar.gz && rm params.tar.gz; \
+	fi

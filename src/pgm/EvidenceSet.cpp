@@ -26,6 +26,15 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Operator overload
         //----------------------------------------------------------------------
+        ostream& operator<<(ostream& os, const EvidenceSet& set) {
+            for (const auto& [label, data] : set.node_label_to_data) {
+                os << label << "\n";
+                os << data;
+            }
+
+            return os;
+        }
+
         const Tensor3& EvidenceSet::operator[](const string& node_label) const {
             return this->node_label_to_data.at(node_label);
         }
@@ -122,7 +131,7 @@ namespace tomcat {
             for (const auto& file : fs::directory_iterator(data_folder_path)) {
                 string filename = file.path().filename().string();
                 if (fs::is_regular_file(file) &&
-                    filename.find("metadata") == string::npos) {
+                    file.path().extension() == "") {
 
                     string node_label = remove_extension(filename);
                     Tensor3 data = read_tensor_from_file(file.path().string());
@@ -197,6 +206,13 @@ namespace tomcat {
             this->num_data_points = num_samples;
         }
 
+        void EvidenceSet::keep_only(int data_idx) {
+            for (auto& [node_label, data] : this->node_label_to_data) {
+                data = data.slice(data_idx, data_idx + 1, 1);
+            }
+            this->num_data_points = 1;
+        }
+
         void EvidenceSet::shrink_up_to(int time_step) {
             for (auto& [node_label, data] : this->node_label_to_data) {
                 data = data.slice(0, time_step + 1, 2);
@@ -227,6 +243,32 @@ namespace tomcat {
             }
 
             return small_set;
+        }
+
+        void EvidenceSet::vstack(const EvidenceSet& other) {
+            for (const auto& label : other.get_node_labels()) {
+                if (this->has_data_for(label)) {
+                    this->node_label_to_data.at(label).vstack(
+                        other.node_label_to_data.at(label));
+                    this->num_data_points += other.get_num_data_points();
+                }
+                else {
+                    this->add_data(label, other.node_label_to_data.at(label));
+                }
+            }
+        }
+
+        void EvidenceSet::hstack(const EvidenceSet& other) {
+            for (const auto& label : other.get_node_labels()) {
+                if (this->has_data_for(label)) {
+                    this->node_label_to_data.at(label).hstack(
+                        other.node_label_to_data.at(label));
+                    this->time_steps += other.get_time_steps();
+                }
+                else {
+                    this->add_data(label, other.node_label_to_data.at(label));
+                }
+            }
         }
 
         //----------------------------------------------------------------------

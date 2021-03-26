@@ -19,8 +19,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         OnlineEstimation::OnlineEstimation(
             const MessageBrokerConfiguration& config,
-            const std::shared_ptr<MessageConverter>& message_converter)
-            : config(config), message_converter(message_converter) {}
+            const std::shared_ptr<Agent>& agent)
+            : config(config), agent(agent) {}
 
         OnlineEstimation::~OnlineEstimation() {}
 
@@ -42,6 +42,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void OnlineEstimation::prepare() {
             EstimationProcess::prepare();
+            this->messages_to_process.clear();
             this->time_step = 0;
         }
 
@@ -50,15 +51,20 @@ namespace tomcat {
             EstimationProcess::copy_estimation(estimation);
             Mosquitto::copy_wrapper(estimation);
             this->config = estimation.config;
-            this->message_converter = estimation.message_converter;
+            this->agent = estimation.agent;
         }
 
         void OnlineEstimation::estimate(const EvidenceSet& test_data) {
             this->set_max_seconds_without_messages(this->config.timeout);
-            this->connect(this->config.address, this->config.port, 60);
-            this->subscribe(this->config.state_topic);
-            this->subscribe(this->config.events_topic);
-            this->subscribe(this->config.trial_topic);
+            this->connect(this->config.address,
+                          this->config.port,
+                          60,
+                          this->config.num_connection_trials,
+                          this->config.milliseconds_before_retrial);
+            for (const string& topic : this->agent->get_topics_to_subscribe()) {
+                this->subscribe(topic);
+            }
+            cout << "Waiting for mission to start..." << endl;
             thread estimation_thread(&OnlineEstimation::run_estimation_thread,
                                      this);
             this->loop();
@@ -71,20 +77,36 @@ namespace tomcat {
 
         void OnlineEstimation::run_estimation_thread() {
             while (this->running || !this->messages_to_process.empty()) {
-                // To avoid the overload of creating and destroying threads, so
-                // far the estimators will run in sequence. Later this can be
-                // improved by creating perennial threads for each one of the
-                // estimators and keep tracking of the data point they have
-                // processed in the list of available data.
                 EvidenceSet new_data =
                     this->get_next_data_from_pending_messages();
                 if (!new_data.empty()) {
                     for (auto estimator : this->estimators) {
                         EstimationProcess::estimate(estimator, new_data);
                     }
-
                     this->publish_last_estimates();
-                    this->time_step++;
+
+                    if (this->time_step == 0) {
+                        cout << "Agent " << this->agent->get_id()
+                             << " is awake \\o/ and working..." << endl;
+                    }
+
+                    if (this->agent->is_mission_finished()) {
+                        const string& topic = this->agent->get_log_topic();
+                        if (topic != "") {
+                            stringstream ss;
+                            ss << "The maximum time step defined for the "
+                                  "mission has been reached. Waiting for a new "
+                                  "mission to start...";
+                            string message =
+                                this->agent->build_log_message(ss.str()).dump();
+                            this->publish(topic, message);
+                        }
+                        cout << "Waiting for a new mission to start..." << endl;
+                        this->prepare();
+                    }
+                    else {
+                        this->time_step++;
+                    }
                 }
             }
         }
@@ -95,47 +117,19 @@ namespace tomcat {
             while (!this->messages_to_process.empty() && new_data.empty()) {
                 nlohmann::json message = this->messages_to_process.front();
                 this->messages_to_process.pop();
-                unordered_map<string, double> observations_per_node =
-                    this->message_converter->convert_online(message);
-                if (!observations_per_node.empty()) {
-                    for (const auto& [node_label, value] :
-                         observations_per_node) {
-                        Tensor3 data(Eigen::MatrixXd::Constant(1, 1, value));
-                        new_data.add_data(node_label, data);
-                    }
-                }
+                new_data.hstack(this->agent->message_to_data(message));
             }
 
             return new_data;
         }
 
         void OnlineEstimation::publish_last_estimates() {
-            try {
-                for (const auto estimator : this->estimators) {
-                    NodeEstimates estimates =
-                        estimator->get_estimates_at(this->time_step);
-                    string estimator_name = estimator->get_name();
-                    replace(
-                        estimator_name.begin(), estimator_name.end(), ' ', '_');
-                    stringstream ss_topic;
+            vector<nlohmann::json> messages = this->agent->estimates_to_message(
+                this->estimators, this->time_step);
+            const string& topic = this->agent->get_estimates_topic();
 
-                    Eigen::VectorXd estimates_vector(
-                        estimates.estimates.size());
-
-                    int i = 0;
-                    for (const auto& estimates : estimates.estimates) {
-                        estimates_vector[i] = estimates(0, 0);
-                    }
-
-                    ss_topic << this->config.estimates_topic << "/"
-                             << estimator_name << "/" << estimates.label;
-
-                    this->publish(ss_topic.str(), to_string(estimates_vector));
-                }
-            }
-            catch (out_of_range& e) {
-                this->publish(this->config.log_topic, "max_time_step_reached");
-                this->running = false;
+            for(const auto& message : messages) {
+                this->publish(topic, message.dump());
             }
         }
 
@@ -153,7 +147,14 @@ namespace tomcat {
         }
 
         void OnlineEstimation::on_time_out() {
-            this->publish(this->config.log_topic, "time_out");
+            const string& topic = this->agent->get_log_topic();
+            if (topic != "") {
+                stringstream ss;
+                ss << "Connection time out!";
+                string message =
+                    this->agent->build_log_message(ss.str()).dump();
+                this->publish(topic, ss.str());
+            }
         }
 
         void OnlineEstimation::get_info(nlohmann::json& json) const {

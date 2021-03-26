@@ -1,8 +1,8 @@
 #pragma once
 
 #include <memory>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <nlohmann/json.hpp>
 
@@ -143,9 +143,12 @@ namespace tomcat {
             /**
              * Creates a deep copy of the sampler.
              *
+             * @param unroll_model: whether the model's clone must be
+             * unrolled into the same number of time steps as the original model
+             *
              * @return Pointer to the new sampler created.
              */
-            virtual std::unique_ptr<Sampler> clone() const = 0;
+            virtual std::unique_ptr<Sampler> clone(bool unroll_model) const = 0;
 
             /**
              * Return labels of all the nodes sampled.
@@ -164,12 +167,6 @@ namespace tomcat {
 
             void set_model(const std::shared_ptr<DynamicBayesNet>& model);
 
-            virtual void set_min_initialization_time_step(int time_step);
-
-            void set_min_time_step_to_sample(int time_step);
-
-            void set_max_time_step_to_sample(int time_step);
-
             void set_trainable(bool trainable);
 
             int get_num_jobs() const;
@@ -177,6 +174,14 @@ namespace tomcat {
             int get_num_samples() const;
 
             void set_show_progress(bool show_progress);
+
+            virtual void set_min_initialization_time_step(int time_step);
+
+            void set_min_time_step_to_sample(int time_step);
+
+            void set_max_time_step_to_sample(int time_step);
+
+            void set_inference_horizon(int inference_horizon);
 
           protected:
             //------------------------------------------------------------------
@@ -206,16 +211,6 @@ namespace tomcat {
 
             EvidenceSet data;
 
-            // This is used when the sampler is used for estimation
-            // (approximate inference). If the sampler requires
-            // initialization (Gibbs Sampling, for instance) the first time
-            // step to initialize is kept here.
-            int min_initialization_time_step = 0;
-
-            int min_time_step_to_sample = 0;
-
-            int max_time_step_to_sample = -1;
-
             // Number of threads created for parallel sampling.
             int num_jobs = 1;
 
@@ -225,6 +220,16 @@ namespace tomcat {
             int num_samples = 0;
 
             bool show_progress = true;
+
+            // These are mostly relevant for when the sampler is used
+            // for estimation (approximate inference).
+            int min_initialization_time_step = 0;
+
+            int min_time_step_to_sample = 0;
+
+            int max_time_step_to_sample = -1;
+
+            int inference_horizon = 0;
 
           private:
             //------------------------------------------------------------------

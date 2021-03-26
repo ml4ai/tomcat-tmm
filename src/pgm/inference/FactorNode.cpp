@@ -15,11 +15,14 @@ namespace tomcat {
                                const Eigen::MatrixXd& potential_function,
                                const CPD::TableOrderingMap& ordering_map,
                                const string& cpd_main_node_label)
-            : MessageNode(compose_label(label), time_step),
-              original_potential_function(
-                  ordering_map, potential_function, cpd_main_node_label) {
+            : MessageNode(compose_label(label), time_step) {
 
-            this->adjust_potential_functions();
+            this->original_potential.potential = PotentialFunction(
+                ordering_map, potential_function, cpd_main_node_label);
+            this->original_potential.node_label_to_rotated_potential =
+                this->create_potential_function_rotations(
+                    this->original_potential.potential);
+            this->use_original_potential();
         }
 
         FactorNode::~FactorNode() {}
@@ -46,12 +49,18 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void FactorNode::adjust_potential_functions() {
-            int num_rows = this->original_potential_function.matrix.rows();
-            int num_cols = this->original_potential_function.matrix.cols();
+        unordered_map<string, FactorNode::PotentialFunction>
+        FactorNode::create_potential_function_rotations(
+            const PotentialFunction& original_potential) {
+
+            int num_rows = original_potential.matrix.rows();
+            int num_cols = original_potential.matrix.cols();
+
+            std::unordered_map<std::string, PotentialFunction>
+                label_to_rotations;
 
             for (const auto& [node_label, ordering] :
-                 this->original_potential_function.ordering_map) {
+                 original_potential.ordering_map) {
                 int block_rows = ordering.right_cumulative_cardinality;
                 int block_size = block_rows * num_cols;
                 int num_blocks = num_rows / block_rows;
@@ -62,9 +71,8 @@ namespace tomcat {
                 int row = 0;
                 int col = 0;
                 for (int b = 0; b < num_blocks; b++) {
-                    Eigen::MatrixXd block =
-                        this->original_potential_function.matrix.block(
-                            b * block_rows, 0, block_rows, num_cols);
+                    Eigen::MatrixXd block = original_potential.matrix.block(
+                        b * block_rows, 0, block_rows, num_cols);
                     Eigen::VectorXd vector =
                         Eigen::Map<Eigen::VectorXd>(block.data(), block.size());
 
@@ -83,10 +91,9 @@ namespace tomcat {
                 // Create a new ordering map and replace the parent node's label
                 // by the main node name, that happens to be the child of this
                 // factor node;
-                CPD::TableOrderingMap new_map =
-                    this->original_potential_function.ordering_map;
+                CPD::TableOrderingMap new_map = original_potential.ordering_map;
                 string prev_main_node_label =
-                    this->original_potential_function.main_node_label;
+                    original_potential.main_node_label;
                 if (EXISTS(prev_main_node_label, new_map)) {
                     new_function.duplicate_key = prev_main_node_label;
                     // Adds * to the key to differentiate it from the already
@@ -103,17 +110,17 @@ namespace tomcat {
 
                 new_function.ordering_map = move(new_map);
 
-                this->node_label_to_rotated_potential_function[node_label] =
-                    new_function;
+                label_to_rotations[node_label] = new_function;
             }
+
+            return label_to_rotations;
         }
 
         void FactorNode::copy_node(const FactorNode& node) {
             MessageNode::copy_node(node);
-            this->original_potential_function =
-                node.original_potential_function;
-            this->node_label_to_rotated_potential_function =
-                node.node_label_to_rotated_potential_function;
+            this->original_potential = node.original_potential;
+            this->aggregate_potential = node.aggregate_potential;
+            this->working_potential = node.working_potential;
         }
 
         Eigen::MatrixXd FactorNode::get_outward_message_to(
@@ -124,11 +131,11 @@ namespace tomcat {
 
             PotentialFunction potential_function;
             if (direction == Direction::forward) {
-                potential_function = original_potential_function;
+                potential_function = this->working_potential.potential;
             }
             else {
                 potential_function =
-                    this->node_label_to_rotated_potential_function.at(
+                    this->working_potential.node_label_to_rotated_potential.at(
                         template_target_node->get_label());
             }
 
@@ -282,6 +289,43 @@ namespace tomcat {
         }
 
         bool FactorNode::is_factor() const { return true; }
+
+        void FactorNode::create_aggregate_potential(int value) {
+            PotentialFunction agg_potential =
+                this->original_potential.potential;
+
+            // Binary distribution. It's either value or not.
+            Eigen::MatrixXd agg_matrix =
+                Eigen::MatrixXd::Zero(agg_potential.matrix.rows(), 2);
+
+            for (int col = 0; col < agg_potential.matrix.cols(); col++) {
+                if (value == col) {
+                    agg_matrix.col(1) = agg_potential.matrix.col(col);
+                }
+                else {
+                    agg_matrix.col(0) = agg_matrix.col(0).array() +
+                                        agg_potential.matrix.col(col).array();
+                }
+            }
+
+            agg_potential.matrix = agg_matrix;
+
+            this->aggregate_potential.potential[value] = agg_potential;
+            this->aggregate_potential.node_label_to_rotated_potential[value] =
+                this->create_potential_function_rotations(agg_potential);
+        }
+
+        void FactorNode::use_aggregate_potential(int value) {
+            this->working_potential.potential =
+                this->aggregate_potential.potential.at(value);
+            this->working_potential.node_label_to_rotated_potential =
+                this->aggregate_potential.node_label_to_rotated_potential.at(
+                    value);
+        }
+
+        void FactorNode::use_original_potential() {
+            this->working_potential = this->original_potential;
+        }
 
     } // namespace model
 } // namespace tomcat

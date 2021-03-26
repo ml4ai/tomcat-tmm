@@ -8,23 +8,20 @@ from os import listdir
 from os.path import isfile, join
 
 
-def create_report(eval_filepath, partials_dir, metadata_filepath,
-                  horizon, report_filepath):
+def create_report(eval_filepath, conversion_log_filepath, report_filepath):
     """
     This function converts a evaluation file to a report in the format defined
-    by DARPA for the asist program.
+    for the study-1_2020.08.
 
     :param eval_filepath: filepath of the file with estimates and evaluation
-    :param partials_dir: directory where evaluations over model's partials are
-    :param metadata_filepath: filepath of the metadata file of the evaluation
-    data
-    :param horizon: inference horizon for victim rescue
+    :param conversion_log_filepath: filepath of the log file generated at the
+    conversion of the evaluation data
     :param report_filepath: filepath of the final report
     :return:
     """
 
     evaluations = json.load(open(eval_filepath, "r"))
-    metadata = json.load(open(metadata_filepath, "r"))
+    conversion_log = json.load(open(conversion_log_filepath, "r"))
 
     num_conditions = 3
     training_condition_estimates = []
@@ -33,11 +30,12 @@ def create_report(eval_filepath, partials_dir, metadata_filepath,
             get_estimates(evaluations, 0, "TrainingCondition", condition)
         )
 
-    green_estimates = get_estimates(evaluations, horizon, "Green")
-    yellow_estimates = get_estimates(evaluations, horizon, "Yellow")
+    horizon = 1
+    green_estimates = get_estimates(evaluations, horizon, "Task", 0, '1')
+    yellow_estimates = get_estimates(evaluations, horizon, "Task", 0, '2')
 
     with open(report_filepath, "w") as report:
-        for i, eval_file in enumerate(metadata["files_converted"]):
+        for i, eval_file in enumerate(conversion_log["files_converted"]):
             search = re.search("Trial-(\d+)", eval_file["name"], re.IGNORECASE)
             trial = int(search.group(1))
 
@@ -79,7 +77,7 @@ def create_report(eval_filepath, partials_dir, metadata_filepath,
     )
 
 
-def get_estimates(evaluations, horizon, node_label, assignment_index=0):
+def get_estimates(evaluations, horizon, node_label, assignment_index=0, assignment_value=''):
     """
     Extracts estimates for a given estimator, horizon and node label from a set
     of evaluations.
@@ -99,11 +97,13 @@ def get_estimates(evaluations, horizon, node_label, assignment_index=0):
         for estimator in evaluations["estimation"]["estimators"]
         if estimator["name"] == "sum-product" and estimator[
             "inference_horizon"] == horizon and estimator[
-               "node_label"] == node_label][0]
+               "node_label"] == node_label and estimator[
+               "node_assignment"] == assignment_value][0]
 
     return np.array(
         [list(map(float, row.split())) for row in estimates.split("\n")]
     )
+
 
 def get_template_entry(trial):
     """
@@ -222,9 +222,6 @@ def create_victim_rescue_entries(
 
 if __name__ == "__main__":
     eval_filepath = sys.argv[1]
-    partials_dir = sys.argv[2]
-    metadata_filepath = sys.argv[3]
-    horizon = int(sys.argv[4])
-    report_filepath = sys.argv[5]
-    create_report(eval_filepath, partials_dir, metadata_filepath, horizon,
-                  report_filepath)
+    conversion_log_filepath = sys.argv[2]
+    report_filepath = sys.argv[3]
+    create_report(eval_filepath, conversion_log_filepath, report_filepath)

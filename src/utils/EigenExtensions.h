@@ -62,7 +62,7 @@ namespace tomcat {
          * @param original_matrix: matrix to be appended
          * @param other_matrix: matrix to append in the original one
          */
-        void vstack(Eigen::MatrixXd& original_matrix,
+        void matrix_vstack(Eigen::MatrixXd& original_matrix,
                     const Eigen::MatrixXd& other_matrix);
 
         /**
@@ -71,7 +71,7 @@ namespace tomcat {
          * @param original_matrix: matrix to be appended
          * @param other_matrix: matrix to append in the original one
          */
-        void hstack(Eigen::MatrixXd& original_matrix,
+        void matrix_hstack(Eigen::MatrixXd& original_matrix,
                     const Eigen::MatrixXd& other_matrix);
 
         /**

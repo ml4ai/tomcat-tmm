@@ -90,6 +90,10 @@ namespace tomcat {
             this->cumulative_estimates.estimates.clear();
         }
 
+        bool Estimator::is_computing_estimates_for(const std::string& node_label) const {
+            return this->estimates.label == node_label;
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
@@ -118,5 +122,12 @@ namespace tomcat {
         }
 
         bool Estimator::is_compound() const { return compound; }
+
+        vector<shared_ptr<const Estimator>>
+        Estimator::get_base_estimators() const {
+            vector<shared_ptr<const Estimator>> base_estimators;
+            base_estimators.push_back(shared_from_this());
+            return base_estimators;
+        }
     } // namespace model
 } // namespace tomcat

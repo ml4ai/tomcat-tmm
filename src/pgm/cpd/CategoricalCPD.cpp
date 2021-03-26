@@ -90,16 +90,7 @@ namespace tomcat {
             }
         }
 
-        string CategoricalCPD::get_description() const {
-            stringstream ss;
-            ss << "Categorical CPD: {\n";
-            for (auto& probabilities : this->distributions) {
-                ss << " " << *probabilities << "\n";
-            }
-            ss << "}";
-
-            return ss.str();
-        }
+        string CategoricalCPD::get_name() const { return "Categorical"; }
 
         void CategoricalCPD::add_to_sufficient_statistics(
             const vector<double>& values) {
@@ -123,7 +114,8 @@ namespace tomcat {
             const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
             const std::shared_ptr<const RandomVariableNode>& cpd_owner,
-            int num_jobs) const {
+            int num_jobs,
+            int max_time_step_to_sample) const {
 
             int data_size = cpd_owner->get_size();
             int cardinality = sampled_node->get_metadata()->get_cardinality();
@@ -139,11 +131,14 @@ namespace tomcat {
             sampled_node->set_assignment(saved_assignment);
 
             Eigen::MatrixXd distributions_table = this->get_table(0);
-            if (sampled_node->has_timer() &&
-                cpd_owner->get_previous() == sampled_node) {
+            //            if (sampled_node->has_timer() &&
+            //                cpd_owner->get_previous() == sampled_node) {
+            if (cpd_owner->get_previous() && cpd_owner->has_timer()) {
                 // We ignore the probability of staying in the same state as
                 // this will be embedded in the segment posterior weights.
-                if (cardinality == distributions_table.rows()) {
+                int cpd_owner_cardinality =
+                    cpd_owner->get_metadata()->get_cardinality();
+                if (cpd_owner_cardinality == distributions_table.rows()) {
                     // Node only depends on a past copy of itself
                     distributions_table.diagonal() =
                         Eigen::VectorXd::Ones(distributions_table.rows());
@@ -157,8 +152,8 @@ namespace tomcat {
                     // elements of the table that represent p(node(t-1)
                     // == node(t)).
                     int right_cum_cardinality =
-                        distributions_table.rows() / cardinality;
-                    for (int i = 0; i < cardinality; i++) {
+                        distributions_table.rows() / cpd_owner_cardinality;
+                    for (int i = 0; i < cpd_owner_cardinality; i++) {
                         distributions_table.block(i * right_cum_cardinality,
                                                   i,
                                                   right_cum_cardinality,
@@ -326,6 +321,8 @@ namespace tomcat {
             return make_shared<CategoricalCPD>(this->parent_node_order,
                                                prob_table);
         }
+
+        bool CategoricalCPD::is_continuous() const { return false; }
 
     } // namespace model
 } // namespace tomcat

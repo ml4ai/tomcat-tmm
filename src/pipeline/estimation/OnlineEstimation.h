@@ -7,10 +7,10 @@
 
 #include "EstimationProcess.h"
 
-#include "converter/MessageConverter.h"
 #include "utils/Definitions.h"
 #include "utils/Mosquitto.h"
 #include "utils/SynchronizedQueue.h"
+#include "pipeline/estimation/Agent.h"
 
 namespace tomcat {
     namespace model {
@@ -31,23 +31,12 @@ namespace tomcat {
              * broker to either subscribe or publish to a topic.
              */
             struct MessageBrokerConfiguration {
+               int timeout = 9999;
+
                 std::string address;
                 int port;
-
-                // If defined, the estimation thread will terminate after the
-                // number of seconds here defined without receiving any message.
-                int timeout = 9999;
-
-                // Topics to subscribe to
-                std::string state_topic = "observations/state";
-                std::string chat_topic = "observations/chat";
-                std::string events_topic = "observations/events/#";
-                std::string self_report_topic = "observations/self_reports";
-                std::string trial_topic = "trial";
-
-                // Topics to publish to
-                std::string estimates_topic = "tomcat/estimates";
-                std::string log_topic = "tomcat/log";
+                int num_connection_trials;
+                int milliseconds_before_retrial;
             };
 
             //------------------------------------------------------------------
@@ -58,12 +47,11 @@ namespace tomcat {
              * Creates an online estimation process.
              *
              * @param estimator: type of estimation to be performed
-             * @param message_converter: responsible for converting a message
-             * from the message bus to data
+             * @param agent: agent who talks to the message bus
              */
             OnlineEstimation(
                 const MessageBrokerConfiguration& config,
-                const std::shared_ptr<MessageConverter>& message_converter);
+                const std::shared_ptr<Agent>& agent);
 
             ~OnlineEstimation();
 
@@ -134,7 +122,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             MessageBrokerConfiguration config;
 
-            std::shared_ptr<MessageConverter> message_converter;
+            std::shared_ptr<Agent> agent;
 
             // Number of time steps the estimation already processed.
             int time_step;

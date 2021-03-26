@@ -86,8 +86,8 @@ namespace tomcat {
              *
              * @return DBN
              */
-            static DynamicBayesNet create_from_json(const std::string&
-            filepath);
+            static DynamicBayesNet
+            create_from_json(const std::string& filepath);
 
             //------------------------------------------------------------------
             // Member functions
@@ -213,13 +213,6 @@ namespace tomcat {
             std::vector<Edge> get_edges() const;
 
             /**
-             * Write the graph content in graphviz format.
-             *
-             * @param output_stream: output stream to write the graph.
-             */
-            void write_graphviz(std::ostream& output_stream) const;
-
-            /**
              * Returns the cardinality of any node derived from a given label.
              *
              * @param node_label: template node's label
@@ -278,21 +271,60 @@ namespace tomcat {
 
             /**
              * Creates a deep copy of the template nodes and unrolls the DBN
-             * into the same time steps as the original one. Parameter nodes'
-             * assignments are copied. Data nodes' assignments are copied upon
-             * request.
+             * into the same time steps as the original one. Only the
+             * parameter nodes' assignments are preserved.
              *
-             * @param copy_data_node_assignment: indicates whether
-             * assignments from data nodes must be copied too.
+             * @param unroll: whether the new DBN must be unrolled into the
+             * same number of time steps as the original one.
              *
              * @return a deep copy of this DBN
              */
-            DynamicBayesNet clone(bool copy_data_node_assignment);
+            DynamicBayesNet clone(bool unroll);
+
+            /**
+             * Set relevant attributes (assignment and frozen) of parameter
+             * nodes in this DBN from a list of parameters of another DBN.
+             *
+             * @param dbn: DBN to cpy parameters from
+             */
+            void mirror_parameter_nodes_from(const DynamicBayesNet& dbn);
+
+            /**
+             * Retrieves the list of nodes in topological order (from the roots
+             * to the leaves) over time.
+             *
+             * @param List of nodes.
+             */
+            RVNodePtrVec get_nodes_in_topological_order();
+
+            /**
+             * Retrieves the list of nodes in topological order (from the roots
+             * to the leaves) in a specific time slice.
+             *
+             * @param List of nodes.
+             */
+            RVNodePtrVec get_nodes_in_topological_order_at(int time_step);
+
+            /**
+             * Write the graph content in graphviz format.
+             *
+             * @param output_stream: output stream to write the graph.
+             */
+            void print_graph(std::ostream& output_stream) const;
+
+            /**
+             * Print CPDs of the template nodes in the model.
+             *
+             * @param output_stream: output stream to write the CPDs.
+             */
+            void print_cpds(std::ostream& output_stream) const;
 
             // --------------------------------------------------------
             // Getters & Setters
             // --------------------------------------------------------
             int get_time_steps() const;
+
+            bool is_exact_inference_allowed() const;
 
           private:
             //------------------------------------------------------------------
@@ -391,8 +423,16 @@ namespace tomcat {
             /**
              * Replaces node objects in the CPDs that depend on other nodes with
              * their concrete timed instance replica in the unrolled DBN.
+             *
+             * @param num_timed_copies: number of replicable node copies over
+             * time to add to the unrolled DBN
              */
-            void update_cpd_templates_dependencies();
+            void update_cpd_templates_dependencies(int num_timed_copies);
+
+            /**
+             * Save list of nodes in topological order per time step;
+             */
+            void save_topological_list();
 
             //------------------------------------------------------------------
             // Data members
@@ -403,6 +443,9 @@ namespace tomcat {
 
             // List of concrete timed instances node of the unrolled DBN.
             NodePtrVec nodes;
+
+            // List of nodes per time step and topological order.
+            std::vector<RVNodePtrVec> topological_nodes_per_time;
 
             // Mapping between a timed instance parameter node's label and its
             // node object.
@@ -424,6 +467,11 @@ namespace tomcat {
 
             // If unrolled, the number of time steps the DBN was unrolled into
             int time_steps = 0;
+
+            // Indicates whether the model allows exact inference. This is
+            // set to true here if the model has no timers and none of the
+            // nodes follows a continuous distribution.
+            bool exact_inference_allowed = true;
         };
 
     } // namespace model

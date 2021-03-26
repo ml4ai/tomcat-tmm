@@ -2,8 +2,8 @@
 
 #include "MessageNode.h"
 
-#include "utils/Definitions.h"
 #include "pgm/cpd/CPD.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -135,16 +135,76 @@ namespace tomcat {
 
             bool is_factor() const override;
 
+            /**
+             * Creates a potential function (and associated rotations) by
+             * having a binary distribution table, where the column 0 contains
+             * p(x != value) and column 1 contains p(x == value).
+             *
+             * @param value: value to preserve the probabilities
+             */
+            void create_aggregate_potential(int value);
+
+            /**
+             * Sets the aggregate potential for a given value as the working
+             * one.
+             *
+             * @param value: key value of a previously created aggregate
+             * potential
+             */
+            void use_aggregate_potential(int value);
+
+            /**
+             * Uses the node's original potential. The one without aggregation.
+             */
+            void use_original_potential();
+
           private:
+            //------------------------------------------------------------------
+            // Structs
+            //------------------------------------------------------------------
+            struct Potential {
+                PotentialFunction potential;
+
+                // The potential function here is represented as a matrix that
+                // corresponds to the conditional probability of a child node
+                // given its parents. When calculating messages, depending on
+                // the direction the message flows, the potential function
+                // matrix needs to be rotated so that the child become one of
+                // the parents. That's what this adjusted table is for. It will
+                // store all possible rotations of the potential function matrix
+                // according to the the node that should assume the child's
+                // position.
+                std::unordered_map<std::string, PotentialFunction>
+                    node_label_to_rotated_potential;
+            };
+
+            struct AggregatePotential {
+                // The following data structures store potential functions
+                // aggregated into binary distributions. The key to the map is
+                // the assignment preserved (value 1 in the modified potential
+                // function). This will be used by a message passing estimator
+                // to make predictions about a certain assignment.
+
+                std::unordered_map<int, PotentialFunction> potential;
+
+                std::unordered_map<
+                    int,
+                    std::unordered_map<std::string, PotentialFunction>>
+                    node_label_to_rotated_potential;
+            };
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
             /**
-             * Computes and stores all possible rotations of the original
-             * potential function.
+             * Returns all possible rotations of a potential function.
+             *
+             * @param original_potential: potential function to rotate
              */
-            void adjust_potential_functions();
+            std::unordered_map<std::string, FactorNode::PotentialFunction>
+            create_potential_function_rotations(
+                const PotentialFunction& original_potential);
 
             /**
              * Copies data members from another factor node.
@@ -182,18 +242,12 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-            PotentialFunction original_potential_function;
+            Potential original_potential;
 
-            // The potential function here is represented as a matrix that
-            // corresponds to the conditional probability of a child node given
-            // its parents. When calculating messages, depending on the
-            // direction the message flows, the potential function matrix needs
-            // to be rotated so that the child become one of the parents. That's
-            // what this adjusted table is for. It will store all possible
-            // rotations of the potential function matrix according to the the
-            // node that should assume the child's position.
-            std::unordered_map<std::string, PotentialFunction>
-                node_label_to_rotated_potential_function;
+            AggregatePotential aggregate_potential;
+
+            // Potentials used in a given moment. Either original or aggregated.
+            Potential working_potential;
         };
 
     } // namespace model

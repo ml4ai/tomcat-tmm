@@ -90,16 +90,8 @@ namespace tomcat {
             }
         }
 
-        string GaussianCPD::get_description() const {
-            stringstream ss;
-
-            ss << "Gaussian CPD: {\n";
-            for (auto& parameters : this->distributions) {
-                ss << *parameters << "\n";
-            }
-            ss << "}";
-
-            return ss.str();
+        string GaussianCPD::get_name() const {
+            return "Gaussian";
         }
 
         void GaussianCPD::add_to_sufficient_statistics(
@@ -116,6 +108,10 @@ namespace tomcat {
 
         void GaussianCPD::reset_sufficient_statistics() {
             throw invalid_argument("Not implemented yet.");
+        }
+
+        bool GaussianCPD::is_continuous() const {
+            return false;
         }
 
     } // namespace model

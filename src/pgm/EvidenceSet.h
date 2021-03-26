@@ -51,6 +51,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Operator overload
             //------------------------------------------------------------------
+            friend std::ostream& operator<<(std::ostream& os,
+                                            const EvidenceSet& set);
 
             /**
              * Returns data for a given node.
@@ -168,6 +170,13 @@ namespace tomcat {
             void keep_first(int num_samples);
 
             /**
+             * Keep the row at the informed index and remove all others.
+             *
+             * @param data_idx: data index
+             */
+            void keep_only(int data_idx);
+
+            /**
              * Shrinks the data up to a time slice (inclusive).
              *
              * @param time_slice: max time step included in the data.
@@ -206,6 +215,22 @@ namespace tomcat {
              * @return Single point and time evidence set
              */
             EvidenceSet at(int row, int col) const;
+
+            /**
+             * Appends the content of another set into this set along the
+             * second dimension of the tensors.
+             *
+             * @param other: data to append
+             */
+            void vstack(const EvidenceSet& other);
+
+            /**
+             * Appends the content of another set into this set along the
+             * third dimension of the tensors.
+             *
+             * @param other: data to append
+             */
+            void hstack(const EvidenceSet& other);
 
             //------------------------------------------------------------------
             // Getters & Setters

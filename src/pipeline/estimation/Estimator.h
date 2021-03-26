@@ -68,7 +68,7 @@ namespace tomcat {
         /**
          * Represents a generic estimator for a DBN model.
          */
-        class Estimator {
+        class Estimator : public std::enable_shared_from_this<Estimator> {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -134,12 +134,6 @@ namespace tomcat {
              */
             NodeEstimates get_estimates_at(int time_step) const;
 
-            /**
-             * Store the last estimates computed in a list of cumulative
-             * estimates.
-             */
-            void keep_estimates();
-
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
@@ -155,6 +149,31 @@ namespace tomcat {
              *
              */
             virtual void prepare();
+
+            /**
+             * Store the last estimates computed in a list of cumulative
+             * estimates.
+             */
+            virtual void keep_estimates();
+
+            /**
+             * Whether a node is being estimated by this estimator.
+             *
+             * @param node_label: Node's label
+             *
+             * @return
+             */
+            virtual bool
+            is_computing_estimates_for(const std::string& node_label) const;
+
+            /**
+             * Retrieves the subset of estimator of an estimator. Compound
+             * estimators can have multiple base estimators.
+             *
+             * @return Base estimators
+             */
+            virtual std::vector<std::shared_ptr<const Estimator>>
+            get_base_estimators() const;
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -223,7 +242,7 @@ namespace tomcat {
             // Observed data to perform estimations. More data points can be
             // appended as estimations are made. Each derived class must store
             // computations to avoid recalculations as new data is available.
-            //EvidenceSet test_data;
+            // EvidenceSet test_data;
 
             // Node to compute estimates, its fixed assignment (optional if
             // inference_horizon = 0) and estimates

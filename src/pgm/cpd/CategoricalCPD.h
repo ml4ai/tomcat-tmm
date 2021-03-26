@@ -119,7 +119,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             std::unique_ptr<CPD> clone() const override;
 
-            std::string get_description() const override;
+            std::string get_name() const override;
 
             void add_to_sufficient_statistics(
                 const std::vector<double>& values) override;
@@ -136,12 +136,15 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
-                int num_jobs) const override;
+                int num_jobs,
+                int max_time_step_to_sample) const override;
 
             std::shared_ptr<CPD>
             create_from_data(const EvidenceSet& data,
                              const std::string& cpd_owner_label,
                              int cpd_owner_cardinality) override;
+
+            bool is_continuous() const override;
 
           protected:
             //------------------------------------------------------------------

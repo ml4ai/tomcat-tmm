@@ -40,6 +40,7 @@ namespace tomcat {
             this->min_initialization_time_step = sampler.min_initialization_time_step;
             this->min_time_step_to_sample = sampler.min_time_step_to_sample;
             this->max_time_step_to_sample = sampler.max_time_step_to_sample;
+            this->inference_horizon = sampler.inference_horizon;
             this->num_jobs = sampler.num_jobs;
             this->trainable = sampler.trainable;
             this->show_progress = sampler.show_progress;
@@ -219,6 +220,10 @@ namespace tomcat {
 
         void Sampler::set_show_progress(bool show_progress) {
             this->show_progress = show_progress;
+        }
+
+        void Sampler::set_inference_horizon(int inference_horizon) {
+            this->inference_horizon = inference_horizon;
         }
 
     } // namespace model

@@ -82,7 +82,7 @@ namespace tomcat {
             return ss.str();
         }
 
-        void vstack(Eigen::MatrixXd& original_matrix,
+        void matrix_vstack(Eigen::MatrixXd& original_matrix,
                     const Eigen::MatrixXd& other_matrix) {
 
             if (original_matrix.size() == 0) {
@@ -98,7 +98,7 @@ namespace tomcat {
             }
         }
 
-        void hstack(Eigen::MatrixXd& original_matrix,
+        void matrix_hstack(Eigen::MatrixXd& original_matrix,
                     const Eigen::MatrixXd& other_matrix) {
 
             if (original_matrix.size() == 0) {

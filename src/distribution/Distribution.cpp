@@ -72,8 +72,8 @@ namespace tomcat {
                 int col = 0;
                 for (const auto& parameter_node : this->parameters) {
                     // Each parameter is in a separate node.
-                    parameter_vector(parameter_idx) =
-                        parameter_node->get_assignment()(parameter_idx, col);
+                    parameter_vector(col) =
+                        parameter_node->get_assignment()(parameter_idx, 0);
                     col++;
                 }
             }

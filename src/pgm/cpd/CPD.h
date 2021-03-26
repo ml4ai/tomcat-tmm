@@ -221,12 +221,6 @@ namespace tomcat {
                 const std::shared_ptr<RandomVariableNode>& cpd_owner);
 
             /**
-             * Marks the CPD as not updated to force dependency update on a
-             * subsequent call to the member function update_dependencies.
-             */
-            void reset_updated_status();
-
-            /**
              * Prints a short description of the distribution.
              *
              * @param os: output stream
@@ -363,6 +357,8 @@ namespace tomcat {
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
              * performed in the main thread
+             * @param max_time_step_to_sample: boundary time step for sample
+             * generation
              *
              * @return Posterior weights of the node that owns this CPD for one
              * of its parent nodes.
@@ -371,7 +367,8 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
-                int num_jobs) const;
+                int num_jobs,
+                int max_time_step_to_sample) const;
 
             /**
              * Creates a constant CPD by using the frequencies of a
@@ -399,6 +396,11 @@ namespace tomcat {
              * @return Pointer to the new CPD.
              */
             virtual std::unique_ptr<CPD> clone() const = 0;
+
+            /**
+             * Gets the name of the distributions handled by the CPD.
+             */
+            virtual std::string get_name() const = 0;
 
             /**
              * Adds a set of values to the sufficient statistics of this CPD.
@@ -429,12 +431,19 @@ namespace tomcat {
              */
             virtual void reset_sufficient_statistics() = 0;
 
+            /**
+             * Indicates whether the CPD follows a continuous distribution
+             * or not.
+             *
+             * @return Whether the CPD follows a continuous distribution
+             * or not.
+             */
+            virtual bool is_continuous() const = 0;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
             const std::string& get_id() const;
-
-            bool is_updated() const;
 
             const TableOrderingMap& get_parent_label_to_indexing() const;
 
@@ -453,13 +462,6 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
-
-            /**
-             * Returns a short description of the CPD.
-             *
-             * @return CPD's description.
-             */
-            virtual std::string get_description() const = 0;
 
             /**
              * Clones the distributions (and the nodes associated to them) of
@@ -484,10 +486,6 @@ namespace tomcat {
             // List of distributions per parents' assignments
             std::vector<std::shared_ptr<Distribution>> distributions;
 
-            // It indicates whether the CPD was updated with concrete instances
-            // of the nodes it depends on
-            bool updated = false;
-
             // Maps an indexing node's label to its indexing struct.
             TableOrderingMap parent_label_to_indexing;
 
@@ -504,6 +502,13 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Returns a short description of the CPD.
+             *
+             * @return CPD's description.
+             */
+            std::string get_description() const;
 
             /**
              * Fills CPD's unique identifier formed by the concatenation of the
@@ -546,6 +551,8 @@ namespace tomcat {
              * of the sampled node)
              * @param num_jobs: number of jobs used to compute the weights
              * (if > 1, the computation is performed in multiple threads)
+             * @param max_time_step_to_sample: boundary time step for sample
+             * generation
              *
              * @return Posterior weights.
              */
@@ -554,7 +561,8 @@ namespace tomcat {
                 const Eigen::VectorXi& distribution_indices,
                 int cardinality,
                 int distribution_index_offset,
-                int num_jobs) const;
+                int num_jobs,
+                int max_time_step_to_sample) const;
 
             /**
              * Computes a portion of the posterior weights for a given node.
@@ -574,6 +582,9 @@ namespace tomcat {
              * portion of it will be updated by this method
              * @param weights_mutex: mutex to lock the full weights matrix
              * when this method writes to it
+             * @param max_time_step_to_sample: boundary time step for sample
+             * generation
+             *
              */
             void run_posterior_weights_thread(
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
@@ -582,7 +593,8 @@ namespace tomcat {
                 int distribution_index_offset,
                 const std::pair<int, int>& processing_block,
                 Eigen::MatrixXd& full_weights,
-                std::mutex& weights_mutex) const;
+                std::mutex& weights_mutex,
+                int max_time_step_to_sample) const;
 
             /**
              * Computes a portion of the posterior weights for the left

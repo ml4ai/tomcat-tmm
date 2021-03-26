@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Script to download/sync ASIST data.
+# Note: gsutil does not work with Python 3.8 on macOS (as of 2020-10-01), but
+# it does work with Python 3.7.
+
+EXCLUSIONS=".*\.mkv$|.*\.flv$|.*\.sav$|.*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*.png$|.*.PNG$|.*\.csv$|.*Competency.*|.*Condition.*$|Materials/.*$|TrialMessages.*$|Analyses/.*$|.*Posttrial.*$|.*Pretrial.*$|.*EyeTracking.*$"
+
+mkdir -p $DATA_DIR
+
+if [ -z ${EXTRA_EX+x} ]; then
+  gsutil -m rsync -r -x $EXCLUSIONS gs://studies.aptima.com/$GCS_DIR $DATA_DIR
+else
+  gsutil -m rsync -r -x $EXTRA_EX$EXCLUSIONS gs://studies.aptima.com/$GCS_DIR \
+  $DATA_DIR
+fi
+

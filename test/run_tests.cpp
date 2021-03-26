@@ -326,7 +326,7 @@ BOOST_FIXTURE_TEST_CASE(semi_markov, HSMM) {
 
     DBNPtr model = create_model(true, false);
 
-    int time_steps = 10;
+    int time_steps = 15;
     model->unroll(time_steps, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
@@ -341,31 +341,31 @@ BOOST_FIXTURE_TEST_CASE(semi_markov, HSMM) {
 
     MatrixXd pbaes = sampler.get_samples(PBAE)(0, 0);
     MatrixXd expected_pbaes(1, time_steps);
-    expected_pbaes << 1, 0, 1, 0, 1, 0, 1, 0, 1, 0;
+    expected_pbaes << 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1;
     check = check_matrix_eq(pbaes, expected_pbaes);
     BOOST_TEST(check.first, check.second);
 
     MatrixXd states = sampler.get_samples(STATE)(0, 0);
     MatrixXd expected_states(1, time_steps);
-    expected_states << 0, 2, 2, 2, 2, 2, 2, 1, 1, 1;
+    expected_states << 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 0;
     check = check_matrix_eq(states, expected_states);
     BOOST_TEST(check.first, check.second);
 
     MatrixXd greens = sampler.get_samples(GREEN)(0, 0);
     MatrixXd expected_greens(1, time_steps);
-    expected_greens << NO_OBS, 2, 2, 2, 2, 2, 2, 0, 0, 0;
+    expected_greens << NO_OBS, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 1;
     check = check_matrix_eq(greens, expected_greens);
     BOOST_TEST(check.first, check.second);
 
     MatrixXd yellows = sampler.get_samples(YELLOW)(0, 0);
     MatrixXd expected_yellows(1, time_steps);
-    expected_yellows << NO_OBS, 1, 1, 1, 1, 1, 1, 2, 2, 2;
+    expected_yellows << NO_OBS, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 0;
     check = check_matrix_eq(yellows, expected_yellows);
     BOOST_TEST(check.first, check.second);
 
     MatrixXd timer = sampler.get_samples(TIMER)(0, 0);
     MatrixXd expected_timer(1, time_steps);
-    expected_timer << 0, 2, 1, 0, 2, 1, 0, 4, 3, 2;
+    expected_timer << 0, 4, 3, 2, 1, 0, 4, 3, 2, 1, 0, 2, 1, 0, 0;
     check = check_matrix_eq(timer, expected_timer);
     BOOST_TEST(check.first, check.second);
 }
@@ -398,7 +398,7 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
 
     shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
     shared_ptr<GibbsSampler> gibbs_sampler =
-        make_shared<GibbsSampler>(model, 200, 4);
+        make_shared<GibbsSampler>(model, 200, 1);
     gibbs_sampler->set_show_progress(false);
     DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
 
@@ -412,8 +412,16 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     data.add_data(GREEN, sampler.get_samples(GREEN));
     data.add_data(YELLOW, sampler.get_samples(YELLOW));
 
-    // Fix some THETA_STATE_GIVEN_STATE_TC_PBAE to avoid permutation of TC and PBAE.
-    for (int i : {0, 1, 2, 3}) {
+    // Fix some parameters to avoid permutation of TC and
+    // PBAE.
+    const shared_ptr<RandomVariableNode>& theta_tc =
+        dynamic_pointer_cast<RandomVariableNode>(
+            model->get_nodes_by_label(THETA_TC)[0]);
+    theta_tc->set_assignment(tables.tc_prior);
+    theta_tc->freeze();
+
+    for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE;
+         i = i + PBAE_CARDINALITY) {
         stringstream label;
         label << THETA_STATE_GIVEN_STATE_TC_PBAE << "_" << i;
         const shared_ptr<RandomVariableNode>& theta_state =
@@ -490,9 +498,9 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm, HSMM) {
+BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm_durations, HSMM) {
     /**
-     * This test case checks if the model can learn the parameters of a
+     * This test case checks if the model can learn the duration parameters of a
      * non-deterministic semi-Markov model, given data generated from such a
      * model. Observations for node TC are not provided to the sampler to
      * capture the ability of the procedure to learn the parameters given that
@@ -500,34 +508,60 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm, HSMM) {
      */
 
     DBNPtr oracle = create_model(false, false);
-    oracle->unroll(70, true);
+    oracle->unroll(100, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // Generate a bunch of samples to train a model from the scratch.
     AncestralSampler sampler(oracle);
-    sampler.sample(gen, 400);
+    sampler.sample(gen, 500);
 
     DBNPtr model = create_model(false, true);
-    model->unroll(70, true);
+    model->unroll(100, true);
 
     shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
     shared_ptr<GibbsSampler> gibbs_sampler =
-        make_shared<GibbsSampler>(model, 100, 4);
+        make_shared<GibbsSampler>(model, 50, 1);
     gibbs_sampler->set_show_progress(false);
-    DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
+    DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 100);
 
-    double tolerance = 0.05;
     CPDTableCollection tables = this->create_cpd_tables(false);
 
-    // Check parameter learning when State is not provided.
+    // Given the distributions for state transition and emission of green
+    // and yellow, observations of PBAE, GREEN and YELLOW, can we determine the
+    // distribution over training conditions and durations?
     EvidenceSet data;
-    data.add_data(TC, sampler.get_samples(TC));
     data.add_data(PBAE, sampler.get_samples(PBAE));
     data.add_data(GREEN, sampler.get_samples(GREEN));
     data.add_data(YELLOW, sampler.get_samples(YELLOW));
 
-    // Set and freeze the PI_GREEN_GIVEN_STATE and PI_GREEN_YELLOW_STATE
-    //  to avoid permutation of the possible values of State.
+    const shared_ptr<RandomVariableNode>& theta_tc =
+        dynamic_pointer_cast<RandomVariableNode>(
+            model->get_nodes_by_label(THETA_TC)[0]);
+    theta_tc->set_assignment(tables.tc_prior);
+    theta_tc->freeze();
+
+    // To avoid permutation, we need to provide some answers.
+    for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_TC_STATE;
+         i += STATE_CARDINALITY) {
+        stringstream label;
+        label << LAMBDA_TIMER_GIVEN_TC_STATE << '_' << i;
+        const shared_ptr<RandomVariableNode>& lambda_timer =
+            dynamic_pointer_cast<RandomVariableNode>(
+                model->get_nodes_by_label(label.str())[0]);
+        lambda_timer->set_assignment(tables.timer_given_tc_state.row(i));
+        lambda_timer->freeze();
+    }
+
+    for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_PBAE; i++) {
+        stringstream label;
+        label << THETA_STATE_GIVEN_STATE_PBAE << '_' << i;
+        const shared_ptr<RandomVariableNode>& theta_state =
+            dynamic_pointer_cast<RandomVariableNode>(
+                model->get_nodes_by_label(label.str())[0]);
+        theta_state->set_assignment(tables.state_given_state_pbae.row(i));
+        theta_state->freeze();
+    }
+
     for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
         stringstream label;
         label << PI_GREEN_GIVEN_STATE << '_' << i;
@@ -551,15 +585,134 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm, HSMM) {
     trainer.prepare();
     trainer.fit(data);
 
-    MatrixXd estimated_theta_tc =
-        model->get_nodes_by_label(THETA_TC)[0]->get_assignment();
-    auto check =
-        check_matrix_eq(estimated_theta_tc, tables.tc_prior, tolerance);
-    BOOST_TEST(check.first, check.second);
-
+    double tolerance = 0.05;
     MatrixXd estimated_pi_pbae =
         model->get_nodes_by_label(PI_PBAE)[0]->get_assignment();
-    check = check_matrix_eq(estimated_pi_pbae, tables.pbae_prior, tolerance);
+    auto check =
+        check_matrix_eq(estimated_pi_pbae, tables.pbae_prior, tolerance);
+    BOOST_TEST(check.first, check.second);
+
+    MatrixXd estimated_theta_state =
+        model->get_nodes_by_label(THETA_STATE)[0]->get_assignment();
+    check =
+        check_matrix_eq(estimated_theta_state, tables.state_prior, tolerance);
+    BOOST_TEST(check.first, check.second);
+
+    for (int i = 0; i < NUM_PI_PBAE_GIVEN_PBAE; i++) {
+        stringstream label;
+        label << PI_PBAE_GIVEN_PBAE << '_' << i;
+        MatrixXd estimated_pi_pbae_given_pbae =
+            model->get_nodes_by_label(label.str())[0]->get_assignment();
+        check = check_matrix_eq(estimated_pi_pbae_given_pbae,
+                                tables.pbae_given_pbae.row(i),
+                                tolerance);
+        BOOST_TEST(check.first, check.second);
+    }
+
+    tolerance = 0.8; // higher tolerance to lambda
+    for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_TC_STATE; i++) {
+        stringstream label;
+        label << LAMBDA_TIMER_GIVEN_TC_STATE << '_' << i;
+        MatrixXd estimated_lambda_timer_given_tc_pbae_state =
+            model->get_nodes_by_label(label.str())[0]->get_assignment();
+        check = check_matrix_eq(estimated_lambda_timer_given_tc_pbae_state,
+                                tables.timer_given_tc_state.row(i),
+                                tolerance);
+        BOOST_TEST(check.first, check.second);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm_transitions, HSMM) {
+    /**
+     * This test case checks if the model can learn the transition parameters
+     * of a* non-deterministic semi-Markov model, given data generated from such
+     * a model. Observations for node TC are not provided to the sampler to
+     * capture the ability of the procedure to learn the parameters given that
+     * some nodes are hidden.
+     */
+
+    DBNPtr oracle = create_model(false, false);
+    oracle->unroll(100, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Generate a bunch of samples to train a model from the scratch.
+    AncestralSampler sampler(oracle);
+    sampler.sample(gen, 500);
+
+    DBNPtr model = create_model(false, true);
+    model->unroll(100, true);
+
+    shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
+    shared_ptr<GibbsSampler> gibbs_sampler =
+        make_shared<GibbsSampler>(model, 50, 1);
+    gibbs_sampler->set_show_progress(false);
+    DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 100);
+
+    CPDTableCollection tables = this->create_cpd_tables(false);
+
+    // Given the distributions for state duration and emission of green
+    // and yellow, observations of PBAE, GREEN and YELLOW, can we determine the
+    // distribution over training conditions and state transition?
+    EvidenceSet data;
+    data.add_data(PBAE, sampler.get_samples(PBAE));
+    data.add_data(GREEN, sampler.get_samples(GREEN));
+    data.add_data(YELLOW, sampler.get_samples(YELLOW));
+
+    const shared_ptr<RandomVariableNode>& theta_tc =
+        dynamic_pointer_cast<RandomVariableNode>(
+            model->get_nodes_by_label(THETA_TC)[0]);
+    theta_tc->set_assignment(tables.tc_prior);
+    theta_tc->freeze();
+
+    for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_TC_STATE; i++) {
+        stringstream label;
+        label << LAMBDA_TIMER_GIVEN_TC_STATE << '_' << i;
+        const shared_ptr<RandomVariableNode>& lambda_timer =
+            dynamic_pointer_cast<RandomVariableNode>(
+                model->get_nodes_by_label(label.str())[0]);
+        lambda_timer->set_assignment(tables.timer_given_tc_state.row(i));
+        lambda_timer->freeze();
+    }
+
+    //        // To avoid permutation, we need to provide some answers.
+    //    for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_PBAE; i++) {
+    //        stringstream label;
+    //        label << THETA_STATE_GIVEN_STATE_PBAE << '_' << i;
+    //        const shared_ptr<RandomVariableNode>& theta_state =
+    //            dynamic_pointer_cast<RandomVariableNode>(
+    //                model->get_nodes_by_label(label.str())[0]);
+    //        theta_state->set_assignment(tables.state_given_state_pbae.row(i));
+    //        theta_state->freeze();
+    //    }
+
+    for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+        stringstream label;
+        label << PI_GREEN_GIVEN_STATE << '_' << i;
+        const shared_ptr<RandomVariableNode>& pi_green =
+            dynamic_pointer_cast<RandomVariableNode>(
+                model->get_nodes_by_label(label.str())[0]);
+        pi_green->set_assignment(tables.green_given_state.row(i));
+        pi_green->freeze();
+    }
+
+    for (int i = 0; i < NUM_PI_YELLOW_GIVEN_STATE; i++) {
+        stringstream label;
+        label << PI_YELLOW_GIVEN_STATE << '_' << i;
+        const shared_ptr<RandomVariableNode>& pi_yellow =
+            dynamic_pointer_cast<RandomVariableNode>(
+                model->get_nodes_by_label(label.str())[0]);
+        pi_yellow->set_assignment(tables.yellow_given_state.row(i));
+        pi_yellow->freeze();
+    }
+
+    trainer.prepare();
+    trainer.fit(data);
+
+    double tolerance = 0.06;
+    MatrixXd estimated_pi_pbae =
+        model->get_nodes_by_label(PI_PBAE)[0]->get_assignment();
+    auto check =
+        check_matrix_eq(estimated_pi_pbae, tables.pbae_prior, tolerance);
     BOOST_TEST(check.first, check.second);
 
     MatrixXd estimated_theta_state =
@@ -586,18 +739,6 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm, HSMM) {
             model->get_nodes_by_label(label.str())[0]->get_assignment();
         check = check_matrix_eq(estimated_pi_pbae_given_pbae,
                                 tables.pbae_given_pbae.row(i),
-                                tolerance);
-        BOOST_TEST(check.first, check.second);
-    }
-
-    tolerance = 0.5; // higher tolerance to lambda
-    for (int i = 0; i < NUM_LAMBDA_TIMER_GIVEN_TC_STATE; i++) {
-        stringstream label;
-        label << LAMBDA_TIMER_GIVEN_TC_STATE << '_' << i;
-        MatrixXd estimated_lambda_timer_given_tc_pbae_state =
-            model->get_nodes_by_label(label.str())[0]->get_assignment();
-        check = check_matrix_eq(estimated_lambda_timer_given_tc_pbae_state,
-                                tables.timer_given_tc_state.row(i),
                                 tolerance);
         BOOST_TEST(check.first, check.second);
     }
@@ -732,16 +873,16 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hmm, HMM) {
         make_shared<SamplerEstimator>(pre_trained_model, 0, TC);
 
     shared_ptr<GibbsSampler> gibbs =
-        make_shared<GibbsSampler>(pre_trained_model, 300, 4);
+        make_shared<GibbsSampler>(pre_trained_model, 0, 1);
     gibbs->set_show_progress(false);
     gibbs->set_trainable(false);
-    CompoundSamplerEstimator sampler_estimator(
-        pre_trained_model, gibbs, gen, 5000);
-    sampler_estimator.add_estimator(green_estimator_h1);
-    sampler_estimator.add_estimator(yellow_estimator_h1);
-    sampler_estimator.add_estimator(green_estimator_h3);
-    sampler_estimator.add_estimator(yellow_estimator_h3);
-    sampler_estimator.add_estimator(tc_estimator);
+    CompoundSamplerEstimator sampler_estimator(gibbs, gen, 2000);
+    sampler_estimator.set_show_progress(false);
+    sampler_estimator.add_base_estimator(green_estimator_h1);
+    sampler_estimator.add_base_estimator(yellow_estimator_h1);
+    sampler_estimator.add_base_estimator(green_estimator_h3);
+    sampler_estimator.add_base_estimator(yellow_estimator_h3);
+    sampler_estimator.add_base_estimator(tc_estimator);
 
     // Green node is observed
     EvidenceSet data;
@@ -819,19 +960,17 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
             pre_trained_model, 1, GREEN, VectorXd::Constant(1, 1));
 
     shared_ptr<GibbsSampler> gibbs =
-        make_shared<GibbsSampler>(pre_trained_model, 1000, 4);
+        make_shared<GibbsSampler>(pre_trained_model, 0, 1);
     gibbs->set_show_progress(false);
     gibbs->set_trainable(false);
-    CompoundSamplerEstimator sampler_estimator(
-        pre_trained_model, gibbs, gen, 3000);
-    sampler_estimator.add_estimator(state_estimator_h1);
-    sampler_estimator.add_estimator(green_estimator_h1);
+    CompoundSamplerEstimator sampler_estimator(gibbs, gen, 10000);
+    sampler_estimator.set_show_progress(false);
+    sampler_estimator.add_base_estimator(state_estimator_h1);
+    sampler_estimator.add_base_estimator(green_estimator_h1);
 
     // Green node is observed
     EvidenceSet data;
     data.add_data(GREEN, sampler.get_samples(GREEN));
-
-    cout << data[GREEN](0, 0) << endl;
 
     sampler_estimator.prepare();
     sampler_estimator.estimate(data);
@@ -842,7 +981,7 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
     MatrixXd green_estimates_h1 =
         green_estimator_h1->get_estimates().estimates[0];
 
-    double tolerance = 0.03;
+    double tolerance = 0.02;
 
     MatrixXd expected_state_h1(1, 3);
     expected_state_h1 << 0.6321, 0.3412, 0.1748;

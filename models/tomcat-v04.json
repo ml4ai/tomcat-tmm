@@ -1,0 +1,380 @@
+{
+  "nodes": {
+    "timers": [
+    ],
+    "parameters": [
+      {
+        "label": "ThetaBRoleGivenBRole",
+        "prior": false,
+        "sample_size": 4,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "ThetaStateGivenState.BRole",
+        "prior": false,
+        "sample_size": 5,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1",
+            "index_nodes": []
+          }
+        ]
+      }
+    ],
+    "data": [
+      {
+        "label": "StateP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0",
+            "index_nodes": []
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaStateGivenState.BRole",
+            "index_nodes": [
+              "StateP1",
+              "BRoleP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "StateP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0",
+            "index_nodes": []
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaStateGivenState.BRole",
+            "index_nodes": [
+              "StateP2",
+              "BRoleP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "StateP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0",
+            "index_nodes": []
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaStateGivenState.BRole",
+            "index_nodes": [
+              "StateP3",
+              "BRoleP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "BRoleP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0",
+            "index_nodes": []
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaBRoleGivenBRole",
+            "index_nodes": [
+              "BRoleP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "BRoleP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0",
+            "index_nodes": []
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaBRoleGivenBRole",
+            "index_nodes": [
+              "BRoleP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "BRoleP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0",
+            "index_nodes": []
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaBRoleGivenBRole",
+            "index_nodes": [
+              "BRoleP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "RoleP1",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "BRoleP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "RoleP2",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "BRoleP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "RoleP3",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "BRoleP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "TaskP1",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "StateP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "TaskP2",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "StateP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "TaskP3",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "StateP3"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "connections": [
+    {
+      "parent": "BRoleP1",
+      "child": "StateP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "BRoleP2",
+      "child": "StateP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "BRoleP3",
+      "child": "StateP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "StateP1",
+      "child": "StateP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "StateP2",
+      "child": "StateP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "StateP3",
+      "child": "StateP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "BRoleP1",
+      "child": "BRoleP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "BRoleP2",
+      "child": "BRoleP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "BRoleP3",
+      "child": "BRoleP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "BRoleP1",
+      "child": "RoleP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "BRoleP2",
+      "child": "RoleP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "BRoleP3",
+      "child": "RoleP3",
+      "time_crossing": false
+    },
+    {
+      "parent": "StateP1",
+      "child": "TaskP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "StateP2",
+      "child": "TaskP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "StateP3",
+      "child": "TaskP3",
+      "time_crossing": false
+    }
+  ]
+}

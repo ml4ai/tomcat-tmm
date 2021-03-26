@@ -77,15 +77,21 @@ namespace tomcat {
              * performed in parallel as they can be achieved by small matrix
              * operations. Therefore, this parameter is irrelevant in this
              * subclass.
+             * @param min_time_step_to_sample: not used in the timer node
+             * computation of the posterior
              * @param max_time_step_to_sample: ignore segments with time step
              * larger than this value
+             * @param use_weights_cache: not used in the timer node
+             * computation of the posterior
              *
              * @return Timer values given controlled nodes' assignment.
              */
             Eigen::MatrixXd
             sample_from_posterior(const std::vector<std::shared_ptr<gsl_rng>>&
                                       random_generator_per_job,
-                                  int max_time_step_to_sample) override;
+                                  int min_time_step_to_sample,
+                                  int max_time_step_to_sample,
+                                  bool use_weights_cache) override;
 
             /**
              * Gets posterior weights for the left segment of a node such

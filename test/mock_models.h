@@ -1124,7 +1124,7 @@ struct HSMM {
             tables.tc_prior << 1, 0, 0;
         }
         else {
-            tables.tc_prior << 0.5, 0.3, 0.2;
+            tables.tc_prior << 0.6, 0.3, 0.1;
         }
 
         tables.pbae_prior = MatrixXd(1, PBAE_CARDINALITY);
@@ -1159,9 +1159,9 @@ struct HSMM {
                 0, 0, 1, 0, 1, 0;
         }
         else {
-            tables.state_given_state_pbae << EPSILON, 0.8, 0.2, EPSILON, 0.7,
-                0.3, 0.2, EPSILON, 0.8, 0.3, EPSILON, 0.7, 0.8, 0.2, EPSILON,
-                0.6, 0.4, EPSILON;
+            tables.state_given_state_pbae << EPSILON, 0.8, 0.2, EPSILON, 0.2,
+                0.8, 0.2, EPSILON, 0.8, 0.8, EPSILON, 0.2, 0.8, 0.2, EPSILON,
+                0.2, 0.8, EPSILON;
         }
 
         tables.green_given_state =
@@ -1170,8 +1170,8 @@ struct HSMM {
             tables.green_given_state << 0, 1, 0, 1, 0, 0, 0, 0, 1;
         }
         else {
-            tables.green_given_state << 0.1, 0.8, 0.1, 0.7, 0.2, 0.1, 0.2, 0.2,
-                0.6;
+            tables.green_given_state << 0.1, 0.8, 0.1, 0.8, 0.1, 0.1, 0.1, 0.1,
+                0.8;
         }
 
         tables.yellow_given_state =
@@ -1180,14 +1180,14 @@ struct HSMM {
             tables.yellow_given_state << 1, 0, 0, 0, 0, 1, 0, 1, 0;
         }
         else {
-            tables.yellow_given_state << 0.8, 0.1, 0.1, 0.2, 0.1, 0.7, 0.2, 0.6,
-                0.2;
+            tables.yellow_given_state << 0.8, 0.1, 0.1, 0.1, 0.1, 0.8, 0.1, 0.8,
+                0.1;
         }
 
         // Lambdas for all possible parent combinations
         tables.timer_given_tc_state =
             MatrixXd(NUM_LAMBDA_TIMER_GIVEN_TC_STATE, 1);
-        tables.timer_given_tc_state << EPSILON, 4, 2, 1, 3, 5, 4, 2, EPSILON;
+        tables.timer_given_tc_state << EPSILON, 2, 4, 1, 3, 5, 6, 7, 10;
 
         return tables;
     }

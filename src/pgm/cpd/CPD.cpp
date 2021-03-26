@@ -97,7 +97,6 @@ namespace tomcat {
 
         void CPD::copy_cpd(const CPD& cpd) {
             this->id = cpd.id;
-            this->updated = cpd.updated;
             this->parent_label_to_indexing = cpd.parent_label_to_indexing;
             this->parent_node_order = cpd.parent_node_order;
             this->distributions = cpd.distributions;
@@ -109,7 +108,6 @@ namespace tomcat {
             for (auto& distribution : this->distributions) {
                 distribution->update_dependencies(parameter_nodes_map);
             }
-            this->updated = true;
         }
 
         Eigen::MatrixXd CPD::sample(
@@ -376,7 +374,8 @@ namespace tomcat {
             const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
             const shared_ptr<const RandomVariableNode>& cpd_owner,
-            int num_jobs) const {
+            int num_jobs,
+            int max_time_step_to_sample) const {
 
             if (sampled_node->has_timer() &&
                 cpd_owner->get_previous() == sampled_node) {
@@ -407,8 +406,13 @@ namespace tomcat {
             int offset = this->parent_label_to_indexing.at(sampled_node_label)
                              .right_cumulative_cardinality;
 
-            Eigen::MatrixXd weights = this->compute_posterior_weights(
-                cpd_owner, distribution_indices, cardinality, offset, num_jobs);
+            Eigen::MatrixXd weights =
+                this->compute_posterior_weights(cpd_owner,
+                                                distribution_indices,
+                                                cardinality,
+                                                offset,
+                                                num_jobs,
+                                                max_time_step_to_sample);
             return weights;
         }
 
@@ -417,7 +421,8 @@ namespace tomcat {
             const Eigen::VectorXi& distribution_indices,
             int cardinality,
             int distribution_index_offset,
-            int num_jobs) const {
+            int num_jobs,
+            int max_time_step_to_sample) const {
 
             int data_size = cpd_owner->get_size();
             Eigen::MatrixXd weights(data_size, cardinality);
@@ -434,7 +439,8 @@ namespace tomcat {
                                                    distribution_index_offset,
                                                    make_pair(0, data_size),
                                                    weights,
-                                                   weights_mutex);
+                                                   weights_mutex,
+                                                   max_time_step_to_sample);
             }
             else {
                 vector<thread> threads;
@@ -447,7 +453,8 @@ namespace tomcat {
                                           distribution_index_offset,
                                           ref(processing_block),
                                           ref(weights),
-                                          ref(weights_mutex));
+                                          ref(weights_mutex),
+                                          max_time_step_to_sample);
                     threads.push_back(move(weights_thread));
                 }
 
@@ -466,21 +473,55 @@ namespace tomcat {
             int distribution_index_offset,
             const pair<int, int>& processing_block,
             Eigen::MatrixXd& full_weights,
-            mutex& weights_mutex) const {
+            mutex& weights_mutex,
+            int max_time_step_to_sample) const {
 
             int initial_row = processing_block.first;
             int num_rows = processing_block.second;
 
-            Eigen::MatrixXd weights(num_rows, cardinality);
+            Eigen::MatrixXd weights =
+                Eigen::MatrixXd::Ones(num_rows, cardinality);
             for (int i = initial_row; i < initial_row + num_rows; i++) {
                 int distribution_idx = distribution_indices[i];
+
+                bool use_cdf = false;
+                if (cpd_owner->get_metadata()->is_timer()) {
+                    // If the node to which we are computing the weights is
+                    // parent of a timer node, we ignore weights in the
+                    // middle of a segment and only care for the ones in the
+                    // beginning of a new segment.
+                    const auto& timer =
+                        dynamic_pointer_cast<const TimerNode>(cpd_owner);
+                    int timer_value = timer->get_forward_assignment()(i, 0);
+                    if (timer_value != 0) {
+                        // Middle of a segment
+                        continue;
+                    }
+
+                    int segment_duration =
+                        timer->get_backward_assignment()(i, 0);
+                    if (timer->get_time_step() + segment_duration >=
+                        max_time_step_to_sample) {
+                        // If the timer is the last right segment. We use the
+                        // CDF instead.
+                        use_cdf = true;
+                    }
+                }
 
                 for (int j = 0; j < cardinality; j++) {
                     const auto& distribution =
                         this->distributions[distribution_idx +
                                             j * distribution_index_offset];
-                    weights(i - initial_row, j) = distribution->get_pdf(
-                        cpd_owner->get_assignment().row(i));
+
+                    if (use_cdf) {
+                        // p(x >= val)
+                        weights(i - initial_row, j) = distribution->get_cdf(
+                            cpd_owner->get_assignment()(i, 0) - 1, true);
+                    }
+                    else {
+                        weights(i - initial_row, j) = distribution->get_pdf(
+                            cpd_owner->get_assignment().row(i));
+                    }
                 }
             }
 
@@ -1005,7 +1046,7 @@ namespace tomcat {
             for (int i = 0; i < data_size; i++) {
                 int distribution_idx = distribution_indices[i];
 
-                double value = value = values(i, 0);
+                double value = values(i, 0);
                 bool add_to_list = false;
                 if (cpd_owner->get_metadata()->is_timer()) {
                     // Only add to the sufficient statistics, when the timer
@@ -1031,9 +1072,6 @@ namespace tomcat {
                             // previous node in time);
                             add_to_list = true;
                         }
-                        else {
-                            add_to_list = false;
-                        }
                     }
                     else {
                         add_to_list = true;
@@ -1055,9 +1093,25 @@ namespace tomcat {
             }
         }
 
-        void CPD::reset_updated_status() { this->updated = false; }
-
         void CPD::print(ostream& os) const { os << this->get_description(); }
+
+        string CPD::get_description() const {
+            stringstream ss;
+
+            int i;
+            int size = this->parent_node_order.size() - 1;
+            for (i = 0; i < size; i++) {
+                ss << this->parent_node_order.at(i)->get_label() << ", ";
+            }
+            if (!this->parent_node_order.empty()) {
+                ss << this->parent_node_order.at(i)->get_label();
+            }
+            ss << "\n";
+            ss << this->get_table(0) << "\n";
+            ss << this->get_name() << "\n";
+
+            return ss.str();
+        }
 
         Eigen::MatrixXd CPD::get_table(int parameter_idx) const {
             Eigen::MatrixXd table;
@@ -1091,8 +1145,6 @@ namespace tomcat {
         // Getters & Setters
         //------------------------------------------------------------------
         const string& CPD::get_id() const { return id; }
-
-        bool CPD::is_updated() const { return updated; }
 
         const CPD::TableOrderingMap& CPD::get_parent_label_to_indexing() const {
             return parent_label_to_indexing;

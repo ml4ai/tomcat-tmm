@@ -3,6 +3,7 @@
 #include <iostream>
 #include <thread>
 
+#include "pipeline/estimation/custom_metrics/FinalScore.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -23,7 +24,11 @@ namespace tomcat {
             : Estimator(model, inference_horizon, node_label, low),
               update_estimates_mutex(make_unique<mutex>()) {
 
-            if (low.size() == 0) {
+            if (node_label == "FinalScore") {
+                this->custom_metric = make_shared<FinalScore>();
+            }
+
+            if (low.size() == 0 && !this->custom_metric) {
                 int cardinality = model->get_cardinality_of(node_label);
                 this->estimates.estimates =
                     vector<Eigen::MatrixXd>(cardinality);
@@ -76,83 +81,88 @@ namespace tomcat {
 
         string SamplerEstimator::get_name() const { return "sampler"; }
 
-        vector<double>
-        SamplerEstimator::estimate(const std::shared_ptr<Sampler>& sampler,
-                                   int data_point_idx,
-                                   int time_step) {
-
-            const auto& node_metadata =
-                this->model->get_metadata_of(this->estimates.label);
-            int node_initial_time_step = node_metadata->get_initial_time_step();
-            Eigen::MatrixXd samples(0, 0);
-            if (this->inference_horizon > 0) {
-                samples = sampler->get_samples(this->estimates.label)(0, 0);
-                samples = samples.block(
-                    0, time_step + 1, samples.rows(), this->inference_horizon);
-            }
-            else {
-                if (time_step >= node_initial_time_step) {
-                    samples =
-                        sampler->get_samples(this->estimates.label)(0, 0).col(
-                            node_initial_time_step);
+        void SamplerEstimator::estimate(const std::shared_ptr<Sampler>& sampler,
+                                        int data_point_idx,
+                                        int time_step) {
+            if (this->estimates.label == "FinalScore") {
+                if (this->estimates.estimates.at(0).size() == 0) {
+                    this->estimates.estimates[0] = Eigen::MatrixXd::Zero(
+                        sampler->get_num_samples(),
+                        sampler->get_model()->get_time_steps());
                 }
-            }
 
-            int k = 1;
-            double low;
-            double high;
-            if (this->estimates.assignment.size() == 0) {
-                // For each possible discrete value the node can take, we
-                // compute the probability estimate for the node.
-                k = sampler->get_model()->get_cardinality_of(
-                    this->estimates.label);
+                double final_score =
+                    this->custom_metric->calculate(sampler, time_step).at(0);
+                this->estimates.estimates.at(0)(data_point_idx, time_step) =
+                    final_score;
             }
             else {
-                low = this->estimates.assignment(0);
-                high = this->estimates.assignment(0);
-            }
+                const auto& node_metadata =
+                    this->model->get_metadata_of(this->estimates.label);
+                int node_initial_time_step =
+                    node_metadata->get_initial_time_step();
+                Eigen::MatrixXd samples(0, 0);
+                if (this->inference_horizon > 0) {
+                    samples = sampler->get_samples(this->estimates.label)(0, 0);
+                    samples = samples.block(0,
+                                            time_step + 1,
+                                            samples.rows(),
+                                            this->inference_horizon);
+                }
+                else {
+                    if (time_step >= node_initial_time_step) {
+                        samples =
+                            sampler->get_samples(this->estimates.label)(0, 0)
+                                .col(node_initial_time_step);
+                    }
+                }
 
-            vector<double> probabilities_per_class(k);
-            if (samples.size() == 0) {
-                fill_n(probabilities_per_class.begin(), k, NO_OBS);
-            }
-            else {
+                int k = 1;
+                double low;
+                double high;
+                if (this->estimates.assignment.size() == 0) {
+                    // For each possible discrete value the node can take, we
+                    // compute the probability estimate for the node.
+                    k = sampler->get_model()->get_cardinality_of(
+                        this->estimates.label);
+                }
+                else {
+                    low = this->estimates.assignment(0);
+                    high = this->estimates.assignment(0);
+                }
+
+                if (this->estimates.estimates.empty()) {
+                    this->estimates.estimates.resize(k);
+                }
+
                 for (int i = 0; i < k; i++) {
-                    if (k > 1) {
-                        low = i;
-                        high = i;
+                    double probability;
+                    if (samples.size() == 0) {
+                        probability = NO_OBS;
+                    }
+                    else {
+                        if (k > 1) {
+                            low = i;
+                            high = i;
+                        }
+
+                        probability =
+                            this->get_probability_in_range(samples, low, high);
                     }
 
-                    double probability =
-                        this->get_probability_in_range(samples, low, high);
-                    probabilities_per_class[i] = probability;
+                    // Add probability to the estimates
+                    auto& estimates_matrix = this->estimates.estimates.at(i);
+                    int new_rows = data_point_idx + 1;
+                    int new_cols =
+                        max((int)estimates_matrix.cols(), time_step + 1);
+
+                    if (estimates_matrix.rows() != new_rows ||
+                        estimates_matrix.cols() != new_cols) {
+                        estimates_matrix.conservativeResize(new_rows, new_cols);
+                    }
+
+                    estimates_matrix(data_point_idx, time_step) = probability;
                 }
-            }
-
-            return probabilities_per_class;
-        }
-
-        void SamplerEstimator::set_estimates(
-            const std::vector<Eigen::VectorXd>& probabilities_per_class,
-            int initial_data_idx,
-            int data_size,
-            int time_step) {
-
-            scoped_lock lock(*this->update_estimates_mutex);
-            for (int k = 0; k < probabilities_per_class.size(); k++) {
-                auto& estimates_matrix = this->estimates.estimates.at(k);
-                int new_rows = max((int)estimates_matrix.rows(),
-                                   initial_data_idx + data_size);
-                int new_cols = max((int)estimates_matrix.cols(), time_step + 1);
-
-                if (estimates_matrix.rows() != new_rows ||
-                    estimates_matrix.cols() != new_cols) {
-                    estimates_matrix.conservativeResize(new_rows, new_cols);
-                }
-
-                estimates_matrix.block(
-                    initial_data_idx, time_step, data_size, 1) =
-                    probabilities_per_class.at(k);
             }
         }
 

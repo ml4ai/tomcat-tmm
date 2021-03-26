@@ -5,27 +5,15 @@
 #include <unordered_set>
 #include <vector>
 
-#include <eigen3/Eigen/Dense>
-#include <fmt/format.h>
 #include <gsl/gsl_rng.h>
 
-#include "converter/TA3MessageConverter.h"
-#include "experiments/TomcatTA3.h"
-#include "experiments/TomcatTA3V2.h"
+#include "converter/MessageConverter.h"
+#include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
-#include "pipeline/DBNSaver.h"
-#include "pipeline/DataSplitter.h"
-#include "pipeline/Pipeline.h"
-#include "pipeline/estimation/OfflineEstimation.h"
-#include "pipeline/estimation/SumProductEstimator.h"
-#include "pipeline/estimation/TrainingFrequencyEstimator.h"
-#include "pipeline/evaluation/Accuracy.h"
+#include "pipeline/estimation/Agent.h"
+#include "pipeline/estimation/EstimationProcess.h"
 #include "pipeline/evaluation/EvaluationAggregator.h"
-#include "pipeline/evaluation/F1Score.h"
-#include "pipeline/training/DBNLoader.h"
-#include "pipeline/training/DBNSamplingTrainer.h"
-#include "sampling/GibbsSampler.h"
-#include "utils/Definitions.h"
+#include "pipeline/training/DBNTrainer.h"
 
 namespace tomcat {
     namespace model {
@@ -36,54 +24,43 @@ namespace tomcat {
         class Experimentation {
           public:
             //------------------------------------------------------------------
-            // Types, Enums & Constants
-            //------------------------------------------------------------------
-            enum MODEL_VERSION { v1, v2 };
-            enum MEASURES { accuracy, f1 };
-
-            //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Initializes an experiment with fixed training and test data.
+             * Initializes an experiment for offline estimation.
              *
              * @param gen: random number generator
              * @param experiment_id: id of the experiment
-             * @param model_version: version of the ToMCAT model
-             * @param training_set: data used to learn the model's parameters
-             * @param test_set: data used to evaluate the predictions and
-             * inferences
+             * @param model: model to experiment on
+             * @param real_time_estimation: whether estimates are computed on
+             * the fly
              */
             Experimentation(const std::shared_ptr<gsl_rng>& gen,
                             const std::string& experiment_id,
-                            MODEL_VERSION model_version,
-                            const EvidenceSet& training_set,
-                            const EvidenceSet& test_set);
+                            const std::shared_ptr<DynamicBayesNet>& model);
 
             /**
-             * Initializes an experiment using cross validation.
+             * Initializes an agent for online estimation.
              *
              * @param gen: random number generator
-             * @param experiment_id: id of the experiment
-             * @param model_version: version of the ToMCAT model
-             * @param data: data to be split using cross validation
-             * @param num_folds: number of folds in the cross validation
+             * @param model: model to compute estimates from
+             * @param agent: agent who talks to the message bus
+             * @param broker_address: address of the message broker
+             * @param broker_port: port of the message broker
+             * @param num_connection_trials: number of attempts to connect
+             * with the message broker
+             * @param milliseconds_before_retrial: milliseconds to wait
+             * before retrying to connect with the message broker in case of
+             * fail to connect previously
              */
             Experimentation(const std::shared_ptr<gsl_rng>& gen,
-                            const std::string& experiment_id,
-                            MODEL_VERSION model_version,
-                            const EvidenceSet& data,
-                            int num_folds);
-
-            /**
-             * Initializes an experiment for synthetic data generation.
-             *
-             * @param gen: random number generator
-             * @param model_version: version of the ToMCAT model
-             */
-            Experimentation(const std::shared_ptr<gsl_rng>& gen,
-                            MODEL_VERSION model_version);
+                            const std::shared_ptr<DynamicBayesNet>& model,
+                            const std::shared_ptr<Agent>& agent,
+                            const std::string& broker_address,
+                            int broker_port,
+                            int num_connection_trials,
+                            int milliseconds_before_retrial);
 
             ~Experimentation();
 
@@ -101,102 +78,145 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void display_estimates();
 
-            void load_model_from(const std::string& input_dir);
+            /**
+             * Configure a Gibbs Sampler to train a model and estimate its
+             * parameters.
+             *
+             * @param burn_in: burn in period
+             * @param num_samples: number of samples after the burn in period
+             * @param num_jobs: number of jobs used to perform the computations
+             */
+            void set_gibbs_trainer(int burn_in, int num_samples, int num_jobs);
 
-            void
-            train_using_gibbs(int burn_in, int num_samples, int num_jobs = 4);
+            /**
+             * Trains a model and save its parameters to files in a given
+             * folder.
+             *
+             * @param params_dir: directory where learned parameters must be
+             * saved
+             * @param num_folds: number of folds (>1 for
+             * experiments with cross-validation)
+             * @param data: data used for training
+             */
+            void train_and_save(const std::string& params_dir,
+                                int num_folds,
+                                const EvidenceSet& data);
 
-            void save_model(const std::string& output_dir,
-                            bool save_partials = false);
+            /**
+             * Adds a series of estimators to evaluate inferences in a
+             * pre-trained model.
+             *
+             * @param filepath: filepath to a json file containing the
+             * specifications of each estimation needed
+             * @param burn_in: burn in period if approximate inference is
+             * necessary
+             * @param num_samples: number of samples after burn in
+             * @param num_jobs: number of jobs used to perform the computations
+             * @param baseline: whether to use the baseline estimator based
+             * on frequencies of values of training samples
+             */
+            void add_estimators_from_json(const std::string& filepath,
+                                          int burn_in,
+                                          int num_samples,
+                                          int num_jobs,
+                                          bool baseline);
 
-            void compute_baseline_estimates_for(
-                const std::string& node_label,
-                int inference_horizon,
-                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
+            /**
+             * Evaluates a pre-trained model and save the evaluations to a
+             * json file in a given directory.
+             *
+             * @param params_dir: directory where the parameters of a
+             * pre-trained model are saved
+             * @param num_folds: number of folds (>1 for experiments with
+             * cross-validation)
+             * @param eval_dir: directory where the final evaluation file
+             * must be saved
+             * @param data: test data (training data if the baseline
+             * estimator is chosen), or full data fo experiments with
+             * cross-validation
+             * @param baseline: whether to use the baseline estimator based
+             * on frequencies of values of training samples
+             * @param train_dir: directory where data used for training the
+             * model is. This is only required for baseline evaluation.
+             */
+            void evaluate_and_save(const std::string& params_dir,
+                                   int num_folds,
+                                   const std::string& eval_dir,
+                                   const EvidenceSet& data,
+                                   bool baseline,
+                                   const std::string& train_dir);
 
-            void compute_estimates_for(
-                const std::string& node_label,
-                int inference_horizon,
-                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
+            /**
+             * Evaluates a pre-trained model and save the evaluations to a
+             * json file in a given directory.
+             *
+             * @param params_dir: directory where the parameters of a
+             * pre-trained model are saved
+             * @param num_folds: number of folds (>1 for experiments with
+             * cross-validation)
+             * @param eval_dir: directory where the final evaluation file
+             * must be saved
+             * @param data: test data (training data if the baseline
+             * estimator is chosen), or full data fo experiments with
+             * cross-validation
+             * @param baseline: whether to use the baseline estimator based
+             * on frequencies of values of training samples
+             */
+            void start_real_time_estimation(const std::string& params_dir);
 
-            void compute_baseline_eval_scores_for(
-                const std::string& node_label,
-                int inference_horizon,
-                const std::vector<MEASURES>& measures,
-                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
+            /**
+             * Generates data samples from a pre-trained model.
+             *
+             * @param params_dir: directory where the parameters of a
+             * pre-trained model are saved
+             * @param data_dir: directory where the generated samples must be
+             * saved
+             * @param num_data_samples: number of data samples to generate
+             * per variable of the model
+             * @param num_time_steps: number of time steps to unroll the DBN
+             * into
+             * @param equal_samples_time_step_limit: time step up to when
+             * samples must not differ (for each variable)
+             * @param exclusions: json file containing a list of variable
+             * labels for which samples must not be saved
+             * @param num_jobs: number of jobs used to perform the computations
+             */
+            void generate_synthetic_data(
+                const std::string& params_dir,
+                const std::string& data_dir,
+                int num_data_samples,
+                int num_time_steps,
+                int equal_samples_time_step_limit,
+                const std::unordered_set<std::string>& exclusions,
+                int num_jobs);
 
-            void compute_eval_scores_for(
-                const std::string& node_label,
-                int inference_horizon,
-                const std::vector<MEASURES>& measures,
-                const Eigen::VectorXd& assignment = Eigen::VectorXd(0));
-
-            void train_and_evaluate(const std::string& output_dir,
-                                    bool evaluate_on_partials = false);
-
-            void train_and_save();
-
-            void generate_synthetic_data(int num_samples,
-                                         const std::string& output_dir,
-                                         int equals_until = 0,
-                                         int max_time_step = -1);
-
-          protected:
-            //------------------------------------------------------------------
-            // Member functions
-            //------------------------------------------------------------------
-
-            //------------------------------------------------------------------
-            // Data members
-            //------------------------------------------------------------------
+            /**
+             * Prints the model structure and/or CPDs to files in a given
+             * directory.
+             *
+             * @param params_dir: directory where the parameters of a
+             * pre-trained model are saved
+             * @param model_dir: directory where model's info must be saved
+             */
+            void print_model(const std::string& params_dir,
+                             const std::string& model_dir);
 
           private:
             //------------------------------------------------------------------
-            // Member functions
-            //------------------------------------------------------------------
-            void init_model(MODEL_VERSION model_version);
-
-            void init_evaluation();
-
-            bool should_eval_last_only(const std::string& node_label);
-
-            void compute_eval_scores_for(
-                const std::string& node_label,
-                int inference_horizon,
-                const std::vector<MEASURES>& measures,
-                const Eigen::VectorXd& assignment,
-                const std::shared_ptr<Estimator>& estimator);
-
-            /**
-             * Run evaluation for each one of the models defined by each one of
-             * the parameter samples generated during training.
-             */
-            void evaluate_on_partials(const std::string& output_dir);
-
-            //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-            std::shared_ptr<gsl_rng> gen;
+            std::shared_ptr<gsl_rng> random_generator;
 
-            std::shared_ptr<Tomcat> tomcat;
-
-            std::shared_ptr<DataSplitter> data_splitter;
+            std::shared_ptr<DynamicBayesNet> model;
 
             std::shared_ptr<DBNTrainer> trainer;
 
-            std::shared_ptr<DBNSaver> saver;
-
-            std::shared_ptr<OfflineEstimation> offline_estimation;
+            std::shared_ptr<EstimationProcess> estimation;
 
             std::shared_ptr<EvaluationAggregator> evaluation;
 
             std::string experiment_id;
-
-            // Labels of nodes to exclude when generating synthetic data (hidden
-            // nodes that should not be used in the inference).
-            std::unordered_set<std::string> data_generation_exclusions;
         };
 
     } // namespace model

@@ -85,16 +85,8 @@ namespace tomcat {
             }
         }
 
-        string PoissonCPD::get_description() const {
-            stringstream ss;
-
-            ss << "Poisson CPD: {\n";
-            for (auto& distribution : this->distributions) {
-                ss << " " << *distribution << "\n";
-            }
-            ss << "}";
-
-            return ss.str();
+        string PoissonCPD::get_name() const {
+            return "Poisson";
         }
 
         void
@@ -115,6 +107,10 @@ namespace tomcat {
 
         void PoissonCPD::reset_sufficient_statistics() {
             // Nothing to reset
+        }
+
+        bool PoissonCPD::is_continuous() const {
+            return false;
         }
 
     } // namespace model

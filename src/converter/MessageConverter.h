@@ -1,11 +1,15 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
+#include <boost/filesystem.hpp>
 #include <nlohmann/json.hpp>
 
+#include "pgm/EvidenceSet.h"
 #include "utils/Definitions.h"
 
 namespace tomcat {
@@ -13,7 +17,7 @@ namespace tomcat {
 
         /**
          * Generic class for converting messages related to the observations
-         * from Minecraft to a matrix format that can be read by the model.
+         * from Minecraft to a matrix format that can be read by a DBN.
          */
         class MessageConverter {
           public:
@@ -29,9 +33,11 @@ namespace tomcat {
             /**
              * Creates an abstract instance of the message converter.
              *
-             * @param time_gap: gap (in seconds) between observations.
+             * @param num_seconds: total number of seconds in a mission
+             * @param time_step_size: size of a time step (in seconds) between
+             * observations
              */
-            MessageConverter(int time_gap);
+            MessageConverter(int num_seconds, int time_step_size);
 
             virtual ~MessageConverter();
 
@@ -51,7 +57,7 @@ namespace tomcat {
             MessageConverter& operator=(MessageConverter&&) = default;
 
             //------------------------------------------------------------------
-            // Pure virtual functions
+            // Member functions
             //------------------------------------------------------------------
 
             /**
@@ -59,14 +65,20 @@ namespace tomcat {
              * observable node, consisting of tensors with the observations for
              * each mission sample and time step in the mission.
              *
-             * @param input_dir: directory where the testbed message files are
-             * stored
-             * @param output_dir: directory where node's observations over
-             * mission samples and time steps must be saved
+             * @param messages_dir: directory where the message files are
+             * @param data_dir: directory where data must be saved
              */
-            virtual void
-            convert_offline(const std::string& input_dir,
-                            const std::string& output_dir) = 0;
+            void convert_messages(const std::string& messages_dir,
+                                  const std::string& data_dir);
+
+            /*
+             * Clears cache and prepare to process a new mission.
+             */
+            void start_new_mission();
+
+            //------------------------------------------------------------------
+            // Pure virtual functions
+            //------------------------------------------------------------------
 
             /**
              * Parses a json message object and, if related to an observation of
@@ -78,8 +90,26 @@ namespace tomcat {
              * @return List of pairs containing a nodes' labels and observations
              * for the current time step.
              */
-            virtual std::unordered_map<std::string, double>
-            convert_online(const nlohmann::json& message) = 0;
+            virtual EvidenceSet
+            get_data_from_message(const nlohmann::json& json_message,
+                                  nlohmann::json& json_mission_log) = 0;
+
+            /**
+             * Checks if a file is a valid message file.
+             *
+             * @param filename: filename
+             *
+             * @return True if it's valid.
+             */
+            virtual bool is_valid_message_file(
+                const boost::filesystem::directory_entry& file) const = 0;
+
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
+            int get_time_step_size() const;
+
+            bool is_mission_finished() const;
 
           protected:
             //------------------------------------------------------------------
@@ -94,14 +124,59 @@ namespace tomcat {
             void copy_converter(const MessageConverter& converter);
 
             //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
+            /**
+             * Perform extra validations in the offline conversion.
+             */
+            virtual void do_offline_conversion_extra_validations() const;
+
+            //------------------------------------------------------------------
+            // Pure virtual functions
+            //------------------------------------------------------------------
+
+            /**
+             * Remove unused messages and sort the final list by timestamp.
+             *
+             * @param messages_filepath: path of the file containing the
+             * messages.
+             *
+             * @return Map between a timestamp and the message associated
+             */
+            virtual std::map<std::string, nlohmann::json>
+            filter(const std::string& messages_filepath) const = 0;
+
+            //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
 
             // Number of seconds between observations
-            int time_gap;
+            int time_step_size;
 
-            // Next time step to gather observations from
-            int time_step = 0;
+            // Number of time steps in a mission
+            int time_steps;
+
+            // Whether the timer has reached zero
+            bool mission_finished = false;
+
+          private:
+            /**
+             * Checks if the directory where the data will be saved has a
+             * conversion log file and, if it does, use it to avoid
+             * reprocessing messages that were previously converted.
+             *
+             * @param messages_dir: directory where the message files are
+             * located
+             * @param data_dir: directory where the converted messages
+             * will be saved
+             *
+             * @return List of message files that were not previously
+             * processed.
+             */
+            std::unordered_set<std::string>
+            get_unprocessed_message_filenames(const std::string& messages_dir,
+                                              const std::string& data_dir);
         };
 
     } // namespace model

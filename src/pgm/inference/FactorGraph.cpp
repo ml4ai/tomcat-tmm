@@ -362,5 +362,46 @@ namespace tomcat {
             return this->transition_factors_per_time_step[relative_time_step];
         }
 
+        void FactorGraph::create_aggregate_potential(const string& node_label,
+                                                     int value) {
+            for (int t = 0; t <= this->repeatable_time_step; t++) {
+                string factor_label = FactorNode::compose_label(node_label);
+                string factor_name = MessageNode::get_name(factor_label, t);
+
+                if (EXISTS(factor_name, this->name_to_id)) {
+                    int id = this->name_to_id.at(factor_name);
+                    dynamic_pointer_cast<FactorNode>(this->graph[id])
+                        ->create_aggregate_potential(value);
+                }
+            }
+        }
+
+        void FactorGraph::use_aggregate_potential(const string& node_label,
+                                                  int value) {
+            for (int t = 0; t <= this->repeatable_time_step; t++) {
+                string factor_label = FactorNode::compose_label(node_label);
+                string factor_name = MessageNode::get_name(factor_label, t);
+
+                if (EXISTS(factor_name, this->name_to_id)) {
+                    int id = this->name_to_id.at(factor_name);
+                    dynamic_pointer_cast<FactorNode>(this->graph[id])
+                        ->use_aggregate_potential(value);
+                }
+            }
+        }
+
+        void FactorGraph::use_original_potential(const string& node_label) {
+            for (int t = 0; t <= this->repeatable_time_step; t++) {
+                string factor_label = FactorNode::compose_label(node_label);
+                string factor_name = MessageNode::get_name(factor_label, t);
+
+                if (EXISTS(factor_name, this->name_to_id)) {
+                    int id = this->name_to_id.at(factor_name);
+                    dynamic_pointer_cast<FactorNode>(this->graph[id])
+                        ->use_original_potential();
+                }
+            }
+        }
+
     } // namespace model
 } // namespace tomcat

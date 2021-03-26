@@ -55,18 +55,24 @@ namespace tomcat {
         void EstimationProcess::estimate(const shared_ptr<Estimator>& estimator,
                                          const EvidenceSet& test_data) {
             EvidenceSet new_test_data = test_data;
-            string node_label = estimator->get_estimates().label;
-            // Remove data from nodes that only have one instance in the
-            // unrolled DBN, because the true data don't change over time and
-            // providing any data for these nodes, will make the estimator
-            // "cheat" as it will have access to the true value. For nodes that
-            // have multiple copies this is not a problem as the estimator only
-            // look at past data and, the value of that node can change over
-            // time.
-            if (estimator->get_model()->get_nodes_by_label(node_label).size() ==
-                1) {
 
-                new_test_data.remove(node_label);
+            for (const auto& node_label : test_data.get_node_labels()) {
+                if (estimator->get_model()->has_node_with_label(node_label)) {
+                    const auto& metadata =
+                        estimator->get_model()->get_metadata_of(node_label);
+                    if (!metadata->is_replicable() &&
+                        estimator->is_computing_estimates_for(node_label)) {
+                        // Remove data from nodes that only have one instance in
+                        // the unrolled DBN, because the true data don't change
+                        // over time and providing any data for these nodes,
+                        // will make the estimator "cheat" as it will have
+                        // access to the true value. For nodes that have
+                        // multiple copies this is not a problem as the
+                        // estimator only look at past data and, the value of
+                        // that node can change over time.
+                        new_test_data.remove(node_label);
+                    }
+                }
             }
             estimator->estimate(new_test_data);
         }
@@ -75,33 +81,43 @@ namespace tomcat {
             if (this->display_estimates) {
                 json["estimators"] = nlohmann::json::array();
                 for (const auto& estimator : this->estimators) {
-                    nlohmann::json json_estimator;
-                    estimator->get_info(json_estimator);
+                    // An estimator can be compound and comprised of multiple
+                    // base estimators, which are the ones that actually
+                    // store the estimates.
+                    for (const auto& base_estimator :
+                         estimator->get_base_estimators()) {
 
-                    CumulativeNodeEstimates cumulative_estimates =
-                        estimator->get_cumulative_estimates();
+                        nlohmann::json json_estimator;
+                        base_estimator->get_info(json_estimator);
 
-                    json_estimator["node_label"] = cumulative_estimates.label;
-                    json_estimator["node_assignment"] =
-                        to_string(cumulative_estimates.assignment);
-                    json_estimator["executions"] = nlohmann::json::array();
+                        CumulativeNodeEstimates cumulative_estimates =
+                            base_estimator->get_cumulative_estimates();
 
-                    for (const auto& estimates_matrix_per_execution :
-                         cumulative_estimates.estimates) {
+                        json_estimator["node_label"] =
+                            cumulative_estimates.label;
+                        json_estimator["node_assignment"] =
+                            to_string(cumulative_estimates.assignment);
+                        json_estimator["executions"] = nlohmann::json::array();
 
-                        nlohmann::json json_execution;
-                        json_execution["estimates"] = nlohmann::json::array();
+                        for (const auto& estimates_matrix_per_execution :
+                             cumulative_estimates.estimates) {
 
-                        for (const auto& estimates_matrix :
-                             estimates_matrix_per_execution) {
-                            json_execution["estimates"].push_back(
-                                to_string(estimates_matrix));
+                            nlohmann::json json_execution;
+                            json_execution["estimates"] =
+                                nlohmann::json::array();
+
+                            for (const auto& estimates_matrix :
+                                 estimates_matrix_per_execution) {
+                                json_execution["estimates"].push_back(
+                                    to_string(estimates_matrix));
+                            }
+
+                            json_estimator["executions"].push_back(
+                                json_execution);
                         }
 
-                        json_estimator["executions"].push_back(json_execution);
+                        json["estimators"].push_back(json_estimator);
                     }
-
-                    json["estimators"].push_back(json_estimator);
                 }
             }
         }
@@ -112,6 +128,11 @@ namespace tomcat {
 
         void EstimationProcess::set_display_estimates(bool display_estimates) {
             EstimationProcess::display_estimates = display_estimates;
+        }
+
+        const vector<std::shared_ptr<Estimator>>&
+        EstimationProcess::get_estimators() const {
+            return estimators;
         }
 
     } // namespace model

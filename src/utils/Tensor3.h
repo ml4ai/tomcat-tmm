@@ -39,6 +39,11 @@ namespace tomcat {
             Tensor3();
 
             /**
+             * Creates a tensor with one value.
+             */
+            Tensor3(double value);
+
+            /**
              * Creates tensor with one matrix.
              */
             Tensor3(const Eigen::MatrixXd& matrix);
@@ -77,6 +82,16 @@ namespace tomcat {
             //------------------------------------------------------------------
             friend std::ostream& operator<<(std::ostream& os,
                                             const Tensor3& tensor);
+
+            /**
+             * Returns the reference to the matrix in a given index of the
+             * first dimension of the tensor.
+             *
+             * @param i: index in the first dimension
+             *
+             * @return Matrix
+             */
+            Eigen::MatrixXd& operator[](int i);
 
             /**
              * Returns assignable matrix for a given index of the first axis.
@@ -344,8 +359,21 @@ namespace tomcat {
              */
             Tensor3 coeff_wise_and(int axis) const;
 
+            /**
+             * Appends the content of another tensor into this tensor along the
+             * second dimension of the tensors.
+             *
+             * @param other: tensor to append
+             */
+            void vstack(const Tensor3& other);
 
-
+            /**
+             * Appends the content of another tensor into this tensor along the
+             * third dimension of the tensors.
+             *
+             * @param other: tensor to append
+             */
+            void hstack(const Tensor3& other);
 
           private:
             //------------------------------------------------------------------

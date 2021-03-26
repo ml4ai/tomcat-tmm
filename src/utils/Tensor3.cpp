@@ -5,6 +5,8 @@
 
 #include <eigen3/Eigen/Core>
 
+#include "utils/EigenExtensions.h"
+
 namespace tomcat {
     namespace model {
 
@@ -14,6 +16,9 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         Tensor3::Tensor3() {}
+
+        Tensor3::Tensor3(double value)
+            : tensor({Eigen::MatrixXd::Constant(1, 1, value)}) {}
 
         Tensor3::Tensor3(const Eigen::MatrixXd& matrix) : tensor({matrix}) {}
 
@@ -53,6 +58,8 @@ namespace tomcat {
 
             return os;
         }
+
+        Eigen::MatrixXd& Tensor3::operator[](int i) { return this->tensor[i]; }
 
         Eigen::MatrixXd Tensor3::operator()(int i, int axis) const {
             array<int, 3> shape = this->get_shape();
@@ -545,6 +552,18 @@ namespace tomcat {
             }
 
             return new_tensor;
+        }
+
+        void Tensor3::vstack(const Tensor3& other) {
+            for (int i = 0; i < this->tensor.size(); i++) {
+                matrix_vstack(this->tensor[i], other.tensor.at(i));
+            }
+        }
+
+        void Tensor3::hstack(const Tensor3& other) {
+            for (int i = 0; i < this->tensor.size(); i++) {
+                matrix_hstack(this->tensor[i], other.tensor.at(i));
+            }
         }
 
     } // namespace model
