@@ -34,7 +34,6 @@ void evaluate(const string& experiment_id,
     model->unroll(num_time_steps, true);
 
     test_data.shrink_up_to(num_time_steps - 1);
-    test_data.keep_only(5);
 
     Experimentation experimentation(random_generator, experiment_id, model);
     experimentation.add_estimators_from_json(
