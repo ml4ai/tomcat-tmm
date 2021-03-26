@@ -132,7 +132,7 @@ $(PARAMS_DIR): $(BUILD_DIR)/bin/train $(TRAIN_SAMPLES_DIR)/conversion_log.json
 	@touch $@/dummy.txt
 	@rm $@/dummy.txt
 
-upload: $(PARAMS_DIR)
+upload:
 	@echo "Compressing parameters..."
 	@tar --exclude partials/ --exclude '.DS_Store' -zcf params.tar.gz params
 	@echo "Uploading parameters to Laplace..."

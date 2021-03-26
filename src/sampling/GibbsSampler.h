@@ -269,7 +269,7 @@ namespace tomcat {
              */
             void init_sampling();
 
-            void print_nodes() const;
+            void print_nodes(const NodeSet& node_set) const;
 
             //------------------------------------------------------------------
             // Data members
@@ -297,6 +297,7 @@ namespace tomcat {
             // their time steps are out of the inference range. This list is
             // only erased in the prepare method of this class.
             NodePtrVec multitime_sampled_nodes;
+            NodePtrVec previous_timer_nodes;
         };
 
     } // namespace model

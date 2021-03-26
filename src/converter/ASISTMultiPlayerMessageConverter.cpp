@@ -5,19 +5,6 @@
 
 #include <fmt/format.h>
 
-// Task values
-#define NO_TASK 0
-#define CARRYING_VICTIM 1
-#define CLEARING_RUBBLE 2
-#define SAVING_REGULAR 3
-#define SAVING_CRITICAL 4
-
-// Role values
-#define NO_ROLE 0
-#define SEARCH 1
-#define HAMMER 2
-#define MEDICAL 3
-
 namespace tomcat {
     namespace model {
 
@@ -128,23 +115,8 @@ namespace tomcat {
                 if (json_message["data"]["mission_state"] == "Start") {
                     this->mission_started = true;
                     this->elapsed_time = this->time_step_size;
-                    this->num_players = this->player_name_to_id.size();
 
-                    for (int i = 0; i < this->num_players; i++) {
-                        data.add_data(fmt::format("TaskP{}", i + 1),
-                                      this->task_per_player.at(i));
-                        data.add_data(fmt::format("RoleP{}", i + 1),
-                                      this->role_per_player.at(i));
-
-                        // Carrying ans saving a victim are tasks that have
-                        // an explicit end event. We don't reset the last
-                        // observation for this task then. It's going to be
-                        // reset when its ending is detected.
-                        int last_task = this->task_per_player.at(i)(0, 0)(0, 0);
-                        if (last_task == CLEARING_RUBBLE) {
-                            this->task_per_player[i] = Tensor3(NO_TASK);
-                        }
-                    }
+                    data = this->build_evidence_set_from_observations();
 
                     // Store initial timestamp
                     const string& timestamp =
@@ -188,7 +160,30 @@ namespace tomcat {
             }
 
             return data;
-        } // namespace model
+        }
+
+        EvidenceSet ASISTMultiPlayerMessageConverter ::
+            build_evidence_set_from_observations() {
+
+            EvidenceSet data;
+            for (int i = 0; i < this->player_name_to_id.size(); i++) {
+                data.add_data(fmt::format("{}P{}", TASK, i + 1),
+                              this->task_per_player.at(i));
+                data.add_data(fmt::format("{}P{}", ROLE, i + 1),
+                              this->role_per_player.at(i));
+
+                // Carrying ans saving a victim are tasks that have
+                // an explicit end event. We don't reset the last
+                // observation for this task then. It's going to be
+                // reset when its ending is detected.
+                int last_task = this->task_per_player.at(i)(0, 0)(0, 0);
+                if (last_task == CLEARING_RUBBLE) {
+                    this->task_per_player[i] = Tensor3(NO_TASK);
+                }
+            }
+
+            return data;
+        }
 
         EvidenceSet ASISTMultiPlayerMessageConverter::parse_after_mission_start(
             const nlohmann::json& json_message,
@@ -204,21 +199,7 @@ namespace tomcat {
                     // Every time there's a transition, we store the last
                     // observations collected.
 
-                    for (int i = 0; i < this->num_players; i++) {
-                        data.add_data(fmt::format("TaskP{}", i + 1),
-                                      this->task_per_player.at(i));
-                        data.add_data(fmt::format("RoleP{}", i + 1),
-                                      this->role_per_player.at(i));
-
-                        // Carrying ans saving a victim are tasks that have an
-                        // explicit end event. We don't reset the last
-                        // observation for this task then. It's going to be
-                        // reset when its ending is detected.
-                        int last_task = this->task_per_player.at(i)(0, 0)(0, 0);
-                        if (last_task == CLEARING_RUBBLE) {
-                            this->task_per_player[i] = Tensor3(NO_TASK);
-                        }
-                    }
+                    data = this->build_evidence_set_from_observations();
 
                     this->elapsed_time += this->time_step_size;
                     if (this->elapsed_time >=
@@ -311,6 +292,17 @@ namespace tomcat {
                    filename.find("Training") == string::npos &&
                    filename.find("PlanningASR") == string::npos &&
                    file.path().extension().string() == ".metadata";
+        }
+
+        void ASISTMultiPlayerMessageConverter::
+            do_offline_conversion_extra_validations() const {
+            if (this->mission_started &&
+                this->player_name_to_id.size() < this->num_players) {
+                stringstream ss;
+                ss << "Only " << this->player_name_to_id.size() << " out of "
+                   << this->num_players << " players joined the mission.";
+                throw TomcatModelException(ss.str());
+            }
         }
 
     } // namespace model

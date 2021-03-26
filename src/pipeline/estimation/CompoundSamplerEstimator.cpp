@@ -58,7 +58,7 @@ namespace tomcat {
         void CompoundSamplerEstimator::cleanup() {
             Estimator::cleanup();
 
-            for(auto& base_estimator : this->base_estimators) {
+            for (auto& base_estimator : this->base_estimators) {
                 base_estimator->cleanup();
             }
         }
@@ -66,7 +66,7 @@ namespace tomcat {
         void CompoundSamplerEstimator::prepare() {
             Estimator::prepare();
 
-            for(auto& base_estimator : this->base_estimators) {
+            for (auto& base_estimator : this->base_estimators) {
                 base_estimator->prepare();
             }
 
@@ -79,7 +79,7 @@ namespace tomcat {
         void CompoundSamplerEstimator::keep_estimates() {
             Estimator::keep_estimates();
 
-            for(auto& base_estimator : this->base_estimators) {
+            for (auto& base_estimator : this->base_estimators) {
                 base_estimator->keep_estimates();
             }
         }
@@ -89,7 +89,7 @@ namespace tomcat {
             if (this->show_progress) {
                 cout << "\nEmpirically computing estimations...\n";
                 progress = make_unique<boost::progress_display>(
-                    new_data.get_num_data_points()*new_data.get_time_steps());
+                    new_data.get_num_data_points() * new_data.get_time_steps());
             }
 
             int max_time_step =
@@ -98,6 +98,8 @@ namespace tomcat {
                 this->sampler->prepare();
                 for (int t = this->next_time_step; t < max_time_step; t++) {
                     this->sampler->set_min_initialization_time_step(t);
+                    // Sample the nodes in the current step and the last time
+                    // step to account for time crossing links.
                     this->sampler->set_min_time_step_to_sample(t);
                     this->sampler->set_max_time_step_to_sample(t);
 
@@ -109,7 +111,8 @@ namespace tomcat {
                     this->sampler->sample(this->random_generator, 1);
 
                     for (int i = 0; i < this->base_estimators.size(); i++) {
-                        this->base_estimators.at(i)->estimate(this->sampler, d, t);
+                        this->base_estimators.at(i)->estimate(
+                            this->sampler, d, t);
                     }
 
                     if (this->show_progress) {
@@ -124,7 +127,7 @@ namespace tomcat {
         }
 
         void CompoundSamplerEstimator::unfreeze_nodes() {
-            for(const auto& node : this->frozen_nodes) {
+            for (const auto& node : this->frozen_nodes) {
                 node->unfreeze();
             }
         }
@@ -171,7 +174,7 @@ namespace tomcat {
         vector<shared_ptr<const Estimator>>
         CompoundSamplerEstimator::get_base_estimators() const {
             vector<shared_ptr<const Estimator>> base_estimators;
-            for(const auto& base_estimator : this->base_estimators) {
+            for (const auto& base_estimator : this->base_estimators) {
                 base_estimators.push_back(base_estimator);
             }
             return base_estimators;

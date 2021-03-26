@@ -64,6 +64,8 @@ namespace tomcat {
                         EvidenceSet new_data = this->get_data_from_message(
                             message, json_mission_log);
                         if (!new_data.empty()) {
+                            this->do_offline_conversion_extra_validations();
+
                             mission_data.hstack(new_data);
                             next_time_step += 1;
 
@@ -153,7 +155,12 @@ namespace tomcat {
             return unprocessed_files;
         }
 
-        void MessageConverter::start_new_mission() { this->mission_finished = true; }
+        void MessageConverter::start_new_mission() {
+            this->mission_finished = true;
+        }
+
+        void MessageConverter::do_offline_conversion_extra_validations() const {
+        }
 
         int MessageConverter::get_time_step_size() const {
             return time_step_size;

@@ -94,7 +94,7 @@ namespace tomcat {
             }
 
             DBNSaver model_saver(
-                this->model, this->trainer, final_params_dir, true);
+                this->model, this->trainer, final_params_dir, false);
 
             int fold = 1;
             for (const auto& [training_data, test_data] :
@@ -207,7 +207,8 @@ namespace tomcat {
                                                 int num_folds,
                                                 const string& eval_dir,
                                                 const EvidenceSet& data,
-                                                bool baseline) {
+                                                bool baseline,
+                                                const string& train_dir) {
 
             shared_ptr<DataSplitter> data_splitter;
             string final_params_dir;
@@ -225,7 +226,7 @@ namespace tomcat {
                     // training. If this executable is called with baseline
                     // set, we assume that the content of the parameter data
                     // is the training data.
-                    data_splitter = make_shared<DataSplitter>(data, empty_set);
+                    data_splitter = make_shared<DataSplitter>(train_dir, data);
                 }
                 else {
                     data_splitter = make_shared<DataSplitter>(empty_set, data);

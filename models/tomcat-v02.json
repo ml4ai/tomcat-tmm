@@ -151,7 +151,7 @@
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "1, 1E-15, 1E-15, 1E-15, 1, 1E-15, 1E-15, 1E-15, 1",
+            "parameters": "1, 0, 0, 0, 1, 0, 0, 0, 1",
             "index_nodes": [
               "PBAE"
             ]

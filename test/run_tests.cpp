@@ -412,9 +412,15 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     data.add_data(GREEN, sampler.get_samples(GREEN));
     data.add_data(YELLOW, sampler.get_samples(YELLOW));
 
-    // Fix some THETA_STATE_GIVEN_STATE_TC_PBAE to avoid permutation of TC and
+    // Fix some parameters to avoid permutation of TC and
     // PBAE.
-    for (int i = 0; i < TC_CARDINALITY * PBAE_CARDINALITY;
+    const shared_ptr<RandomVariableNode>& theta_tc =
+        dynamic_pointer_cast<RandomVariableNode>(
+            model->get_nodes_by_label(THETA_TC)[0]);
+    theta_tc->set_assignment(tables.tc_prior);
+    theta_tc->freeze();
+
+    for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE;
          i = i + PBAE_CARDINALITY) {
         stringstream label;
         label << THETA_STATE_GIVEN_STATE_TC_PBAE << "_" << i;
@@ -702,7 +708,7 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hsmm_transitions, HSMM) {
     trainer.prepare();
     trainer.fit(data);
 
-    double tolerance = 0.05;
+    double tolerance = 0.06;
     MatrixXd estimated_pi_pbae =
         model->get_nodes_by_label(PI_PBAE)[0]->get_assignment();
     auto check =

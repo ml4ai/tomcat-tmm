@@ -258,6 +258,13 @@ namespace tomcat {
              */
             void print_cpds(std::ostream& output_stream) const;
 
+            /**
+             * Whether the node is parent of a timer node.
+             *
+             * @return
+             */
+            bool has_child_timer() const;
+
             // -----------------------------------------------------------------
             // Virtual functions
             // -----------------------------------------------------------------

@@ -112,14 +112,14 @@ $(PARAMS_DIR): $(BUILD_DIR)/bin/train $(TRAIN_SAMPLES_DIR)/conversion_log.json
 	@touch $@/dummy.txt
 	@rm $@/dummy.txt
 
-upload: $(PARAMS_DIR)
+upload:
 	@echo "Compressing parameters..."
 	@tar --exclude partials/ --exclude '.DS_Store' -zcf params.tar.gz params
 	@echo "Uploading parameters to Laplace..."
 	@scp params.tar.gz $(SERVER):$(ASIST_SERVER_DIR)/$(STUDY_ID)
 	@rm params.tar.gz
 
-start: $(MAP_PATH)
+start:
 	@cd $(BUILD_DIR) && make -j start_agent
 	@./$(BUILD_DIR)/bin/start_agent --agent_id "ToMCAT" \
 	--model_json $(MODEL_PATH) --params_dir $(PARAMS_DIR) \

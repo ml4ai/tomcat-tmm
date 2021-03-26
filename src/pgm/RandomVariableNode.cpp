@@ -52,6 +52,9 @@ namespace tomcat {
             this->timer = node.timer;
             this->timed_copies = node.timed_copies;
             this->cached_posterior_weights = node.cached_posterior_weights;
+            this->children_per_time_step = node.children_per_time_step;
+            this->timer_children_per_time_step =
+                node.timer_children_per_time_step;
         }
 
         string RandomVariableNode::get_description() const {
@@ -140,6 +143,7 @@ namespace tomcat {
                                                 use_weights_cache);
                 sample = this->cpd->sample_from_posterior(
                     random_generator_per_job, weights, shared_from_this());
+
             }
 
             return sample;
@@ -175,7 +179,8 @@ namespace tomcat {
                         rv_child->get_parents(),
                         shared_from_this(),
                         rv_child,
-                        num_jobs);
+                        num_jobs,
+                        max_time_step_to_sample);
 
                 Eigen::MatrixXd child_log_weights(0, 0);
                 if (this->get_metadata()->is_in_plate()) {
@@ -583,6 +588,10 @@ namespace tomcat {
             }
         }
 
+        bool RandomVariableNode::has_child_timer() const {
+            return !this->timer_children_per_time_step.empty();
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------
@@ -636,7 +645,7 @@ namespace tomcat {
                     dynamic_pointer_cast<RandomVariableNode>(child);
 
                 auto* container = &this->children_per_time_step;
-                if(child->get_metadata()->is_timer()) {
+                if (child->get_metadata()->is_timer()) {
                     container = &this->timer_children_per_time_step;
                 }
 

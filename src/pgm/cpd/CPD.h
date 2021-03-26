@@ -357,6 +357,8 @@ namespace tomcat {
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
              * performed in the main thread
+             * @param max_time_step_to_sample: boundary time step for sample
+             * generation
              *
              * @return Posterior weights of the node that owns this CPD for one
              * of its parent nodes.
@@ -365,7 +367,8 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
-                int num_jobs) const;
+                int num_jobs,
+                int max_time_step_to_sample) const;
 
             /**
              * Creates a constant CPD by using the frequencies of a
@@ -548,6 +551,8 @@ namespace tomcat {
              * of the sampled node)
              * @param num_jobs: number of jobs used to compute the weights
              * (if > 1, the computation is performed in multiple threads)
+             * @param max_time_step_to_sample: boundary time step for sample
+             * generation
              *
              * @return Posterior weights.
              */
@@ -556,7 +561,8 @@ namespace tomcat {
                 const Eigen::VectorXi& distribution_indices,
                 int cardinality,
                 int distribution_index_offset,
-                int num_jobs) const;
+                int num_jobs,
+                int max_time_step_to_sample) const;
 
             /**
              * Computes a portion of the posterior weights for a given node.
@@ -576,6 +582,9 @@ namespace tomcat {
              * portion of it will be updated by this method
              * @param weights_mutex: mutex to lock the full weights matrix
              * when this method writes to it
+             * @param max_time_step_to_sample: boundary time step for sample
+             * generation
+             *
              */
             void run_posterior_weights_thread(
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
@@ -584,7 +593,8 @@ namespace tomcat {
                 int distribution_index_offset,
                 const std::pair<int, int>& processing_block,
                 Eigen::MatrixXd& full_weights,
-                std::mutex& weights_mutex) const;
+                std::mutex& weights_mutex,
+                int max_time_step_to_sample) const;
 
             /**
              * Computes a portion of the posterior weights for the left

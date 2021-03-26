@@ -137,12 +137,15 @@ namespace tomcat {
              * cross-validation
              * @param baseline: whether to use the baseline estimator based
              * on frequencies of values of training samples
+             * @param train_dir: directory where data used for training the
+             * model is. This is only required for baseline evaluation.
              */
             void evaluate_and_save(const std::string& params_dir,
                                    int num_folds,
                                    const std::string& eval_dir,
                                    const EvidenceSet& data,
-                                   bool baseline);
+                                   bool baseline,
+                                   const std::string& train_dir);
 
             /**
              * Evaluates a pre-trained model and save the evaluations to a

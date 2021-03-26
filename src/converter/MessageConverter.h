@@ -124,9 +124,26 @@ namespace tomcat {
             void copy_converter(const MessageConverter& converter);
 
             //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
+            /**
+             * Perform extra validations in the offline conversion.
+             */
+            virtual void do_offline_conversion_extra_validations() const;
+
+            //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
 
+            /**
+             * Remove unused messages and sort the final list by timestamp.
+             *
+             * @param messages_filepath: path of the file containing the
+             * messages.
+             *
+             * @return Map between a timestamp and the message associated
+             */
             virtual std::map<std::string, nlohmann::json>
             filter(const std::string& messages_filepath) const = 0;
 

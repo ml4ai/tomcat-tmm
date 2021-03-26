@@ -8,6 +8,7 @@
 #include "sampling/AncestralSampler.h"
 #include "sampling/Sampler.h"
 #include "utils/Definitions.h"
+#include "pipeline/estimation/custom_metrics/CustomSamplingMetric.h"
 
 namespace tomcat {
     namespace model {
@@ -130,6 +131,8 @@ namespace tomcat {
 
             // Mutex to make the computation of estimates thread safe.
             std::unique_ptr<std::mutex> update_estimates_mutex;
+
+            std::shared_ptr<CustomSamplingMetric> custom_metric;
         };
 
     } // namespace model

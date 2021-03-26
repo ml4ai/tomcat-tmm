@@ -103,15 +103,6 @@ namespace tomcat {
              */
             virtual std::string get_timed_name() const = 0;
 
-            /**
-             * Returns the node's unique id in an unrolled DBN for an arbitrary
-             * time step.
-             *
-             * @return Node's description in an unrolled DBN for an arbitrary
-             * time step.
-             */
-            // virtual std::string get_timed_name(int time_step) const = 0;
-
             // --------------------------------------------------------
             // Getters & Setters
             // --------------------------------------------------------

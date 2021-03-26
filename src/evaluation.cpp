@@ -16,6 +16,7 @@ namespace po = boost::program_options;
 void evaluate(const string& experiment_id,
               const string& model_json,
               const string& params_dir,
+              const string& train_dir,
               const string& data_dir,
               const string& eval_dir,
               const string& inference_json,
@@ -32,17 +33,21 @@ void evaluate(const string& experiment_id,
         DynamicBayesNet ::create_from_json(model_json));
     model->unroll(num_time_steps, true);
 
+    test_data.shrink_up_to(num_time_steps - 1);
+    test_data.keep_only(5);
+
     Experimentation experimentation(random_generator, experiment_id, model);
     experimentation.add_estimators_from_json(
         inference_json, burn_in, num_samples, num_jobs, baseline);
     experimentation.evaluate_and_save(
-        params_dir, num_folds, eval_dir, test_data, baseline);
+        params_dir, num_folds, eval_dir, test_data, baseline, train_dir);
 }
 
 int main(int argc, char* argv[]) {
     string experiment_id;
     string model_json;
     string params_dir;
+    string train_dir;
     string data_dir;
     string eval_dir;
     string inference_json;
@@ -71,11 +76,10 @@ int main(int argc, char* argv[]) {
         "Directory where the pre-trained model's parameters are saved.")(
         "data_dir",
         po::value<string>(&data_dir)->required(),
-        "Directory where the data (evidence) is located. If baseline is set "
-        "to true, this should be the training set used to compute empirical "
-        "frequencies.")("eval_dir",
-                        po::value<string>(&eval_dir)->required(),
-                        "Directory where the evaluation file must be saved.")(
+        "Directory where the data (evidence) is located.")(
+        "eval_dir",
+        po::value<string>(&eval_dir)->required(),
+        "Directory where the evaluation file must be saved.")(
         "inference_json",
         po::value<string>(&inference_json)->required(),
         "Filepath of the json file containing the variables and inference "
@@ -102,19 +106,29 @@ int main(int argc, char* argv[]) {
         "baseline",
         po::bool_switch(&baseline)->default_value(false),
         "Whether the baseline estimator based on frequencies of the samples in"
-        " the training data must be used.");
+        " the training data must be used.")(
+        "train_dir",
+        po::value<string>(&train_dir),
+        "Directory where data used for training is. This is only required for"
+        " the baseline evaluation.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
     if (vm.count("help")) {
-        cout << desc << "\n";
+        cout << desc << endl;
+        return 1;
+    } else if(baseline && train_dir == "" && num_folds == 1) {
+        cout << "For baseline evaluation without cross validation, the "
+                "directory of the data used for training the model must be "
+                "informed." << endl;
         return 1;
     }
 
     evaluate(experiment_id,
              model_json,
              params_dir,
+             train_dir,
              data_dir,
              eval_dir,
              inference_json,

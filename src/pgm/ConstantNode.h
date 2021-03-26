@@ -64,8 +64,6 @@ namespace tomcat {
 
             std::string get_timed_name() const override;
 
-            // std::string get_timed_name(int time_step) const override;
-
           private:
             //------------------------------------------------------------------
             // Member functions

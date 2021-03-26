@@ -24,6 +24,23 @@ namespace tomcat {
          */
         class ASISTMultiPlayerMessageConverter : public ASISTMessageConverter {
           public:
+            // Observable node names
+            inline const static std::string ROLE = "Role";
+            inline const static std::string TASK = "Task";
+
+            // Task values
+            const static int NO_TASK = 0;
+            const static int CARRYING_VICTIM = 1;
+            const static int CLEARING_RUBBLE = 2;
+            const static int SAVING_REGULAR = 3;
+            const static int SAVING_CRITICAL = 4;
+
+            // Role values
+            const static int NO_ROLE = 0;
+            const static int SEARCH = 1;
+            const static int HAMMER = 2;
+            const static int MEDICAL = 3;
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -91,12 +108,12 @@ namespace tomcat {
 
             void prepare_for_new_mission() override;
 
+            void do_offline_conversion_extra_validations() const override;
+
           private:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-
-
 
             /**
              * Loads map of area configuration as a hash map to easily determine
@@ -105,6 +122,14 @@ namespace tomcat {
              * @param map_filepath: path of the map configuration json file
              */
             void load_map_area_configuration(const std::string& map_filepath);
+
+            /**
+             * Gets the observations accumulated so far and creates an evidence
+             * set with them.
+             *
+             * @return Evidence set.
+             */
+            EvidenceSet build_evidence_set_from_observations();
 
             //------------------------------------------------------------------
             // Data members

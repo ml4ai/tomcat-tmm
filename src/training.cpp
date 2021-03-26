@@ -28,6 +28,8 @@ void train(const string& model_json,
         DynamicBayesNet ::create_from_json(model_json));
     model->unroll(num_time_steps, true);
 
+//    training_data.keep_first(1);
+
     Experimentation experimentation(random_generator, "", model);
     experimentation.set_gibbs_trainer(burn_in, num_samples, num_jobs);
     experimentation.train_and_save(params_dir, num_folds, training_data);

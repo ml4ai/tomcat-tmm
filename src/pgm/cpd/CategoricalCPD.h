@@ -136,7 +136,8 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
-                int num_jobs) const override;
+                int num_jobs,
+                int max_time_step_to_sample) const override;
 
             std::shared_ptr<CPD>
             create_from_data(const EvidenceSet& data,
