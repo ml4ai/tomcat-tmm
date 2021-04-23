@@ -26,7 +26,7 @@ MAP_DIR = map
 MAP_PATH = $(MAP_DIR)/Falcon_v1.0.json
 
 # Path to the file containing the model definition
-MODEL_PATH = ../../../models/tomcat-v02.json
+MODEL_PATH = ../../../models/tomcat-v2.0.json
 
 # Original data from the message bus to be used for training and evaluation
 MSG_DIR = messages

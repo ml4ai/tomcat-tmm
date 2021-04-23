@@ -20,7 +20,7 @@ namespace tomcat {
         Poisson::Poisson(shared_ptr<Node>&& lambda)
             : Distribution({move(lambda)}) {}
 
-        Poisson::Poisson(const unsigned int lambda) {
+        Poisson::Poisson(double lambda) {
             shared_ptr<ConstantNode> lambda_node =
                 make_shared<ConstantNode>(ConstantNode(lambda));
             this->parameters.push_back(move(lambda_node));

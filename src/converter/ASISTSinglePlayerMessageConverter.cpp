@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iomanip>
 
+#include <boost/algorithm/string.hpp>
 #include <fmt/format.h>
 
 namespace tomcat {
@@ -93,6 +94,8 @@ namespace tomcat {
 
                     data.add_data("TrainingCondition",
                                   this->training_condition);
+                    data.add_data("Difficulty",
+                                  this->difficulty);
                     data.add_data("Area", Tensor3(NO_OBS));
                     data.add_data("Task", Tensor3(NO_OBS));
                     data.add_data("Beep", Tensor3(NO_OBS));
@@ -123,6 +126,7 @@ namespace tomcat {
             }
             else if (json_message["header"]["message_type"] == "trial" &&
                      json_message["msg"]["sub_type"] == "start") {
+                // Training condition
                 int value;
                 try {
                     value = stoi((string)json_message["data"]["condition"]) - 1;
@@ -139,6 +143,21 @@ namespace tomcat {
                         fmt::format("Invalid training condition {}.", value));
                 }
 
+                // Difficulty
+                string mission_name =
+                    json_message["data"]["experiment_mission"];
+                boost::algorithm::to_lower(mission_name);
+                if (mission_name.find("easy") != string::npos) {
+                    this->difficulty = 0;
+                } else if (mission_name.find("medium") != string::npos) {
+                    this->difficulty = 1;
+                } else if (mission_name.find("hard") != string::npos) {
+                    this->difficulty = 2;
+                } else {
+                    throw TomcatModelException("Invalid difficulty level");
+                }
+
+                // Trial number
                 try {
                     string trial = json_message["data"]["trial_number"];
                     // Remove first character which is the letter T.
@@ -171,6 +190,8 @@ namespace tomcat {
 
                     data.add_data("TrainingCondition",
                                   this->training_condition);
+                    data.add_data("Difficulty",
+                                  this->difficulty);
                     data.add_data("Area", this->area);
                     data.add_data("Task", this->task);
                     data.add_data("Beep", this->beep);

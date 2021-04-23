@@ -208,7 +208,8 @@ namespace tomcat {
                                                 const string& eval_dir,
                                                 const EvidenceSet& data,
                                                 bool baseline,
-                                                const string& train_dir) {
+                                                const string& train_dir,
+                                                bool only_estimates) {
 
             shared_ptr<DataSplitter> data_splitter;
             string final_params_dir;
@@ -247,7 +248,9 @@ namespace tomcat {
             pipeline.set_data_splitter(data_splitter);
             pipeline.set_model_trainer(loader);
             pipeline.set_estimation_process(this->estimation);
-            pipeline.set_aggregator(this->evaluation);
+            if(!only_estimates) {
+                pipeline.set_aggregator(this->evaluation);
+            }
             pipeline.execute();
             output_file.close();
         }

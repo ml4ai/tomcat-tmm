@@ -8,51 +8,51 @@ namespace tomcat {
     namespace model {
 
         /**
-         * Class to represent a Poisson distribution.
+         * Class to represent a Geometric distribution.
          */
-        class Poisson : public Distribution {
+        class Geometric : public Distribution {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Creates an instance of a Poisson distribution for node
-             * dependent mean lambda.
+             * Creates an instance of a Geometric distribution for node
+             * dependent probability of success p.
              *
-             * @param lambda: node which the assignment defines the mean lambda
+             * @param p: node which the assignment defines the probability p
              */
-            Poisson(const std::shared_ptr<Node>& lambda);
+            Geometric(const std::shared_ptr<Node>& p);
 
             /**
-             * Creates an instance of a Poisson distribution for node
-             * dependent mean lambda.
+             * Creates an instance of a Geometric distribution for node
+             * dependent probability p.
              *
-             * @param lambda: node which the assignment defines the mean lambda
+             * @param p: node which the assignment defines the probability p
              */
-            Poisson(std::shared_ptr<Node>&& lambda);
+            Geometric(std::shared_ptr<Node>&& p);
 
             /**
-             * Creates an instance of a Poisson distribution by transforming
-             * a numerical mean lambda a constant node to keep
+             * Creates an instance of a Geometric distribution by transforming
+             * a numerical probability p a constant node to keep
              * static and node dependent distributions compatible.
              *
-             * @param lambda: mean of the Poisson distribution
+             * @param p: probability of success
              */
-            Poisson(double lambda);
+            Geometric(const double p);
 
-            ~Poisson();
+            ~Geometric();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            Poisson(const Poisson& poisson);
+            Geometric(const Geometric& geometric);
 
-            Poisson& operator=(const Poisson& poisson);
+            Geometric& operator=(const Geometric& geometric);
 
-            Poisson(Poisson&&) = default;
+            Geometric(Geometric&&) = default;
 
-            Poisson& operator=(Poisson&&) = default;
+            Geometric& operator=(Geometric&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -62,13 +62,13 @@ namespace tomcat {
                    int parameter_idx) const override;
 
             /**
-             * Generates a sample from a Poisson distribution with scaled
-             * mean.
+             * Generates a sample from a Geometric distribution with scaled
+             * probability.
              *
              * @param random_generator: random number generator
-             * @param weight: weight used to scale the mean
+             * @param weight: weight used to scale the probability
              *
-             * @return Sample from a scaled Poisson distribution.
+             * @return Sample from a scaled Geometric distribution.
              */
             Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
@@ -103,13 +103,13 @@ namespace tomcat {
              * Generate a sample using the GSL library.
              *
              * @param random_generator: random number generator
-             * @param lambda: mean or scaled mean of the distribution
+             * @param p: mean or scaled mean of the distribution
              *
-             * @return A sample from a Poisson distribution.
+             * @return A sample from a Geometric distribution.
              */
             Eigen::VectorXd
             sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
-                            double lambda) const;
+                            double p) const;
         };
 
     } // namespace model

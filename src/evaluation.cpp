@@ -25,7 +25,8 @@ void evaluate(const string& experiment_id,
               int burn_in,
               int num_samples,
               int num_jobs,
-              bool baseline) {
+              bool baseline,
+              bool only_estimates) {
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
     EvidenceSet test_data(data_dir);
@@ -38,8 +39,13 @@ void evaluate(const string& experiment_id,
     Experimentation experimentation(random_generator, experiment_id, model);
     experimentation.add_estimators_from_json(
         inference_json, burn_in, num_samples, num_jobs, baseline);
-    experimentation.evaluate_and_save(
-        params_dir, num_folds, eval_dir, test_data, baseline, train_dir);
+    experimentation.evaluate_and_save(params_dir,
+                                      num_folds,
+                                      eval_dir,
+                                      test_data,
+                                      baseline,
+                                      train_dir,
+                                      only_estimates);
 }
 
 int main(int argc, char* argv[]) {
@@ -56,6 +62,7 @@ int main(int argc, char* argv[]) {
     int num_samples;
     int num_jobs;
     bool baseline;
+    bool only_estimates;
 
     po::options_description desc("Allowed options");
     desc.add_options()(
@@ -109,7 +116,11 @@ int main(int argc, char* argv[]) {
         "train_dir",
         po::value<string>(&train_dir),
         "Directory where data used for training is. This is only required for"
-        " the baseline evaluation.");
+        " the baseline evaluation.")(
+        "only_estimates",
+        po::bool_switch(&only_estimates)->default_value(false),
+        "If active, performance is not computed. Only the probability "
+        "estimates over time.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -117,10 +128,12 @@ int main(int argc, char* argv[]) {
     if (vm.count("help")) {
         cout << desc << endl;
         return 1;
-    } else if(baseline && train_dir == "" && num_folds == 1) {
+    }
+    else if (baseline && train_dir == "" && num_folds == 1) {
         cout << "For baseline evaluation without cross validation, the "
                 "directory of the data used for training the model must be "
-                "informed." << endl;
+                "informed."
+             << endl;
         return 1;
     }
 
@@ -136,5 +149,6 @@ int main(int argc, char* argv[]) {
              burn_in,
              num_samples,
              num_jobs,
-             baseline);
+             baseline,
+             only_estimates);
 }

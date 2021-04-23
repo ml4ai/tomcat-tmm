@@ -112,6 +112,7 @@ namespace tomcat {
             std::unordered_map<std::string, bool> map_area_configuration;
 
             Tensor3 training_condition;
+            Tensor3 difficulty;
             Tensor3 area;
             Tensor3 task;
             Tensor3 beep;
