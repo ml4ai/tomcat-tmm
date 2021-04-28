@@ -182,6 +182,50 @@ namespace tomcat {
             return new_tensor.coeff_wise_and(0)(0, 0);
         }
 
+        Tensor3 Tensor3::operator/(const Eigen::MatrixXd& matrix) const {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(this->tensor.size());
+
+            for (const auto& tensor_matrix : this->tensor) {
+                new_tensor.push_back(matrix.array() / tensor_matrix.array());
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3 Tensor3::operator/(const Tensor3& tensor) const {
+            vector<Eigen::MatrixXd> new_tensor(tensor.tensor.size());
+
+            for (int i = 0; i < new_tensor.size(); i++) {
+                new_tensor[i] =
+                    tensor.tensor[i].array() / this->tensor[i].array();
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3 Tensor3::operator*(const Eigen::MatrixXd& matrix) const {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(this->tensor.size());
+
+            for (const auto& tensor_matrix : this->tensor) {
+                new_tensor.push_back(matrix.array() * tensor_matrix.array());
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3 Tensor3::operator*(const Tensor3& tensor) const {
+            vector<Eigen::MatrixXd> new_tensor(tensor.tensor.size());
+
+            for (int i = 0; i < new_tensor.size(); i++) {
+                new_tensor[i] =
+                    this->tensor[i].array() * tensor.tensor[i].array();
+            }
+
+            return Tensor3(new_tensor);
+        }
+
         //----------------------------------------------------------------------
         // Static functions
         //----------------------------------------------------------------------
@@ -256,6 +300,41 @@ namespace tomcat {
             }
 
             return new_tensor;
+        }
+
+        Tensor3 Tensor3::dot(const Eigen::MatrixXd& matrix,
+                             const Tensor3& tensor) {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(tensor.tensor.size());
+
+            for (const auto& tensor_matrix : tensor.tensor) {
+                new_tensor.push_back(matrix * tensor_matrix);
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3 Tensor3::dot(const Tensor3& tensor,
+                             const Eigen::MatrixXd& matrix) {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(tensor.tensor.size());
+
+            for (const auto& tensor_matrix : tensor.tensor) {
+                new_tensor.push_back(tensor_matrix * matrix);
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3 Tensor3::dot(const Tensor3& left_tensor,
+                             const Tensor3& right_tensor) {
+            vector<Eigen::MatrixXd> new_tensor(left_tensor.tensor.size());
+
+            for (int i = 0; i < new_tensor.size(); i++) {
+                new_tensor[i] = left_tensor.tensor[i] * right_tensor.tensor[i];
+            }
+
+            return Tensor3(new_tensor);
         }
 
         //----------------------------------------------------------------------
@@ -565,6 +644,135 @@ namespace tomcat {
                 matrix_hstack(this->tensor[i], other.tensor.at(i));
             }
         }
+
+        Tensor3 Tensor3::sum_cols() const {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(this->tensor.size());
+
+            for (const auto& matrix : this->tensor) {
+                new_tensor.push_back(matrix.rowwise().sum());
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3 Tensor3::sum_rows() const {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(this->tensor.size());
+
+            for (const auto& matrix : this->tensor) {
+                new_tensor.push_back(matrix.colwise().sum());
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        void Tensor3::transpose_matrices() {
+            for (auto& matrix : this->tensor) {
+                matrix.transposeInPlace();
+            }
+        }
+
+        Tensor3
+        Tensor3::mult_colwise_broadcasting(const Tensor3& tensor) const {
+            vector<Eigen::MatrixXd> new_tensor(this->tensor.size());
+
+            for (int i = 0; i < new_tensor.size(); i++) {
+                new_tensor[i] = this->tensor[i].array().colwise() *
+                                tensor.tensor[i].col(0).array();
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3
+        Tensor3::mult_rowwise_broadcasting(const Tensor3& tensor) const {
+            vector<Eigen::MatrixXd> new_tensor(this->tensor.size());
+
+            for (int i = 0; i < new_tensor.size(); i++) {
+                new_tensor[i] = this->tensor[i].array().rowwise() *
+                                tensor.tensor[i].row(0).array();
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3
+        Tensor3::mult_colwise_broadcasting(const Eigen::VectorXd& v) const {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(this->tensor.size());
+
+            for (const auto& tensor_matrix : this->tensor) {
+                new_tensor.push_back(tensor_matrix.array().colwise() *
+                                     v.array());
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3
+        Tensor3::mult_rowwise_broadcasting(const Eigen::VectorXd& v) const {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(this->tensor.size());
+
+            for (const auto& tensor_matrix : this->tensor) {
+                new_tensor.push_back(tensor_matrix.array().rowwise() *
+                                     v.transpose().array());
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3
+        Tensor3::div_colwise_broadcasting(const Tensor3& tensor) const {
+            vector<Eigen::MatrixXd> new_tensor(this->tensor.size());
+
+            for (int i = 0; i < new_tensor.size(); i++) {
+                new_tensor[i] = this->tensor[i].array().colwise() /
+                                tensor.tensor[i].col(0).array();
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3
+        Tensor3::div_rowwise_broadcasting(const Tensor3& tensor) const {
+            vector<Eigen::MatrixXd> new_tensor(this->tensor.size());
+
+            for (int i = 0; i < new_tensor.size(); i++) {
+                new_tensor[i] = this->tensor[i].array().rowwise() /
+                                tensor.tensor[i].row(0).array();
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3
+        Tensor3::div_colwise_broadcasting(const Eigen::VectorXd& v) const {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(this->tensor.size());
+
+            for (const auto& tensor_matrix : this->tensor) {
+                new_tensor.push_back(tensor_matrix.array().colwise() /
+                                     v.array());
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        Tensor3
+        Tensor3::div_rowwise_broadcasting(const Eigen::VectorXd& v) const {
+            vector<Eigen::MatrixXd> new_tensor;
+            new_tensor.reserve(this->tensor.size());
+
+            for (const auto& tensor_matrix : this->tensor) {
+                new_tensor.push_back(tensor_matrix.array().rowwise() /
+                                     v.transpose().array());
+            }
+
+            return Tensor3(new_tensor);
+        }
+
 
     } // namespace model
 } // namespace tomcat

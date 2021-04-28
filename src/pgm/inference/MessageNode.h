@@ -6,9 +6,8 @@
 #include <utility>
 #include <vector>
 
-#include <eigen3/Eigen/Dense>
-
 #include "utils/Definitions.h"
+#include "utils/Tensor3.h"
 
 namespace tomcat {
     namespace model {
@@ -30,12 +29,10 @@ namespace tomcat {
              * this struct would indicate the nodes the messages came from.
              */
             struct MessageContainer {
-                std::unordered_map<std::string, Eigen::MatrixXd>
-                    node_name_to_messages;
+                std::unordered_map<std::string, Tensor3> node_name_to_messages;
 
-                const Eigen::MatrixXd
-                get_message_for(const std::string node_label,
-                                int time_step) const {
+                const Tensor3 get_message_for(const std::string node_label,
+                                              int time_step) const {
 
                     std::string node_name =
                         MessageNode::get_name(node_label, time_step);
@@ -44,7 +41,7 @@ namespace tomcat {
 
                 void set_message_for(const std::string node_label,
                                      int time_step,
-                                     const Eigen::MatrixXd& message) {
+                                     const Tensor3& message) {
 
                     std::string node_name =
                         MessageNode::get_name(node_label, time_step);
@@ -162,24 +159,40 @@ namespace tomcat {
              *
              * @return Message
              */
-            Eigen::MatrixXd
-            get_incoming_message_from(const std::string& source_label,
-                                      int source_time_step,
-                                      int target_time_step) const;
+            Tensor3 get_incoming_message_from(const std::string& source_label,
+                                              int source_time_step,
+                                              int target_time_step) const;
 
             /**
              * For a given target time step, stores the message that came from
              * a source node.
              *
-             * @param source_label: source node's label
+             * @param source_node_template: source node template
              * @param source_time_step: source node's time step
              * @param target_time_step: time step instance of this node to store
              * the incoming message
              */
-            void set_incoming_message_from(const std::string& source_label,
-                                           int source_time_step,
-                                           int target_time_step,
-                                           const Eigen::MatrixXd& message);
+            void
+            set_incoming_message_from(const MsgNodePtr& source_node_template,
+                                      int source_time_step,
+                                      int target_time_step,
+                                      const Tensor3& message);
+
+            /**
+             * For a given target time step, stores the message that came from
+             * a source node. This version of the method is for non-segment
+             * nodes only.
+             *
+             * @param source_node_label: source node's label
+             * @param source_time_step: source node's time step
+             * @param target_time_step: time step instance of this node to store
+             * the incoming message
+             */
+            void
+            set_incoming_message_from(const std::string& source_node_label,
+                                      int source_time_step,
+                                      int target_time_step,
+                                      const Tensor3& message);
 
             /**
              * Get template node's name as a combination of its label and time
@@ -219,7 +232,7 @@ namespace tomcat {
              *
              * @return Message
              */
-            virtual Eigen::MatrixXd get_outward_message_to(
+            virtual Tensor3 get_outward_message_to(
                 const std::shared_ptr<MessageNode>& template_target_node,
                 int template_time_step,
                 int target_time_step,
@@ -233,6 +246,13 @@ namespace tomcat {
              * @return True if the node in an instance of a factor node.
              */
             virtual bool is_factor() const = 0;
+
+            /**
+             * Whether the node is a segment node.
+             *
+             * @return
+             */
+            virtual bool is_segment() const = 0;
 
             //------------------------------------------------------------------
             // Getters & Setters
@@ -270,6 +290,12 @@ namespace tomcat {
             // the future.
             std::unordered_map<int, MessageContainer>
                 incoming_messages_per_time_slice;
+
+            std::unordered_map<int, Tensor3>
+                incoming_last_segment_messages_per_time_slice;
+
+            std::unordered_map<int, Tensor3>
+                incoming_next_segment_messages_per_time_slice;
         };
 
     } // namespace model
@@ -278,10 +304,9 @@ namespace tomcat {
 // Hash for usage of this class in unordered sets.
 namespace std {
     template <> struct hash<shared_ptr<tomcat::model::MessageNode>> {
-        size_t operator()(const shared_ptr<tomcat::model::MessageNode>&
-        message_node) const {
-            return hash<string>{}(
-                message_node->get_name());
+        size_t operator()(
+            const shared_ptr<tomcat::model::MessageNode>& message_node) const {
+            return hash<string>{}(message_node->get_name());
         }
     };
 } // namespace std

@@ -91,8 +91,12 @@ namespace tomcat {
         }
 
         double Poisson::get_pdf(const Eigen::VectorXd& value) const {
+            return this->get_pdf(value(0));
+        }
+
+        double Poisson::get_pdf(double value) const {
             double lambda = this->parameters[0]->get_assignment()(0, 0);
-            return gsl_ran_poisson_pdf(value(0), lambda);
+            return gsl_ran_poisson_pdf(value, lambda);
         }
 
         double Poisson::get_cdf(double value, bool reverse) const {

@@ -153,6 +153,48 @@ namespace tomcat {
              */
             Eigen::MatrixXd operator==(const Eigen::VectorXd& value) const;
 
+            /**
+             * Performs element-wise division between the matrices of the
+             * 0-axis of a tensor and another matrix.
+             *
+             * @param matrix: matrix
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 operator/(const Eigen::MatrixXd& matrix) const;
+
+            /**
+             * Performs element-wise division between the matrices of the
+             * 0-axis of a tensor and the matrices in the 0-axis of another
+             * tensor.
+             *
+             * @param tensor: tensor
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 operator/(const Tensor3& tensor) const;
+
+            /**
+             * Performs element-wise multiplication between the matrices of the
+             * 0-axis of a tensor and another matrix.
+             *
+             * @param matrix: matrix
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 operator*(const Eigen::MatrixXd& matrix) const;
+
+            /**
+             * Performs element-wise multiplication between the matrices of the
+             * 0-axis of a tensor and the matrices in the 0-axis of another
+             * tensor.
+             *
+             * @param tensor: tensor
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 operator*(const Tensor3& tensor) const;
+
             //------------------------------------------------------------------
             // Static functions
             //------------------------------------------------------------------
@@ -202,6 +244,40 @@ namespace tomcat {
              * @return: Element-wise standard deviation of a list of tensors.
              */
             static Tensor3 std(const std::vector<Tensor3>& tensors);
+
+            /**
+             * Multiply a matrix across the 0-axis of a tensor.
+             *
+             * @param matrix: matrix
+             * @param tensor: tensor
+             *
+             * @return Resultant tensor
+             */
+            static Tensor3 dot(const Eigen::MatrixXd& matrix,
+                               const Tensor3& tensor);
+
+            /**
+             * Multiply every matrix in the 0-axis of a tensor by a given
+             * matrix and stores the result in a new tensor.
+             *
+             * @param tensor: tensor
+             * @param matrix: matrix
+             *
+             * @return Resultant tensor
+             */
+            static Tensor3 dot(const Tensor3& tensor,
+                               const Eigen::MatrixXd& matrix);
+
+            /**
+             * Multiply a the matrices in the 0-axis of a tensor by another.
+             *
+             * @param tensor_left: first operand
+             * @param tensor_right: second operand
+             *
+             * @return Resultant tensor
+             */
+            static Tensor3 dot(const Tensor3& left_tensor,
+                               const Tensor3& right_tensor);
 
             //------------------------------------------------------------------
             // Member functions
@@ -374,6 +450,121 @@ namespace tomcat {
              * @param other: tensor to append
              */
             void hstack(const Tensor3& other);
+
+            /**
+             * Sum across columns each matrix in the 0-axis
+             *
+             * @return Reduced tensor
+             */
+            Tensor3 sum_cols() const;
+
+            /**
+             * Sum across rows each matrix in the 0-axis
+             *
+             * @return Reduced tensor
+             */
+            Tensor3 sum_rows() const;
+
+            /**
+             * Transpose each matrix of the 0-axis of the tensor.
+             */
+            void transpose_matrices();
+
+            /**
+             * Multiply the matrices of a given tensor with the matrices of a
+             * tensor in a column-wise manner. The number of rows of the matrix
+             * must coincide with the number of rows of the matrices of the
+             * tensor and the number of columns of the matrix must be 1 or equal
+             * to the number of columns of the matrices of the tensor.
+             *
+             * @param matrix: matrix
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 mult_colwise_broadcasting(const Tensor3& tensor) const;
+
+            /**
+             * Multiply the matrices of a given tensor with the matrices of a
+             * tensor in a row-wise manner. The number of columns of the matrix
+             * must coincide with the number of columns of the matrices of the
+             * tensor and the number of rows of the matrix must be 1 or equal to
+             * the number of rows of the matrices of the tensor.
+             *
+             * @param matrix: matrix
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 mult_rowwise_broadcasting(const Tensor3& tensor) const;
+
+            /**
+             * Multiply a column vector with the matrices of a tensor in a
+             * column-wise manner. The size of the vector must coincide with
+             * the number of rows of the matrices of the tensor.
+             *
+             * @param v: vector
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 mult_colwise_broadcasting(const Eigen::VectorXd& v) const;
+
+            /**
+             * Multiply a column vector with the matrices of a tensor in a
+             * row-wise manner. The size of the vector must coincide with the
+             * number of columns of the matrices of the tensor.
+             *
+             * @param v: vector
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 mult_rowwise_broadcasting(const Eigen::VectorXd& v) const;
+
+            /**
+             * Divide the matrices of a given tensor with the matrices of a
+             * tensor in a column-wise manner. The number of rows of the matrix
+             * must coincide with the number of rows of the matrices of the
+             * tensor and the number of columns of the matrix must be 1 or equal
+             * to the number of columns of the matrices of the tensor.
+             *
+             * @param matrix: matrix
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 div_colwise_broadcasting(const Tensor3& tensor) const;
+
+            /**
+             * Divide the matrices of a given tensor with the matrices of a
+             * tensor in a row-wise manner. The number of columns of the matrix
+             * must coincide with the number of columns of the matrices of the
+             * tensor and the number of rows of the matrix must be 1 or equal to
+             * the number of rows of the matrices of the tensor.
+             *
+             * @param matrix: matrix
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 div_rowwise_broadcasting(const Tensor3& tensor) const;
+
+            /**
+             * Divide a column vector with the matrices of a tensor in a
+             * column-wise manner. The size of the vector must coincide with
+             * the number of rows of the matrices of the tensor.
+             *
+             * @param v: vector
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 div_colwise_broadcasting(const Eigen::VectorXd& v) const;
+
+            /**
+             * Divide a column vector with the matrices of a tensor in a
+             * row-wise manner. The size of the vector must coincide with the
+             * number of columns of the matrices of the tensor.
+             *
+             * @param v: vector
+             *
+             * @return Resultant tensor
+             */
+            Tensor3 div_rowwise_broadcasting(const Eigen::VectorXd& v) const;
 
           private:
             //------------------------------------------------------------------

@@ -184,7 +184,7 @@ namespace tomcat {
                         MessageNode::PRIOR_NODE_LABEL,
                         time_step,
                         time_step,
-                        Eigen::MatrixXd::Ones(num_rows, 1));
+                        Tensor3::constant(1, num_rows, 1, 1));
                 }
                 else {
                     for (const auto& [parent_node, transition] : parent_nodes) {
@@ -197,26 +197,26 @@ namespace tomcat {
                             parent_incoming_messages_time_step = time_step - 1;
                         }
 
-                        Eigen::MatrixXd message =
-                            parent_node->get_outward_message_to(
-                                node,
-                                parent_incoming_messages_time_step,
-                                time_step,
-                                MessageNode::Direction::forward);
+                        Tensor3 message = parent_node->get_outward_message_to(
+                            node,
+                            parent_incoming_messages_time_step,
+                            time_step,
+                            MessageNode::Direction::forward);
 
-//                        LOG("Forward");
-//                        cout << MessageNode::get_name(
-//                                    parent_node->get_label(),
-//                                    parent_incoming_messages_time_step)
-//                             << " -> "
-//                             << MessageNode::get_name(node->get_label(),
-//                                                      time_step)
-//                             << "\n";
-//                        LOG(message);
-//                        LOG("");
+                        //                        LOG("Forward");
+                        //                        cout << MessageNode::get_name(
+                        //                                    parent_node->get_label(),
+                        //                                    parent_incoming_messages_time_step)
+                        //                             << " -> "
+                        //                             <<
+                        //                             MessageNode::get_name(node->get_label(),
+                        //                                                      time_step)
+                        //                             << "\n";
+                        //                        LOG(message);
+                        //                        LOG("");
 
                         node->set_incoming_message_from(
-                            parent_node->get_label(),
+                            parent_node,
                             parent_incoming_messages_time_step,
                             time_step,
                             message);
@@ -262,7 +262,7 @@ namespace tomcat {
                         MessageNode::END_NODE_LABEL,
                         time_step,
                         time_step,
-                        Eigen::MatrixXd::Ones(num_rows, num_cols));
+                        Tensor3::constant(1, num_rows, num_cols, 1));
                 }
                 else {
                     for (const auto& child_node : child_nodes) {
@@ -277,26 +277,29 @@ namespace tomcat {
                         // being processed, so we do not process child nodes in
                         // a future time step.
                         if (time_diff == 0) {
-                            Eigen::MatrixXd message =
+                            Tensor3 message =
                                 child_node->get_outward_message_to(
                                     node,
                                     time_step,
                                     time_step,
                                     MessageNode::Direction::backwards);
 
-//                            LOG("Backward");
-//                            cout << MessageNode::get_name(node->get_label(),
-//                                                          time_step)
-//                                 << " -> "
-//                                 << MessageNode::get_name(
-//                                        child_node->get_label(), time_step)
-//
-//                                 << "\n";
-//                            LOG(message);
-//                            LOG("");
+                            //                            LOG("Backward");
+                            //                            cout <<
+                            //                            MessageNode::get_name(node->get_label(),
+                            //                                                          time_step)
+                            //                                 << " -> "
+                            //                                 <<
+                            //                                 MessageNode::get_name(
+                            //                                        child_node->get_label(),
+                            //                                        time_step)
+                            //
+                            //                                 << "\n";
+                            //                            LOG(message);
+                            //                            LOG("");
 
                             node->set_incoming_message_from(
-                                child_node->get_label(),
+                                child_node,
                                 time_step,
                                 time_step,
                                 message);
@@ -389,7 +392,7 @@ namespace tomcat {
                     for (auto& [parent_node, transition] :
                          this->factor_graph.get_parents_of(factor, t)) {
                         if (transition) {
-                            Eigen::MatrixXd message =
+                            Tensor3 message =
                                 factor->get_outward_message_to(
                                     parent_node,
                                     t,

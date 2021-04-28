@@ -22,10 +22,20 @@ namespace tomcat {
              * @param label: node's label
              * @param time_step: node's time step
              * @param cardinality: node's cardinality
+             * @param segment: whether the node is a segment node
              */
             VariableNode(const std::string& label,
                          int time_step,
                          int cardinality);
+
+            /**
+             * Creates an instance of a segment variable node.
+             *
+             * @param label: node's label
+             * @param time_step: node's time step
+             */
+            VariableNode(const std::string& label,
+                         int time_step);
 
             ~VariableNode();
 
@@ -59,13 +69,15 @@ namespace tomcat {
              *
              * @return Message
              */
-            Eigen::MatrixXd get_outward_message_to(
+            Tensor3 get_outward_message_to(
                 const std::shared_ptr<MessageNode>& template_target_node,
                 int template_time_step,
                 int target_time_step,
                 Direction direction) const override;
 
             bool is_factor() const override;
+
+            bool is_segment() const override;
 
             /**
              * Computes the marginal distribution for a given node in a certain
@@ -133,6 +145,9 @@ namespace tomcat {
             // value observed for a particular data point. The number of rows in
             // the matrix is the number of data points observed.
             std::unordered_map<int, Eigen::MatrixXd> data_per_time_slice;
+
+            // True if the node represents a segment node.
+            bool segment;
         };
 
     } // namespace model

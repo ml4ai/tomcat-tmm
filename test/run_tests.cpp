@@ -9,10 +9,13 @@
 #include "eigen3/Eigen/Dense"
 #include <gsl/gsl_rng.h>
 
+#include "distribution/Distribution.h"
 #include "distribution/Gamma.h"
 #include "distribution/Poisson.h"
 #include "mock_models.h"
 #include "pgm/EvidenceSet.h"
+#include "pgm/inference/SegmentExpansionFactorNode.h"
+#include "pgm/inference/VariableNode.h"
 #include "pipeline/estimation/CompoundSamplerEstimator.h"
 #include "pipeline/estimation/SamplerEstimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
@@ -1003,6 +1006,69 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
     expected_green_h1 << 0.6308, 0.5034, 0.4393;
     check = check_matrix_eq(green_estimates_h1, expected_green_h1, tolerance);
     BOOST_TEST(check.first, check.second);
+}
+
+BOOST_AUTO_TEST_CASE(segment_extension_factor) {
+    DistributionPtrVec distributions = {make_shared<Poisson>(1),
+                                        make_shared<Poisson>(2),
+                                        make_shared<Poisson>(3),
+                                        make_shared<Poisson>(4),
+                                        make_shared<Poisson>(5),
+                                        make_shared<Poisson>(6),
+                                        make_shared<Poisson>(7),
+                                        make_shared<Poisson>(8),
+                                        make_shared<Poisson>(9),
+                                        make_shared<Poisson>(10),
+                                        make_shared<Poisson>(11),
+                                        make_shared<Poisson>(12)};
+
+    CPD::TableOrderingMap ordering_map;
+    ordering_map["State"] = ParentIndexing(0, 3, 4);
+    ordering_map["X"] = ParentIndexing(1, 2, 2);
+    ordering_map["Y"] = ParentIndexing(2, 2, 1);
+
+    SegmentExpansionFactorNode expansion_factor(
+        "f:Expansion", 1, distributions, ordering_map, "StateTimer");
+
+    VarNodePtr segment = make_shared<VariableNode>("Segment", 0);
+    VarNodePtr isegment = make_shared<VariableNode>("iSegment", 1);
+    VarNodePtr x = make_shared<VariableNode>("X", 1, 2);
+    VarNodePtr y = make_shared<VariableNode>("Y", 1, 2);
+
+    expansion_factor.set_incoming_message_from(
+        segment, 0, 1, Tensor3::constant(2, 2, 3, 1));
+    Eigen::MatrixXd message(2, 2);
+    message << 0.3, 0.7, 0.8, 0.2;
+    expansion_factor.set_incoming_message_from(x, 1, 1, Tensor3(message));
+    expansion_factor.set_incoming_message_from(y, 1, 1, Tensor3(message));
+
+    Tensor3 msg2iseg = expansion_factor.get_outward_message_to(
+        isegment, 1, 1, MessageNode::Direction::forward);
+
+    msg2iseg = msg2iseg.div_colwise_broadcasting(msg2iseg.sum_cols());
+    expansion_factor.set_incoming_message_from(isegment, 1, 1, msg2iseg);
+
+    Tensor3 msg2x = expansion_factor.get_outward_message_to(
+        x, 1, 1, MessageNode::Direction::backwards);
+
+    cout << msg2iseg << endl;
+    cout << msg2x << endl;
+
+    SegmentExpansionFactorNode next_expansion_factor(
+        "f:Expansion", 2, distributions, ordering_map, "StateTimer");
+    VarNodePtr next_segment = make_shared<VariableNode>("Segment", 1);
+    VarNodePtr next_isegment = make_shared<VariableNode>("iSegment", 2);
+    VarNodePtr next_x = make_shared<VariableNode>("X", 2, 2);
+
+    next_expansion_factor.set_incoming_message_from(
+        next_segment, 1, 2, msg2iseg);
+    next_expansion_factor.set_incoming_message_from(
+        next_x, 2, 2, Tensor3(message));
+
+    msg2iseg = next_expansion_factor.get_outward_message_to(
+        next_isegment, 2, 2, MessageNode::Direction::forward);
+
+    cout << msg2iseg << endl;
 }
 
 BOOST_AUTO_TEST_SUITE_END()

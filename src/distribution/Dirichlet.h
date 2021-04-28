@@ -91,6 +91,8 @@ namespace tomcat {
 
             double get_pdf(const Eigen::VectorXd& value) const override;
 
+            double get_pdf(double value) const override;
+
             double get_cdf(double value, bool reverse) const override;
 
             std::unique_ptr<Distribution> clone() const override;

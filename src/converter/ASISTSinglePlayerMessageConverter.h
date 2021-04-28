@@ -24,6 +24,16 @@ namespace tomcat {
          */
         class ASISTSinglePlayerMessageConverter : public ASISTMessageConverter {
           public:
+            // Area values
+            const static int HALLWAY = 0;
+            const static int ROOM = 1;
+            const static int ROOM_ENTRANCE = 2;
+
+            // Task values
+            const static int NO_TASK = 0;
+            const static int SAVING_REGULAR = 1;
+            const static int SAVING_CRITICAL = 2;
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -91,6 +101,21 @@ namespace tomcat {
 
           private:
             //------------------------------------------------------------------
+            // Structs
+            //------------------------------------------------------------------
+            struct Point {
+                double x;
+                double y;
+
+                Point(double x, double y) : x(x), y(y) {}
+                ~Point() {}
+
+                double distance(const Point& p) {
+                    return sqrt(pow(p.x - this->x, 2) + pow(p.y - this->y, 2));
+                }
+            };
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
@@ -110,6 +135,9 @@ namespace tomcat {
             // indicating whether the area is a room or not (e.g, yard, hallway
             // etc.).
             std::unordered_map<std::string, bool> map_area_configuration;
+
+            // Position at the center of each door
+            std::vector<Point> door_positions;
 
             Tensor3 training_condition;
             Tensor3 difficulty;

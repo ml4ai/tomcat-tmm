@@ -186,6 +186,15 @@ namespace tomcat {
             virtual double get_pdf(const Eigen::VectorXd& value) const = 0;
 
             /**
+             * Returns the PDF/PMF for a given value.
+             *
+             * @param value: value
+             *
+             * @return PDF/PMF
+             */
+            virtual double get_pdf(double value) const = 0;
+
+            /**
              * Returns the CDF for a given value.
              *
              * @param value: value

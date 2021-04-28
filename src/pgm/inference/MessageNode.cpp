@@ -29,8 +29,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Static functions
         //----------------------------------------------------------------------
-        string MessageNode::get_name(const string& label,
-                                          int time_step) {
+        string MessageNode::get_name(const string& label, int time_step) {
             stringstream ss;
             ss << "(" << label << ", " << time_step << ")";
             return ss.str();
@@ -56,7 +55,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        Eigen::MatrixXd
+        Tensor3
         MessageNode::get_incoming_message_from(const string& source_label,
                                                int source_time_step,
                                                int target_time_step) const {
@@ -65,17 +64,44 @@ namespace tomcat {
                 .get_message_for(source_label, source_time_step);
         }
 
+        void MessageNode::set_incoming_message_from(
+            const MsgNodePtr& source_node_template,
+            int source_time_step,
+            int target_time_step,
+            const Tensor3& message) {
+
+            this->max_time_step_stored =
+                max(this->max_time_step_stored, target_time_step);
+
+            if (source_node_template->is_segment()) {
+                if (target_time_step > source_time_step) {
+                    this->incoming_last_segment_messages_per_time_slice
+                        [target_time_step] = message;
+                }
+                else {
+                    this->incoming_next_segment_messages_per_time_slice
+                    [target_time_step] = message;
+                }
+            }
+            else {
+                this->incoming_messages_per_time_slice[target_time_step]
+                    .set_message_for(source_node_template->get_label(),
+                                     source_time_step,
+                                     message);
+            }
+        }
+
         void
-        MessageNode::set_incoming_message_from(const string& source_label,
+        MessageNode::set_incoming_message_from(const string& source_node_label,
                                                int source_time_step,
                                                int target_time_step,
-                                               const Eigen::MatrixXd& message) {
+                                               const Tensor3& message) {
 
             this->max_time_step_stored =
                 max(this->max_time_step_stored, target_time_step);
 
             this->incoming_messages_per_time_slice[target_time_step]
-                .set_message_for(source_label, source_time_step, message);
+                .set_message_for(source_node_label, source_time_step, message);
         }
 
         string MessageNode::get_name() const {

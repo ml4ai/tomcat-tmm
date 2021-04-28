@@ -13,7 +13,11 @@ namespace tomcat {
         VariableNode::VariableNode(const string& label,
                                    int time_step,
                                    int cardinality)
-            : MessageNode(label, time_step), cardinality(cardinality) {}
+            : MessageNode(label, time_step), cardinality(cardinality),
+              segment(false) {}
+
+        VariableNode::VariableNode(const string& label, int time_step)
+            : MessageNode(label, time_step), segment(true) {}
 
         VariableNode::~VariableNode() {}
 
@@ -38,7 +42,7 @@ namespace tomcat {
             this->data_per_time_slice = node.data_per_time_slice;
         }
 
-        Eigen::MatrixXd VariableNode::get_outward_message_to(
+        Tensor3 VariableNode::get_outward_message_to(
             const shared_ptr<MessageNode>& template_target_node,
             int template_time_step,
             int target_time_step,
@@ -67,11 +71,11 @@ namespace tomcat {
                     }
 
                     if (outward_message.rows() == 0) {
-                        outward_message = incoming_message;
+                        outward_message = incoming_message(0, 0);
                     }
                     else {
-                        outward_message =
-                            outward_message.array() * incoming_message.array();
+                        outward_message = outward_message.array() *
+                                          incoming_message(0, 0).array();
                     }
                 }
             }
@@ -85,12 +89,12 @@ namespace tomcat {
                 (outward_message.array().colwise() / sum_per_row.array())
                     .matrix();
 
-            // Aggregate if necessary
-
-            return outward_message;
+            return Tensor3(outward_message);
         }
 
         bool VariableNode::is_factor() const { return false; }
+
+        bool VariableNode::is_segment() const { return this->segment; }
 
         Eigen::MatrixXd VariableNode::get_marginal_at(int time_step,
                                                       bool normalized) const {
@@ -101,10 +105,11 @@ namespace tomcat {
                      .node_name_to_messages) {
 
                 if (marginal.rows() == 0) {
-                    marginal = incoming_message;
+                    marginal = incoming_message(0, 0);
                 }
                 else {
-                    marginal = marginal.array() * incoming_message.array();
+                    marginal =
+                        marginal.array() * incoming_message(0, 0).array();
                 }
             }
 
@@ -124,13 +129,12 @@ namespace tomcat {
                                        const Eigen::VectorXd& data,
                                        bool aggregate) {
 
-            int cols = aggregate ? 2: this->cardinality;
+            int cols = aggregate ? 2 : this->cardinality;
             // Convert each element of the vector to a binary row vector and
             // stack them horizontally;
             Eigen::MatrixXd data_matrix(data.size(), cols);
             for (int i = 0; i < data.size(); i++) {
-                Eigen::VectorXd binary_vector =
-                    Eigen::VectorXd::Zero(cols);
+                Eigen::VectorXd binary_vector = Eigen::VectorXd::Zero(cols);
                 binary_vector[data[i]] = 1;
                 data_matrix.row(i) = move(binary_vector);
             }

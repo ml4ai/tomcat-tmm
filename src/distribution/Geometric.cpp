@@ -90,8 +90,12 @@ namespace tomcat {
         }
 
         double Geometric::get_pdf(const Eigen::VectorXd& value) const {
+            return this->get_pdf(value(0));
+        }
+
+        double Geometric::get_pdf(double value) const {
             double p = this->parameters[0]->get_assignment()(0, 0);
-            double pdf = gsl_ran_geometric_pdf(value(0) + 1, p);
+            double pdf = gsl_ran_geometric_pdf(value + 1, p);
             return pdf;
         }
 

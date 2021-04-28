@@ -1,7 +1,10 @@
 #pragma once
 
+#include <vector>
+
 #include "MessageNode.h"
 
+#include "distribution/Distribution.h"
 #include "pgm/cpd/CPD.h"
 #include "utils/Definitions.h"
 
@@ -27,7 +30,12 @@ namespace tomcat {
                 CPD::TableOrderingMap ordering_map;
 
                 // CPD table
-                Eigen::MatrixXd matrix;
+                Eigen::MatrixXd probability_table;
+
+                // In some scenarios, we won't be able to enumerate all the
+                // probabilities in a table. The list of distributions of
+                // a CPD will be needed instead.
+                DistributionPtrVec distributions;
 
                 // Node's label in P(Node | ...)
                 std::string main_node_label;
@@ -47,9 +55,17 @@ namespace tomcat {
                 PotentialFunction() {}
 
                 PotentialFunction(const CPD::TableOrderingMap& ordering_map,
-                                  const Eigen::MatrixXd& matrix,
+                                  const Eigen::MatrixXd& probability_table,
                                   const std::string main_node_label)
-                    : ordering_map(ordering_map), matrix(matrix),
+                    : ordering_map(ordering_map),
+                      probability_table(probability_table),
+                      main_node_label(main_node_label) {}
+
+                PotentialFunction(
+                    const CPD::TableOrderingMap& ordering_map,
+                    const DistributionPtrVec & distributions,
+                    const std::string main_node_label)
+                    : ordering_map(ordering_map), distributions(distributions),
                       main_node_label(main_node_label) {}
 
                 static std::string
@@ -62,6 +78,9 @@ namespace tomcat {
             // Constructors & Destructor
             //------------------------------------------------------------------
 
+            // Default constructor
+            FactorNode();
+
             /**
              * Creates an instance of a factor node.
              *
@@ -69,13 +88,30 @@ namespace tomcat {
              * modified version of the label informed to indicate that it's a
              * factor.
              * @param time_step: factor's time step
-             * @param potential_function: matrix representing the potential
+             * @param probability_table: matrix representing the potential
              * function
              * @param ordering_map: potential function matrix's ordering map
              */
             FactorNode(const std::string& label,
                        int time_step,
-                       const Eigen::MatrixXd& potential_function,
+                       const Eigen::MatrixXd& probability_table,
+                       const CPD::TableOrderingMap& ordering_map,
+                       const std::string& cpd_node_label);
+
+            /**
+             * Creates an instance of a factor node.
+             *
+             * @param label: node's label. The factor's label will be a
+             * modified version of the label informed to indicate that it's a
+             * factor.
+             * @param distributions: list of distributions of a CPD that
+             * defines the factor node's potential function
+             * @param time_step: factor's time step
+             * @param ordering_map: potential function matrix's ordering map
+             */
+            FactorNode(const std::string& label,
+                       int time_step,
+                       const DistributionPtrVec& distributions,
                        const CPD::TableOrderingMap& ordering_map,
                        const std::string& cpd_node_label);
 
@@ -127,13 +163,15 @@ namespace tomcat {
              *
              * @return Message
              */
-            Eigen::MatrixXd get_outward_message_to(
+            Tensor3 get_outward_message_to(
                 const std::shared_ptr<MessageNode>& template_target_node,
                 int template_time_step,
                 int target_time_step,
                 Direction direction) const override;
 
             bool is_factor() const override;
+
+            bool is_segment() const override;
 
             /**
              * Creates a potential function (and associated rotations) by
@@ -158,7 +196,7 @@ namespace tomcat {
              */
             void use_original_potential();
 
-          private:
+          protected:
             //------------------------------------------------------------------
             // Structs
             //------------------------------------------------------------------
@@ -233,11 +271,43 @@ namespace tomcat {
              *
              * @return Incoming messages
              */
-            std::vector<Eigen::MatrixXd> get_incoming_messages_in_order(
+            std::vector<Tensor3> get_incoming_messages_in_order(
                 const std::string& ignore_label,
                 int template_time_step,
                 int target_time_step,
                 const PotentialFunction& potential_function) const;
+
+            /**
+             * Rotates a table to move one of the indexing nodes to the
+             * columns of the table.
+             *
+             * @param table: original table
+             * @param main_node_cardinality: cardinality of the node to be
+             * put in evidence (placed in the columns of the rotated table)
+             * @param right_cumulative_cardinality: number of all possible
+             * assignment combinations of the indexing nodes to the right of
+             * the main node in the original table indexing scheme
+             *
+             * @return Rotated table
+             */
+            Eigen::MatrixXd
+            rotate_table(const Eigen::MatrixXd& table,
+                         int main_node_cardinality,
+                         int right_cumulative_cardinality) const;
+
+            /**
+             * Returns a tensor formed by the cartesian product of each row
+             * in a collection of tensors.
+             *
+             * @param tensors: tensors
+             *
+             * @return cartesian product of rows from a collection of tensors
+             * . The final tensor will be formed by matrices with the same
+             * number of rows and columns given by the cartesian product of
+             * the rows in the collection of tensors.
+             */
+            Tensor3
+            get_cartesian_tensor(const std::vector<Tensor3>& tensors) const;
 
             //------------------------------------------------------------------
             // Data members
