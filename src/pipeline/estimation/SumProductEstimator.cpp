@@ -184,7 +184,8 @@ namespace tomcat {
                         MessageNode::PRIOR_NODE_LABEL,
                         time_step,
                         time_step,
-                        Tensor3::constant(1, num_rows, 1, 1));
+                        Tensor3::constant(1, num_rows, 1, 1),
+                        MessageNode::Direction::forward);
                 }
                 else {
                     for (const auto& [parent_node, transition] : parent_nodes) {
@@ -219,7 +220,8 @@ namespace tomcat {
                             parent_node,
                             parent_incoming_messages_time_step,
                             time_step,
-                            message);
+                            message,
+                            MessageNode::Direction::forward);
                     }
                 }
             }
@@ -262,7 +264,8 @@ namespace tomcat {
                         MessageNode::END_NODE_LABEL,
                         time_step,
                         time_step,
-                        Tensor3::constant(1, num_rows, num_cols, 1));
+                        Tensor3::constant(1, num_rows, num_cols, 1),
+                        MessageNode::Direction::backwards);
                 }
                 else {
                     for (const auto& child_node : child_nodes) {
@@ -302,7 +305,8 @@ namespace tomcat {
                                 child_node,
                                 time_step,
                                 time_step,
-                                message);
+                                message,
+                                MessageNode::Direction::backwards);
                         }
                     }
                 }
@@ -392,15 +396,18 @@ namespace tomcat {
                     for (auto& [parent_node, transition] :
                          this->factor_graph.get_parents_of(factor, t)) {
                         if (transition) {
-                            Tensor3 message =
-                                factor->get_outward_message_to(
-                                    parent_node,
-                                    t,
-                                    t - 1,
-                                    MessageNode::Direction::backwards);
+                            Tensor3 message = factor->get_outward_message_to(
+                                parent_node,
+                                t,
+                                t - 1,
+                                MessageNode::Direction::backwards);
 
                             parent_node->set_incoming_message_from(
-                                factor->get_label(), t, t - 1, message);
+                                factor->get_label(),
+                                t,
+                                t - 1,
+                                message,
+                                MessageNode::Direction::backwards);
                         }
                     }
                 }

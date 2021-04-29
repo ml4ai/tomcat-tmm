@@ -1,12 +1,16 @@
 #pragma once
 
+#include <utility>
+
 #include "pgm/inference/FactorNode.h"
 
 namespace tomcat {
     namespace model {
 
         /**
-         * Represents a ...
+         * Represents a factor node that accounts for expanding previous
+         * segments to account for probabilities of different past segment
+         * durations.
          */
         class SegmentExpansionFactorNode : public FactorNode {
           public:
@@ -22,8 +26,7 @@ namespace tomcat {
                 const std::string& label,
                 int time_step,
                 const DistributionPtrVec& duration_distributions,
-                const CPD::TableOrderingMap& ordering_map,
-                const std::string& cpd_node_label);
+                const CPD::TableOrderingMap& duration_ordering_map);
 
             ~SegmentExpansionFactorNode();
 
@@ -92,6 +95,41 @@ namespace tomcat {
             void copy_node(const SegmentExpansionFactorNode& node);
 
             /**
+             * Get message passed from one segment node to another
+             *
+             * @param template_target_node: template instance of the node where
+             * the message should go to
+             * @param template_time_step: time step of this node where to get
+             * the incoming messages from. If the template node belongs to the
+             * repeatable structure, this information is needed to know which
+             * time step to address to retrieve the incoming messages.
+             * @param direction: direction of the message passing
+             * @return
+             */
+            Tensor3 get_message_between_segments(
+                const std::shared_ptr<MessageNode>& template_target_node,
+                int template_time_step,
+                Direction direction) const;
+
+            /**
+             * Get message passed from the segment to one of the duration
+             * distribution dependencies
+             *
+             * @param template_target_node: template instance of the node where
+             * the message should go to
+             * @param template_time_step: time step of this node where to get
+             * the incoming messages from. If the template node belongs to the
+             * repeatable structure, this information is needed to know which
+             * time step to address to retrieve the incoming messages.
+             * @param direction: direction of the message passing
+             * @return
+             */
+            Tensor3 get_message_out_of_segments(
+                const std::shared_ptr<MessageNode>& template_target_node,
+                int template_time_step,
+                Direction direction) const;
+
+            /**
              * Gets a tensor with indexing vectors for a segment duration.
              *
              * @param target_node_label: label of the node to which messages
@@ -102,7 +140,7 @@ namespace tomcat {
              * @return Indexing tensor
              */
             Tensor3 get_indexing_tensor(const std::string& target_node_label,
-                                        int template_time_step) const;
+                                         int template_time_step) const;
 
             /**
              * Compute and store discounting factors for a segment at a given

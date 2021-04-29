@@ -13,8 +13,7 @@ namespace tomcat {
         VariableNode::VariableNode(const string& label,
                                    int time_step,
                                    int cardinality)
-            : MessageNode(label, time_step), cardinality(cardinality),
-              segment(false) {}
+            : MessageNode(label, time_step), cardinality(cardinality) {}
 
         VariableNode::VariableNode(const string& label, int time_step)
             : MessageNode(label, time_step), segment(true) {}

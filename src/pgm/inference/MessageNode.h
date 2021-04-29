@@ -171,12 +171,14 @@ namespace tomcat {
              * @param source_time_step: source node's time step
              * @param target_time_step: time step instance of this node to store
              * the incoming message
+             * @param direction: direction of the message passing
              */
             void
             set_incoming_message_from(const MsgNodePtr& source_node_template,
                                       int source_time_step,
                                       int target_time_step,
-                                      const Tensor3& message);
+                                      const Tensor3& message,
+                                      Direction direction);
 
             /**
              * For a given target time step, stores the message that came from
@@ -186,13 +188,14 @@ namespace tomcat {
              * @param source_node_label: source node's label
              * @param source_time_step: source node's time step
              * @param target_time_step: time step instance of this node to store
-             * the incoming message
+             * @param direction: direction of the message passing
              */
             void
             set_incoming_message_from(const std::string& source_node_label,
                                       int source_time_step,
                                       int target_time_step,
-                                      const Tensor3& message);
+                                      const Tensor3& message,
+                                      Direction direction);
 
             /**
              * Get template node's name as a combination of its label and time

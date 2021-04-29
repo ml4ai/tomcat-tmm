@@ -337,6 +337,16 @@ namespace tomcat {
             return Tensor3(new_tensor);
         }
 
+        Tensor3 Tensor3::eye(int depth, int size) {
+            vector<Eigen::MatrixXd> eye_matrices(depth);
+
+            for (int i = 0; i < depth; i++) {
+                eye_matrices[depth] = Eigen::MatrixXd::Identity(size, size);
+            }
+
+            return Tensor3(eye_matrices);
+        }
+
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
@@ -351,7 +361,7 @@ namespace tomcat {
         }
 
         int Tensor3::get_size() const {
-            return this->get_shape()[0] * this->get_shape()[2] *
+            return this->get_shape()[0] * this->get_shape()[1] *
                    this->get_shape()[2];
         }
 
@@ -723,8 +733,7 @@ namespace tomcat {
             return Tensor3(new_tensor);
         }
 
-        Tensor3
-        Tensor3::div_colwise_broadcasting(const Tensor3& tensor) const {
+        Tensor3 Tensor3::div_colwise_broadcasting(const Tensor3& tensor) const {
             vector<Eigen::MatrixXd> new_tensor(this->tensor.size());
 
             for (int i = 0; i < new_tensor.size(); i++) {
@@ -735,8 +744,7 @@ namespace tomcat {
             return Tensor3(new_tensor);
         }
 
-        Tensor3
-        Tensor3::div_rowwise_broadcasting(const Tensor3& tensor) const {
+        Tensor3 Tensor3::div_rowwise_broadcasting(const Tensor3& tensor) const {
             vector<Eigen::MatrixXd> new_tensor(this->tensor.size());
 
             for (int i = 0; i < new_tensor.size(); i++) {
@@ -772,7 +780,6 @@ namespace tomcat {
 
             return Tensor3(new_tensor);
         }
-
 
     } // namespace model
 } // namespace tomcat

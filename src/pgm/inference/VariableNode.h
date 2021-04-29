@@ -22,7 +22,6 @@ namespace tomcat {
              * @param label: node's label
              * @param time_step: node's time step
              * @param cardinality: node's cardinality
-             * @param segment: whether the node is a segment node
              */
             VariableNode(const std::string& label,
                          int time_step,
@@ -147,7 +146,7 @@ namespace tomcat {
             std::unordered_map<int, Eigen::MatrixXd> data_per_time_slice;
 
             // True if the node represents a segment node.
-            bool segment;
+            bool segment = false;
         };
 
     } // namespace model

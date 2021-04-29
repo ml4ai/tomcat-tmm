@@ -279,6 +279,16 @@ namespace tomcat {
             static Tensor3 dot(const Tensor3& left_tensor,
                                const Tensor3& right_tensor);
 
+            /**
+             * Creates a tensor formed by a series of identity matrices.
+             *
+             * @param depth: size of the 0 axis
+             * @param size: size of the identity matrix
+             *
+             * @return Resultant tensor
+             */
+            static Tensor3 eye(int depth, int size);
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -565,6 +575,7 @@ namespace tomcat {
              * @return Resultant tensor
              */
             Tensor3 div_rowwise_broadcasting(const Eigen::VectorXd& v) const;
+
 
           private:
             //------------------------------------------------------------------

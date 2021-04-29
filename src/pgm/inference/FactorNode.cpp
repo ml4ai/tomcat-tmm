@@ -12,6 +12,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         FactorNode::FactorNode() {}
 
+        FactorNode::FactorNode(const string& label, int time_step)
+            : MessageNode(compose_label(label), time_step) {}
+
         FactorNode::FactorNode(const string& label,
                                int time_step,
                                const Eigen::MatrixXd& probability_table,
@@ -176,8 +179,8 @@ namespace tomcat {
                     target_time_step,
                     potential_function);
 
-            Eigen::MatrixXd indexing_probs = this->get_cartesian_tensor
-                (messages_in_order)(0, 0);
+            Eigen::MatrixXd indexing_probs =
+                this->get_cartesian_tensor(messages_in_order)(0, 0);
 
             // This will marginalize the incoming nodes by summing the rows.
             Eigen::MatrixXd outward_message =
@@ -201,8 +204,8 @@ namespace tomcat {
             // m1 = [a, b, c]
             // m2 = [d, e, f]
             // temp_vector = [ad, ae, af, bd, be, bf, cd, ce, cf]
-            vector<Eigen::MatrixXd> new_tensor(tensors.size());
             int depths = tensors[0].get_shape()[0];
+            vector<Eigen::MatrixXd> new_tensor(depths);
             int rows = tensors[0].get_shape()[1];
             for (int depth = 0; depth < depths; depth++) {
                 Eigen::MatrixXd temp_matrix = Eigen::MatrixXd::Zero(rows, 0);

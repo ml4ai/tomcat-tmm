@@ -68,19 +68,20 @@ namespace tomcat {
             const MsgNodePtr& source_node_template,
             int source_time_step,
             int target_time_step,
-            const Tensor3& message) {
+            const Tensor3& message,
+            Direction direction) {
 
             this->max_time_step_stored =
                 max(this->max_time_step_stored, target_time_step);
 
             if (source_node_template->is_segment()) {
-                if (target_time_step > source_time_step) {
+                if (direction == Direction::forward) {
                     this->incoming_last_segment_messages_per_time_slice
                         [target_time_step] = message;
                 }
                 else {
                     this->incoming_next_segment_messages_per_time_slice
-                    [target_time_step] = message;
+                        [target_time_step] = message;
                 }
             }
             else {
@@ -95,7 +96,8 @@ namespace tomcat {
         MessageNode::set_incoming_message_from(const string& source_node_label,
                                                int source_time_step,
                                                int target_time_step,
-                                               const Tensor3& message) {
+                                               const Tensor3& message,
+                                               Direction direction) {
 
             this->max_time_step_stored =
                 max(this->max_time_step_stored, target_time_step);

@@ -15,6 +15,7 @@
 #include "mock_models.h"
 #include "pgm/EvidenceSet.h"
 #include "pgm/inference/SegmentExpansionFactorNode.h"
+#include "pgm/inference/SegmentTransitionFactorNode.h"
 #include "pgm/inference/VariableNode.h"
 #include "pipeline/estimation/CompoundSamplerEstimator.h"
 #include "pipeline/estimation/SamplerEstimator.h"
@@ -65,6 +66,27 @@ pair<bool, string> check_matrix_eq(const MatrixXd& estimated,
     bool equal = is_equal(estimated, expected, tolerance);
 
     return make_pair(equal, msg);
+}
+
+bool check_tensor_eq(Tensor3& estimated,
+                     Tensor3& expected,
+                     double tolerance = 0.00001) {
+
+    if (estimated.get_shape() != expected.get_shape()) {
+        return false;
+    }
+
+    for (int i = 0; i < estimated.get_shape().at(0); i++) {
+        for (int j = 0; j < estimated.get_shape().at(1); j++) {
+            for (int k = 0; k < estimated.get_shape().at(2); k++) {
+                if (abs(estimated(i, j, k) - expected(i, j, k)) > tolerance) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 BOOST_AUTO_TEST_SUITE(distribution)
@@ -1009,66 +1031,309 @@ BOOST_FIXTURE_TEST_CASE(gs_ai_hsmm, ShortHSMM) {
 }
 
 BOOST_AUTO_TEST_CASE(segment_extension_factor) {
-    DistributionPtrVec distributions = {make_shared<Poisson>(1),
-                                        make_shared<Poisson>(2),
-                                        make_shared<Poisson>(3),
-                                        make_shared<Poisson>(4),
-                                        make_shared<Poisson>(5),
-                                        make_shared<Poisson>(6),
-                                        make_shared<Poisson>(7),
-                                        make_shared<Poisson>(8),
-                                        make_shared<Poisson>(9),
-                                        make_shared<Poisson>(10),
-                                        make_shared<Poisson>(11),
-                                        make_shared<Poisson>(12)};
+    // Testing whether the extension factor node is working properly at
+    // producing an output message for two duration dependencies and
+    // intermediary segment node in two subsequent time steps.
 
-    CPD::TableOrderingMap ordering_map;
-    ordering_map["State"] = ParentIndexing(0, 3, 4);
-    ordering_map["X"] = ParentIndexing(1, 2, 2);
-    ordering_map["Y"] = ParentIndexing(2, 2, 1);
+    int state_cardinality = 3;
+    int x_cardinality = 2;
+    int y_cardinality = 2;
+
+    // P(duration | State, X, Y)
+    DistributionPtrVec duration_distributions = {make_shared<Poisson>(1),
+                                                 make_shared<Poisson>(2),
+                                                 make_shared<Poisson>(3),
+                                                 make_shared<Poisson>(4),
+                                                 make_shared<Poisson>(5),
+                                                 make_shared<Poisson>(6),
+                                                 make_shared<Poisson>(7),
+                                                 make_shared<Poisson>(8),
+                                                 make_shared<Poisson>(9),
+                                                 make_shared<Poisson>(10),
+                                                 make_shared<Poisson>(11),
+                                                 make_shared<Poisson>(12)};
+
+    CPD::TableOrderingMap duration_ordering_map;
+    duration_ordering_map["State"] =
+        ParentIndexing(0, state_cardinality, x_cardinality * y_cardinality);
+    duration_ordering_map["X"] =
+        ParentIndexing(1, x_cardinality, y_cardinality);
+    duration_ordering_map["Y"] = ParentIndexing(2, y_cardinality, 1);
 
     SegmentExpansionFactorNode expansion_factor(
-        "f:Expansion", 1, distributions, ordering_map, "StateTimer");
+        "f:Expansion", 1, duration_distributions, duration_ordering_map);
 
     VarNodePtr segment = make_shared<VariableNode>("Segment", 0);
     VarNodePtr isegment = make_shared<VariableNode>("iSegment", 1);
-    VarNodePtr x = make_shared<VariableNode>("X", 1, 2);
-    VarNodePtr y = make_shared<VariableNode>("Y", 1, 2);
+    VarNodePtr x = make_shared<VariableNode>("X", 1, x_cardinality);
+    VarNodePtr y = make_shared<VariableNode>("Y", 1, y_cardinality);
 
+    Eigen::MatrixXd prob_xy(2, 2);
+    prob_xy << 0.3, 0.7, 0.8, 0.2;
+    Tensor3 msg_from_xy = Tensor3(prob_xy);
+
+    int num_data_points = 2;
+    Tensor3 msg_from_seg0 = Tensor3::constant(
+        num_data_points, x_cardinality * y_cardinality, state_cardinality, 1);
+
+    // First time step
+    int time_step = 1;
+    expansion_factor.set_incoming_message_from(segment,
+                                               time_step - 1,
+                                               time_step,
+                                               msg_from_seg0,
+                                               MessageNode::Direction::forward);
     expansion_factor.set_incoming_message_from(
-        segment, 0, 1, Tensor3::constant(2, 2, 3, 1));
-    Eigen::MatrixXd message(2, 2);
-    message << 0.3, 0.7, 0.8, 0.2;
-    expansion_factor.set_incoming_message_from(x, 1, 1, Tensor3(message));
-    expansion_factor.set_incoming_message_from(y, 1, 1, Tensor3(message));
+        x, time_step, time_step, msg_from_xy, MessageNode::Direction::forward);
+    expansion_factor.set_incoming_message_from(
+        y, time_step, time_step, msg_from_xy, MessageNode::Direction::forward);
 
     Tensor3 msg2iseg = expansion_factor.get_outward_message_to(
-        isegment, 1, 1, MessageNode::Direction::forward);
+        isegment, time_step, time_step, MessageNode::Direction::forward);
 
-    msg2iseg = msg2iseg.div_colwise_broadcasting(msg2iseg.sum_cols());
-    expansion_factor.set_incoming_message_from(isegment, 1, 1, msg2iseg);
+    // Suppose the message that comes from isegment is the same as the
+    // produced by the extension factor but normalized.
+    expansion_factor.set_incoming_message_from(
+        isegment,
+        time_step,
+        time_step,
+        msg2iseg.div_colwise_broadcasting(msg2iseg.sum_cols()),
+        MessageNode::Direction::backwards);
 
     Tensor3 msg2x = expansion_factor.get_outward_message_to(
-        x, 1, 1, MessageNode::Direction::backwards);
+        x, time_step, time_step, MessageNode::Direction::backwards);
+    Tensor3 msg2y = expansion_factor.get_outward_message_to(
+        y, time_step, time_step, MessageNode::Direction::backwards);
 
-    cout << msg2iseg << endl;
-    cout << msg2x << endl;
+    int num_rows = x_cardinality * y_cardinality;
+    vector<Eigen::MatrixXd> expected_msg2iseg_matrices(num_data_points);
+    expected_msg2iseg_matrices[0] =
+        Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
+    expected_msg2iseg_matrices[0] << 0.033109149705430, 0.000606415229918,
+        0.000011106882368, 0.056890850294570, 0.089393584770082,
+        0.089988893117632, 0.028420409479689, 0.000520537957100,
+        0.000009533985250, 0.181579590520311, 0.209479462042900,
+        0.209990466014750, 0.010455284357251, 0.000191495212766,
+        0.000003507357166, 0.199544715642749, 0.209808504787234,
+        0.209996492642834, 0.008974663055480, 0.000164376687672,
+        0.000003010664053, 0.481025336944520, 0.489835623312328,
+        0.489996989335947;
+    expected_msg2iseg_matrices[1] =
+        Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
+    expected_msg2iseg_matrices[1] << 0.235442842349723, 0.004312286079415,
+        0.000078982274615, 0.404557157650277, 0.635687713920585,
+        0.639921017725385, 0.021653645317858, 0.000396600348267,
+        0.000007263988762, 0.138346354682142, 0.159603399651733,
+        0.159992736011238, 0.007965930938858, 0.000145901114489,
+        0.000002672272126, 0.152034069061142, 0.159854098885511,
+        0.159997327727874, 0.000732625555549, 0.000013418505116,
+        0.000000245768494, 0.039267374444451, 0.039986581494884,
+        0.039999754231506;
+    Tensor3 expected_msg2iseg(expected_msg2iseg_matrices);
 
-    SegmentExpansionFactorNode next_expansion_factor(
-        "f:Expansion", 2, distributions, ordering_map, "StateTimer");
+    Eigen::MatrixXd expected_msg2x_matrix =
+        Eigen::MatrixXd::Ones(num_data_points, x_cardinality);
+    Tensor3 expected_msg2x(expected_msg2x_matrix);
+
+    Eigen::MatrixXd expected_msg2y_matrix =
+        Eigen::MatrixXd::Ones(num_data_points, y_cardinality);
+    Tensor3 expected_msg2y(expected_msg2y_matrix);
+
+    BOOST_TEST(check_tensor_eq(msg2iseg, expected_msg2iseg));
+    BOOST_TEST(check_tensor_eq(msg2x, expected_msg2x));
+    BOOST_TEST(check_tensor_eq(msg2y, expected_msg2y));
+
+    // Second time step
+    SegmentExpansionFactorNode next_expansion_factor("f:Expansion",
+                                                     time_step,
+                                                     duration_distributions,
+                                                     duration_ordering_map);
     VarNodePtr next_segment = make_shared<VariableNode>("Segment", 1);
     VarNodePtr next_isegment = make_shared<VariableNode>("iSegment", 2);
-    VarNodePtr next_x = make_shared<VariableNode>("X", 2, 2);
+    VarNodePtr next_x = make_shared<VariableNode>("X", 2, x_cardinality);
+    VarNodePtr next_y = make_shared<VariableNode>("Y", 2, y_cardinality);
 
+    time_step = 2;
     next_expansion_factor.set_incoming_message_from(
-        next_segment, 1, 2, msg2iseg);
+        next_segment,
+        time_step - 1,
+        time_step,
+        msg2iseg,
+        MessageNode::Direction::forward);
     next_expansion_factor.set_incoming_message_from(
-        next_x, 2, 2, Tensor3(message));
+        next_x,
+        time_step,
+        time_step,
+        msg_from_xy,
+        MessageNode::Direction::forward);
+    next_expansion_factor.set_incoming_message_from(
+        next_y,
+        time_step,
+        time_step,
+        msg_from_xy,
+        MessageNode::Direction::forward);
 
     msg2iseg = next_expansion_factor.get_outward_message_to(
-        next_isegment, 2, 2, MessageNode::Direction::forward);
+        next_isegment, time_step, time_step, MessageNode::Direction::forward);
 
-    cout << msg2iseg << endl;
+    // Suppose the message that comes from isegment is the same as the
+    // produced by the extension factor but normalized.
+    next_expansion_factor.set_incoming_message_from(
+        next_isegment,
+        time_step,
+        time_step,
+        msg2iseg.div_colwise_broadcasting(msg2iseg.sum_cols()),
+        MessageNode::Direction::backwards);
+
+    msg2x = next_expansion_factor.get_outward_message_to(
+        next_x, time_step, time_step, MessageNode::Direction::backwards);
+    msg2y = next_expansion_factor.get_outward_message_to(
+        next_y, time_step, time_step, MessageNode::Direction::backwards);
+
+    expected_msg2iseg_matrices[0] =
+        Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
+    expected_msg2iseg_matrices[0] << 0.004076039267705, 0.000273254592894,
+        0.000008996698081, 0.001883607679272, 0.000054209631262,
+        0.000000999496050, 0.002140353053023, 0.007772535775844,
+        0.008090003805869, 0.012744291656462, 0.000656148785711,
+        0.000020021459922, 0.005160566315741, 0.000109042011226,
+        0.000002002046006, 0.026195142027796, 0.043334809203063,
+        0.044077976494072, 0.006696142116059, 0.000281534633183,
+        0.000008102007355, 0.002086296744032, 0.000040177324264,
+        0.000000736532703, 0.035317561139909, 0.043778288042552,
+        0.044091161459942, 0.017670884165700, 0.000644383635371,
+        0.000017702713697, 0.004317040320226, 0.000080517557264,
+        0.000001475216322, 0.218112075514075, 0.239375098807365,
+        0.240080822069982;
+
+    expected_msg2iseg_matrices[1] =
+        Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
+    expected_msg2iseg_matrices[1] << 0.206116751117539, 0.013817911265358,
+        0.000454944139985, 0.095250087090106, 0.002741267279595,
+        0.000050542417554, 0.108233161792354, 0.393040821455048,
+        0.409094513442461, 0.007398046857266, 0.000380893626172,
+        0.000011622434785, 0.002995702895306, 0.000063298763886,
+        0.000001162185436, 0.015206250247428, 0.025155807609941,
+        0.025587215379779, 0.003887102906375, 0.000163430535363,
+        0.000004703206084, 0.001211092894495, 0.000023322891183,
+        0.000000427556399, 0.020501804199131, 0.025413246573454,
+        0.025594869237517, 0.000117756829093, 0.000004294101693,
+        0.000000117968938, 0.000028768282017, 0.000000536560148,
+        0.000000009830679, 0.001453474888890, 0.001595169338158,
+        0.001599872200383;
+    expected_msg2iseg = Tensor3(expected_msg2iseg_matrices);
+
+    BOOST_TEST(check_tensor_eq(msg2iseg, expected_msg2iseg));
+    BOOST_TEST(check_tensor_eq(msg2x, expected_msg2x));
+    BOOST_TEST(check_tensor_eq(msg2y, expected_msg2y));
+}
+
+BOOST_AUTO_TEST_CASE(segment_transition_factor) {
+    // Testing whether the transition factor node is working properly at
+    // producing an output message for two transition dependencies in which one
+    // of them is also a dependent of the segment duration distribution.
+
+    int state_cardinality = 3;
+    int x_cardinality = 2;
+    int y_cardinality = 2;
+    int z_cardinality = 2;
+
+    // P(duration | State, X, Y)
+    Eigen::MatrixXd transition_probs(state_cardinality, state_cardinality);
+    transition_probs << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+
+    CPD::TableOrderingMap transition_ordering_map;
+    transition_ordering_map["State"] = ParentIndexing(0, state_cardinality, 1);
+
+    CPD::TableOrderingMap duration_ordering_map;
+    duration_ordering_map["State"] =
+        ParentIndexing(0, state_cardinality, x_cardinality * y_cardinality);
+    duration_ordering_map["X"] =
+        ParentIndexing(1, x_cardinality, y_cardinality);
+    duration_ordering_map["Y"] = ParentIndexing(2, y_cardinality, 1);
+
+    int time_step = 1;
+    SegmentTransitionFactorNode transition_factor("f:Transition",
+                                                  time_step,
+                                                  transition_probs,
+                                                  transition_ordering_map,
+                                                  duration_ordering_map);
+
+    VarNodePtr segment = make_shared<VariableNode>("Segment", time_step);
+    VarNodePtr isegment =
+        make_shared<VariableNode>("iSegment", time_step);
+    VarNodePtr x = make_shared<VariableNode>("X", time_step, x_cardinality);
+    VarNodePtr y = make_shared<VariableNode>("Y", time_step, y_cardinality);
+    VarNodePtr z = make_shared<VariableNode>("Z", time_step, z_cardinality);
+
+    //    Eigen::MatrixXd prob_xy(2, 2);
+    //    prob_xy << 0.3, 0.7, 0.8, 0.2;
+    //    Tensor3 msg_from_xy = Tensor3(prob_xy);
+
+    int num_data_points = 2;
+    int num_rows = x_cardinality * y_cardinality;
+    vector<Eigen::MatrixXd> msg_from_seg_matrices(num_data_points);
+    msg_from_seg_matrices[0] =
+        Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
+    msg_from_seg_matrices[0] << 0.033109149705430, 0.000606415229918,
+        0.000011106882368, 0.056890850294570, 0.089393584770082,
+        0.089988893117632, 0.028420409479689, 0.000520537957100,
+        0.000009533985250, 0.181579590520311, 0.209479462042900,
+        0.209990466014750, 0.010455284357251, 0.000191495212766,
+        0.000003507357166, 0.199544715642749, 0.209808504787234,
+        0.209996492642834, 0.008974663055480, 0.000164376687672,
+        0.000003010664053, 0.481025336944520, 0.489835623312328,
+        0.489996989335947;
+
+    msg_from_seg_matrices[1] =
+        Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
+    msg_from_seg_matrices[1] << 0.235442842349723, 0.004312286079415,
+        0.000078982274615, 0.404557157650277, 0.635687713920585,
+        0.639921017725385, 0.021653645317858, 0.000396600348267,
+        0.000007263988762, 0.138346354682142, 0.159603399651733,
+        0.159992736011238, 0.007965930938858, 0.000145901114489,
+        0.000002672272126, 0.152034069061142, 0.159854098885511,
+        0.159997327727874, 0.000732625555549, 0.000013418505116,
+        0.000000245768494, 0.039267374444451, 0.039986581494884,
+        0.039999754231506;
+    Tensor3 expected_msg_from_iseg(msg_from_seg_matrices);
+
+    transition_factor.set_incoming_message_from(
+        isegment,
+        time_step,
+        time_step,
+        expected_msg_from_iseg,
+        MessageNode::Direction::forward);
+
+    Tensor3 msg2seg = transition_factor.get_outward_message_to(
+        segment, time_step, time_step, MessageNode::Direction::forward);
+
+    vector<Eigen::MatrixXd> expected_msg2seg_matrices(num_data_points);
+    expected_msg2seg_matrices[0] =
+        Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
+    expected_msg2seg_matrices[0] << 0.033109149705430, 0.000606415229918,
+        0.000011106882368, 0.056890850294570, 0.089393584770082,
+        0.089988893117632, 0.028420409479689, 0.000520537957100,
+        0.000009533985250, 0.181579590520311, 0.209479462042900,
+        0.209990466014750, 0.010455284357251, 0.000191495212766,
+        0.000003507357166, 0.199544715642749, 0.209808504787234,
+        0.209996492642834, 0.008974663055480, 0.000164376687672,
+        0.000003010664053, 0.481025336944520, 0.489835623312328,
+        0.489996989335947;
+    expected_msg2seg_matrices[1] =
+        Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
+    expected_msg2seg_matrices[1] << 0.235442842349723, 0.004312286079415,
+        0.000078982274615, 0.404557157650277, 0.635687713920585,
+        0.639921017725385, 0.021653645317858, 0.000396600348267,
+        0.000007263988762, 0.138346354682142, 0.159603399651733,
+        0.159992736011238, 0.007965930938858, 0.000145901114489,
+        0.000002672272126, 0.152034069061142, 0.159854098885511,
+        0.159997327727874, 0.000732625555549, 0.000013418505116,
+        0.000000245768494, 0.039267374444451, 0.039986581494884,
+        0.039999754231506;
+    Tensor3 expected_msg2seg(expected_msg2seg_matrices);
+
+    BOOST_TEST(check_tensor_eq(msg2seg, expected_msg2seg));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -12,15 +12,14 @@ namespace tomcat {
             const string& label,
             int time_step,
             const DistributionPtrVec& duration_distributions,
-            const CPD::TableOrderingMap& ordering_map,
-            const string& cpd_node_label)
+            const CPD::TableOrderingMap& duration_ordering_map)
             : FactorNode(label,
                          time_step,
                          duration_distributions,
-                         ordering_map,
-                         cpd_node_label) {
+                         duration_ordering_map,
+                         "") {
 
-            for (const auto& [label, indexing_scheme] : ordering_map) {
+            for (const auto& [label, indexing_scheme] : duration_ordering_map) {
                 if (indexing_scheme.order == 0) {
                     this->timed_node_cardinality = indexing_scheme.cardinality;
                     break;
@@ -51,6 +50,9 @@ namespace tomcat {
         void SegmentExpansionFactorNode::copy_node(
             const SegmentExpansionFactorNode& node) {
             FactorNode::copy_node(node);
+            this->closing_segment_discount = node.closing_segment_discount;
+            this->extended_segment_discount = node.extended_segment_discount;
+            this->timed_node_cardinality = node.timed_node_cardinality;
         }
 
         Tensor3 SegmentExpansionFactorNode::get_outward_message_to(
@@ -59,95 +61,72 @@ namespace tomcat {
             int target_time_step,
             Direction direction) const {
 
-            Tensor3 indexing_tensor = this->get_indexing_tensor(
-                template_target_node->get_label(), template_time_step);
-
             Tensor3 output_message;
 
             if (template_target_node->is_segment()) {
-                this->update_discount_factors(template_time_step);
-
-                if (direction == Direction::forward) {
-                    Tensor3 message_from_last_segment =
-                        this->incoming_last_segment_messages_per_time_slice.at(
-                            template_time_step);
-
-                    // Computing the probabilities of closing previous
-                    // segment configurations.
-                    Tensor3 closed_weighted_segments =
-                        message_from_last_segment *
-                        this->closing_segment_discount;
-
-                    // This tensor works as a function to marginalize
-                    // segments out
-                    Eigen::MatrixXd segment_marginalizer =
-                        Eigen::MatrixXd::Identity(this->timed_node_cardinality,
-                                                  this->timed_node_cardinality)
-                            .replicate(template_time_step, 1);
-
-                    Tensor3 closing_segment_probs = Tensor3::dot(
-                        closed_weighted_segments, segment_marginalizer);
-
-                    // Computing the probability of extending previous
-                    // segment configurations.
-                    Tensor3 extended_weighted_segments =
-                        message_from_last_segment *
-                        this->extended_segment_discount;
-
-                    output_message = closing_segment_probs;
-                    output_message.hstack(extended_weighted_segments);
-
-                    // Weighting everything with the messages from the
-                    // dependencies of the duration distribution.
-                    indexing_tensor =
-                        indexing_tensor.reshape(indexing_tensor.get_shape()[1],
-                                                1,
-                                                indexing_tensor.get_shape()[2]);
-                    indexing_tensor.transpose_matrices();
-                    output_message = output_message.mult_colwise_broadcasting(indexing_tensor);
-                }
-                else {
-                    // Messages won't be passed backwards between segments.
-                }
+                output_message = this->get_message_between_segments(
+                    template_target_node, template_time_step, direction);
             }
             else {
-                Tensor3 message_from_isegment =
-                    this->incoming_next_segment_messages_per_time_slice.at(
+                output_message = this->get_message_out_of_segments(
+                    template_target_node, template_time_step, direction);
+            }
+
+            return output_message;
+        }
+
+        Tensor3 SegmentExpansionFactorNode::get_message_between_segments(
+            const std::shared_ptr<MessageNode>& template_target_node,
+            int template_time_step,
+            Direction direction) const {
+
+            Tensor3 output_message;
+
+            if (direction == Direction::forward) {
+                this->update_discount_factors(template_time_step);
+                Tensor3 message_from_last_segment =
+                    this->incoming_last_segment_messages_per_time_slice.at(
                         template_time_step);
 
-                // Marginalize segments and states out
-                message_from_isegment = message_from_isegment.sum_cols();
-                const auto& indexing_scheme =
-                    this->original_potential.potential.ordering_map.at(
-                        template_target_node->get_label());
+                // Computing the probabilities of closing previous
+                // segment configurations.
+                Tensor3 closed_weighted_segments =
+                    message_from_last_segment * this->closing_segment_discount;
 
-                Eigen::MatrixXd message_matrix = Eigen::MatrixXd::Zero(
-                    message_from_isegment.get_shape().at(0),
-                    indexing_scheme.cardinality);
-                for (int i = 0; i < message_from_isegment.get_shape().at(0);
-                     i++) {
-                    // Indexing tensor contains only  Each row of this
-                    // matrix
-                    // contains an indexing vector
-                    Eigen::MatrixXd rotated_duration_indexing =
-                        this->rotate_table(
-                            indexing_tensor(0, 0).row(i).transpose(),
-                            indexing_scheme.cardinality,
-                            indexing_scheme.right_cumulative_cardinality);
+                // This tensor works as a function to marginalize
+                // segments out
+                Eigen::MatrixXd segment_marginalizer =
+                    Eigen::MatrixXd::Identity(this->timed_node_cardinality,
+                                              this->timed_node_cardinality)
+                        .replicate(template_time_step, 1);
 
-                    Eigen::MatrixXd rotated_segment_duration =
-                        this->rotate_table(
-                            message_from_isegment(i, 0),
-                            indexing_scheme.cardinality,
-                            indexing_scheme.right_cumulative_cardinality);
+                Tensor3 closing_segment_probs = Tensor3::dot(
+                    closed_weighted_segments, segment_marginalizer);
 
-                    message_matrix.row(i) = (rotated_duration_indexing.array() *
-                                             rotated_segment_duration.array())
-                                                .colwise()
-                                                .sum();
-                }
+                // Computing the probability of extending previous
+                // segment configurations.
+                Tensor3 extended_weighted_segments =
+                    message_from_last_segment * this->extended_segment_discount;
 
-                output_message = Tensor3(message_matrix);
+                output_message = closing_segment_probs;
+                output_message.hstack(extended_weighted_segments);
+
+                // Weighing everything with the messages from the
+                // dependencies of the duration distribution.
+                Tensor3 indexing_tensor = this->get_indexing_tensor(
+                    template_target_node->get_label(), template_time_step);
+
+                indexing_tensor =
+                    indexing_tensor.reshape(indexing_tensor.get_shape()[1],
+                                            1,
+                                            indexing_tensor.get_shape()[2]);
+                indexing_tensor.transpose_matrices();
+
+                output_message =
+                    output_message.mult_colwise_broadcasting(indexing_tensor);
+            }
+            else {
+                // Messages won't be passed backwards between segments.
             }
 
             return output_message;
@@ -157,13 +136,19 @@ namespace tomcat {
             const string& target_node_label, int template_time_step) const {
             // Put the incoming messages in order according to the indexing
             // scheme of the potential function.
-            vector<Tensor3> incoming_messages(
-                this->incoming_messages_per_time_slice.at(template_time_step)
-                    .size());
 
-            int i = 0;
+            if (!EXISTS(template_time_step,
+                        this->incoming_messages_per_time_slice)) {
+                int num_data_points =
+                    this->incoming_last_segment_messages_per_time_slice
+                        .at(template_time_step)
+                        .get_shape()[0];
+                return Tensor3::constant(num_data_points, 1, 1, 1);
+            }
+
             const MessageContainer& message_container =
                 this->incoming_messages_per_time_slice.at(template_time_step);
+            vector<Tensor3> incoming_messages(message_container.size());
             for (const auto& [incoming_node_name, incoming_message] :
                  message_container.node_name_to_messages) {
                 auto [incoming_node_label, incoming_node_time_step] =
@@ -180,11 +165,11 @@ namespace tomcat {
                 int idx = indexing_scheme.order - 1;
 
                 if (target_node_label == incoming_node_label) {
-                    // If the node we are computing messages to is one of the
-                    // indexing nodes of the duration distribution, we ignore
-                    // messages from it when computing the message that goes
-                    // to it. We can do so by replacing its outcome message
-                    // by a uniform one.
+                    // If the node we are computing messages to is one of
+                    // the indexing nodes of the duration distribution, we
+                    // ignore messages from it when computing the message
+                    // that goes to it. We can do so by replacing its
+                    // outcome message by a uniform one.
                     const auto& shape = incoming_message.get_shape();
                     incoming_messages[idx] = Tensor3::constant(
                         shape.at(0), shape.at(1), shape.at(2), 1);
@@ -195,6 +180,50 @@ namespace tomcat {
             }
 
             return this->get_cartesian_tensor(incoming_messages);
+        }
+
+        Tensor3 SegmentExpansionFactorNode::get_message_out_of_segments(
+            const std::shared_ptr<MessageNode>& template_target_node,
+            int template_time_step,
+            Direction direction) const {
+
+            Tensor3 indexing_tensor = this->get_indexing_tensor(
+                template_target_node->get_label(), template_time_step);
+
+            Tensor3 message_from_isegment =
+                this->incoming_next_segment_messages_per_time_slice.at(
+                    template_time_step);
+
+            // Marginalize segments and states out
+            message_from_isegment = message_from_isegment.sum_cols();
+            const auto& indexing_scheme =
+                this->original_potential.potential.ordering_map.at(
+                    template_target_node->get_label());
+
+            Eigen::MatrixXd message_matrix =
+                Eigen::MatrixXd::Zero(message_from_isegment.get_shape().at(0),
+                                      indexing_scheme.cardinality);
+            for (int i = 0; i < message_from_isegment.get_shape().at(0); i++) {
+                // Indexing tensor contains only  Each row of this
+                // matrix
+                // contains an indexing vector
+                Eigen::MatrixXd rotated_duration_indexing = this->rotate_table(
+                    indexing_tensor(0, 0).row(i).transpose(),
+                    indexing_scheme.cardinality,
+                    indexing_scheme.right_cumulative_cardinality);
+
+                Eigen::MatrixXd rotated_segment_duration = this->rotate_table(
+                    message_from_isegment(i, 0),
+                    indexing_scheme.cardinality,
+                    indexing_scheme.right_cumulative_cardinality);
+
+                message_matrix.row(i) = (rotated_duration_indexing.array() *
+                                         rotated_segment_duration.array())
+                                            .colwise()
+                                            .sum();
+            }
+
+            return Tensor3(message_matrix);
         }
 
         void SegmentExpansionFactorNode::update_discount_factors(

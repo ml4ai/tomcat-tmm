@@ -61,10 +61,9 @@ namespace tomcat {
                       probability_table(probability_table),
                       main_node_label(main_node_label) {}
 
-                PotentialFunction(
-                    const CPD::TableOrderingMap& ordering_map,
-                    const DistributionPtrVec & distributions,
-                    const std::string main_node_label)
+                PotentialFunction(const CPD::TableOrderingMap& ordering_map,
+                                  const DistributionPtrVec& distributions,
+                                  const std::string main_node_label)
                     : ordering_map(ordering_map), distributions(distributions),
                       main_node_label(main_node_label) {}
 
@@ -80,6 +79,16 @@ namespace tomcat {
 
             // Default constructor
             FactorNode();
+
+            /**
+             * Creates an instance of a factor node.
+             *
+             * @param label: node's label. The factor's label will be a
+             * modified version of the label informed to indicate that it's a
+             * factor.
+             * @param time_step: factor's time step
+             */
+            FactorNode(const std::string& label, int time_step);
 
             /**
              * Creates an instance of a factor node.
