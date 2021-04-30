@@ -241,6 +241,14 @@ namespace tomcat {
             return tensor;
         }
 
+        Tensor3 Tensor3::zeros(int d1, int d2, int d3) {
+            return Tensor3::constant(d1, d2, d3, 0);
+        }
+
+        Tensor3 Tensor3::ones(int d1, int d2, int d3) {
+            return Tensor3::constant(d1, d2, d3, 1);
+        }
+
         string Tensor3::matrix_to_string(const Eigen::MatrixXd& matrix) {
             stringstream ss;
             for (int i = 0; i < matrix.rows(); i++) {
@@ -341,7 +349,7 @@ namespace tomcat {
             vector<Eigen::MatrixXd> eye_matrices(depth);
 
             for (int i = 0; i < depth; i++) {
-                eye_matrices[depth] = Eigen::MatrixXd::Identity(size, size);
+                eye_matrices[i] = Eigen::MatrixXd::Identity(size, size);
             }
 
             return Tensor3(eye_matrices);
@@ -779,6 +787,40 @@ namespace tomcat {
             }
 
             return Tensor3(new_tensor);
+        }
+
+        void Tensor3::normalize_columns() {
+            for (auto& matrix : this->tensor) {
+                Eigen::VectorXd sum_per_column = matrix.colwise().sum();
+                for (int row = 0; row < matrix.rows(); row++) {
+                    for (int col = 0; col < matrix.cols(); col++) {
+                        if (sum_per_column[col] == 0) {
+                            matrix(row, col) = 0;
+                        }
+                        else {
+                            matrix(row, col) =
+                                matrix(row, col) / sum_per_column[col];
+                        }
+                    }
+                }
+            }
+        }
+
+        void Tensor3::normalize_rows() {
+            for (auto& matrix : this->tensor) {
+                Eigen::VectorXd sum_per_row = matrix.rowwise().sum();
+                for (int row = 0; row < matrix.rows(); row++) {
+                    for (int col = 0; col < matrix.cols(); col++) {
+                        if (sum_per_row[row] == 0) {
+                            matrix(row, col) = 0;
+                        }
+                        else {
+                            matrix(row, col) =
+                                matrix(row, col) / sum_per_row[row];
+                        }
+                    }
+                }
+            }
         }
 
     } // namespace model

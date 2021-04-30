@@ -143,7 +143,7 @@ namespace tomcat {
                     this->incoming_last_segment_messages_per_time_slice
                         .at(template_time_step)
                         .get_shape()[0];
-                return Tensor3::constant(num_data_points, 1, 1, 1);
+                return Tensor3::ones(num_data_points, 1, 1);
             }
 
             const MessageContainer& message_container =
@@ -171,8 +171,8 @@ namespace tomcat {
                     // that goes to it. We can do so by replacing its
                     // outcome message by a uniform one.
                     const auto& shape = incoming_message.get_shape();
-                    incoming_messages[idx] = Tensor3::constant(
-                        shape.at(0), shape.at(1), shape.at(2), 1);
+                    incoming_messages[idx] =
+                        Tensor3::ones(shape.at(0), shape.at(1), shape.at(2));
                 }
                 else {
                     incoming_messages[idx] = incoming_message;

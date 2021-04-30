@@ -111,6 +111,28 @@ namespace tomcat {
             Tensor3 get_indexing_tensor(const std::string& target_node_label,
                                          int template_time_step) const;
 
+            /**
+             * Get the first portion of the segment message related to the
+             * probabilities of closing a previous segment.
+             *
+             * @param full_segment_msg: segment message
+             *
+             * @return Closed segment message
+             */
+            Tensor3 extract_closed_segment_message(const Tensor3&
+            full_segment_msg) const;
+
+            /**
+             * Get the last portion of the segment message related to the
+             * probabilities of extending a previous segment.
+             *
+             * @param full_segment_msg: segment message
+             *
+             * @return Open segment message
+             */
+            Tensor3 extract_open_segment_message(const Tensor3&
+            full_segment_msg) const;
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------

@@ -210,6 +210,26 @@ namespace tomcat {
             static Tensor3 constant(int d1, int d2, int d3, double value);
 
             /**
+             * Creates a tensor filled with 0s.
+             *
+             * @param d1: dimension of the first axis
+             * @param d2: dimension of the second axis
+             * @param d3: dimension of the third axis
+             * @return Tensor of 0s.
+             */
+            static Tensor3 zeros(int d1, int d2, int d3);
+
+            /**
+             * Creates a tensor filled with 1s.
+             *
+             * @param d1: dimension of the first axis
+             * @param d2: dimension of the second axis
+             * @param d3: dimension of the third axis
+             * @return Tensor of 1s.
+             */
+            static Tensor3 ones(int d1, int d2, int d3);
+
+            /**
              * Returns a string representation for a matrix;
              *
              * @param matrix: matrix
@@ -576,6 +596,17 @@ namespace tomcat {
              */
             Tensor3 div_rowwise_broadcasting(const Eigen::VectorXd& v) const;
 
+            /**
+             * Normalize each column of each matrix of the tensor to sum up
+             * to 1.
+             */
+            void normalize_columns();
+
+            /**
+             * Normalize each row of each matrix of the tensor to sum up
+             * to 1.
+             */
+            void normalize_rows();
 
           private:
             //------------------------------------------------------------------
