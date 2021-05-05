@@ -24,6 +24,9 @@ namespace tomcat {
         class MessageNode;
         class FactorNode;
         class VariableNode;
+        class SegmentExpansionFactorNode;
+        class SegmentTransitionFactorNode;
+        class SegmentMarginalizationFactorNode;
 
         typedef std::shared_ptr<MessageNode> MsgNodePtr;
         typedef std::vector<MsgNodePtr> MsgNodePtrVec;
@@ -31,5 +34,13 @@ namespace tomcat {
         typedef std::vector<FactorNodePtr> FactorNodePtrVec;
         typedef std::shared_ptr<VariableNode> VarNodePtr;
         typedef std::vector<VarNodePtr> VarNodePtrVec;
+        typedef std::shared_ptr<SegmentExpansionFactorNode> SegExpFactorNodePtr;
+        typedef std::vector<SegExpFactorNodePtr> SegExpFactorNodePtrVec;
+        typedef std::shared_ptr<SegmentTransitionFactorNode>
+            SegTransFactorNodePtr;
+        typedef std::vector<SegTransFactorNodePtr> SegTransFactorNodePtrVec;
+        typedef std::shared_ptr<SegmentMarginalizationFactorNode>
+            SegMarFactorNodePtr;
+        typedef std::vector<SegMarFactorNodePtr> SegMarFactorNodePtrVec;
     } // namespace model
 } // namespace tomcat

@@ -1064,8 +1064,27 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
     SegmentExpansionFactorNode expansion_factor(
         "f:Expansion", 1, duration_distributions, duration_ordering_map);
 
+    // P(duration | State, X, Y)
+    Eigen::MatrixXd transition_probs(
+        state_cardinality * x_cardinality * y_cardinality, state_cardinality);
+    transition_probs << 0, 0.3, 0.7, 0, 0.4, 0.6, 0, 0.1, 0.9, 0, 0.2, 0.8, 0.4,
+        0, 0.6, 0.5, 0, 0.5, 0.4, 0, 0.6, 0.5, 0, 0.5, 0.5, 0.5, 0, 0.6, 0.4, 0,
+        1, 0, 0, 0.1, 0.9, 0;
+
+    CPD::TableOrderingMap transition_ordering_map;
+    transition_ordering_map["State"] =
+        ParentIndexing(0, state_cardinality, x_cardinality);
+    transition_ordering_map["X"] = ParentIndexing(1, x_cardinality, 1);
+    transition_ordering_map["Y"] = ParentIndexing(2, y_cardinality, 1);
+
+    SegTransFactorNodePtr transition_factor =
+        make_shared<SegmentTransitionFactorNode>("f:Transition",
+                                                 1,
+                                                 transition_probs,
+                                                 transition_ordering_map,
+                                                 duration_ordering_map);
+
     VarNodePtr segment = make_shared<VariableNode>("Segment", 0);
-    VarNodePtr isegment = make_shared<VariableNode>("iSegment", 1);
     VarNodePtr x = make_shared<VariableNode>("X", 1, x_cardinality);
     VarNodePtr y = make_shared<VariableNode>("Y", 1, y_cardinality);
 
@@ -1090,12 +1109,15 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
         y, time_step, time_step, msg_from_xy, MessageNode::Direction::forward);
 
     Tensor3 msg2iseg = expansion_factor.get_outward_message_to(
-        isegment, time_step, time_step, MessageNode::Direction::forward);
+        transition_factor,
+        time_step,
+        time_step,
+        MessageNode::Direction::forward);
 
     // Suppose the message that comes from isegment is the same as the
     // produced by the extension factor but normalized.
     expansion_factor.set_incoming_message_from(
-        isegment,
+        transition_factor,
         time_step,
         time_step,
         msg2iseg.div_colwise_broadcasting(msg2iseg.sum_cols()),
@@ -1237,9 +1259,26 @@ BOOST_AUTO_TEST_CASE(segment_transition_factor) {
     int state_cardinality = 3;
     int x_cardinality = 2;
     int y_cardinality = 2;
-    int z_cardinality = 2;
+    int time_step = 1;
 
-    // P(duration | State, X, Y)
+    // P(duration | State, X)
+    DistributionPtrVec duration_distributions = {make_shared<Poisson>(1),
+                                                 make_shared<Poisson>(2),
+                                                 make_shared<Poisson>(3),
+                                                 make_shared<Poisson>(4),
+                                                 make_shared<Poisson>(5),
+                                                 make_shared<Poisson>(6)};
+
+    CPD::TableOrderingMap duration_ordering_map;
+    duration_ordering_map["State"] =
+        ParentIndexing(0, state_cardinality, x_cardinality);
+    duration_ordering_map["X"] = ParentIndexing(1, x_cardinality, 1);
+
+    SegExpFactorNodePtr expansion_factor =
+        make_shared<SegmentExpansionFactorNode>(
+            "f:Expansion", 1, duration_distributions, duration_ordering_map);
+
+    // P(transition | State, X, Y)
     Eigen::MatrixXd transition_probs(
         state_cardinality * x_cardinality * y_cardinality, state_cardinality);
     transition_probs << 0, 0.3, 0.7, 0, 0.4, 0.6, 0, 0.1, 0.9, 0, 0.2, 0.8, 0.4,
@@ -1252,12 +1291,6 @@ BOOST_AUTO_TEST_CASE(segment_transition_factor) {
     transition_ordering_map["X"] = ParentIndexing(1, x_cardinality, 1);
     transition_ordering_map["Y"] = ParentIndexing(2, y_cardinality, 1);
 
-    CPD::TableOrderingMap duration_ordering_map;
-    duration_ordering_map["State"] =
-        ParentIndexing(0, state_cardinality, x_cardinality);
-    duration_ordering_map["X"] = ParentIndexing(1, x_cardinality, 1);
-
-    int time_step = 1;
     SegmentTransitionFactorNode transition_factor("f:Transition",
                                                   time_step,
                                                   transition_probs,
@@ -1265,7 +1298,6 @@ BOOST_AUTO_TEST_CASE(segment_transition_factor) {
                                                   duration_ordering_map);
 
     VarNodePtr segment = make_shared<VariableNode>("Segment", time_step);
-    VarNodePtr isegment = make_shared<VariableNode>("iSegment", time_step);
     VarNodePtr x = make_shared<VariableNode>("X", time_step, x_cardinality);
     VarNodePtr y = make_shared<VariableNode>("Y", time_step, y_cardinality);
 
@@ -1295,7 +1327,7 @@ BOOST_AUTO_TEST_CASE(segment_transition_factor) {
     Tensor3 msg_from_seg(msg_from_seg_matrices);
 
     transition_factor.set_incoming_message_from(
-        isegment,
+        expansion_factor,
         time_step,
         time_step,
         msg_from_seg,

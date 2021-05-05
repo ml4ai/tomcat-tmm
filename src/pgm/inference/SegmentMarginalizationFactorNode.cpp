@@ -38,6 +38,8 @@ namespace tomcat {
             FactorNode::copy_node(node);
         }
 
+        bool SegmentMarginalizationFactorNode::is_segment() const { return true; }
+
         Tensor3 SegmentMarginalizationFactorNode::get_outward_message_to(
             const shared_ptr<MessageNode>& template_target_node,
             int template_time_step,

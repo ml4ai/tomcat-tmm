@@ -67,6 +67,8 @@ namespace tomcat {
                 int target_time_step,
                 Direction direction) const override;
 
+            bool is_segment() const override;
+
           private:
             //------------------------------------------------------------------
             // Member functions

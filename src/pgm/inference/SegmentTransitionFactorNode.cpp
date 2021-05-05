@@ -57,6 +57,8 @@ namespace tomcat {
             this->timed_node_cardinality = node.timed_node_cardinality;
         }
 
+        bool SegmentTransitionFactorNode::is_segment() const { return true; }
+
         Tensor3 SegmentTransitionFactorNode::get_outward_message_to(
             const shared_ptr<MessageNode>& template_target_node,
             int template_time_step,
