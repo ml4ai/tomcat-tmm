@@ -15,6 +15,7 @@
 #include "mock_models.h"
 #include "pgm/EvidenceSet.h"
 #include "pgm/inference/SegmentExpansionFactorNode.h"
+#include "pgm/inference/SegmentMarginalizationFactorNode.h"
 #include "pgm/inference/SegmentTransitionFactorNode.h"
 #include "pgm/inference/VariableNode.h"
 #include "pipeline/estimation/CompoundSamplerEstimator.h"
@@ -1333,6 +1334,76 @@ BOOST_AUTO_TEST_CASE(segment_transition_factor) {
     Tensor3 expected_msg2y(expected_msg2y_matrix);
 
     BOOST_TEST(check_tensor_eq(msg2y, expected_msg2y));
+}
+
+BOOST_AUTO_TEST_CASE(segment_marginalization_factor) {
+    // Testing whether the marginalization factor node is working
+    // properly at producing an output message to a segment and to a
+    // timer controlled node that regulates a segment.
+
+    int state_cardinality = 3;
+    int time_step = 2;
+    SegmentMarginalizationFactorNode marginalization_factor("f:Marginalization",
+                                                            time_step);
+    VarNodePtr segment = make_shared<VariableNode>("Segment", time_step);
+    VarNodePtr state =
+        make_shared<VariableNode>("State", time_step, state_cardinality);
+
+    int num_data_points = 3;
+    Eigen::MatrixXd msg_from_state_matrix(num_data_points, state_cardinality);
+    msg_from_state_matrix << 0.3, 0.4, 0.3, 0.2, 0.5, 0.3, 0.1, 0.3, 0.6;
+    Tensor3 msg_from_state(msg_from_state_matrix);
+
+    int num_duration_parents = 2;
+    vector<Eigen::MatrixXd> msg_from_segment_matrices(num_data_points);
+    msg_from_segment_matrices[0] = Eigen::MatrixXd(
+        num_duration_parents, (time_step + 1) * state_cardinality);
+    msg_from_segment_matrices[0] << 0.1, 0.2, 0.1, 0.6, 0.7, 0.4, 0.6, 0.7, 0.3,
+        0.2, 0.4, 0.9, 0.7, 0.5, 0.6, 0.2, 0.3, 0.4;
+    msg_from_segment_matrices[1] = Eigen::MatrixXd(
+        num_duration_parents, (time_step + 1) * state_cardinality);
+    msg_from_segment_matrices[1] << 0.3, 0.1, 0.2, 0.5, 0.4, 0.6, 0.7, 0.8, 0.3,
+        0.4, 0.2, 0.5, 0.7, 0.8, 0.4, 0.8, 0.3, 0.7;
+    msg_from_segment_matrices[2] = Eigen::MatrixXd(
+        num_duration_parents, (time_step + 1) * state_cardinality);
+    msg_from_segment_matrices[2] << 0.4, 0.3, 0.2, 0.6, 0.8, 0.4, 0.9, 0.3, 0.4,
+        0.8, 0.3, 0.6, 0.7, 0.8, 0.7, 0.5, 0.4, 0.1;
+    Tensor3 msg_from_segment(msg_from_segment_matrices);
+
+    marginalization_factor.set_incoming_message_from(
+        state,
+        time_step,
+        time_step,
+        msg_from_state,
+        MessageNode::Direction::backwards);
+    marginalization_factor.set_incoming_message_from(
+        segment,
+        time_step,
+        time_step,
+        msg_from_segment,
+        MessageNode::Direction::forward);
+
+    Eigen::MatrixXd expected_msg2state_matrix(num_data_points,
+                                              state_cardinality);
+    expected_msg2state_matrix << 2.4, 2.8, 2.7, 3.4, 2.6, 2.7, 3.9, 2.9, 2.4;
+    Tensor3 expected_msg2state(expected_msg2state_matrix);
+
+    Tensor3 msg2state = marginalization_factor.get_outward_message_to(
+        state, time_step, time_step, MessageNode::Direction::forward);
+
+    BOOST_TEST(check_tensor_eq(msg2state, expected_msg2state));
+
+    Eigen::MatrixXd expected_msg2segment_matrix(
+        num_data_points, state_cardinality * (time_step + 1));
+    expected_msg2segment_matrix << 0.3, 0.4, 0.3, 0.3, 0.4, 0.3, 0.3, 0.4, 0.3,
+        0.2, 0.5, 0.3, 0.2, 0.5, 0.3, 0.2, 0.5, 0.3, 0.1, 0.3, 0.6, 0.1, 0.3,
+        0.6, 0.1, 0.3, 0.6;
+    Tensor3 expected_msg2segment(expected_msg2segment_matrix);
+
+    Tensor3 msg2segment = marginalization_factor.get_outward_message_to(
+        segment, time_step, time_step, MessageNode::Direction::backwards);
+
+    BOOST_TEST(check_tensor_eq(msg2segment, expected_msg2segment));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
