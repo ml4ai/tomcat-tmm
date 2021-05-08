@@ -33,8 +33,7 @@ namespace tomcat {
              * @param label: node's label
              * @param time_step: node's time step
              */
-            VariableNode(const std::string& label,
-                         int time_step);
+            VariableNode(const std::string& label, int time_step);
 
             ~VariableNode();
 
@@ -48,6 +47,21 @@ namespace tomcat {
             VariableNode(VariableNode&&) = default;
 
             VariableNode& operator=(VariableNode&&) = default;
+
+            //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Adds a prefix to a label to indicate that it's a segment of a
+             * time controlled node.
+             *
+             * @param original_label: label of the time controlled node.
+             *
+             * @return Segment label for a time controlled node.
+             */
+            static std::string
+            compose_segment_label(const std::string& timed_node_label);
 
             //------------------------------------------------------------------
             // Member functions

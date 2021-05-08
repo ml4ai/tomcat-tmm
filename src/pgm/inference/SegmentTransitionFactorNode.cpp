@@ -14,7 +14,7 @@ namespace tomcat {
             const Eigen::MatrixXd& probability_table,
             const CPD::TableOrderingMap& transition_ordering_map,
             const CPD::TableOrderingMap& duration_ordering_map)
-            : FactorNode(label,
+            : FactorNode(compose_label(label),
                          time_step,
                          probability_table,
                          transition_ordering_map,
@@ -47,9 +47,16 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        std::string SegmentTransitionFactorNode::compose_label(
+            const std::string& original_label) {
+            return "segT:" + original_label;
+        }
+
+        //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-
         void SegmentTransitionFactorNode::copy_node(
             const SegmentTransitionFactorNode& node) {
             FactorNode::copy_node(node);

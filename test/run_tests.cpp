@@ -7,6 +7,7 @@
 
 #include "boost/test/included/unit_test.hpp"
 #include "eigen3/Eigen/Dense"
+#include <boost/filesystem.hpp>
 #include <gsl/gsl_rng.h>
 
 #include "distribution/Distribution.h"
@@ -31,6 +32,7 @@ using namespace std;
 using namespace Eigen;
 namespace utf = boost::unit_test;
 namespace tt = boost::test_tools;
+namespace fs = boost::filesystem;
 
 bool is_equal(const MatrixXd& m1,
               const MatrixXd& m2,
@@ -1436,6 +1438,34 @@ BOOST_AUTO_TEST_CASE(segment_marginalization_factor) {
         segment, time_step, time_step, MessageNode::Direction::backwards);
 
     BOOST_TEST(check_tensor_eq(msg2segment, expected_msg2segment));
+}
+
+BOOST_AUTO_TEST_CASE(edhmm_exact_inference) {
+    // Testing whether exact inference works for a simple edhmm model
+    // with duration an transition dependent on a multitime node.
+
+    fs::current_path("../../test");
+    cout << fs::current_path() << endl;
+
+    EvidenceSet data("data/edhmm_exact");
+
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/edhmm_exact.json"));
+    model->unroll(data.get_time_steps(), true);
+
+    FactorGraph::create_from_unrolled_dbn(*model).print_graph(cout);
+
+    SumProductEstimator state_estimator(model, 0, "State");
+
+    state_estimator.set_show_progress(true);
+    state_estimator.prepare();
+    state_estimator.estimate(data);
+
+    MatrixXd state_estimates = state_estimator.get_estimates().estimates[0];
+
+    cout << state_estimates << endl;
+
+    //    BOOST_TEST(check_tensor_eq(msg2segment, expected_msg2segment));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

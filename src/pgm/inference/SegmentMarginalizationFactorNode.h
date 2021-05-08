@@ -42,6 +42,20 @@ namespace tomcat {
             operator=(SegmentMarginalizationFactorNode&&) = default;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Adds an identifier to the label to indicate this is a
+             * segment marginalization node.
+             *
+             * @param original_label: original label
+             *
+             * @return Stamped label
+             */
+            static std::string compose_label(const std::string& original_label);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 

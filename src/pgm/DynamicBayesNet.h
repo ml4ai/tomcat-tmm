@@ -306,7 +306,7 @@ namespace tomcat {
             RVNodePtrVec get_nodes_in_topological_order_at(int time_step);
 
             /**
-             * Write the graph content in graphviz format.
+             * Writes the graph content in graphviz format.
              *
              * @param output_stream: output stream to write the graph.
              */

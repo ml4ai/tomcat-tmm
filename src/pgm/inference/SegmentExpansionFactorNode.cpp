@@ -13,7 +13,7 @@ namespace tomcat {
             int time_step,
             const DistributionPtrVec& duration_distributions,
             const CPD::TableOrderingMap& duration_ordering_map)
-            : FactorNode(label,
+            : FactorNode(compose_label(label),
                          time_step,
                          duration_distributions,
                          duration_ordering_map,
@@ -44,9 +44,16 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        std::string SegmentExpansionFactorNode::compose_label(
+            const std::string& original_label) {
+            return "segE:" + original_label;
+        }
+
+        //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-
         void SegmentExpansionFactorNode::copy_node(
             const SegmentExpansionFactorNode& node) {
             FactorNode::copy_node(node);
@@ -295,6 +302,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
+        int SegmentExpansionFactorNode::get_timed_node_cardinality() const {
+            return timed_node_cardinality;
+        }
 
     } // namespace model
 } // namespace tomcat

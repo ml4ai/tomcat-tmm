@@ -143,7 +143,6 @@ namespace tomcat {
                                                 use_weights_cache);
                 sample = this->cpd->sample_from_posterior(
                     random_generator_per_job, weights, shared_from_this());
-
             }
 
             return sample;
@@ -568,9 +567,13 @@ namespace tomcat {
         RandomVariableNode::get_next(int increment) const {
             shared_ptr<RandomVariableNode> next;
 
-            int t0 = this->get_metadata()->get_initial_time_step();
-            if (this->time_step - t0 + increment < this->timed_copies->size()) {
-                next = (*this->timed_copies)[this->time_step - t0 + increment];
+            if (this->timed_copies) {
+                int t0 = this->get_metadata()->get_initial_time_step();
+                if (this->time_step - t0 + increment <
+                    this->timed_copies->size()) {
+                    next =
+                        (*this->timed_copies)[this->time_step - t0 + increment];
+                }
             }
 
             return next;

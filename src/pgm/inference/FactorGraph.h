@@ -226,6 +226,13 @@ namespace tomcat {
              */
             void use_original_potential(const std::string& node_label);
 
+            /**
+             * Writes the graph content in graphviz format.
+             *
+             * @param output_stream: output stream to write the graph.
+             */
+            void print_graph(std::ostream& output_stream) const;
+
           private:
             //------------------------------------------------------------------
             // Types, Enums & Constants
@@ -247,8 +254,38 @@ namespace tomcat {
             typedef std::unordered_map<std::string, int> IDMap;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Creates factor graph nodes from a DBN.
+             *
+             * @param dbn: dynamic bayes net
+             * @param factor_graph: factor graph
+             */
+            static void create_nodes(const DynamicBayesNet& dbn,
+                                     FactorGraph& factor_graph);
+
+            /**
+             * Creates factor graph edges from a DBN.
+             *
+             * @param dbn: dynamic bayes net
+             * @param factor_graph: factor graph
+             */
+            static void create_edges(const DynamicBayesNet& dbn,
+                                     FactorGraph& factor_graph);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Adds nodes necessary to to inference in a random variable
+             * controlled by a timer.
+             *
+             * @param random_variable: random variable
+             */
+            void add_timed_node(RVNodePtr random_variable);
 
             /**
              * Adds a template variable node to the graph.
@@ -264,7 +301,17 @@ namespace tomcat {
                                   int time_step);
 
             /**
-             * Adds a template factor node to the graphh.
+             * Adds a template segment node to the graph.
+             *
+             * @param node_label: label of the node that defines a segment
+             * @param time_step: time step of the template
+             *
+             * @return Index of the vertex in the graph.
+             */
+            int add_segment_node(const std::string& node_label, int time_step);
+
+            /**
+             * Adds a template factor node to the graph.
              *
              * @param node_label: node's label
              * @param time_step: node's time step (up to 2)
@@ -278,6 +325,55 @@ namespace tomcat {
                                 int time_step,
                                 const Eigen::MatrixXd& cpd,
                                 const CPD::TableOrderingMap& cpd_ordering_map);
+
+            /**
+             * Adds a template marginalization factor node to the graph.
+             *
+             * @param node_label: label of the node that defines a segment
+             * @param time_step: time step of the template
+             *
+             * @return Index of the vertex in the graph.
+             */
+            int add_segment_marginalization_factor_node(
+                const std::string& node_label, int time_step);
+
+            /**
+             * Adds a template transition factor node to the graph.
+             *
+             * @param node_label: label of the node that defines a segment
+             * @param time_step: time step of the template
+             * @param transition_probability_table: matrix containing
+             * transition probabilities
+             * @param transition_ordering_map: ordering map with the indexing
+             * scheme of the transition probability table
+             * @param duration_ordering_map: ordering map with the indexing
+             * scheme of the segment duration distributions
+             *
+             * @return Index of the vertex in the graph.
+             */
+            int add_segment_transition_factor_node(
+                const std::string& node_label,
+                int time_step,
+                const Eigen::MatrixXd& transition_probability_table,
+                const CPD::TableOrderingMap& transition_ordering_map,
+                const CPD::TableOrderingMap& duration_ordering_map);
+
+            /**
+             * Adds a template expansion factor node to the graph.
+             *
+             * @param node_label: label of the node that defines a segment
+             * @param time_step: time step of the template
+             * @param duration_distributions: list of segment duration
+             * distributions
+             * @param duration_ordering_map: ordering map with the indexing
+             * scheme of the segment duration distributions
+             * @return
+             */
+            int add_segment_expansion_factor_node(
+                const std::string& node_label,
+                int time_step,
+                const DistributionPtrVec& duration_distributions,
+                const CPD::TableOrderingMap& duration_ordering_map);
 
             //------------------------------------------------------------------
             // Data members

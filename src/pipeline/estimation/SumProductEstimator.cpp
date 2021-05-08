@@ -5,6 +5,7 @@
 #include <boost/progress.hpp>
 
 #include "pgm/inference/FactorGraph.h"
+#include "pgm/inference/SegmentExpansionFactorNode.h"
 #include "pgm/inference/VariableNode.h"
 #include "utils/EigenExtensions.h"
 
@@ -179,13 +180,30 @@ namespace tomcat {
                 if (parent_nodes.empty()) {
                     // This vertex is a factor that represents the prior
                     // probability of the factor's child node.
-                    int num_rows = max(1, new_data.get_num_data_points());
-                    node->set_incoming_message_from(
-                        MessageNode::PRIOR_NODE_LABEL,
-                        time_step,
-                        time_step,
-                        Tensor3::constant(1, num_rows, 1, 1),
-                        MessageNode::Direction::forward);
+                    int num_data_points =
+                        max(1, new_data.get_num_data_points());
+                    if (node->is_segment()) {
+                        VariableNode segment_prior(
+                            MessageNode::PRIOR_NODE_LABEL, time_step);
+                        int cardinality =
+                            dynamic_pointer_cast<SegmentExpansionFactorNode>(
+                                node)
+                                ->get_timed_node_cardinality();
+                        node->set_incoming_message_from(
+                            make_shared<VariableNode>(segment_prior),
+                            time_step,
+                            time_step,
+                            Tensor3::ones(num_data_points, 1, cardinality),
+                            MessageNode::Direction::forward);
+                    }
+                    else {
+                        node->set_incoming_message_from(
+                            MessageNode::PRIOR_NODE_LABEL,
+                            time_step,
+                            time_step,
+                            Tensor3::ones(1, num_data_points, 1),
+                            MessageNode::Direction::forward);
+                    }
                 }
                 else {
                     for (const auto& [parent_node, transition] : parent_nodes) {

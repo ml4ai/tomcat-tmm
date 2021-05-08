@@ -10,7 +10,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         SegmentMarginalizationFactorNode::SegmentMarginalizationFactorNode(
             const string& label, int time_step)
-            : FactorNode(label, time_step) {}
+            : FactorNode(compose_label(label), time_step) {}
 
         SegmentMarginalizationFactorNode::~SegmentMarginalizationFactorNode() {}
 
@@ -30,15 +30,24 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        std::string SegmentMarginalizationFactorNode::compose_label(
+            const std::string& original_label) {
+            return "segM:" + original_label;
+        }
+
+        //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-
         void SegmentMarginalizationFactorNode::copy_node(
             const SegmentMarginalizationFactorNode& node) {
             FactorNode::copy_node(node);
         }
 
-        bool SegmentMarginalizationFactorNode::is_segment() const { return true; }
+        bool SegmentMarginalizationFactorNode::is_segment() const {
+            return true;
+        }
 
         Tensor3 SegmentMarginalizationFactorNode::get_outward_message_to(
             const shared_ptr<MessageNode>& template_target_node,

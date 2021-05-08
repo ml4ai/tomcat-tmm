@@ -46,6 +46,20 @@ namespace tomcat {
             operator=(SegmentExpansionFactorNode&&) = default;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Adds an identifier to the label to indicate this is a
+             * segment expansion node.
+             *
+             * @param original_label: original label
+             *
+             * @return Stamped label
+             */
+            static std::string compose_label(const std::string& original_label);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
@@ -83,6 +97,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
+            int get_timed_node_cardinality() const;
 
           private:
             //------------------------------------------------------------------
@@ -165,6 +180,7 @@ namespace tomcat {
             mutable Eigen::MatrixXd extended_segment_discount;
 
             int timed_node_cardinality;
+
         };
 
     } // namespace model

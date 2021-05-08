@@ -382,5 +382,6 @@ namespace tomcat {
             this->working_potential = this->original_potential;
         }
 
+
     } // namespace model
 } // namespace tomcat

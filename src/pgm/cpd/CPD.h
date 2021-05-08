@@ -447,6 +447,9 @@ namespace tomcat {
 
             const TableOrderingMap& get_parent_label_to_indexing() const;
 
+            const std::vector<std::shared_ptr<Distribution>>&
+            get_distributions() const;
+
           protected:
             //------------------------------------------------------------------
             // Member functions

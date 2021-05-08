@@ -16,7 +16,8 @@ namespace tomcat {
             : MessageNode(label, time_step), cardinality(cardinality) {}
 
         VariableNode::VariableNode(const string& label, int time_step)
-            : MessageNode(label, time_step), segment(true) {}
+            : MessageNode(compose_segment_label(label), time_step),
+              segment(true) {}
 
         VariableNode::~VariableNode() {}
 
@@ -30,6 +31,14 @@ namespace tomcat {
         VariableNode& VariableNode::operator=(const VariableNode& node) {
             this->copy_node(node);
             return *this;
+        }
+
+        //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        std::string VariableNode::compose_segment_label(
+            const std::string& timed_node_label) {
+            return "seg:" + timed_node_label;
         }
 
         //----------------------------------------------------------------------
