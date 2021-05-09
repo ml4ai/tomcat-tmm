@@ -39,6 +39,9 @@ namespace tomcat {
 
         void FactorGraph::create_nodes(const DynamicBayesNet& dbn,
                                        FactorGraph& factor_graph) {
+
+            RVNodePtrVec multitime_nodes;
+
             for (const auto& node : dbn.get_nodes_topological_order()) {
                 if (!node->get_metadata()->is_parameter()) {
                     shared_ptr<RandomVariableNode> random_variable =
@@ -53,6 +56,12 @@ namespace tomcat {
                             factor_graph.add_timed_node(random_variable);
                         }
                         else {
+                            if (random_variable->get_metadata()
+                                    ->is_multitime()) {
+                                // It will be added later
+                                multitime_nodes.push_back(random_variable);
+                            }
+
                             factor_graph.add_node(
                                 random_variable->get_metadata()->get_label(),
                                 random_variable->get_metadata()
@@ -63,6 +72,42 @@ namespace tomcat {
                                     ->get_parent_label_to_indexing());
                         }
                     }
+                }
+            }
+
+            for (const auto& random_variable : multitime_nodes) {
+                // We create copies of the multitime node at every subsequent
+                // time step to propagate the estimates computed so far. This
+                // prevents us from doing message passing backwards in time to
+                // update the multitime node in the past.
+
+                // The cpd table is the identity to make sure all
+                // messages aggregated in the previous copy of the
+                // node will be fully passed to the copy in the next
+                // time step.
+                int cardinality =
+                    random_variable->get_metadata()->get_cardinality();
+                Eigen::MatrixXd cpd_table =
+                    Eigen::MatrixXd::Identity(cardinality, cardinality);
+                ParentIndexing indexing(0, cardinality, 1);
+                CPD::TableOrderingMap ordering_map;
+                ordering_map[random_variable->get_metadata()->get_label()] =
+                    indexing;
+                const string& node_label =
+                    random_variable->get_metadata()->get_label();
+
+                for (int t = random_variable->get_time_step() + 1;
+                     t <= factor_graph.repeatable_time_step;
+                     t++) {
+
+                    factor_graph.add_node(
+                        random_variable->get_metadata()->get_label(),
+                        random_variable->get_metadata()->get_cardinality(),
+                        t,
+                        cpd_table,
+                        ordering_map);
+
+                    factor_graph.add_edge(node_label, t - 1, node_label, t);
                 }
             }
         }
@@ -138,7 +183,10 @@ namespace tomcat {
                                 source_node->get_metadata()->get_label();
                             target_label =
                                 SegmentExpansionFactorNode::compose_label(
-                                    target_node->get_metadata()->get_label());
+                                    dynamic_pointer_cast<TimerNode>(target_node)
+                                        ->get_controlled_node()
+                                        ->get_metadata()
+                                        ->get_label());
                         }
                     }
                     else {
@@ -146,47 +194,12 @@ namespace tomcat {
                         target_label = target_node->get_metadata()->get_label();
                     }
 
-                    // Non replicable multi link nodes show in the first or
-                    // second time step of an unrolled DBN but connects with
-                    // other nodes in all future time steps. We create copies of
-                    // these nodes in the factor graph for future time steps to
-                    // serve as an aggregation of backward messages that arrived
-                    // on them in previous time steps. By following this
-                    // procedure, we don't need to pass messages to previous
-                    // time slices to do inference on these nodes.
-                    if (source_node->get_metadata()->is_multitime() &&
-                        target_node->get_time_step() >
-                            source_node->get_time_step()) {
-                        int cardinality =
-                            source_node->get_metadata()->get_cardinality();
-                        // The cpd table is the identity to make sure all
-                        // messages aggregated in the previous copy of the
-                        // node will be fully passed to the copy in the next
-                        // time step.
-                        Eigen::MatrixXd cpd_table =
-                            Eigen::MatrixXd::Identity(cardinality, cardinality);
-                        ParentIndexing indexing(0, cardinality, 1);
-                        CPD::TableOrderingMap ordering_map;
-                        ordering_map[source_label] = indexing;
-
-                        // Instead of linking the source and target crossing
-                        // time. A new copy of the source is created in the same
-                        // time slice as the target and they are linked.
-                        // Later in this function, these copies will be linked
-                        // across time.
-                        factor_graph.add_node(source_label,
-                                              cardinality,
-                                              target_node->get_time_step(),
-                                              cpd_table,
-                                              ordering_map);
-
+                    if (source_node->get_metadata()->is_multitime()) {
+                        // Copies were created over time when nodes were created
                         factor_graph.add_edge(source_label,
                                               target_node->get_time_step(),
                                               target_label,
                                               target_node->get_time_step());
-
-                        non_replicable_multi_link_mapping[source_label] =
-                            source_node->get_time_step();
                     }
                     else {
                         factor_graph.add_edge(source_label,
@@ -196,17 +209,7 @@ namespace tomcat {
                     }
                 }
             }
-
-            for (const auto& [node_label, time_step] :
-                 non_replicable_multi_link_mapping) {
-                // Link, over time, the new message nodes created for non
-                // replicable multi link random variable nodes.
-
-                for (int t = time_step + 1; t <= 2; t++) {
-                    factor_graph.add_edge(node_label, t - 1, node_label, t);
-                }
-            }
-        } // namespace model
+        }
 
         //----------------------------------------------------------------------
         // Member functions

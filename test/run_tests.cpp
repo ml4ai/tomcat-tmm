@@ -1461,9 +1461,19 @@ BOOST_AUTO_TEST_CASE(edhmm_exact_inference) {
     state_estimator.prepare();
     state_estimator.estimate(data);
 
-    MatrixXd state_estimates = state_estimator.get_estimates().estimates[0];
+    MatrixXd state_estimates = state_estimator.get_estimates().estimates[1];
 
     cout << state_estimates << endl;
+
+    SumProductEstimator x_estimator(model, 0, "X");
+
+    x_estimator.set_show_progress(true);
+    x_estimator.prepare();
+    x_estimator.estimate(data);
+
+    MatrixXd x_estimates = x_estimator.get_estimates().estimates[0];
+
+    cout << x_estimates << endl;
 
     //    BOOST_TEST(check_tensor_eq(msg2segment, expected_msg2segment));
 }

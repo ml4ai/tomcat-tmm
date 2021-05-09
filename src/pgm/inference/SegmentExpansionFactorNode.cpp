@@ -93,32 +93,6 @@ namespace tomcat {
 
             if (direction == Direction::forward) {
                 this->update_discount_factors(template_time_step);
-                Tensor3 message_from_last_segment =
-                    this->incoming_last_segment_messages_per_time_slice.at(
-                        template_time_step);
-
-                // Computing the probabilities of closing previous
-                // segment configurations.
-                Tensor3 closed_weighted_segments =
-                    message_from_last_segment * this->closing_segment_discount;
-
-                // This tensor works as a function to marginalize
-                // segments out
-                Eigen::MatrixXd segment_marginalizer =
-                    Eigen::MatrixXd::Identity(this->timed_node_cardinality,
-                                              this->timed_node_cardinality)
-                        .replicate(template_time_step, 1);
-
-                Tensor3 closing_segment_probs = Tensor3::dot(
-                    closed_weighted_segments, segment_marginalizer);
-
-                // Computing the probability of extending previous
-                // segment configurations.
-                Tensor3 extended_weighted_segments =
-                    message_from_last_segment * this->extended_segment_discount;
-
-                output_message = closing_segment_probs;
-                output_message.hstack(extended_weighted_segments);
 
                 // Weighing everything with the messages from the
                 // dependencies of the duration distribution.
@@ -130,6 +104,47 @@ namespace tomcat {
                                             1,
                                             indexing_tensor.get_shape()[2]);
                 indexing_tensor.transpose_matrices();
+
+                if (template_time_step == 0 &&
+                    !EXISTS(
+                        0,
+                        this->incoming_last_segment_messages_per_time_slice)) {
+                    // Prior
+                    output_message =
+                        Tensor3::ones(indexing_tensor.get_shape()[0],
+                                      indexing_tensor.get_shape()[1],
+                                      this->timed_node_cardinality);
+                }
+                else {
+                    Tensor3 message_from_last_segment =
+                        this->incoming_last_segment_messages_per_time_slice.at(
+                            template_time_step);
+
+                    // Computing the probabilities of closing previous
+                    // segment configurations.
+                    Tensor3 closed_weighted_segments =
+                        message_from_last_segment *
+                        this->closing_segment_discount;
+
+                    // This tensor works as a function to marginalize
+                    // segments out
+                    Eigen::MatrixXd segment_marginalizer =
+                        Eigen::MatrixXd::Identity(this->timed_node_cardinality,
+                                                  this->timed_node_cardinality)
+                            .replicate(template_time_step, 1);
+
+                    Tensor3 closing_segment_probs = Tensor3::dot(
+                        closed_weighted_segments, segment_marginalizer);
+
+                    // Computing the probability of extending previous
+                    // segment configurations.
+                    Tensor3 extended_weighted_segments =
+                        message_from_last_segment *
+                        this->extended_segment_discount;
+
+                    output_message = closing_segment_probs;
+                    output_message.hstack(extended_weighted_segments);
+                }
 
                 output_message =
                     output_message.mult_colwise_broadcasting(indexing_tensor);
@@ -249,7 +264,8 @@ namespace tomcat {
             // open, we assume that the duration is bigger or equals to a
             // number).
 
-            if (this->closing_segment_discount.cols() < time_step) {
+            if (this->closing_segment_discount.cols() <
+                time_step * this->timed_node_cardinality) {
                 // Discounts have not been initialized yet. In case this
                 // factor node is part of the repeatable structure of the
                 // factor graph, we need to initialize until the first

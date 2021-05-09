@@ -46,7 +46,11 @@ namespace tomcat {
         }
 
         bool SegmentMarginalizationFactorNode::is_segment() const {
-            return true;
+            // It has a special potential function but messages from this
+            // node are not treated as segments. They will be saved under the
+            // regular incoming messages list in variable nodes that link to
+            // this factor.
+            return false;
         }
 
         Tensor3 SegmentMarginalizationFactorNode::get_outward_message_to(
