@@ -57,75 +57,43 @@ namespace tomcat {
             Direction direction) const {
 
             Tensor3 outward_message;
-            if (this->segment) {
-                if (direction == forward) {
-                    outward_message =
-                        this->incoming_last_segment_messages_per_time_slice.at(
-                            template_time_step);
-                    if (target_time_step > template_time_step) {
-                        // From one segment to the next
-                        Tensor3 marginal_message;
-                        for (const auto& [node_label, message] :
-                             this->incoming_messages_per_time_slice
-                                 .at(template_time_step)
-                                 .node_name_to_messages) {
-                            marginal_message = message;
-                            // There's only one message in this node. The
-                            // backward message from the timed node that belongs
-                            // to the segment
-                            break;
-                        }
-                        outward_message =
-                            outward_message.mult_rowwise_broadcasting(
-                                marginal_message);
-                        outward_message.normalize_rows();
-                    }
-                }
-                else {
-                    // Messages won't be passed backwards
-                }
+            if (EXISTS(template_time_step, this->data_per_time_slice)) {
+                // If there's data for the node, just report the
+                // one-hot-encode representation of that data as the
+                // message emitted by this node.
+                outward_message =
+                    Tensor3(this->data_per_time_slice.at(template_time_step));
             }
             else {
-                Eigen::MatrixXd message;
-                if (EXISTS(template_time_step, this->data_per_time_slice)) {
-                    // If there's data for the node, just report the
-                    // one-hot-encode representation of that data as the message
-                    // emitted by this node.
-                    message = this->data_per_time_slice.at(template_time_step);
-                }
-                else {
-                    MessageContainer message_container =
-                        this->incoming_messages_per_time_slice.at(
-                            template_time_step);
+                MessageContainer message_container =
+                    this->incoming_messages_per_time_slice.at(
+                        template_time_step);
 
-                    for (const auto& [incoming_node_name, incoming_message] :
-                         message_container.node_name_to_messages) {
+                for (const auto& [incoming_node_name, incoming_message] :
+                     message_container.node_name_to_messages) {
 
-                        if (incoming_node_name ==
-                            MessageNode::get_name(
-                                template_target_node->get_label(),
-                                target_time_step)) {
-                            continue;
-                        }
+                    if (incoming_node_name ==
+                        MessageNode::get_name(template_target_node->get_label(),
+                                              target_time_step)) {
+                        continue;
+                    }
 
-                        if (message.rows() == 0) {
-                            message = incoming_message(0, 0);
-                        }
-                        else {
-                            message = message.array() *
-                                      incoming_message(0, 0).array();
-                        }
+                    if (outward_message.is_empty()) {
+                        outward_message = incoming_message;
+                    }
+                    else {
+                        outward_message =
+                            outward_message * incoming_message;
                     }
                 }
 
-                // Outliers can result in zero vector probabilities. Adding a
-                // noise to generate a uniform distribution after normalization.
-                message = message.array() + EPSILON;
-                Eigen::VectorXd sum_per_row = message.rowwise().sum().array();
-                message =
-                    (message.array().colwise() / sum_per_row.array()).matrix();
-
-                outward_message = Tensor3(message);
+                if(!this->is_segment() || template_target_node->is_segment()) {
+                    // We do not marginalize if a segment is sending a
+                    // message to a marginalization factor, otherwise we
+                    // would lose the contribution of the dependencies of the
+                    // segment duration distribution
+                    outward_message.normalize_rows();
+                }
             }
 
             return outward_message;
@@ -153,8 +121,9 @@ namespace tomcat {
             }
 
             if (normalized) {
-                // Outliers can result in zero vector probabilities. Adding a
-                // noise to generate a uniform distribution after normalization.
+                // Outliers can result in zero vector probabilities. Adding
+                // a noise to generate a uniform distribution after
+                // normalization.
                 marginal = marginal.array() + EPSILON;
                 Eigen::VectorXd sum_per_row = marginal.rowwise().sum().array();
                 marginal =

@@ -1095,8 +1095,8 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
     prob_xy << 0.3, 0.7, 0.8, 0.2;
     Tensor3 msg_from_xy = Tensor3(prob_xy);
 
-    Tensor3 msg_from_seg0 = Tensor3::constant(
-        num_data_points, x_cardinality * y_cardinality, state_cardinality, 1);
+    Tensor3 msg_from_seg0 = Tensor3::ones(
+        num_data_points, x_cardinality * y_cardinality, state_cardinality);
 
     // First time step
     int time_step = 1;
@@ -1110,19 +1110,27 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
     expansion_factor.set_incoming_message_from(
         y, time_step, time_step, msg_from_xy, MessageNode::Direction::forward);
 
-    Tensor3 msg2iseg = expansion_factor.get_outward_message_to(
+    Tensor3 msg2trans = expansion_factor.get_outward_message_to(
         transition_factor,
         time_step,
         time_step,
         MessageNode::Direction::forward);
 
-    // Suppose the message that comes from isegment is the same as the
-    // produced by the extension factor but normalized.
+    // Suppose the transition table is the identity and the message that
+    // comes from it is just a replica of the message from the next state
+    Eigen::MatrixXd msg_from_trans_matrix(1,
+                                          (time_step + 1) * state_cardinality);
+    msg_from_trans_matrix << 0.1, 0.1, 0.8, 0.1, 0.1, 0.8;
+    msg_from_trans_matrix =
+        msg_from_trans_matrix.replicate(x_cardinality * y_cardinality, 1);
+    Tensor3 msg_from_trans(msg_from_trans_matrix);
+    msg_from_trans = msg_from_trans.repeat(num_data_points, 0);
+
     expansion_factor.set_incoming_message_from(
         transition_factor,
         time_step,
         time_step,
-        msg2iseg.div_colwise_broadcasting(msg2iseg.sum_cols()),
+        msg_from_trans,
         MessageNode::Direction::backwards);
 
     Tensor3 msg2x = expansion_factor.get_outward_message_to(
@@ -1131,10 +1139,10 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
         y, time_step, time_step, MessageNode::Direction::backwards);
 
     int num_rows = x_cardinality * y_cardinality;
-    vector<Eigen::MatrixXd> expected_msg2iseg_matrices(num_data_points);
-    expected_msg2iseg_matrices[0] =
+    vector<Eigen::MatrixXd> expected_msg2trans_matrices(num_data_points);
+    expected_msg2trans_matrices[0] =
         Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
-    expected_msg2iseg_matrices[0] << 0.033109149705430, 0.000606415229918,
+    expected_msg2trans_matrices[0] << 0.033109149705430, 0.000606415229918,
         0.000011106882368, 0.056890850294570, 0.089393584770082,
         0.089988893117632, 0.028420409479689, 0.000520537957100,
         0.000009533985250, 0.181579590520311, 0.209479462042900,
@@ -1143,9 +1151,9 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
         0.209996492642834, 0.008974663055480, 0.000164376687672,
         0.000003010664053, 0.481025336944520, 0.489835623312328,
         0.489996989335947;
-    expected_msg2iseg_matrices[1] =
+    expected_msg2trans_matrices[1] =
         Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
-    expected_msg2iseg_matrices[1] << 0.235442842349723, 0.004312286079415,
+    expected_msg2trans_matrices[1] << 0.235442842349723, 0.004312286079415,
         0.000078982274615, 0.404557157650277, 0.635687713920585,
         0.639921017725385, 0.021653645317858, 0.000396600348267,
         0.000007263988762, 0.138346354682142, 0.159603399651733,
@@ -1154,7 +1162,7 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
         0.159997327727874, 0.000732625555549, 0.000013418505116,
         0.000000245768494, 0.039267374444451, 0.039986581494884,
         0.039999754231506;
-    Tensor3 expected_msg2iseg(expected_msg2iseg_matrices);
+    Tensor3 expected_msg2trans(expected_msg2trans_matrices);
 
     Eigen::MatrixXd expected_msg2x_matrix =
         Eigen::MatrixXd::Ones(num_data_points, x_cardinality);
@@ -1164,7 +1172,7 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
         Eigen::MatrixXd::Ones(num_data_points, y_cardinality);
     Tensor3 expected_msg2y(expected_msg2y_matrix);
 
-    BOOST_TEST(check_tensor_eq(msg2iseg, expected_msg2iseg));
+    BOOST_TEST(check_tensor_eq(msg2trans, expected_msg2trans));
     BOOST_TEST(check_tensor_eq(msg2x, expected_msg2x));
     BOOST_TEST(check_tensor_eq(msg2y, expected_msg2y));
 
@@ -1173,17 +1181,27 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
                                                      time_step,
                                                      duration_distributions,
                                                      duration_ordering_map);
-    VarNodePtr next_segment = make_shared<VariableNode>("Segment", 1);
-    VarNodePtr next_isegment = make_shared<VariableNode>("iSegment", 2);
-    VarNodePtr next_x = make_shared<VariableNode>("X", 2, x_cardinality);
-    VarNodePtr next_y = make_shared<VariableNode>("Y", 2, y_cardinality);
+    SegTransFactorNodePtr next_transition_factor =
+        make_shared<SegmentTransitionFactorNode>("f:Transition",
+                                                 time_step,
+                                                 transition_probs,
+                                                 transition_ordering_map,
+                                                 duration_ordering_map);
+
+    VarNodePtr next_x =
+        make_shared<VariableNode>("X", time_step, x_cardinality);
+    VarNodePtr next_y =
+        make_shared<VariableNode>("Y", time_step, y_cardinality);
+
+    Tensor3 msg_from_prev_seg = msg2trans * msg_from_trans;
+    msg_from_prev_seg.normalize_rows();
 
     time_step = 2;
     next_expansion_factor.set_incoming_message_from(
-        next_segment,
+        segment,
         time_step - 1,
         time_step,
-        msg2iseg,
+        msg_from_prev_seg,
         MessageNode::Direction::forward);
     next_expansion_factor.set_incoming_message_from(
         next_x,
@@ -1198,16 +1216,25 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
         msg_from_xy,
         MessageNode::Direction::forward);
 
-    msg2iseg = next_expansion_factor.get_outward_message_to(
-        next_isegment, time_step, time_step, MessageNode::Direction::forward);
+    msg2trans = next_expansion_factor.get_outward_message_to(
+        next_transition_factor,
+        time_step,
+        time_step,
+        MessageNode::Direction::forward);
 
-    // Suppose the message that comes from isegment is the same as the
-    // produced by the extension factor but normalized.
+    msg_from_trans_matrix =
+        Eigen::MatrixXd(1, (time_step + 1) * state_cardinality);
+    msg_from_trans_matrix << 0.1, 0.1, 0.8, 0.1, 0.1, 0.8, 0.1, 0.1, 0.8;
+    msg_from_trans_matrix =
+        msg_from_trans_matrix.replicate(x_cardinality * y_cardinality, 1);
+    msg_from_trans = Tensor3(msg_from_trans_matrix);
+    msg_from_trans = msg_from_trans.repeat(num_data_points, 0);
+
     next_expansion_factor.set_incoming_message_from(
-        next_isegment,
+        next_transition_factor,
         time_step,
         time_step,
-        msg2iseg.div_colwise_broadcasting(msg2iseg.sum_cols()),
+        msg_from_trans,
         MessageNode::Direction::backwards);
 
     msg2x = next_expansion_factor.get_outward_message_to(
@@ -1215,40 +1242,46 @@ BOOST_AUTO_TEST_CASE(segment_extension_factor) {
     msg2y = next_expansion_factor.get_outward_message_to(
         next_y, time_step, time_step, MessageNode::Direction::backwards);
 
-    expected_msg2iseg_matrices[0] =
+    expected_msg2trans_matrices[0] =
         Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
-    expected_msg2iseg_matrices[0] << 0.004076039267705, 0.000273254592894,
-        0.000008996698081, 0.001883607679272, 0.000054209631262,
-        0.000000999496050, 0.002140353053023, 0.007772535775844,
-        0.008090003805869, 0.012744291656462, 0.000656148785711,
-        0.000020021459922, 0.005160566315741, 0.000109042011226,
-        0.000002002046006, 0.026195142027796, 0.043334809203063,
-        0.044077976494072, 0.006696142116059, 0.000281534633183,
-        0.000008102007355, 0.002086296744032, 0.000040177324264,
-        0.000000736532703, 0.035317561139909, 0.043778288042552,
-        0.044091161459942, 0.017670884165700, 0.000644383635371,
-        0.000017702713697, 0.004317040320226, 0.000080517557264,
-        0.000001475216322, 0.218112075514075, 0.239375098807365,
-        0.240080822069982;
+    expected_msg2trans_matrices[0] << 0.004528932519672, 0.000303616214327,
+        0.000079970649607, 0.002092897421413, 0.000060232923624,
+        0.000008884409336, 0.002378170058914, 0.008636150862049,
+        0.071911144941058, 0.006068710312601, 0.000312451802719,
+        0.000076272228275, 0.002457412531305, 0.000051924767251,
+        0.000007626841926, 0.012473877156093, 0.020635623430030,
+        0.167916100929799, 0.003188639102885, 0.000134064111040,
+        0.000030864789923, 0.000993474640015, 0.000019132059174,
+        0.000002805838870, 0.016817886257099, 0.020846803829787,
+        0.167966329371207, 0.003606302890959, 0.000131506864361,
+        0.000028902389709, 0.000881028636781, 0.000016432154544,
+        0.000002408516444, 0.044512668472260, 0.048852060981095,
+        0.391968689093847;
 
-    expected_msg2iseg_matrices[1] =
+    expected_msg2trans_matrices[1] =
         Eigen::MatrixXd(num_rows, (time_step + 1) * state_cardinality);
-    expected_msg2iseg_matrices[1] << 0.206116751117539, 0.013817911265358,
-        0.000454944139985, 0.095250087090106, 0.002741267279595,
-        0.000050542417554, 0.108233161792354, 0.393040821455048,
-        0.409094513442461, 0.007398046857266, 0.000380893626172,
-        0.000011622434785, 0.002995702895306, 0.000063298763886,
-        0.000001162185436, 0.015206250247428, 0.025155807609941,
-        0.025587215379779, 0.003887102906375, 0.000163430535363,
-        0.000004703206084, 0.001211092894495, 0.000023322891183,
-        0.000000427556399, 0.020501804199131, 0.025413246573454,
-        0.025594869237517, 0.000117756829093, 0.000004294101693,
-        0.000000117968938, 0.000028768282017, 0.000000536560148,
-        0.000000009830679, 0.001453474888890, 0.001595169338158,
-        0.001599872200383;
-    expected_msg2iseg = Tensor3(expected_msg2iseg_matrices);
+    expected_msg2trans_matrices[1] << 0.032205742362116, 0.002159048635212,
+        0.000568680174981, 0.014882826107829, 0.000428323012437,
+        0.000063178021943, 0.016911431530055, 0.061412628352351,
+        0.511368141803076, 0.004623779285791, 0.000238058516358,
+        0.000058112173924, 0.001872314309566, 0.000039561727429,
+        0.000005810927182, 0.009503906404643, 0.015722379756213,
+        0.127936076898894, 0.002429439316484, 0.000102144084602,
+        0.000023516030418, 0.000756933059059, 0.000014576806989,
+        0.000002137781996, 0.012813627624457, 0.015883279108409,
+        0.127974346187586, 0.000294392072731, 0.000010735254234,
+        0.000002359378752, 0.000071920705043, 0.000001341400371,
+        0.000000196613587, 0.003633687222225, 0.003987923345396,
+        0.031997444007661;
+    expected_msg2trans = Tensor3(expected_msg2trans_matrices);
 
-    BOOST_TEST(check_tensor_eq(msg2iseg, expected_msg2iseg));
+    expected_msg2x_matrix << 0.66, 0.66, 0.66, 0.66;
+    expected_msg2x = Tensor3(expected_msg2x_matrix);
+
+    expected_msg2y_matrix << 0.66, 0.66, 0.66, 0.66;
+    expected_msg2y = Tensor3(expected_msg2y_matrix);
+
+    BOOST_TEST(check_tensor_eq(msg2trans, expected_msg2trans));
     BOOST_TEST(check_tensor_eq(msg2x, expected_msg2x));
     BOOST_TEST(check_tensor_eq(msg2y, expected_msg2y));
 }
@@ -1377,8 +1410,8 @@ BOOST_AUTO_TEST_CASE(segment_marginalization_factor) {
 
     int state_cardinality = 3;
     int time_step = 2;
-    SegmentMarginalizationFactorNode marginalization_factor("f:Marginalization",
-                                                            time_step);
+    SegmentMarginalizationFactorNode marginalization_factor(
+        "f:Marginalization", time_step, 1, "State");
     VarNodePtr segment = make_shared<VariableNode>("Segment", time_step);
     VarNodePtr state =
         make_shared<VariableNode>("State", time_step, state_cardinality);
@@ -1433,6 +1466,8 @@ BOOST_AUTO_TEST_CASE(segment_marginalization_factor) {
         0.2, 0.5, 0.3, 0.2, 0.5, 0.3, 0.2, 0.5, 0.3, 0.1, 0.3, 0.6, 0.1, 0.3,
         0.6, 0.1, 0.3, 0.6;
     Tensor3 expected_msg2segment(expected_msg2segment_matrix);
+    expected_msg2segment = expected_msg2segment.reshape(
+        num_data_points, 1, state_cardinality * (time_step + 1));
 
     Tensor3 msg2segment = marginalization_factor.get_outward_message_to(
         segment, time_step, time_step, MessageNode::Direction::backwards);

@@ -20,9 +20,21 @@ namespace tomcat {
 
             /**
              * Creates an instance of the segment marginalization factor node.
+             *
+             * @param label: label of the node that gives raise to segments
+             * @param time_step: time step of this template node
+             * @param num_segment_message_rows: number of rows in the
+             * messages that flow through the expansion and transition segment
+             * factor nodes related to the node for which the marginalization
+             * is performed
+             * @param timed_node_label: label of the node that gives raise to
+             * segments
              */
-            SegmentMarginalizationFactorNode(const std::string& label,
-                                             int time_step);
+            SegmentMarginalizationFactorNode(
+                const std::string& label,
+                int time_step,
+                int num_segment_message_rows,
+                const std::string& timed_node_label);
 
             ~SegmentMarginalizationFactorNode();
 
@@ -36,7 +48,8 @@ namespace tomcat {
             SegmentMarginalizationFactorNode&
             operator=(const SegmentMarginalizationFactorNode& factor_node);
 
-            SegmentMarginalizationFactorNode(SegmentMarginalizationFactorNode&&) = default;
+            SegmentMarginalizationFactorNode(
+                SegmentMarginalizationFactorNode&&) = default;
 
             SegmentMarginalizationFactorNode&
             operator=(SegmentMarginalizationFactorNode&&) = default;
@@ -121,6 +134,13 @@ namespace tomcat {
              */
             Tensor3 expand_incoming_message(int template_time_step) const;
 
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+
+            int num_segment_message_rows = 1;
+
+            std::string timed_node_label;
         };
 
     } // namespace model

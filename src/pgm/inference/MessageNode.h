@@ -165,23 +165,6 @@ namespace tomcat {
 
             /**
              * For a given target time step, stores the message that came from
-             * a source node.
-             *
-             * @param source_node_template: source node template
-             * @param source_time_step: source node's time step
-             * @param target_time_step: time step instance of this node to store
-             * the incoming message
-             * @param direction: direction of the message passing
-             */
-            void
-            set_incoming_message_from(const MsgNodePtr& source_node_template,
-                                      int source_time_step,
-                                      int target_time_step,
-                                      const Tensor3& message,
-                                      Direction direction);
-
-            /**
-             * For a given target time step, stores the message that came from
              * a source node. This version of the method is for non-segment
              * nodes only.
              *
@@ -208,6 +191,23 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
+
+            /**
+             * For a given target time step, stores the message that came from
+             * a source node.
+             *
+             * @param source_node_template: source node template
+             * @param source_time_step: source node's time step
+             * @param target_time_step: time step instance of this node to store
+             * the incoming message
+             * @param direction: direction of the message passing
+             */
+            virtual void
+            set_incoming_message_from(const MsgNodePtr& source_node_template,
+                                      int source_time_step,
+                                      int target_time_step,
+                                      const Tensor3& message,
+                                      Direction direction);
 
             /**
              * Clears messages and beyond a given time step (not inclusive).
@@ -294,11 +294,6 @@ namespace tomcat {
             std::unordered_map<int, MessageContainer>
                 incoming_messages_per_time_slice;
 
-            std::unordered_map<int, Tensor3>
-                incoming_last_segment_messages_per_time_slice;
-
-            std::unordered_map<int, Tensor3>
-                incoming_next_segment_messages_per_time_slice;
         };
 
     } // namespace model

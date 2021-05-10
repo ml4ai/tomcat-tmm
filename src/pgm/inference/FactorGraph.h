@@ -331,11 +331,15 @@ namespace tomcat {
              *
              * @param node_label: label of the node that defines a segment
              * @param time_step: time step of the template
+             * @param num_segment_rows: number of rows in the segment
+             * messages that will be marginalized by the marginalization node
              *
              * @return Index of the vertex in the graph.
              */
             int add_segment_marginalization_factor_node(
-                const std::string& node_label, int time_step);
+                const std::string& node_label,
+                int time_step,
+                int num_segment_rows);
 
             /**
              * Adds a template transition factor node to the graph.

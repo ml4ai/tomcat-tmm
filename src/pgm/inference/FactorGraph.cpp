@@ -230,8 +230,15 @@ namespace tomcat {
 
             // Link the timed node to the segment node via a marginalization
             // factor
+            int num_segment_rows = random_variable->get_timer()
+                                       ->get_cpd()
+                                       ->get_distributions()
+                                       .size() /
+                                   cardinality;
             int marg_factor = this->add_segment_marginalization_factor_node(
-                timed_node_label, random_variable->get_time_step());
+                timed_node_label,
+                random_variable->get_time_step(),
+                num_segment_rows);
 
             boost::add_edge(marg_factor, timed_node_id, this->graph);
             boost::add_edge(segment_node_id, marg_factor, this->graph);
@@ -342,12 +349,12 @@ namespace tomcat {
         }
 
         int FactorGraph::add_segment_marginalization_factor_node(
-            const string& node_label, int time_step) {
+            const string& node_label, int time_step, int num_segment_rows) {
 
             int vertex_id = boost::add_vertex(this->graph);
             this->graph[vertex_id] =
-                make_shared<SegmentMarginalizationFactorNode>(node_label,
-                                                              time_step);
+                make_shared<SegmentMarginalizationFactorNode>(
+                    node_label, time_step, num_segment_rows, node_label);
 
             string factor_name = this->graph[vertex_id]->get_name();
             this->name_to_id[factor_name] = vertex_id;

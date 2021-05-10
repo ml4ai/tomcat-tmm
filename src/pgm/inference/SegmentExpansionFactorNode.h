@@ -63,6 +63,20 @@ namespace tomcat {
             // Member functions
             //------------------------------------------------------------------
 
+            void
+            set_incoming_message_from(const MsgNodePtr& source_node_template,
+                                      int source_time_step,
+                                      int target_time_step,
+                                      const Tensor3& message,
+                                      Direction direction) override;
+
+            /**
+             * Clears messages and beyond a given time step (not inclusive).
+             *
+             * @param time_step: time step
+             */
+            void erase_incoming_messages_beyond(int time_step) override;
+
             /**
              * Updates the probabilities of combinations of left segments for
              * each state value and dependencies of the segment distribution.
@@ -129,6 +143,15 @@ namespace tomcat {
                 Direction direction) const;
 
             /**
+             * Expand segment probabilities in one more time step.
+             *
+             * @param template_time_step: time step of the template node
+             *
+             * @return Expanded segment probabilities
+             */
+            Tensor3 expand_segment(int template_time_step) const;
+
+            /**
              * Get message passed from the segment to one of the duration
              * distribution dependencies
              *
@@ -157,7 +180,7 @@ namespace tomcat {
              * @return Indexing tensor
              */
             Tensor3 get_indexing_tensor(const std::string& target_node_label,
-                                         int template_time_step) const;
+                                        int template_time_step) const;
 
             /**
              * Compute and store discounting factors for a segment at a given
@@ -171,6 +194,12 @@ namespace tomcat {
             // Data members
             //------------------------------------------------------------------
 
+            std::unordered_map<int, Tensor3>
+                incoming_last_segment_messages_per_time_slice;
+
+            std::unordered_map<int, Tensor3>
+                incoming_next_segment_messages_per_time_slice;
+
             // These discount factors will be updated at every time step.
             // They will be used to compute the probabilities of several
             // combinations of past segment configurations without having to
@@ -180,7 +209,6 @@ namespace tomcat {
             mutable Eigen::MatrixXd extended_segment_discount;
 
             int timed_node_cardinality;
-
         };
 
     } // namespace model

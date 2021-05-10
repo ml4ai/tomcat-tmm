@@ -21,10 +21,11 @@ namespace tomcat {
                          ""),
               duration_ordering_map(duration_ordering_map) {
 
-            for (const auto& [label, indexing_scheme] :
+            for (const auto& [node_label, indexing_scheme] :
                  transition_ordering_map) {
                 if (indexing_scheme.order == 0) {
                     this->timed_node_cardinality = indexing_scheme.cardinality;
+                    this->timed_node_label = node_label;
                     break;
                 }
             }
@@ -64,6 +65,45 @@ namespace tomcat {
             this->timed_node_cardinality = node.timed_node_cardinality;
         }
 
+        void SegmentTransitionFactorNode::set_incoming_message_from(
+            const MsgNodePtr& source_node_template,
+            int source_time_step,
+            int target_time_step,
+            const Tensor3& message,
+            Direction direction) {
+
+            this->max_time_step_stored =
+                max(this->max_time_step_stored, target_time_step);
+
+            if (source_node_template->is_segment() &&
+                direction == Direction::forward) {
+                this->incoming_last_segment_messages_per_time_slice
+                    [target_time_step] = message;
+            }
+            else if (source_node_template->is_segment() &&
+                     direction == Direction::backwards) {
+                this->incoming_next_segment_messages_per_time_slice
+                    [target_time_step] = message;
+            }
+            else {
+                this->incoming_messages_per_time_slice[target_time_step]
+                    .set_message_for(source_node_template->get_label(),
+                                     source_time_step,
+                                     message);
+            }
+        }
+
+        void SegmentTransitionFactorNode::erase_incoming_messages_beyond(
+            int time_step) {
+            for (int t = time_step + 1; t <= this->max_time_step_stored; t++) {
+                this->incoming_messages_per_time_slice.erase(t);
+                this->incoming_next_segment_messages_per_time_slice.erase(t);
+                this->incoming_last_segment_messages_per_time_slice.erase(t);
+            }
+            this->max_time_step_stored =
+                min(this->max_time_step_stored, time_step);
+        }
+
         bool SegmentTransitionFactorNode::is_segment() const { return true; }
 
         Tensor3 SegmentTransitionFactorNode::get_outward_message_to(
@@ -94,8 +134,10 @@ namespace tomcat {
             Tensor3 output_message;
 
             if (direction == Direction::forward) {
-                Tensor3 indexing_tensor = this->get_indexing_tensor(
-                    template_target_node->get_label(), template_time_step);
+                Tensor3 indexing_tensor =
+                    this->get_indexing_tensor(template_target_node->get_label(),
+                                              template_time_step,
+                                              false);
 
                 output_message = Tensor3::dot(
                     indexing_tensor,
@@ -109,6 +151,24 @@ namespace tomcat {
                 output_message.hstack(open_segment_message);
             }
             else {
+                Tensor3 indexing_tensor =
+                    this->get_indexing_tensor(template_target_node->get_label(),
+                                              template_time_step,
+                                              true);
+
+                const auto& table =
+                    this->original_potential.node_label_to_rotated_potential
+                        .at(this->timed_node_label)
+                        .probability_table;
+
+                output_message = Tensor3::dot(indexing_tensor, table);
+
+                Tensor3 open_segment_message =
+                    this->extract_open_segment_message(
+                        this->incoming_next_segment_messages_per_time_slice.at(
+                            template_time_step));
+
+                output_message.hstack(open_segment_message);
             }
 
             return output_message;
@@ -137,8 +197,10 @@ namespace tomcat {
                 output_message = Tensor3::ones(1, num_data_points, cardinality);
             }
             else {
-                Tensor3 indexing_tensor = this->get_indexing_tensor(
-                    template_target_node->get_label(), template_time_step);
+                Tensor3 indexing_tensor =
+                    this->get_indexing_tensor(template_target_node->get_label(),
+                                              template_time_step,
+                                              direction);
 
                 const auto& table =
                     this->original_potential.node_label_to_rotated_potential
@@ -173,7 +235,9 @@ namespace tomcat {
         }
 
         Tensor3 SegmentTransitionFactorNode::get_indexing_tensor(
-            const string& target_node_label, int template_time_step) const {
+            const string& target_node_label,
+            int template_time_step,
+            bool to_expansion_factor) const {
             // Put the incoming messages in order according to the indexing
             // scheme of the potential function.
 
@@ -181,21 +245,37 @@ namespace tomcat {
                         this->incoming_messages_per_time_slice)) {
                 // The timed controlled node is the only dependent of the
                 // transition distribution. Get it from the segment message.
-                return this->extract_closed_segment_message(
-                    this->incoming_last_segment_messages_per_time_slice.at(
-                        template_time_step));
+                if (to_expansion_factor) {
+                    return this->extract_closed_segment_message(
+                        this->incoming_next_segment_messages_per_time_slice.at(
+                            template_time_step));
+                }
+                else {
+                    return this->extract_closed_segment_message(
+                        this->incoming_last_segment_messages_per_time_slice.at(
+                            template_time_step));
+                }
             }
 
             const MessageContainer& message_container =
                 this->incoming_messages_per_time_slice.at(template_time_step);
             vector<Tensor3> incoming_messages(message_container.size() + 1);
-            incoming_messages[0] = this->extract_closed_segment_message(
-                this->incoming_last_segment_messages_per_time_slice.at(
-                    template_time_step));
+
+            if (to_expansion_factor) {
+                incoming_messages[0] = this->extract_closed_segment_message(
+                    this->incoming_next_segment_messages_per_time_slice.at(
+                        template_time_step));
+            }
+            else {
+                incoming_messages[0] = this->extract_closed_segment_message(
+                    this->incoming_last_segment_messages_per_time_slice.at(
+                        template_time_step));
+            }
             int num_rows = incoming_messages[0].get_shape()[1];
 
             for (const auto& [incoming_node_name, incoming_message] :
                  message_container.node_name_to_messages) {
+
                 auto [incoming_node_label, incoming_node_time_step] =
                     MessageNode::strip(incoming_node_name);
 

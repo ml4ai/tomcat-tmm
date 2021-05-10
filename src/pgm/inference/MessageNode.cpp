@@ -71,25 +71,11 @@ namespace tomcat {
             const Tensor3& message,
             Direction direction) {
 
-            this->max_time_step_stored =
-                max(this->max_time_step_stored, target_time_step);
-
-            if (source_node_template->is_segment()) {
-                if (direction == Direction::forward) {
-                    this->incoming_last_segment_messages_per_time_slice
-                        [target_time_step] = message;
-                }
-                else {
-                    this->incoming_next_segment_messages_per_time_slice
-                        [target_time_step] = message;
-                }
-            }
-            else {
-                this->incoming_messages_per_time_slice[target_time_step]
-                    .set_message_for(source_node_template->get_label(),
-                                     source_time_step,
-                                     message);
-            }
+            this->set_incoming_message_from(source_node_template->get_label(),
+                                            source_time_step,
+                                            target_time_step,
+                                            message,
+                                            direction);
         }
 
         void

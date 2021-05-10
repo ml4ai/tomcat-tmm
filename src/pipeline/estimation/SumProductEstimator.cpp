@@ -307,7 +307,7 @@ namespace tomcat {
 //                            LOG("Backward");
 //                            cout << MessageNode::get_name(node->get_label(),
 //                                                          time_step)
-//                                 << " -> "
+//                                 << " <- "
 //                                 << MessageNode::get_name(
 //                                        child_node->get_label(), time_step)
 //
