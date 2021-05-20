@@ -113,7 +113,8 @@ namespace tomcat {
                                                        int burn_in,
                                                        int num_samples,
                                                        int num_jobs,
-                                                       bool baseline) {
+                                                       bool baseline,
+                                                       bool exact_inference) {
             fstream file;
             file.open(filepath);
             if (file.is_open()) {
@@ -130,7 +131,7 @@ namespace tomcat {
                     EvaluationAggregator::METHOD::no_aggregation);
 
                 shared_ptr<CompoundSamplerEstimator> approximate_estimator;
-                if (!this->model->is_exact_inference_allowed() && !baseline) {
+                if (!exact_inference && !baseline) {
                     shared_ptr<GibbsSampler> gibbs_sampler =
                         make_shared<GibbsSampler>(
                             this->model, burn_in, num_jobs);
@@ -162,7 +163,7 @@ namespace tomcat {
                         this->estimation->add_estimator(model_estimator);
                     }
                     else {
-                        if (this->model->is_exact_inference_allowed()) {
+                        if (exact_inference) {
                             model_estimator = make_shared<SumProductEstimator>(
                                 this->model,
                                 inference_item["horizon"],
@@ -208,7 +209,8 @@ namespace tomcat {
                                                 const string& eval_dir,
                                                 const EvidenceSet& data,
                                                 bool baseline,
-                                                const string& train_dir) {
+                                                const string& train_dir,
+                                                bool only_estimates) {
 
             shared_ptr<DataSplitter> data_splitter;
             string final_params_dir;
@@ -247,7 +249,9 @@ namespace tomcat {
             pipeline.set_data_splitter(data_splitter);
             pipeline.set_model_trainer(loader);
             pipeline.set_estimation_process(this->estimation);
-            pipeline.set_aggregator(this->evaluation);
+            if (!only_estimates) {
+                pipeline.set_aggregator(this->evaluation);
+            }
             pipeline.execute();
             output_file.close();
         }
@@ -311,7 +315,7 @@ namespace tomcat {
             this->model->print_graph(output_file);
             output_file.close();
 
-            if(params_dir != "") {
+            if (params_dir != "") {
                 string cpds_filepath = get_filepath(model_dir, "cpds.txt");
                 output_file.open(cpds_filepath);
                 this->model->print_cpds(output_file);

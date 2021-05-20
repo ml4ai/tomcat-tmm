@@ -20,7 +20,7 @@ namespace tomcat {
         Poisson::Poisson(shared_ptr<Node>&& lambda)
             : Distribution({move(lambda)}) {}
 
-        Poisson::Poisson(const unsigned int lambda) {
+        Poisson::Poisson(double lambda) {
             shared_ptr<ConstantNode> lambda_node =
                 make_shared<ConstantNode>(ConstantNode(lambda));
             this->parameters.push_back(move(lambda_node));
@@ -91,8 +91,12 @@ namespace tomcat {
         }
 
         double Poisson::get_pdf(const Eigen::VectorXd& value) const {
+            return this->get_pdf(value(0));
+        }
+
+        double Poisson::get_pdf(double value) const {
             double lambda = this->parameters[0]->get_assignment()(0, 0);
-            return gsl_ran_poisson_pdf(value(0), lambda);
+            return gsl_ran_poisson_pdf(value, lambda);
         }
 
         double Poisson::get_cdf(double value, bool reverse) const {

@@ -141,10 +141,14 @@ namespace tomcat {
         }
 
         double Categorical::get_pdf(const Eigen::VectorXd& value) const {
+            return this->get_pdf(value(0));
+        }
+
+        double Categorical::get_pdf(double value) const {
             Eigen::VectorXd probabilities =
                 this->parameters[0]->get_assignment().row(0);
 
-            return probabilities((int)value(0));
+            return probabilities((int)value);
         }
 
         double Categorical::get_cdf(double value, bool reverse) const {

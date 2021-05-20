@@ -226,6 +226,13 @@ namespace tomcat {
              */
             void use_original_potential(const std::string& node_label);
 
+            /**
+             * Writes the graph content in graphviz format.
+             *
+             * @param output_stream: output stream to write the graph.
+             */
+            void print_graph(std::ostream& output_stream) const;
+
           private:
             //------------------------------------------------------------------
             // Types, Enums & Constants
@@ -238,7 +245,7 @@ namespace tomcat {
             // since the potential functions are actually CPDs, to make the
             // computation of the messages more straightforward, the directions
             // of the edges in the original DBN are preserved.
-            typedef boost::adjacency_list<boost::vecS,
+            typedef boost::adjacency_list<boost::setS,
                                           boost::vecS,
                                           boost::bidirectionalS,
                                           std::shared_ptr<MessageNode>>
@@ -247,8 +254,50 @@ namespace tomcat {
             typedef std::unordered_map<std::string, int> IDMap;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Creates factor graph nodes from a DBN.
+             *
+             * @param dbn: dynamic bayes net
+             * @param factor_graph: factor graph
+             */
+            static void create_nodes(const DynamicBayesNet& dbn,
+                                     FactorGraph& factor_graph);
+
+            /**
+             * Creates factor graph edges from a DBN.
+             *
+             * @param dbn: dynamic bayes net
+             * @param factor_graph: factor graph
+             */
+            static void create_edges(const DynamicBayesNet& dbn,
+                                     FactorGraph& factor_graph);
+
+            /**
+             * Creates a label to represent the joint node of the
+             * dependencies of a segment.
+             *
+             * @param segment_expansion_factor_label: label of the expansion
+             * factor node of a segment
+             *
+             * @return
+             */
+            static std::string compose_joint_node_label(
+                const std::string& segment_expansion_factor_label);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Adds nodes necessary to to inference in a random variable
+             * controlled by a timer.
+             *
+             * @param random_variable: random variable
+             */
+            void add_timed_node(RVNodePtr random_variable);
 
             /**
              * Adds a template variable node to the graph.
@@ -264,7 +313,17 @@ namespace tomcat {
                                   int time_step);
 
             /**
-             * Adds a template factor node to the graphh.
+             * Adds a template segment node to the graph.
+             *
+             * @param node_label: label of the node that defines a segment
+             * @param time_step: time step of the template
+             *
+             * @return Index of the vertex in the graph.
+             */
+            int add_segment_node(const std::string& node_label, int time_step);
+
+            /**
+             * Adds a template factor node to the graph.
              *
              * @param node_label: node's label
              * @param time_step: node's time step (up to 2)
@@ -278,6 +337,95 @@ namespace tomcat {
                                 int time_step,
                                 const Eigen::MatrixXd& cpd,
                                 const CPD::TableOrderingMap& cpd_ordering_map);
+
+            /**
+             * Return an ordering map that is a combination of dependencies
+             * of the duration distributions and transition distributions.
+             *
+             * @param duration_ordering_map: ordering map of the duration
+             * distributions
+             * @param transition_ordering_map: ordering map of the transition
+             * distributions
+             *
+             * @return Merged ordering map
+             */
+            CPD::TableOrderingMap get_segment_total_ordering_map(
+                const CPD::TableOrderingMap& duration_ordering_map,
+                const CPD::TableOrderingMap& transition_ordering_map) const;
+
+            /**
+             * Adds a template segment marginalization factor node to the graph.
+             *
+             * @param node_label: label of the node that defines a segment
+             * @param time_step: time step of the template
+             * @param num_segment_rows: number of rows in the segment
+             * messages that will be marginalized by the marginalization node
+             *
+             * @return Index of the vertex in the graph.
+             */
+            int add_segment_marginalization_factor_node(
+                const std::string& node_label,
+                int time_step,
+                int num_segment_rows);
+
+            /**
+             * Adds a template joint node marginalization factor to the graph.
+             *
+             * @param node_label: label of the joint node
+             * @param time_step: time step of the template
+             * @param joint_ordering_map: order os the nodes in the joint
+             * distribution
+             * @param joint_node_label: label of the joint node
+             *
+             * @return
+             */
+            int add_marginalization_factor_node(
+                const std::string& node_label,
+                int time_step,
+                const CPD::TableOrderingMap& joint_ordering_map,
+                const std::string& joint_node_label);
+
+            /**
+             * Adds a template transition factor node to the graph.
+             *
+             * @param node_label: label of the node that defines a segment
+             * @param time_step: time step of the template
+             * @param transition_probability_table: matrix containing
+             * transition probabilities
+             * @param transition_ordering_map: ordering map with the indexing
+             * scheme of the transition probability table
+             * @param total_ordering_map: segment duration + transition
+             * ordering map
+             *
+             * @return Index of the vertex in the graph.
+             */
+            int add_segment_transition_factor_node(
+                const std::string& node_label,
+                int time_step,
+                const Eigen::MatrixXd& transition_probability_table,
+                const CPD::TableOrderingMap& transition_ordering_map,
+                const CPD::TableOrderingMap& total_ordering_map);
+
+            /**
+             * Adds a template expansion factor node to the graph.
+             *
+             * @param node_label: label of the node that defines a segment
+             * @param time_step: time step of the template
+             * @param duration_distributions: list of segment duration
+             * distributions
+             * @param duration_ordering_map: ordering map with the indexing
+             * scheme of the segment duration distributions
+             * @param total_ordering_map: segment duration + transition
+             * ordering map
+             *
+             * @return
+             */
+            int add_segment_expansion_factor_node(
+                const std::string& node_label,
+                int time_step,
+                const DistributionPtrVec& duration_distributions,
+                const CPD::TableOrderingMap& duration_ordering_map,
+                const CPD::TableOrderingMap& total_ordering_map);
 
             //------------------------------------------------------------------
             // Data members

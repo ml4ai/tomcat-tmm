@@ -131,12 +131,15 @@ namespace tomcat {
         }
 
         double Gamma::get_pdf(const Eigen::VectorXd& value) const {
+            return this->get_pdf(value(0));
+        }
 
+        double Gamma::get_pdf(double value) const {
             Eigen::VectorXd parameters = this->get_parameters(0);
             double alpha = parameters(PARAMETER_INDEX::alpha);
             double beta = parameters(PARAMETER_INDEX::beta);
 
-            return gsl_ran_gamma_pdf(value(0), alpha, beta);
+            return gsl_ran_gamma_pdf(value, alpha, beta);
         }
 
         double Gamma::get_cdf(double value, bool reverse) const {

@@ -5,6 +5,7 @@
 #include <boost/progress.hpp>
 
 #include "pgm/inference/FactorGraph.h"
+#include "pgm/inference/SegmentExpansionFactorNode.h"
 #include "pgm/inference/VariableNode.h"
 #include "utils/EigenExtensions.h"
 
@@ -179,12 +180,30 @@ namespace tomcat {
                 if (parent_nodes.empty()) {
                     // This vertex is a factor that represents the prior
                     // probability of the factor's child node.
-                    int num_rows = max(1, new_data.get_num_data_points());
-                    node->set_incoming_message_from(
-                        MessageNode::PRIOR_NODE_LABEL,
-                        time_step,
-                        time_step,
-                        Eigen::MatrixXd::Ones(num_rows, 1));
+                    int num_data_points =
+                        max(1, new_data.get_num_data_points());
+                    if (node->is_segment()) {
+                        VariableNode segment_prior(
+                            MessageNode::PRIOR_NODE_LABEL, time_step);
+                        int cardinality =
+                            dynamic_pointer_cast<SegmentExpansionFactorNode>(
+                                node)
+                                ->get_timed_node_cardinality();
+                        node->set_incoming_message_from(
+                            make_shared<VariableNode>(segment_prior),
+                            time_step,
+                            time_step,
+                            Tensor3::ones(num_data_points, 1, cardinality),
+                            MessageNode::Direction::forward);
+                    }
+                    else {
+                        node->set_incoming_message_from(
+                            MessageNode::PRIOR_NODE_LABEL,
+                            time_step,
+                            time_step,
+                            Tensor3::ones(1, num_data_points, 1),
+                            MessageNode::Direction::forward);
+                    }
                 }
                 else {
                     for (const auto& [parent_node, transition] : parent_nodes) {
@@ -197,30 +216,29 @@ namespace tomcat {
                             parent_incoming_messages_time_step = time_step - 1;
                         }
 
-                        Eigen::MatrixXd message =
-                            parent_node->get_outward_message_to(
-                                node,
-                                parent_incoming_messages_time_step,
-                                time_step,
-                                MessageNode::Direction::forward);
-
-                        //                        LOG("Forward");
-                        //                        cout << MessageNode::get_name(
-                        //                                    parent_node->get_label(),
-                        //                                    parent_incoming_messages_time_step)
-                        //                             << " -> "
-                        //                             <<
-                        //                             MessageNode::get_name(node->get_label(),
-                        //                                                      time_step)
-                        //                             << "\n";
-                        //                        LOG(message);
-                        //                        LOG("");
-
-                        node->set_incoming_message_from(
-                            parent_node->get_label(),
+                        Tensor3 message = parent_node->get_outward_message_to(
+                            node,
                             parent_incoming_messages_time_step,
                             time_step,
-                            message);
+                            MessageNode::Direction::forward);
+
+//                            LOG("Forward");
+//                            cout << MessageNode::get_name(
+//                                        parent_node->get_label(),
+//                                        parent_incoming_messages_time_step)
+//                                 << " -> "
+//                                 << MessageNode::get_name(node->get_label(),
+//                                                          time_step)
+//                                 << "\n";
+//                            LOG(message);
+//                            LOG("");
+
+                        node->set_incoming_message_from(
+                            parent_node,
+                            parent_incoming_messages_time_step,
+                            time_step,
+                            message,
+                            MessageNode::Direction::forward);
                     }
                 }
             }
@@ -263,7 +281,8 @@ namespace tomcat {
                         MessageNode::END_NODE_LABEL,
                         time_step,
                         time_step,
-                        Eigen::MatrixXd::Ones(num_rows, num_cols));
+                        Tensor3::constant(1, num_rows, num_cols, 1),
+                        MessageNode::Direction::backwards);
                 }
                 else {
                     for (const auto& child_node : child_nodes) {
@@ -278,32 +297,30 @@ namespace tomcat {
                         // being processed, so we do not process child nodes in
                         // a future time step.
                         if (time_diff == 0) {
-                            Eigen::MatrixXd message =
+                            Tensor3 message =
                                 child_node->get_outward_message_to(
                                     node,
                                     time_step,
                                     time_step,
                                     MessageNode::Direction::backwards);
 
-                            //                            LOG("Backward");
-                            //                            cout <<
-                            //                            MessageNode::get_name(node->get_label(),
-                            //                                                          time_step)
-                            //                                 << " -> "
-                            //                                 <<
-                            //                                 MessageNode::get_name(
-                            //                                        child_node->get_label(),
-                            //                                        time_step)
-                            //
-                            //                                 << "\n";
-                            //                            LOG(message);
-                            //                            LOG("");
+//                                LOG("Backward");
+//                                cout << MessageNode::get_name(node->get_label(),
+//                                                              time_step)
+//                                     << " <- "
+//                                     << MessageNode::get_name(
+//                                            child_node->get_label(), time_step)
+//
+//                                     << "\n";
+//                                LOG(message);
+//                                LOG("");
 
                             node->set_incoming_message_from(
-                                child_node->get_label(),
+                                child_node,
                                 time_step,
                                 time_step,
-                                message);
+                                message,
+                                MessageNode::Direction::backwards);
                         }
                     }
                 }
@@ -393,15 +410,18 @@ namespace tomcat {
                     for (auto& [parent_node, transition] :
                          this->factor_graph.get_parents_of(factor, t)) {
                         if (transition) {
-                            Eigen::MatrixXd message =
-                                factor->get_outward_message_to(
-                                    parent_node,
-                                    t,
-                                    t - 1,
-                                    MessageNode::Direction::backwards);
+                            Tensor3 message = factor->get_outward_message_to(
+                                parent_node,
+                                t,
+                                t - 1,
+                                MessageNode::Direction::backwards);
 
                             parent_node->set_incoming_message_from(
-                                factor->get_label(), t, t - 1, message);
+                                factor->get_label(),
+                                t,
+                                t - 1,
+                                message,
+                                MessageNode::Direction::backwards);
                         }
                     }
                 }

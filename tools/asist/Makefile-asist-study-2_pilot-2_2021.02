@@ -25,7 +25,7 @@ MAP_DIR = map
 MAP_PATH = $(MAP_DIR)/Saturn_1.0_sm_v1.0.json
 
 # Path to the file containing the model definition
-MODEL_PATH = ../../../models/tomcat-v04.json
+MODEL_PATH = ../../../models/tomcat-v3.0.json
 
 # Original data from the message bus to be used for training
 MSG_DIR = messages

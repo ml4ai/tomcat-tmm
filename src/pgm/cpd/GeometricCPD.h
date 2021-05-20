@@ -1,6 +1,6 @@
 #pragma once
 
-#include "distribution/Poisson.h"
+#include "distribution/Geometric.h"
 #include "pgm/RandomVariableNode.h"
 #include "pgm/cpd/CPD.h"
 #include "utils/Definitions.h"
@@ -9,7 +9,7 @@ namespace tomcat {
     namespace model {
 
         /**
-         * A Poisson CPD consists of a table containing a list of Poisson
+         * A Geometric CPD consists of a table containing a list of Geometric
          * distributions. The number of rows is given by the product of the
          * cardinalities of the parent nodes of the node that owns this CPD.
          * Each row represents a combination of possible assignments of these
@@ -24,7 +24,7 @@ namespace tomcat {
          * A -> C, B -> C
          *
          * Suppose A, B have cardinalities 2, 3 respectively and C is sampled
-         * from a Poisson distribution with parameter \f$\lambda\f$.
+         * from a Geometric distribution with parameter \f$p\f$.
          *
          * A CPD for C will be as follows,
          * _________________________________________________
@@ -32,88 +32,88 @@ namespace tomcat {
          * |-----------------------------------------------|
          * | A | B |///////////////////////////////////////|
          * |-----------------------------------------------|
-         * | 0 | 0 |     Poisson(\f$\lambda_{00}\f$))      |
+         * | 0 | 0 |     Geometric(\f$p_{00}\f$))          |
          * |-----------------------------------------------|
-         * | 0 | 1 |     Poisson(\f$\lambda_{01}\f$)       |
+         * | 0 | 1 |     Geometric(\f$p_{01}\f$)           |
          * |-----------------------------------------------|
-         * | 0 | 2 |     Poisson(\f$\lambda_{02}\f$)       |
+         * | 0 | 2 |     Geometric(\f$p_{02}\f$)           |
          * |-----------------------------------------------|
-         * | 1 | 0 |     Poisson(\f$\lambda_{10}\f$)       |
+         * | 1 | 0 |     Geometric(\f$p_{10}\f$)           |
          * |-----------------------------------------------|
-         * | 1 | 1 |     Poisson(\f$\lambda_{11}\f$)       |
+         * | 1 | 1 |     Geometric(\f$p_{11}\f$)           |
          * |-----------------------------------------------|
-         * | 1 | 2 |     Poisson(\f$\lambda_{12}\f$)       |
+         * | 1 | 2 |     Geometric(\f$p_{12}\f$)           |
          * |-----------------------------------------------|
          */
-        class PoissonCPD : public CPD {
+        class GeometricCPD : public CPD {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Creates an instance of a Poisson CPD.
+             * Creates an instance of a Geometric CPD.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param distributions: list of Poisson distributions
+             * @param distributions: list of geometric distributions
              */
-            PoissonCPD(
+            GeometricCPD(
                 const std::vector<std::shared_ptr<NodeMetadata>>&
                     parent_node_order,
-                const std::vector<std::shared_ptr<Poisson>>& distributions);
+                const std::vector<std::shared_ptr<Geometric>>& distributions);
 
             /**
-             * Creates an instance of a Poisson CPD.
+             * Creates an instance of a Geometric CPD.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param distributions: list of Poisson distributions
+             * @param distributions: list of geometric distributions
              */
-            PoissonCPD(
+            GeometricCPD(
                 std::vector<std::shared_ptr<NodeMetadata>>&& parent_node_order,
-                const std::vector<std::shared_ptr<Poisson>>& distributions);
+                const std::vector<std::shared_ptr<Geometric>>& distributions);
 
             /**
-             * Creates an instance of a Poisson CPD by transforming a
-             * vector of lambdas into a list of Poisson distributions each
+             * Creates an instance of a Geometric CPD by transforming a
+             * vector of ps into a list of Geometric distributions each
              * with one of the elements in the parameter vector.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param lambdas: vector containing the parameters lambda of the
-             * Poisson distributions
+             * @param ps: vector containing the parameters p of the
+             * Geometric distributions
              */
-            PoissonCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+            GeometricCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
                            parent_node_order,
-                       const Eigen::VectorXd& lambdas);
+                       const Eigen::VectorXd& ps);
 
             /**
-             * Creates an instance of a Poisson CPD by transforming a
-             * vector of lambdas into a list of Poisson distributions each
+             * Creates an instance of a Geometric CPD by transforming a
+             * vector of ps into a list of Geometric distributions each
              * with one of the elements in the parameter vector.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param lambdas: vector containing the parameters lambda of the
-             * Poisson distributions
+             * @param ps: vector containing the parameters p of the
+             * Geometric distributions
              */
-            PoissonCPD(
+            GeometricCPD(
                 std::vector<std::shared_ptr<NodeMetadata>>&& parent_node_order,
                 const Eigen::VectorXd& probabilities);
 
-            ~PoissonCPD();
+            ~GeometricCPD();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            PoissonCPD(const PoissonCPD& cpd);
+            GeometricCPD(const GeometricCPD& cpd);
 
-            PoissonCPD& operator=(const PoissonCPD& cpd);
+            GeometricCPD& operator=(const GeometricCPD& cpd);
 
-            PoissonCPD(PoissonCPD&& cpd) = default;
+            GeometricCPD(GeometricCPD&& cpd) = default;
 
-            PoissonCPD& operator=(PoissonCPD&& cpd) = default;
+            GeometricCPD& operator=(GeometricCPD&& cpd) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -149,18 +149,18 @@ namespace tomcat {
             /**
              * Initialized the CPD from a list of distributions.
              *
-             * @param distributions: list of Poisson distributions.
+             * @param distributions: list of Geometric distributions.
              */
             void init_from_distributions(
-                const std::vector<std::shared_ptr<Poisson>>& poisson);
+                const std::vector<std::shared_ptr<Geometric>>& Geometric);
 
             /**
              * Uses the values in the parameter vector to create a list of
-             * constant Poisson distributions.
+             * constant Geometric distributions.
              *
-             * @param lambdas: parameter vector
+             * @param ps: parameter vector
              */
-            void init_from_vector(const Eigen::VectorXd& lambdas);
+            void init_from_vector(const Eigen::VectorXd& ps);
         };
 
     } // namespace model

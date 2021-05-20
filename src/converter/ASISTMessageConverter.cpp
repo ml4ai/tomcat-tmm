@@ -56,10 +56,10 @@ namespace tomcat {
                 try {
                     nlohmann::json json_message =
                         nlohmann::json::parse(message);
-                    if (!json_message.contains("header") ||
-                        !json_message["header"].contains("timestamp")) {
+                    if (!json_message.contains("msg") ||
+                        !json_message["msg"].contains("timestamp")) {
                         string error_msg = "Invalid format. Some messages do "
-                                           "not contain a header timestamp.";
+                                           "not contain a timestamp.";
                         throw TomcatModelException(error_msg);
                     }
 
@@ -67,9 +67,19 @@ namespace tomcat {
                         const string& topic = json_message["topic"];
 
                         if (EXISTS(topic, this->get_used_topics())) {
-                            const string& timestamp =
-                                json_message["header"]["timestamp"];
-                            messages[timestamp] = json_message;
+                            if(topic == "trial") {
+                                // There's an issue with the timestamp in the
+                                // msg section of trial messages. The
+                                // timestamp in this section is not being
+                                // updated when the trial stops.
+                                const string& timestamp =
+                                    json_message["header"]["timestamp"];
+                                messages[timestamp] = json_message;
+                            } else {
+                                const string& timestamp =
+                                    json_message["msg"]["timestamp"];
+                                messages[timestamp] = json_message;
+                            }
                         }
                     }
                 }

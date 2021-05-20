@@ -121,11 +121,15 @@ namespace tomcat {
         }
 
         double Gaussian::get_pdf(const Eigen::VectorXd& value) const {
+            return this->get_pdf(value(0));
+        }
+
+        double Gaussian::get_pdf(double value) const {
             Eigen::VectorXd parameters = this->get_parameters(0);
             double mean = parameters(PARAMETER_INDEX::mean);
             double variance = parameters(PARAMETER_INDEX::variance);
 
-            return gsl_ran_gaussian_pdf(value(0) - mean, sqrt(variance));
+            return gsl_ran_gaussian_pdf(value - mean, sqrt(variance));
         }
 
         double Gaussian::get_cdf(double value, bool reverse) const {

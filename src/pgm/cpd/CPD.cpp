@@ -1150,5 +1150,10 @@ namespace tomcat {
             return parent_label_to_indexing;
         }
 
+        const vector<std::shared_ptr<Distribution>>&
+        CPD::get_distributions() const {
+            return distributions;
+        }
+
     } // namespace model
 } // namespace tomcat

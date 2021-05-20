@@ -143,7 +143,6 @@ namespace tomcat {
                                                 use_weights_cache);
                 sample = this->cpd->sample_from_posterior(
                     random_generator_per_job, weights, shared_from_this());
-
             }
 
             return sample;
@@ -568,9 +567,13 @@ namespace tomcat {
         RandomVariableNode::get_next(int increment) const {
             shared_ptr<RandomVariableNode> next;
 
-            int t0 = this->get_metadata()->get_initial_time_step();
-            if (this->time_step - t0 + increment < this->timed_copies->size()) {
-                next = (*this->timed_copies)[this->time_step - t0 + increment];
+            if (this->timed_copies) {
+                int t0 = this->get_metadata()->get_initial_time_step();
+                if (this->time_step - t0 + increment <
+                    this->timed_copies->size()) {
+                    next =
+                        (*this->timed_copies)[this->time_step - t0 + increment];
+                }
             }
 
             return next;
@@ -590,6 +593,20 @@ namespace tomcat {
 
         bool RandomVariableNode::has_child_timer() const {
             return !this->timer_children_per_time_step.empty();
+        }
+
+        bool RandomVariableNode::is_segment_dependency() const {
+            if (this->timer_children_per_time_step.size() > 0) return true;
+
+            for(const auto& child :
+                this->children_per_time_step[this->metadata->get_initial_time_step()]) {
+                if (dynamic_pointer_cast<RandomVariableNode>(child)
+                    ->has_timer()){
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // ---------------------------------------------------------------------

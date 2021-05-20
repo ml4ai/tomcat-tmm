@@ -10,19 +10,35 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
+        FactorNode::FactorNode() {}
+
+        FactorNode::FactorNode(const string& label, int time_step)
+            : MessageNode(compose_label(label), time_step) {}
+
         FactorNode::FactorNode(const string& label,
                                int time_step,
-                               const Eigen::MatrixXd& potential_function,
+                               const Eigen::MatrixXd& probability_table,
                                const CPD::TableOrderingMap& ordering_map,
                                const string& cpd_main_node_label)
             : MessageNode(compose_label(label), time_step) {
 
             this->original_potential.potential = PotentialFunction(
-                ordering_map, potential_function, cpd_main_node_label);
+                ordering_map, probability_table, cpd_main_node_label);
             this->original_potential.node_label_to_rotated_potential =
                 this->create_potential_function_rotations(
                     this->original_potential.potential);
             this->use_original_potential();
+        }
+
+        FactorNode::FactorNode(const string& label,
+                               int time_step,
+                               const DistributionPtrVec& distributions,
+                               const CPD::TableOrderingMap& ordering_map,
+                               const string& cpd_main_node_label)
+            : MessageNode(compose_label(label), time_step) {
+
+            this->original_potential.potential = PotentialFunction(
+                ordering_map, distributions, cpd_main_node_label);
         }
 
         FactorNode::~FactorNode() {}
@@ -53,40 +69,19 @@ namespace tomcat {
         FactorNode::create_potential_function_rotations(
             const PotentialFunction& original_potential) {
 
-            int num_rows = original_potential.matrix.rows();
-            int num_cols = original_potential.matrix.cols();
-
             std::unordered_map<std::string, PotentialFunction>
                 label_to_rotations;
 
             for (const auto& [node_label, ordering] :
                  original_potential.ordering_map) {
-                int block_rows = ordering.right_cumulative_cardinality;
-                int block_size = block_rows * num_cols;
-                int num_blocks = num_rows / block_rows;
 
-                int new_num_rows = (num_rows * num_cols) / ordering.cardinality;
-                int new_num_cols = ordering.cardinality;
-                Eigen::MatrixXd new_matrix(new_num_rows, new_num_cols);
-                int row = 0;
-                int col = 0;
-                for (int b = 0; b < num_blocks; b++) {
-                    Eigen::MatrixXd block = original_potential.matrix.block(
-                        b * block_rows, 0, block_rows, num_cols);
-                    Eigen::VectorXd vector =
-                        Eigen::Map<Eigen::VectorXd>(block.data(), block.size());
-
-                    // Stack the vector column-wise in the new matrix.
-                    new_matrix.block(row * block_size, col, block_size, 1) =
-                        vector;
-                    col = (col + 1) % new_num_cols;
-                    if (col == 0) {
-                        row++;
-                    }
-                }
+                Eigen::MatrixXd new_matrix =
+                    this->rotate_table(original_potential.probability_table,
+                                       ordering.cardinality,
+                                       ordering.right_cumulative_cardinality);
 
                 PotentialFunction new_function;
-                new_function.matrix = move(new_matrix);
+                new_function.probability_table = move(new_matrix);
                 new_function.main_node_label = node_label;
                 // Create a new ordering map and replace the parent node's label
                 // by the main node name, that happens to be the child of this
@@ -116,6 +111,41 @@ namespace tomcat {
             return label_to_rotations;
         }
 
+        Eigen::MatrixXd
+        FactorNode::rotate_table(const Eigen::MatrixXd& table,
+                                 int main_node_cardinality,
+                                 int right_cumulative_cardinality) const {
+
+            int num_rows = table.rows();
+            int num_cols = table.cols();
+
+            int block_rows = right_cumulative_cardinality;
+            int block_size = block_rows * num_cols;
+            int num_blocks = num_rows / block_rows;
+
+            int new_num_rows = (num_rows * num_cols) / main_node_cardinality;
+            int new_num_cols = main_node_cardinality;
+            Eigen::MatrixXd rotated_table(new_num_rows, new_num_cols);
+            int row = 0;
+            int col = 0;
+            for (int b = 0; b < num_blocks; b++) {
+                Eigen::MatrixXd block =
+                    table.block(b * block_rows, 0, block_rows, num_cols);
+                Eigen::VectorXd vector =
+                    Eigen::Map<Eigen::VectorXd>(block.data(), block.size());
+
+                // Stack the vector column-wise in the new matrix.
+                rotated_table.block(row * block_size, col, block_size, 1) =
+                    vector;
+                col = (col + 1) % new_num_cols;
+                if (col == 0) {
+                    row++;
+                }
+            }
+
+            return rotated_table;
+        }
+
         void FactorNode::copy_node(const FactorNode& node) {
             MessageNode::copy_node(node);
             this->original_potential = node.original_potential;
@@ -123,7 +153,7 @@ namespace tomcat {
             this->working_potential = node.working_potential;
         }
 
-        Eigen::MatrixXd FactorNode::get_outward_message_to(
+        Tensor3 FactorNode::get_outward_message_to(
             const shared_ptr<MessageNode>& template_target_node,
             int template_time_step,
             int target_time_step,
@@ -142,41 +172,19 @@ namespace tomcat {
             // To achieve the correct indexing when multiplying incoming
             // messages by the potential function matrix, the messages have to
             // be multiplied following the CPD order defined for parent nodes.
-            vector<Eigen::MatrixXd> messages_in_order =
+            vector<Tensor3> messages_in_order =
                 this->get_incoming_messages_in_order(
                     template_target_node->get_label(),
                     template_time_step,
                     target_time_step,
                     potential_function);
 
-            // Each row in the message matrix contains the message for one data
-            // point. We need to perform the following operation individually
-            // for each data point before multiplying by the potential function
-            // matrix. For instance:
-            // m1 = [a, b, c]
-            // m2 = [d, e, f]
-            // temp_vector = [ad, ae, af, bd, be, bf, cd, ce, cf]
-            int num_data_points = messages_in_order[0].rows();
-            Eigen::MatrixXd temp_matrix(num_data_points,
-                                        potential_function.matrix.rows());
-            for (int d = 0; d < num_data_points; d++) {
-                Eigen::VectorXd temp_vector = messages_in_order[0].row(d);
-
-                for (int i = 1; i < messages_in_order.size(); i++) {
-                    Eigen::MatrixXd cartesian_product =
-                        temp_vector * messages_in_order[i].row(d);
-                    cartesian_product.transposeInPlace();
-                    // Flatten the matrix
-                    temp_vector = Eigen::Map<Eigen::VectorXd>(
-                        cartesian_product.data(), cartesian_product.size());
-                }
-
-                temp_matrix.row(d) = temp_vector;
-            }
+            Eigen::MatrixXd indexing_probs =
+                this->get_cartesian_tensor(messages_in_order)(0, 0);
 
             // This will marginalize the incoming nodes by summing the rows.
             Eigen::MatrixXd outward_message =
-                temp_matrix * potential_function.matrix;
+                indexing_probs * potential_function.probability_table;
 
             // Normalize the message
             Eigen::VectorXd sum_per_row = outward_message.rowwise().sum();
@@ -184,10 +192,52 @@ namespace tomcat {
                 (outward_message.array().colwise() / sum_per_row.array())
                     .matrix();
 
-            return outward_message;
+            return Tensor3(outward_message);
         }
 
-        vector<Eigen::MatrixXd> FactorNode::get_incoming_messages_in_order(
+        Tensor3 FactorNode::get_cartesian_tensor(
+            const std::vector<Tensor3>& tensors) const {
+            // Each row in the message matrix contains the message for one data
+            // point. We need to perform the following operation individually
+            // for each data point before multiplying by the potential function
+            // matrix. For instance:
+            // m1 = [a, b, c]
+            // m2 = [d, e, f]
+            // temp_vector = [ad, ae, af, bd, be, bf, cd, ce, cf]
+            int depths = tensors[0].get_shape()[0];
+            vector<Eigen::MatrixXd> new_tensor(depths);
+            int rows = tensors[0].get_shape()[1];
+            for (int depth = 0; depth < depths; depth++) {
+                Eigen::MatrixXd temp_matrix = Eigen::MatrixXd::Zero(rows, 0);
+
+                for (int row = 0; row < rows; row++) {
+                    Eigen::MatrixXd message = tensors.at(0)(depth, 0);
+                    Eigen::VectorXd temp_vector = message.row(row);
+
+                    for (int i = 1; i < tensors.size(); i++) {
+                        message = tensors.at(i)(depth, 0);
+                        Eigen::MatrixXd cartesian_product =
+                            temp_vector * message.row(row);
+                        cartesian_product.transposeInPlace();
+                        // Flatten the matrix
+                        temp_vector = Eigen::Map<Eigen::VectorXd>(
+                            cartesian_product.data(), cartesian_product.size());
+                    }
+
+                    if (temp_matrix.cols() < temp_vector.size()) {
+                        temp_matrix.conservativeResize(rows,
+                                                       temp_vector.size());
+                    }
+                    temp_matrix.row(row) = temp_vector;
+                }
+
+                new_tensor[depth] = temp_matrix;
+            }
+
+            return Tensor3(new_tensor);
+        }
+
+        vector<Tensor3> FactorNode::get_incoming_messages_in_order(
             const string& ignore_label,
             int template_time_step,
             int target_time_step,
@@ -196,7 +246,7 @@ namespace tomcat {
             int num_messages =
                 this->incoming_messages_per_time_slice.at(template_time_step)
                     .size();
-            vector<Eigen::MatrixXd> messages_in_order(num_messages);
+            vector<Tensor3> messages_in_order(num_messages);
             int added_duplicate_key_order = -1;
             int added_duplicate_key_time_step = -1;
 
@@ -290,25 +340,30 @@ namespace tomcat {
 
         bool FactorNode::is_factor() const { return true; }
 
+        bool FactorNode::is_segment() const { return false; }
+
         void FactorNode::create_aggregate_potential(int value) {
             PotentialFunction agg_potential =
                 this->original_potential.potential;
 
             // Binary distribution. It's either value or not.
-            Eigen::MatrixXd agg_matrix =
-                Eigen::MatrixXd::Zero(agg_potential.matrix.rows(), 2);
+            Eigen::MatrixXd agg_matrix = Eigen::MatrixXd::Zero(
+                agg_potential.probability_table.rows(), 2);
 
-            for (int col = 0; col < agg_potential.matrix.cols(); col++) {
+            for (int col = 0; col < agg_potential.probability_table.cols();
+                 col++) {
                 if (value == col) {
-                    agg_matrix.col(1) = agg_potential.matrix.col(col);
+                    agg_matrix.col(1) =
+                        agg_potential.probability_table.col(col);
                 }
                 else {
-                    agg_matrix.col(0) = agg_matrix.col(0).array() +
-                                        agg_potential.matrix.col(col).array();
+                    agg_matrix.col(0) =
+                        agg_matrix.col(0).array() +
+                        agg_potential.probability_table.col(col).array();
                 }
             }
 
-            agg_potential.matrix = agg_matrix;
+            agg_potential.probability_table = agg_matrix;
 
             this->aggregate_potential.potential[value] = agg_potential;
             this->aggregate_potential.node_label_to_rotated_potential[value] =
@@ -326,6 +381,7 @@ namespace tomcat {
         void FactorNode::use_original_potential() {
             this->working_potential = this->original_potential;
         }
+
 
     } // namespace model
 } // namespace tomcat

@@ -15,6 +15,10 @@ namespace tomcat {
                                    int cardinality)
             : MessageNode(label, time_step), cardinality(cardinality) {}
 
+        VariableNode::VariableNode(const string& label, int time_step)
+            : MessageNode(compose_segment_label(label), time_step),
+              segment(true) {}
+
         VariableNode::~VariableNode() {}
 
         //----------------------------------------------------------------------
@@ -30,6 +34,14 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        std::string VariableNode::compose_segment_label(
+            const std::string& timed_node_label) {
+            return "seg:" + timed_node_label;
+        }
+
+        //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
         void VariableNode::copy_node(const VariableNode& node) {
@@ -38,19 +50,19 @@ namespace tomcat {
             this->data_per_time_slice = node.data_per_time_slice;
         }
 
-        Eigen::MatrixXd VariableNode::get_outward_message_to(
+        Tensor3 VariableNode::get_outward_message_to(
             const shared_ptr<MessageNode>& template_target_node,
             int template_time_step,
             int target_time_step,
             Direction direction) const {
 
-            Eigen::MatrixXd outward_message;
+            Tensor3 outward_message;
             if (EXISTS(template_time_step, this->data_per_time_slice)) {
-                // If there's data for the node, just report the one-hot-encode
-                // representation of that data as the message emitted by this
-                // node.
+                // If there's data for the node, just report the
+                // one-hot-encode representation of that data as the
+                // message emitted by this node.
                 outward_message =
-                    this->data_per_time_slice.at(template_time_step);
+                    Tensor3(this->data_per_time_slice.at(template_time_step));
             }
             else {
                 MessageContainer message_container =
@@ -66,31 +78,31 @@ namespace tomcat {
                         continue;
                     }
 
-                    if (outward_message.rows() == 0) {
+                    if (outward_message.is_empty()) {
                         outward_message = incoming_message;
                     }
                     else {
-                        outward_message =
-                            outward_message.array() * incoming_message.array();
+                        outward_message = outward_message * incoming_message;
                     }
                 }
+
+                if (!this->segment || template_target_node->is_segment()) {
+                    // If the node is a segment node, only normalize if the
+                    // message goes to a segment factor. This avoid
+                    // normalizing messages to a segment marginalization
+                    // factor, which would remove the contribution of the
+                    // segment dependencies to the time controlled node
+                    // probability.
+                    outward_message.normalize_rows();
+                }
             }
-
-            // Outliers can result in zero vector probabilities. Adding a noise
-            // to generate a uniform distribution after normalization.
-            outward_message = outward_message.array() + EPSILON;
-            Eigen::VectorXd sum_per_row =
-                outward_message.rowwise().sum().array();
-            outward_message =
-                (outward_message.array().colwise() / sum_per_row.array())
-                    .matrix();
-
-            // Aggregate if necessary
 
             return outward_message;
         }
 
         bool VariableNode::is_factor() const { return false; }
+
+        bool VariableNode::is_segment() const { return this->segment; }
 
         Eigen::MatrixXd VariableNode::get_marginal_at(int time_step,
                                                       bool normalized) const {
@@ -101,16 +113,18 @@ namespace tomcat {
                      .node_name_to_messages) {
 
                 if (marginal.rows() == 0) {
-                    marginal = incoming_message;
+                    marginal = incoming_message(0, 0);
                 }
                 else {
-                    marginal = marginal.array() * incoming_message.array();
+                    marginal =
+                        marginal.array() * incoming_message(0, 0).array();
                 }
             }
 
             if (normalized) {
-                // Outliers can result in zero vector probabilities. Adding a
-                // noise to generate a uniform distribution after normalization.
+                // Outliers can result in zero vector probabilities. Adding
+                // a noise to generate a uniform distribution after
+                // normalization.
                 marginal = marginal.array() + EPSILON;
                 Eigen::VectorXd sum_per_row = marginal.rowwise().sum().array();
                 marginal =
@@ -124,13 +138,12 @@ namespace tomcat {
                                        const Eigen::VectorXd& data,
                                        bool aggregate) {
 
-            int cols = aggregate ? 2: this->cardinality;
+            int cols = aggregate ? 2 : this->cardinality;
             // Convert each element of the vector to a binary row vector and
             // stack them horizontally;
             Eigen::MatrixXd data_matrix(data.size(), cols);
             for (int i = 0; i < data.size(); i++) {
-                Eigen::VectorXd binary_vector =
-                    Eigen::VectorXd::Zero(cols);
+                Eigen::VectorXd binary_vector = Eigen::VectorXd::Zero(cols);
                 binary_vector[data[i]] = 1;
                 data_matrix.row(i) = move(binary_vector);
             }

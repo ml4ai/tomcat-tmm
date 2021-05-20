@@ -10,6 +10,7 @@
 #include "distribution/Gamma.h"
 #include "distribution/Gaussian.h"
 #include "distribution/Poisson.h"
+#include "distribution/Geometric.h"
 #include "pgm/ConstantNode.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/NodeMetadata.h"
@@ -21,6 +22,7 @@
 #include "pgm/cpd/GammaCPD.h"
 #include "pgm/cpd/GaussianCPD.h"
 #include "pgm/cpd/PoissonCPD.h"
+#include "pgm/cpd/GeometricCPD.h"
 #include "utils/Definitions.h"
 
 /**
@@ -426,6 +428,10 @@ namespace tomcat {
                         create_constant_cpd<PoissonCPD>(
                             json_cpd, cpd_owner_label, rv_nodes, 1);
                     }
+                    else if (distribution == "geometric") {
+                        create_constant_cpd<GeometricCPD>(
+                            json_cpd, cpd_owner_label, rv_nodes, 1);
+                    }
                     else if (distribution == "dirichlet") {
                         int sample_size = rv_nodes.at(cpd_owner_label)
                                               .at(0)
@@ -456,6 +462,10 @@ namespace tomcat {
                     }
                     else if (distribution == "poisson") {
                         create_node_dependent_cpd<PoissonCPD, Poisson>(
+                            json_cpd, cpd_owner_label, rv_nodes);
+                    }
+                    else if (distribution == "geometric") {
+                        create_node_dependent_cpd<GeometricCPD, Geometric>(
                             json_cpd, cpd_owner_label, rv_nodes);
                     }
                     // TODO -  The constructor of these distributions receive

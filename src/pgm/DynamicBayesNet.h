@@ -306,7 +306,7 @@ namespace tomcat {
             RVNodePtrVec get_nodes_in_topological_order_at(int time_step);
 
             /**
-             * Write the graph content in graphviz format.
+             * Writes the graph content in graphviz format.
              *
              * @param output_stream: output stream to write the graph.
              */
@@ -323,8 +323,6 @@ namespace tomcat {
             // Getters & Setters
             // --------------------------------------------------------
             int get_time_steps() const;
-
-            bool is_exact_inference_allowed() const;
 
           private:
             //------------------------------------------------------------------
@@ -467,11 +465,6 @@ namespace tomcat {
 
             // If unrolled, the number of time steps the DBN was unrolled into
             int time_steps = 0;
-
-            // Indicates whether the model allows exact inference. This is
-            // set to true here if the model has no timers and none of the
-            // nodes follows a continuous distribution.
-            bool exact_inference_allowed = true;
         };
 
     } // namespace model

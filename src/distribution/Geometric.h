@@ -8,63 +8,51 @@ namespace tomcat {
     namespace model {
 
         /**
-         * Class to represent a Categorical distribution with discrete
-         * probabilities.
+         * Class to represent a Geometric distribution.
          */
-        class Categorical : public Distribution {
+        class Geometric : public Distribution {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Creates an instance of a categorical distribution for node
-             * dependent probabilities.
+             * Creates an instance of a Geometric distribution for node
+             * dependent probability of success p.
              *
-             * @param probabilities: node which the assignment defines the set
-             * of probabilities of the distribution
+             * @param p: node which the assignment defines the probability p
              */
-            Categorical(const std::shared_ptr<Node>& probabilities);
+            Geometric(const std::shared_ptr<Node>& p);
 
             /**
-             * Creates an instance of a categorical distribution for node
-             * dependent probabilities.
+             * Creates an instance of a Geometric distribution for node
+             * dependent probability p.
              *
-             * @param probabilities: node which the assignment defines the set
-             * of probabilities of the distribution
+             * @param p: node which the assignment defines the probability p
              */
-            Categorical(std::shared_ptr<Node>&& probabilities);
+            Geometric(std::shared_ptr<Node>&& p);
 
             /**
-             * Creates an instance of a categorical distribution by transforming
-             * a numerical vector of probabilities into a constant node to keep
+             * Creates an instance of a Geometric distribution by transforming
+             * a numerical probability p a constant node to keep
              * static and node dependent distributions compatible.
              *
-             * @param probabilities: Vector of constant probabilities
+             * @param p: probability of success
              */
-            Categorical(const Eigen::VectorXd& probabilities);
+            Geometric(const double p);
 
-            /**
-             * Creates an instance of a categorical distribution by transforming
-             * a numerical vector of probabilities into a constant node to keep
-             * static and node dependent distributions compatible.
-             *
-             * @param probabilities: Vector of constant probabilities
-             */
-            Categorical(const Eigen::VectorXd&& probabilities);
-
-            ~Categorical();
+            ~Geometric();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            Categorical(const Categorical& categorical);
+            Geometric(const Geometric& geometric);
 
-            Categorical& operator=(const Categorical& categorical);
+            Geometric& operator=(const Geometric& geometric);
 
-            Categorical(Categorical&&) = default;
+            Geometric(Geometric&&) = default;
 
-            Categorical& operator=(Categorical&&) = default;
+            Geometric& operator=(Geometric&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -74,17 +62,17 @@ namespace tomcat {
                    int parameter_idx) const override;
 
             /**
-             * Generates a sample from a categorical distribution with scaled
-             * probabilities.
+             * Generates a sample from a Geometric distribution with scaled
+             * probability.
              *
              * @param random_generator: random number generator
-             * @param weights: weights used to scale the probabilities
+             * @param weight: weight used to scale the probability
              *
-             * @return Sample from a scaled categorical distribution.
+             * @return Sample from a scaled Geometric distribution.
              */
             Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
-                   const Eigen::VectorXd& weights) const override;
+                   const Eigen::VectorXd& weight) const override;
 
             Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
@@ -117,22 +105,13 @@ namespace tomcat {
              * Generate a sample using the GSL library.
              *
              * @param random_generator: random number generator
-             * @param parameters: probabilities or weighted probabilities
-             * @return A sample from a categorical distribution.
+             * @param p: mean or scaled mean of the distribution
+             *
+             * @return A sample from a Geometric distribution.
              */
             Eigen::VectorXd
             sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
-                            const Eigen::VectorXd& parameters) const;
-
-            /**
-             * Returns the index of a sampled value from a one-hot-encode array.
-             *
-             * @param sample_array: one-hot-encode sample
-             * @param array_size: size of the one-hot-encode sample
-             * @return Index containing 1 in an one-hot-encode array
-             */
-            unsigned int get_sample_index(const unsigned int* sample_array,
-                                          size_t array_size) const;
+                            double p) const;
         };
 
     } // namespace model
