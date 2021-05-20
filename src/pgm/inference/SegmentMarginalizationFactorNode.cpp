@@ -39,7 +39,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         std::string SegmentMarginalizationFactorNode::compose_label(
             const std::string& original_label) {
-            return "segM:" + original_label;
+            return "m(seg::" + original_label + ")";
         }
 
         //----------------------------------------------------------------------
@@ -69,6 +69,7 @@ namespace tomcat {
             if (template_target_node->get_label() == this->timed_node_label) {
                 output_message =
                     this->marginalize_segments_out(template_time_step);
+                output_message.normalize_rows();
             }
             else {
                 output_message =

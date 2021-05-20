@@ -27,7 +27,7 @@ namespace tomcat {
                 int time_step,
                 const Eigen::MatrixXd& probability_table,
                 const CPD::TableOrderingMap& transition_ordering_map,
-                const CPD::TableOrderingMap& duration_ordering_map);
+                const CPD::TableOrderingMap& total_ordering_map);
 
             ~SegmentTransitionFactorNode();
 
@@ -119,16 +119,9 @@ namespace tomcat {
                 int template_time_step,
                 Direction direction) const;
 
-            Tensor3 get_message_out_of_segments(
-                const std::shared_ptr<MessageNode>& template_target_node,
-                int template_time_step,
-                Direction direction) const;
-
             /**
              * Gets a tensor with indexing vectors for a segment duration.
              *
-             * @param target_node_label: label of the node to which messages
-             * are being computed
              * @param template_time_step: time step of this factor node
              * template
              * @param to_expansion_factor: whether the message is being
@@ -136,8 +129,7 @@ namespace tomcat {
              *
              * @return Indexing tensor
              */
-            Tensor3 get_indexing_tensor(const std::string& target_node_label,
-                                        int template_time_step,
+            Tensor3 get_indexing_tensor(int template_time_step,
                                         bool to_expansion_factor) const;
 
             /**
@@ -172,7 +164,7 @@ namespace tomcat {
             std::unordered_map<int, Tensor3>
                 incoming_next_segment_messages_per_time_slice;
 
-            CPD::TableOrderingMap duration_ordering_map;
+            CPD::TableOrderingMap total_ordering_map;
 
             int timed_node_cardinality;
 

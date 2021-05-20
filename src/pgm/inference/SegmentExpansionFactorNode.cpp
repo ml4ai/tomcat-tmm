@@ -12,16 +12,34 @@ namespace tomcat {
             const string& label,
             int time_step,
             const DistributionPtrVec& duration_distributions,
-            const CPD::TableOrderingMap& duration_ordering_map)
+            const CPD::TableOrderingMap& duration_ordering_map,
+            const CPD::TableOrderingMap& total_ordering_map)
             : FactorNode(compose_label(label),
                          time_step,
                          duration_distributions,
                          duration_ordering_map,
-                         "") {
+                         ""),
+              total_ordering_map(total_ordering_map) {
 
             for (const auto& [label, indexing_scheme] : duration_ordering_map) {
                 if (indexing_scheme.order == 0) {
                     this->timed_node_cardinality = indexing_scheme.cardinality;
+                    break;
+                }
+            }
+
+            // We store the number of combinations of the dependencies of the
+            // transition distribution that are not dependencies of the
+            // duration distribution. We need this information to replicate the
+            // discount factors to match the number of possible combinations
+            // between duration and transition dependencies' values.
+            int num_duration_dependencies = duration_ordering_map.size();
+            for (const auto& [node_label, indexing_scheme] :
+                 total_ordering_map) {
+                if (indexing_scheme.order == num_duration_dependencies) {
+                    this->transition_total_cardinality =
+                        indexing_scheme.cardinality *
+                        indexing_scheme.right_cumulative_cardinality;
                     break;
                 }
             }
@@ -60,6 +78,7 @@ namespace tomcat {
             this->closing_segment_discount = node.closing_segment_discount;
             this->extended_segment_discount = node.extended_segment_discount;
             this->timed_node_cardinality = node.timed_node_cardinality;
+            this->total_ordering_map = node.total_ordering_map;
         }
 
         void SegmentExpansionFactorNode::set_incoming_message_from(
@@ -137,17 +156,13 @@ namespace tomcat {
                 // dependencies of the duration distribution.
                 Tensor3 indexing_tensor = this->get_indexing_tensor(
                     template_target_node->get_label(), template_time_step);
-
-                indexing_tensor =
-                    indexing_tensor.reshape(indexing_tensor.get_shape()[1],
-                                            1,
-                                            indexing_tensor.get_shape()[2]);
                 indexing_tensor.transpose_matrices();
 
                 if (template_time_step == 0 &&
                     !EXISTS(
                         0,
                         this->incoming_last_segment_messages_per_time_slice)) {
+
                     // Prior
                     output_message =
                         Tensor3::ones(indexing_tensor.get_shape()[0],
@@ -173,49 +188,45 @@ namespace tomcat {
             // Put the incoming messages in order according to the indexing
             // scheme of the potential function.
 
+            Tensor3 indexing_tensor;
+
             if (!EXISTS(template_time_step,
                         this->incoming_messages_per_time_slice)) {
                 int num_data_points =
                     this->incoming_last_segment_messages_per_time_slice
                         .at(template_time_step)
                         .get_shape()[0];
-                return Tensor3::ones(num_data_points, 1, 1);
+                indexing_tensor = Tensor3::ones(num_data_points, 1, 1);
             }
+            else {
+                const MessageContainer& message_container =
+                    this->incoming_messages_per_time_slice.at(
+                        template_time_step);
+                vector<Tensor3> incoming_messages(message_container.size());
 
-            const MessageContainer& message_container =
-                this->incoming_messages_per_time_slice.at(template_time_step);
-            vector<Tensor3> incoming_messages(message_container.size());
-            for (const auto& [incoming_node_name, incoming_message] :
-                 message_container.node_name_to_messages) {
-                auto [incoming_node_label, incoming_node_time_step] =
-                    MessageNode::strip(incoming_node_name);
+                for (const auto& [incoming_node_name, incoming_message] :
+                     message_container.node_name_to_messages) {
+                    auto [incoming_node_label, incoming_node_time_step] =
+                        MessageNode::strip(incoming_node_name);
+                    // There's only one non-segment node sending message to this
+                    // factor, which is a joint node (duration + transition
+                    // dependencies). The message from that node is the indexing
+                    // tensor. We just need to reshape it so that different data
+                    // points are distributed across the depth of the tensor.
 
-                const auto& indexing_scheme =
-                    this->original_potential.potential.ordering_map.at(
-                        incoming_node_label);
-
-                // The first index in the distribution belongs to a time
-                // controlled node which is not a neighbor of this factor
-                // node. Therefore, we subtract 1 from the order to find the
-                // right index.
-                int idx = indexing_scheme.order - 1;
-
-                if (target_node_label == incoming_node_label) {
-                    // If the node we are computing messages to is one of
-                    // the indexing nodes of the duration distribution, we
-                    // ignore messages from it when computing the message
-                    // that goes to it. We can do so by replacing its
-                    // outcome message by a uniform one.
-                    const auto& shape = incoming_message.get_shape();
-                    incoming_messages[idx] =
-                        Tensor3::ones(shape.at(0), shape.at(1), shape.at(2));
-                }
-                else {
-                    incoming_messages[idx] = incoming_message;
+                    // The first index in the distribution belongs to a time
+                    // controlled node which is not a neighbor of this factor
+                    // node. Therefore, we subtract 1 from the order to find the
+                    // right index.
+                    indexing_tensor = incoming_message.reshape(
+                        incoming_message.get_shape()[1],
+                        1,
+                        incoming_message.get_shape()[2]);
+                    break;
                 }
             }
 
-            return this->get_cartesian_tensor(incoming_messages);
+            return indexing_tensor;
         }
 
         Tensor3 SegmentExpansionFactorNode::expand_segment(
@@ -267,35 +278,15 @@ namespace tomcat {
             }
 
             // Marginalize segments and states out
-            segment_table = segment_table.sum_cols();
-            const auto& indexing_scheme =
-                this->original_potential.potential.ordering_map.at(
-                    template_target_node->get_label());
+            Tensor3 output_message = segment_table.sum_cols();
+            output_message.transpose_matrices();
+            output_message =
+                output_message.reshape(1,
+                                       output_message.get_shape()[0],
+                                       output_message.get_shape()[2]);
+            output_message.normalize_rows();
 
-            Tensor3 indexing_tensor = this->get_indexing_tensor(
-                template_target_node->get_label(), template_time_step);
-            Eigen::MatrixXd message_matrix = Eigen::MatrixXd::Zero(
-                segment_table.get_shape().at(0), indexing_scheme.cardinality);
-            for (int i = 0; i < segment_table.get_shape().at(0); i++) {
-                // Indexing tensor contains only  Each row of this
-                // matrix contains an indexing vector
-                Eigen::MatrixXd rotated_duration_indexing = this->rotate_table(
-                    indexing_tensor(0, 0).row(i).transpose(),
-                    indexing_scheme.cardinality,
-                    indexing_scheme.right_cumulative_cardinality);
-
-                Eigen::MatrixXd rotated_segment_duration = this->rotate_table(
-                    segment_table(i, 0),
-                    indexing_scheme.cardinality,
-                    indexing_scheme.right_cumulative_cardinality);
-
-                message_matrix.row(i) = (rotated_duration_indexing.array() *
-                                         rotated_segment_duration.array())
-                                            .colwise()
-                                            .sum();
-            }
-
-            return Tensor3(message_matrix);
+            return output_message;
         }
 
         void SegmentExpansionFactorNode::update_discount_factors(
@@ -331,12 +322,17 @@ namespace tomcat {
                 // will store the parent nodes in the rows of the
                 // discount table and the joint (timed nodes, duration)
                 // in the columns of the matrix.
-                int rows = num_distributions / this->timed_node_cardinality;
+                int duration_rows =
+                    num_distributions / this->timed_node_cardinality;
+                int total_rows =
+                    duration_rows * this->transition_total_cardinality;
                 int cols = timed_node_cardinality * time_step;
                 int previous_cols = this->closing_segment_discount.cols();
 
-                this->closing_segment_discount.conservativeResize(rows, cols);
-                this->extended_segment_discount.conservativeResize(rows, cols);
+                this->closing_segment_discount.conservativeResize(total_rows,
+                                                                  cols);
+                this->extended_segment_discount.conservativeResize(total_rows,
+                                                                   cols);
 
                 for (int t = previous_cols / this->timed_node_cardinality;
                      t < time_step;
@@ -347,15 +343,32 @@ namespace tomcat {
                     for (const auto& distribution :
                          this->original_potential.potential.distributions) {
 
-                        int row = i % rows;
-                        int col = (t * this->timed_node_cardinality) + i / rows;
-                        this->closing_segment_discount(row, col) =
-                            distribution->get_pdf(t) /
-                            (distribution->get_cdf(t - 1, true) + EPSILON);
+                        int row = i % duration_rows;
+                        int col = (t * this->timed_node_cardinality) +
+                                  i / duration_rows;
+                        double cdf = distribution->get_cdf(t - 1, true);
+                        double value_closing_segment = 0;
+                        double value_opening_segment = 0;
 
-                        this->extended_segment_discount(row, col) =
-                            distribution->get_cdf(t, true) /
-                            (distribution->get_cdf(t - 1, true) + EPSILON);
+                        if (cdf != 0) {
+                            value_closing_segment =
+                                distribution->get_pdf(t) / cdf;
+                            value_opening_segment =
+                                distribution->get_cdf(t, true) / cdf;
+                        }
+
+                        // Values replicated for rows that represent
+                        // combinations of values from dependencies of the
+                        // segment transition only.
+                        for (int j = 0; j < this->transition_total_cardinality;
+                             j++) {
+                            this->closing_segment_discount(
+                                j + row * this->transition_total_cardinality,
+                                col) = value_closing_segment;
+                            this->extended_segment_discount(
+                                j + row * this->transition_total_cardinality,
+                                col) = value_opening_segment;
+                        }
 
                         i += 1;
                     }

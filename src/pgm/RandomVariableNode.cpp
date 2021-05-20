@@ -595,6 +595,20 @@ namespace tomcat {
             return !this->timer_children_per_time_step.empty();
         }
 
+        bool RandomVariableNode::is_segment_dependency() const {
+            if (this->timer_children_per_time_step.size() > 0) return true;
+
+            for(const auto& child :
+                this->children_per_time_step[this->metadata->get_initial_time_step()]) {
+                if (dynamic_pointer_cast<RandomVariableNode>(child)
+                    ->has_timer()){
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------

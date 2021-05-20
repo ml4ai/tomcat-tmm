@@ -324,8 +324,6 @@ namespace tomcat {
             // --------------------------------------------------------
             int get_time_steps() const;
 
-            bool is_exact_inference_allowed() const;
-
           private:
             //------------------------------------------------------------------
             // Types, Enums & Constants
@@ -467,11 +465,6 @@ namespace tomcat {
 
             // If unrolled, the number of time steps the DBN was unrolled into
             int time_steps = 0;
-
-            // Indicates whether the model allows exact inference. This is
-            // set to true here if the model has no timers and none of the
-            // nodes follows a continuous distribution.
-            bool exact_inference_allowed = true;
         };
 
     } // namespace model

@@ -42,7 +42,6 @@ namespace tomcat {
             if (node->get_metadata()->is_timer()) {
                 node_ptr = make_shared<TimerNode>(
                     *dynamic_cast<TimerNode*>(node->clone().get()));
-                this->exact_inference_allowed = false;
             }
             else {
                 node_ptr = make_shared<RandomVariableNode>(
@@ -287,15 +286,6 @@ namespace tomcat {
                 // its parents.
                 shared_ptr<CPD> cpd = rv_node->get_cpd_for(parent_labels);
                 rv_node->set_cpd(cpd);
-
-                // If the node's CPD does not follow a discrete distribution,
-                // we cannot use the exact inference method implemented in
-                // this library.
-                // TODO - allow to use sum product when the continuous
-                //  distribution is Gaussian
-                if (rv_node->is_continuous()) {
-                    this->exact_inference_allowed = false;
-                }
             }
         }
 
@@ -700,10 +690,6 @@ namespace tomcat {
         //----------------------------------------------------------------------
 
         int DynamicBayesNet::get_time_steps() const { return time_steps; }
-
-        bool DynamicBayesNet::is_exact_inference_allowed() const {
-            return exact_inference_allowed;
-        }
 
     } // namespace model
 } // namespace tomcat

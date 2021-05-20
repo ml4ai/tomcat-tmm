@@ -163,6 +163,15 @@ namespace tomcat {
             return new_tensor;
         }
 
+        Tensor3 Tensor3::operator*(double value) const {
+            Tensor3 new_tensor = *this;
+            for (auto& matrix : new_tensor.tensor) {
+                matrix = matrix.array() * value;
+            }
+
+            return new_tensor;
+        }
+
         Eigen::MatrixXd
         Tensor3::operator==(const Eigen::VectorXd& value) const {
             Tensor3 new_tensor;
@@ -821,6 +830,14 @@ namespace tomcat {
                     }
                 }
             }
+        }
+
+        Eigen::MatrixXd::RowXpr Tensor3::row(int depth, int row_idx) {
+            return this->tensor[depth].row(row_idx);
+        }
+
+        Eigen::MatrixXd::ColXpr Tensor3::col(int depth, int col_idx) {
+            return this->tensor[depth].col(col_idx);
         }
 
     } // namespace model

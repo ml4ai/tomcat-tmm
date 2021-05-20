@@ -8,6 +8,7 @@
 #include "pgm/TimerNode.h"
 #include "pgm/cpd/CPD.h"
 #include "pgm/inference/FactorNode.h"
+#include "pgm/inference/MarginalizationFactorNode.h"
 #include "pgm/inference/SegmentExpansionFactorNode.h"
 #include "pgm/inference/SegmentMarginalizationFactorNode.h"
 #include "pgm/inference/SegmentTransitionFactorNode.h"
@@ -41,6 +42,7 @@ namespace tomcat {
                                        FactorGraph& factor_graph) {
 
             RVNodePtrVec multitime_nodes;
+            RVNodePtrVec timed_nodes;
 
             for (const auto& node : dbn.get_nodes_topological_order()) {
                 if (!node->get_metadata()->is_parameter()) {
@@ -53,7 +55,7 @@ namespace tomcat {
 
                     if (random_variable->get_time_step() <= 2) {
                         if (random_variable->has_timer()) {
-                            factor_graph.add_timed_node(random_variable);
+                            timed_nodes.push_back(random_variable);
                         }
                         else {
                             if (random_variable->get_metadata()
@@ -81,14 +83,24 @@ namespace tomcat {
                 // prevents us from doing message passing backwards in time to
                 // update the multitime node in the past.
 
-                // The cpd table is the identity to make sure all
-                // messages aggregated in the previous copy of the
-                // node will be fully passed to the copy in the next
-                // time step.
                 int cardinality =
                     random_variable->get_metadata()->get_cardinality();
-                Eigen::MatrixXd cpd_table =
-                    Eigen::MatrixXd::Identity(cardinality, cardinality);
+                Eigen::MatrixXd cpd_table;
+                if (random_variable->is_segment_dependency()) {
+                    // Messages are not passed forward because they are
+                    // incorporated in the joint node that handles a segment.
+                    // Messages of the joint node pass forward in time instead.
+                    cpd_table = Eigen::MatrixXd::Ones(cardinality, cardinality);
+                }
+                else {
+                    // The cpd table is the identity to make sure all
+                    // messages aggregated in the previous copy of the
+                    // node will be fully passed to the copy in the next
+                    // time step.
+                    cpd_table =
+                        Eigen::MatrixXd::Identity(cardinality, cardinality);
+                }
+
                 ParentIndexing indexing(0, cardinality, 1);
                 CPD::TableOrderingMap ordering_map;
                 ordering_map[random_variable->get_metadata()->get_label()] =
@@ -109,6 +121,11 @@ namespace tomcat {
 
                     factor_graph.add_edge(node_label, t - 1, node_label, t);
                 }
+            }
+
+            // Add timed nodes
+            for (const auto& timed_node : timed_nodes) {
+                factor_graph.add_timed_node(timed_node);
             }
         }
 
@@ -137,16 +154,28 @@ namespace tomcat {
                                 ->get_initial_time_step() ==
                             target_node->get_time_step()) {
                             // Prior. In that case, we link the parent directly
-                            // to the child node.
+                            // to the child node and segment joint node.
                             source_label =
                                 source_node->get_metadata()->get_label();
                             target_label =
                                 target_node->get_metadata()->get_label();
+
+                            factor_graph.add_edge(source_label,
+                                                  source_node->get_time_step(),
+                                                  target_label,
+                                                  target_node->get_time_step());
+
+                            target_label =
+                                MarginalizationFactorNode::compose_label(
+                                    compose_joint_node_label(
+                                        VariableNode::compose_segment_label(
+                                            target_node->get_metadata()
+                                                ->get_label())));
                         }
                         else {
                             if (source_node->get_next() == target_node) {
-                                // Transition link. In that case we link
-                                // consecutive segments of the node
+                                // From one segment to the expansion factor
+                                // of the next segment.
                                 source_label =
                                     VariableNode::compose_segment_label(
                                         source_node->get_metadata()
@@ -157,14 +186,16 @@ namespace tomcat {
                                             ->get_label());
                             }
                             else {
-                                // We link the original source to the
-                                // transition factor node of the target segment
+                                // Link between dependencies of a segment and
+                                // the segment dependencies joint node.
                                 source_label =
                                     source_node->get_metadata()->get_label();
                                 target_label =
-                                    SegmentTransitionFactorNode::compose_label(
-                                        target_node->get_metadata()
-                                            ->get_label());
+                                    MarginalizationFactorNode::compose_label(
+                                        compose_joint_node_label(
+                                            VariableNode::compose_segment_label(
+                                                target_node->get_metadata()
+                                                    ->get_label())));
                             }
                         }
                     }
@@ -177,16 +208,20 @@ namespace tomcat {
                         }
                         else {
                             // We link the original source to the
-                            // expansion factor node of the target segment,
-                            // which controls the segment duration
+                            // marginalization factor of the joint node that
+                            // represent segment dependencies
                             source_label =
                                 source_node->get_metadata()->get_label();
+                            const string& timed_node_label =
+                                dynamic_pointer_cast<TimerNode>(target_node)
+                                    ->get_controlled_node()
+                                    ->get_metadata()
+                                    ->get_label();
                             target_label =
-                                SegmentExpansionFactorNode::compose_label(
-                                    dynamic_pointer_cast<TimerNode>(target_node)
-                                        ->get_controlled_node()
-                                        ->get_metadata()
-                                        ->get_label());
+                                MarginalizationFactorNode::compose_label(
+                                    compose_joint_node_label(
+                                        VariableNode::compose_segment_label(
+                                            timed_node_label)));
                         }
                     }
                     else {
@@ -194,6 +229,7 @@ namespace tomcat {
                         target_label = target_node->get_metadata()->get_label();
                     }
 
+                    // Add edge
                     if (source_node->get_metadata()->is_multitime()) {
                         // Copies were created over time when nodes were created
                         factor_graph.add_edge(source_label,
@@ -209,6 +245,11 @@ namespace tomcat {
                     }
                 }
             }
+        }
+
+        string FactorGraph::compose_joint_node_label(
+            const std::string& segment_expansion_factor_label) {
+            return "j(" + segment_expansion_factor_label + ")";
         }
 
         //----------------------------------------------------------------------
@@ -230,27 +271,29 @@ namespace tomcat {
 
             // Link the timed node to the segment node via a marginalization
             // factor
-            int num_segment_rows = random_variable->get_timer()
-                                       ->get_cpd()
-                                       ->get_distributions()
-                                       .size() /
-                                   cardinality;
-            int marg_factor = this->add_segment_marginalization_factor_node(
+            const auto& timer = random_variable->get_timer();
+            CPD::TableOrderingMap total_ordering_map =
+                this->get_segment_total_ordering_map(
+                    timer->get_cpd()->get_parent_label_to_indexing(),
+                    random_variable->get_cpd()->get_parent_label_to_indexing());
+
+            int num_segment_rows = total_ordering_map.at(timed_node_label)
+                                       .right_cumulative_cardinality;
+            int seg_marg_factor = this->add_segment_marginalization_factor_node(
                 timed_node_label,
                 random_variable->get_time_step(),
                 num_segment_rows);
 
-            boost::add_edge(marg_factor, timed_node_id, this->graph);
-            boost::add_edge(segment_node_id, marg_factor, this->graph);
+            boost::add_edge(seg_marg_factor, timed_node_id, this->graph);
+            boost::add_edge(segment_node_id, seg_marg_factor, this->graph);
 
             // Expansion factor
-            const auto& timer = random_variable->get_timer();
-
             int exp_factor = this->add_segment_expansion_factor_node(
                 timed_node_label,
                 random_variable->get_time_step(),
                 timer->get_cpd()->get_distributions(),
-                timer->get_cpd()->get_parent_label_to_indexing());
+                timer->get_cpd()->get_parent_label_to_indexing(),
+                total_ordering_map);
 
             // Create prior factor in the timed node
             if (random_variable->get_metadata()->get_initial_time_step() ==
@@ -272,10 +315,59 @@ namespace tomcat {
                     random_variable->get_time_step(),
                     random_variable->get_cpd()->get_table(0),
                     random_variable->get_cpd()->get_parent_label_to_indexing(),
-                    timer->get_cpd()->get_parent_label_to_indexing());
+                    total_ordering_map);
 
                 boost::add_edge(exp_factor, trans_factor, this->graph);
                 boost::add_edge(trans_factor, segment_node_id, this->graph);
+            }
+
+            // Joint segment dependencies
+            cardinality = num_segment_rows;
+            if (cardinality > 1) {
+                // There are dependencies to the duration or transition
+                // distributions other than the times controlled node itself.
+                string joint_label = compose_joint_node_label(
+                    VariableNode::compose_segment_label(timed_node_label));
+
+                int joint_node_id = this->add_variable_node(
+                    joint_label, cardinality, random_variable->get_time_step());
+
+                CPD::TableOrderingMap joint_ordering_map = total_ordering_map;
+                joint_ordering_map.erase(timed_node_label);
+                for (auto& [node_label, indexing_scheme] : joint_ordering_map) {
+                    indexing_scheme.order -= 1;
+                }
+
+                int marg_factor = this->add_marginalization_factor_node(
+                    joint_label,
+                    random_variable->get_time_step(),
+                    joint_ordering_map,
+                    joint_label);
+
+                boost::add_edge(marg_factor, joint_node_id, this->graph);
+                boost::add_edge(joint_node_id, exp_factor, this->graph);
+
+                if (random_variable->get_time_step() >
+                    random_variable->get_metadata()->get_initial_time_step()) {
+                    // Link joint nodes over time
+                    Eigen::MatrixXd cpd_table =
+                        Eigen::MatrixXd::Identity(cardinality, cardinality);
+                    ParentIndexing indexing(0, cardinality, 1);
+                    CPD::TableOrderingMap ordering_map;
+                    ordering_map[joint_label] = indexing;
+
+                    int factor_id =
+                        add_factor_node(joint_label,
+                                        random_variable->get_time_step(),
+                                        cpd_table,
+                                        ordering_map);
+                    boost::add_edge(factor_id, joint_node_id, this->graph);
+
+                    add_edge(joint_label,
+                             random_variable->get_time_step() - 1,
+                             joint_label,
+                             random_variable->get_time_step());
+                }
             }
         }
 
@@ -348,6 +440,51 @@ namespace tomcat {
             return vertex_id;
         }
 
+        CPD::TableOrderingMap FactorGraph::get_segment_total_ordering_map(
+            const CPD::TableOrderingMap& duration_ordering_map,
+            const CPD::TableOrderingMap& transition_ordering_map) const {
+
+            CPD::TableOrderingMap total_ordering_map = duration_ordering_map;
+
+            int num_transition_dependencies = 0;
+            for (const auto& [node_label, indexing_scheme] :
+                 transition_ordering_map) {
+                if (!EXISTS(node_label, duration_ordering_map)) {
+                    num_transition_dependencies++;
+                }
+            }
+
+            int order =
+                duration_ordering_map.size() + num_transition_dependencies - 1;
+            int rcc = 1;
+            for (const auto& [node_label, indexing_scheme] :
+                 transition_ordering_map) {
+                if (!EXISTS(node_label, duration_ordering_map)) {
+                    total_ordering_map[node_label] =
+                        ParentIndexing(order, indexing_scheme.cardinality, rcc);
+                    rcc *= indexing_scheme.cardinality;
+                    order--;
+                }
+            }
+
+            vector<string> ordered_index_nodes(duration_ordering_map.size());
+            for (const auto& [node_label, indexing_scheme] :
+                 duration_ordering_map) {
+                ordered_index_nodes[indexing_scheme.order] = node_label;
+            }
+
+            // Update right cumulative cardinality of the nodes in the
+            // duration ordering map in the total ordering map
+            for (int i = ordered_index_nodes.size() - 1; i >= 0; i--) {
+                auto& indexing_scheme =
+                    total_ordering_map[ordered_index_nodes.at(i)];
+                indexing_scheme.right_cumulative_cardinality = rcc;
+                rcc *= indexing_scheme.cardinality;
+            }
+
+            return total_ordering_map;
+        }
+
         int FactorGraph::add_segment_marginalization_factor_node(
             const string& node_label, int time_step, int num_segment_rows) {
 
@@ -362,12 +499,28 @@ namespace tomcat {
             return vertex_id;
         }
 
+        int FactorGraph::add_marginalization_factor_node(
+            const string& node_label,
+            int time_step,
+            const CPD::TableOrderingMap& joint_ordering_map,
+            const string& joint_node_label) {
+
+            int vertex_id = boost::add_vertex(this->graph);
+            this->graph[vertex_id] = make_shared<MarginalizationFactorNode>(
+                node_label, time_step, joint_ordering_map, joint_node_label);
+
+            string factor_name = this->graph[vertex_id]->get_name();
+            this->name_to_id[factor_name] = vertex_id;
+
+            return vertex_id;
+        }
+
         int FactorGraph::add_segment_transition_factor_node(
             const string& node_label,
             int time_step,
             const Eigen::MatrixXd& transition_probability_table,
             const CPD::TableOrderingMap& transition_ordering_map,
-            const CPD::TableOrderingMap& duration_ordering_map) {
+            const CPD::TableOrderingMap& total_ordering_map) {
 
             int vertex_id = boost::add_vertex(this->graph);
             this->graph[vertex_id] = make_shared<SegmentTransitionFactorNode>(
@@ -375,7 +528,7 @@ namespace tomcat {
                 time_step,
                 transition_probability_table,
                 transition_ordering_map,
-                duration_ordering_map);
+                total_ordering_map);
 
             string factor_name = this->graph[vertex_id]->get_name();
             this->name_to_id[factor_name] = vertex_id;
@@ -387,14 +540,16 @@ namespace tomcat {
             const string& node_label,
             int time_step,
             const DistributionPtrVec& duration_distributions,
-            const CPD::TableOrderingMap& duration_ordering_map) {
+            const CPD::TableOrderingMap& duration_ordering_map,
+            const CPD::TableOrderingMap& total_ordering_map) {
 
             int vertex_id = boost::add_vertex(this->graph);
             this->graph[vertex_id] =
                 make_shared<SegmentExpansionFactorNode>(node_label,
                                                         time_step,
                                                         duration_distributions,
-                                                        duration_ordering_map);
+                                                        duration_ordering_map,
+                                                        total_ordering_map);
 
             string factor_name = this->graph[vertex_id]->get_name();
             this->name_to_id[factor_name] = vertex_id;

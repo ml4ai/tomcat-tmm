@@ -26,7 +26,8 @@ namespace tomcat {
                 const std::string& label,
                 int time_step,
                 const DistributionPtrVec& duration_distributions,
-                const CPD::TableOrderingMap& duration_ordering_map);
+                const CPD::TableOrderingMap& duration_ordering_map,
+                const CPD::TableOrderingMap& total_ordering_map);
 
             ~SegmentExpansionFactorNode();
 
@@ -194,6 +195,11 @@ namespace tomcat {
             // Data members
             //------------------------------------------------------------------
 
+            // Order of the duration and transition dependencies. Segment
+            // messages will contain a row for each combination of duration
+            // and transition dependencies' values.
+            CPD::TableOrderingMap total_ordering_map;
+
             std::unordered_map<int, Tensor3>
                 incoming_last_segment_messages_per_time_slice;
 
@@ -208,7 +214,9 @@ namespace tomcat {
 
             mutable Eigen::MatrixXd extended_segment_discount;
 
-            int timed_node_cardinality;
+            int timed_node_cardinality = 1;
+
+            int transition_total_cardinality = 1;
         };
 
     } // namespace model

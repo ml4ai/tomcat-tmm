@@ -144,6 +144,16 @@ namespace tomcat {
             Tensor3 operator/(double value) const;
 
             /**
+             * Returns the tensor formed by the element-wise scalar
+             * multiplication of a tensor.
+             *
+             * @param value: value to multiply the elements of a tensor
+             *
+             * @return Element-wise scalar multiplication of a tensor.
+             */
+            Tensor3 operator*(double value) const;
+
+            /**
              * Returns a 1 x m x n tensor comprised by ones where the
              * coefficients along axis 0 are equal to value, and zero otherwise.
              *
@@ -607,6 +617,28 @@ namespace tomcat {
              * to 1.
              */
             void normalize_rows();
+
+            /**
+             * Gets an assignable reference to a specific row in one of the
+             * matrices in the first axis of the tensor.
+             *
+             * @param depth: index of the first axis
+             * @param row_idx: index of the row
+             *
+             * @return Assignable row
+             */
+            Eigen::MatrixXd::RowXpr row(int depth, int row_idx);
+
+            /**
+             * Gets an assignable reference to a specific column in one of the
+             * matrices in the first axis of the tensor.
+             *
+             * @param depth: index of the first axis
+             * @param col_idx: index of the column
+             *
+             * @return Assignable row
+             */
+            Eigen::MatrixXd::ColXpr col(int depth, int col_idx);
 
           private:
             //------------------------------------------------------------------

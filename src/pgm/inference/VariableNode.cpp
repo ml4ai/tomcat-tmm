@@ -82,17 +82,34 @@ namespace tomcat {
                         outward_message = incoming_message;
                     }
                     else {
-                        outward_message =
-                            outward_message * incoming_message;
+                        outward_message = outward_message * incoming_message;
                     }
                 }
 
-                if(!this->is_segment() || template_target_node->is_segment()) {
+                if ((this->is_segment() && template_target_node->is_segment() &&
+                    direction == Direction::forward) || !this->segment) {
+
+
+                    outward_message.normalize_rows();
+
+
                     // We do not marginalize if a segment is sending a
                     // message to a marginalization factor, otherwise we
                     // would lose the contribution of the dependencies of the
                     // segment duration distribution
-                    outward_message.normalize_rows();
+//                    if (this->is_segment() &&
+//                        template_target_node->is_segment() &&
+//                        direction == Direction::forward) {
+//                       cout << outward_message << endl;
+//                    }
+
+//                    outward_message.normalize_rows();
+
+//                    if (this->is_segment() &&
+//                        template_target_node->is_segment() &&
+//                        direction == Direction::forward) {
+//                        cout << outward_message << endl;
+//                    }
                 }
             }
 

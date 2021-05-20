@@ -26,7 +26,8 @@ void evaluate(const string& experiment_id,
               int num_samples,
               int num_jobs,
               bool baseline,
-              bool only_estimates) {
+              bool only_estimates,
+              bool exact_inference) {
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
     EvidenceSet test_data(data_dir);
@@ -37,8 +38,12 @@ void evaluate(const string& experiment_id,
     test_data.shrink_up_to(num_time_steps - 1);
 
     Experimentation experimentation(random_generator, experiment_id, model);
-    experimentation.add_estimators_from_json(
-        inference_json, burn_in, num_samples, num_jobs, baseline);
+    experimentation.add_estimators_from_json(inference_json,
+                                             burn_in,
+                                             num_samples,
+                                             num_jobs,
+                                             baseline,
+                                             exact_inference);
     experimentation.evaluate_and_save(params_dir,
                                       num_folds,
                                       eval_dir,
@@ -63,6 +68,7 @@ int main(int argc, char* argv[]) {
     int num_jobs;
     bool baseline;
     bool only_estimates;
+    bool exact_inference;
 
     po::options_description desc("Allowed options");
     desc.add_options()(
@@ -120,7 +126,10 @@ int main(int argc, char* argv[]) {
         "only_estimates",
         po::bool_switch(&only_estimates)->default_value(false),
         "If active, performance is not computed. Only the probability "
-        "estimates over time.");
+        "estimates over time.")(
+        "exact",
+        po::bool_switch(&exact_inference)->default_value(false),
+        "Whether to use exact or approximate inference.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -150,5 +159,6 @@ int main(int argc, char* argv[]) {
              num_samples,
              num_jobs,
              baseline,
-             only_estimates);
+             only_estimates,
+             exact_inference);
 }

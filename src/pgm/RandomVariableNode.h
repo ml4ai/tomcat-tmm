@@ -304,6 +304,14 @@ namespace tomcat {
                                   int max_time_step_to_sample,
                                   bool use_weights_cache);
 
+            /**
+             * Checks whether the node is a parent of a timer node or a
+             * parent of a time controlled node.
+             *
+             * @return
+             */
+            bool is_segment_dependency() const;
+
             // -----------------------------------------------------------------
             // Getters & Setters
             // -----------------------------------------------------------------
