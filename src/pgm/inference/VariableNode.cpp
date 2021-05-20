@@ -86,30 +86,14 @@ namespace tomcat {
                     }
                 }
 
-                if ((this->is_segment() && template_target_node->is_segment() &&
-                    direction == Direction::forward) || !this->segment) {
-
-
+                if (!this->segment || template_target_node->is_segment()) {
+                    // If the node is a segment node, only normalize if the
+                    // message goes to a segment factor. This avoid
+                    // normalizing messages to a segment marginalization
+                    // factor, which would remove the contribution of the
+                    // segment dependencies to the time controlled node
+                    // probability.
                     outward_message.normalize_rows();
-
-
-                    // We do not marginalize if a segment is sending a
-                    // message to a marginalization factor, otherwise we
-                    // would lose the contribution of the dependencies of the
-                    // segment duration distribution
-//                    if (this->is_segment() &&
-//                        template_target_node->is_segment() &&
-//                        direction == Direction::forward) {
-//                       cout << outward_message << endl;
-//                    }
-
-//                    outward_message.normalize_rows();
-
-//                    if (this->is_segment() &&
-//                        template_target_node->is_segment() &&
-//                        direction == Direction::forward) {
-//                        cout << outward_message << endl;
-//                    }
                 }
             }
 

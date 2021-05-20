@@ -196,7 +196,7 @@ namespace tomcat {
             new_tensor.reserve(this->tensor.size());
 
             for (const auto& tensor_matrix : this->tensor) {
-                new_tensor.push_back(matrix.array() / tensor_matrix.array());
+                new_tensor.push_back(tensor_matrix.array() / matrix.array());
             }
 
             return Tensor3(new_tensor);
@@ -207,7 +207,7 @@ namespace tomcat {
 
             for (int i = 0; i < new_tensor.size(); i++) {
                 new_tensor[i] =
-                    tensor.tensor[i].array() / this->tensor[i].array();
+                    this->tensor[i].array() / tensor.tensor[i].array();
             }
 
             return Tensor3(new_tensor);
@@ -218,7 +218,7 @@ namespace tomcat {
             new_tensor.reserve(this->tensor.size());
 
             for (const auto& tensor_matrix : this->tensor) {
-                new_tensor.push_back(matrix.array() * tensor_matrix.array());
+                new_tensor.push_back(tensor_matrix.array() * matrix.array());
             }
 
             return Tensor3(new_tensor);
