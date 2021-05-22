@@ -36,9 +36,23 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Static functions
         //----------------------------------------------------------------------
-        std::string VariableNode::compose_segment_label(
-            const std::string& timed_node_label) {
+        string VariableNode::compose_segment_label(
+            const string& timed_node_label) {
             return "seg:" + timed_node_label;
+        }
+
+        string
+        VariableNode::compose_intermediary_label(const string& node_label) {
+            return "i:" + node_label;
+        }
+
+        string
+        VariableNode::remove_intermediary_marker(const string& node_label) {
+            if(node_label.rfind("i:", 0) == 0) {
+                return node_label.substr(2, node_label.size());
+            }
+
+            return node_label;
         }
 
         //----------------------------------------------------------------------

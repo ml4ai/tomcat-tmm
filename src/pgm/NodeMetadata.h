@@ -211,6 +211,14 @@ namespace tomcat {
              */
             bool is_multitime() const;
 
+            /**
+             * Whether the node has a link to itself one time step ahead into
+             * the future.
+             *
+             * @return
+             */
+            bool has_self_transition() const;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
@@ -354,6 +362,10 @@ namespace tomcat {
             // node. This allows us to prevent a timer node to be associated
             // with multiple nodes.
             bool connected = false;
+
+            // Whether the node has a self transition. Filled when parent links
+            // are informed.
+            bool self_transition = false;
         };
 
     } // namespace model

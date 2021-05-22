@@ -1,5 +1,7 @@
 #include "FactorNode.h"
 
+#include "pgm/inference/VariableNode.h"
+
 using namespace std;
 
 namespace tomcat {
@@ -166,7 +168,8 @@ namespace tomcat {
             else {
                 potential_function =
                     this->working_potential.node_label_to_rotated_potential.at(
-                        template_target_node->get_label());
+                        VariableNode::remove_intermediary_marker(
+                            template_target_node->get_label()));
             }
 
             // To achieve the correct indexing when multiplying incoming
@@ -278,6 +281,10 @@ namespace tomcat {
                     auto [incoming_node_label, incoming_node_time_step] =
                         MessageNode::strip(incoming_node_name);
 
+                    incoming_node_label =
+                        VariableNode::remove_intermediary_marker(
+                            incoming_node_label);
+
                     if (potential_function.duplicate_key ==
                         incoming_node_label) {
                         // The potential function matrix is indexed by another
@@ -287,7 +294,9 @@ namespace tomcat {
                         // by swapping the orders when we process the second
                         // entry with the same label.
 
-                        if (added_duplicate_key_order < 0) {
+                        if (added_duplicate_key_order < 0 &&
+                            EXISTS(incoming_node_label,
+                                   potential_function.ordering_map)) {
                             order = potential_function.ordering_map
                                         .at(incoming_node_label)
                                         .order;
@@ -381,7 +390,6 @@ namespace tomcat {
         void FactorNode::use_original_potential() {
             this->working_potential = this->original_potential;
         }
-
 
     } // namespace model
 } // namespace tomcat

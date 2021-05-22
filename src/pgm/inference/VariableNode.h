@@ -63,6 +63,29 @@ namespace tomcat {
             static std::string
             compose_segment_label(const std::string& timed_node_label);
 
+            /**
+             * Adds a marker to a label to identify it's an intermediary node
+             * (created to replicate a node one time step into the future).
+             *
+             * @param node_label: original node label
+             *
+             * @return Label of the intermediary node created for the original
+             * one
+             */
+            static std::string
+            compose_intermediary_label(const std::string& node_label);
+
+            /**
+             * Removes an intermediary node's marker from the label if there's
+             * such a maerker.
+             *
+             * @param node_label:node's label
+             *
+             * @return
+             */
+            static std::string
+            remove_intermediary_marker(const std::string& node_label);
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------

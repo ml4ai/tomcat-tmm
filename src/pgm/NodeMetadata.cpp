@@ -128,6 +128,8 @@ namespace tomcat {
             this->replicable_parameter_parent |=
                 parent_node->parameter && parent_node->replicable;
 
+            this->self_transition |= this->label == parent_node->label;
+
             ParentLink link{parent_node, time_crossing};
             this->parent_links.push_back(move(link));
         }
@@ -138,6 +140,10 @@ namespace tomcat {
 
         bool NodeMetadata::is_multitime() const {
             return !this->replicable && !this->single_time_link;
+        }
+
+        bool NodeMetadata::has_self_transition() const {
+            return this->self_transition;
         }
 
         //----------------------------------------------------------------------

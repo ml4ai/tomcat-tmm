@@ -41,7 +41,7 @@ namespace tomcat {
         void FactorGraph::create_nodes(const DynamicBayesNet& dbn,
                                        FactorGraph& factor_graph) {
 
-            RVNodePtrVec multitime_nodes;
+            RVNodePtrVec non_replicable_node;
             RVNodePtrVec timed_nodes;
 
             for (const auto& node : dbn.get_nodes_topological_order()) {
@@ -58,10 +58,10 @@ namespace tomcat {
                             timed_nodes.push_back(random_variable);
                         }
                         else {
-                            if (random_variable->get_metadata()
-                                    ->is_multitime()) {
+                            if (!random_variable->get_metadata()
+                                     ->is_replicable()) {
                                 // It will be added later
-                                multitime_nodes.push_back(random_variable);
+                                non_replicable_node.push_back(random_variable);
                             }
 
                             factor_graph.add_node(
@@ -77,11 +77,11 @@ namespace tomcat {
                 }
             }
 
-            for (const auto& random_variable : multitime_nodes) {
-                // We create copies of the multitime node at every subsequent
-                // time step to propagate the estimates computed so far. This
-                // prevents us from doing message passing backwards in time to
-                // update the multitime node in the past.
+            for (const auto& random_variable : non_replicable_node) {
+                // We create copies of the non replicable node at every
+                // subsequent time step to propagate the estimates computed so
+                // far. This prevents us from doing message passing backwards in
+                // time to update the only occurrence of the node in the past.
 
                 int cardinality =
                     random_variable->get_metadata()->get_cardinality();
@@ -119,7 +119,13 @@ namespace tomcat {
                         cpd_table,
                         ordering_map);
 
-                    factor_graph.add_edge(node_label, t - 1, node_label, t);
+                    if (random_variable->is_segment_dependency() ||
+                        random_variable->get_metadata()
+                            ->is_single_time_link()) {
+                        // Otherwise, links will be created using intermediary
+                        // nodes.
+                        factor_graph.add_edge(node_label, t - 1, node_label, t);
+                    }
                 }
             }
 
@@ -229,20 +235,83 @@ namespace tomcat {
                         target_label = target_node->get_metadata()->get_label();
                     }
 
-                    // Add edge
-                    if (source_node->get_metadata()->is_multitime()) {
-                        // Copies were created over time when nodes were created
-                        factor_graph.add_edge(source_label,
-                                              target_node->get_time_step(),
-                                              target_label,
-                                              target_node->get_time_step());
+                    // Time steps
+                    int source_time_step;
+                    int target_time_step;
+
+                    if (!source_node->get_metadata()->is_replicable() &&
+                        source_node->is_segment_dependency()) {
+                        // Copies were created over time
+                        // when nodes were created
+                        source_time_step = target_node->get_time_step();
+                        target_time_step = target_node->get_time_step();
                     }
                     else {
-                        factor_graph.add_edge(source_label,
-                                              source_node->get_time_step(),
-                                              target_label,
-                                              target_node->get_time_step());
+                        source_time_step = source_node->get_time_step();
+                        target_time_step = target_node->get_time_step();
+
+                        // If the link crosses time, we create a replica of the
+                        // source node into the future to avoid having to pass
+                        // messages backward in time when doing inference.
+                        if (target_time_step > source_time_step &&
+                            !source_node->has_timer() &&
+                            !source_node->is_segment_dependency()) {
+
+                            string intermediary_node_label =
+                                VariableNode::compose_intermediary_label(
+                                    source_label);
+                            string intermediary_node_name =
+                                MessageNode::get_name(intermediary_node_label,
+                                                      target_time_step);
+
+                            if (!EXISTS(intermediary_node_name,
+                                        factor_graph.name_to_id)) {
+                                int cardinality = source_node->get_metadata()
+                                                      ->get_cardinality();
+                                Eigen::MatrixXd cpd_table;
+
+                                // pass through function
+                                cpd_table = Eigen::MatrixXd::Identity(
+                                    cardinality, cardinality);
+
+                                ParentIndexing indexing(0, cardinality, 1);
+                                CPD::TableOrderingMap ordering_map;
+                                ordering_map[source_label] = indexing;
+
+                                factor_graph.add_node(intermediary_node_label,
+                                                      cardinality,
+                                                      target_time_step,
+                                                      cpd_table,
+                                                      ordering_map);
+
+                                factor_graph.add_edge(source_label,
+                                                      source_time_step,
+                                                      intermediary_node_label,
+                                                      target_time_step);
+
+                                if (!source_node->get_metadata()
+                                         ->has_self_transition()) {
+                                    // If a node does not link to itself, we
+                                    // need to link the intermediary node to it
+                                    // so messages can be properly propagated in
+                                    // the replicated instances of the node.
+                                    factor_graph.add_edge(
+                                        intermediary_node_label,
+                                        target_time_step,
+                                        source_label,
+                                        target_time_step);
+                                }
+                            }
+
+                            source_label = intermediary_node_label;
+                            source_time_step = target_time_step;
+                        }
                     }
+
+                    factor_graph.add_edge(source_label,
+                                          source_time_step,
+                                          target_label,
+                                          target_time_step);
                 }
             }
         }

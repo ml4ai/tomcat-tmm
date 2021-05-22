@@ -1,5 +1,7 @@
 #include "MarginalizationFactorNode.h"
 
+#include "pgm/inference/VariableNode.h"
+
 namespace tomcat {
     namespace model {
 
@@ -113,7 +115,8 @@ namespace tomcat {
 
                 const auto& ordering_map =
                     this->original_potential.potential.ordering_map.at(
-                        template_target_node->get_label());
+                        VariableNode::remove_intermediary_marker(
+                            template_target_node->get_label()));
 
                 // We will place the probability for each one of the values
                 // of the target node in the columns of a tensor. Each row
