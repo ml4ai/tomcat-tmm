@@ -36,8 +36,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Static functions
         //----------------------------------------------------------------------
-        string VariableNode::compose_segment_label(
-            const string& timed_node_label) {
+        string
+        VariableNode::compose_segment_label(const string& timed_node_label) {
             return "seg:" + timed_node_label;
         }
 
@@ -48,7 +48,7 @@ namespace tomcat {
 
         string
         VariableNode::remove_intermediary_marker(const string& node_label) {
-            if(node_label.rfind("i:", 0) == 0) {
+            if (node_label.rfind("i:", 0) == 0) {
                 return node_label.substr(2, node_label.size());
             }
 
@@ -79,35 +79,40 @@ namespace tomcat {
                     Tensor3(this->data_per_time_slice.at(template_time_step));
             }
             else {
-                MessageContainer message_container =
-                    this->incoming_messages_per_time_slice.at(
-                        template_time_step);
+                if (EXISTS(template_time_step,
+                           this->incoming_messages_per_time_slice)) {
+                    MessageContainer message_container =
+                        this->incoming_messages_per_time_slice.at(
+                            template_time_step);
 
-                for (const auto& [incoming_node_name, incoming_message] :
-                     message_container.node_name_to_messages) {
+                    for (const auto& [incoming_node_name, incoming_message] :
+                         message_container.node_name_to_messages) {
 
-                    if (incoming_node_name ==
-                        MessageNode::get_name(template_target_node->get_label(),
-                                              target_time_step)) {
-                        continue;
+                        if (incoming_node_name ==
+                            MessageNode::get_name(
+                                template_target_node->get_label(),
+                                target_time_step)) {
+                            continue;
+                        }
+
+                        if (outward_message.is_empty()) {
+                            outward_message = incoming_message;
+                        }
+                        else {
+                            outward_message =
+                                outward_message * incoming_message;
+                        }
                     }
 
-                    if (outward_message.is_empty()) {
-                        outward_message = incoming_message;
+                    if (!this->segment || template_target_node->is_segment()) {
+                        // If the node is a segment node, only normalize if the
+                        // message goes to a segment factor. This avoid
+                        // normalizing messages to a segment marginalization
+                        // factor, which would remove the contribution of the
+                        // segment dependencies to the time controlled node
+                        // probability.
+                        outward_message.normalize_rows();
                     }
-                    else {
-                        outward_message = outward_message * incoming_message;
-                    }
-                }
-
-                if (!this->segment || template_target_node->is_segment()) {
-                    // If the node is a segment node, only normalize if the
-                    // message goes to a segment factor. This avoid
-                    // normalizing messages to a segment marginalization
-                    // factor, which would remove the contribution of the
-                    // segment dependencies to the time controlled node
-                    // probability.
-                    outward_message.normalize_rows();
                 }
             }
 

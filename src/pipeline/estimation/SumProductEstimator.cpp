@@ -177,7 +177,7 @@ namespace tomcat {
                     }
                 }
 
-                if (parent_nodes.empty()) {
+                if (parent_nodes.empty() && node->is_factor()) {
                     // This vertex is a factor that represents the prior
                     // probability of the factor's child node.
                     int num_data_points =
@@ -216,14 +216,14 @@ namespace tomcat {
                             parent_incoming_messages_time_step = time_step - 1;
                         }
 
-//                        LOG("Forward");
-//                        cout << MessageNode::get_name(
-//                            parent_node->get_label(),
-//                            parent_incoming_messages_time_step)
-//                             << " -> "
-//                             << MessageNode::get_name(node->get_label(),
-//                                                      time_step)
-//                             << "\n";
+                        LOG("Forward");
+                        cout << MessageNode::get_name(
+                            parent_node->get_label(),
+                            parent_incoming_messages_time_step)
+                             << " -> "
+                             << MessageNode::get_name(node->get_label(),
+                                                      time_step)
+                             << "\n";
 
                         Tensor3 message = parent_node->get_outward_message_to(
                             node,
@@ -231,8 +231,8 @@ namespace tomcat {
                             time_step,
                             MessageNode::Direction::forward);
 
-//                        LOG(message);
-//                        LOG("");
+                        LOG(message);
+                        LOG("");
 
                         node->set_incoming_message_from(
                             parent_node,
@@ -298,14 +298,14 @@ namespace tomcat {
                         // being processed, so we do not process child nodes in
                         // a future time step.
                         if (time_diff == 0) {
-//                            LOG("Backward");
-//                            cout << MessageNode::get_name(node->get_label(),
-//                                                          time_step)
-//                                 << " <- "
-//                                 << MessageNode::get_name(
-//                                     child_node->get_label(), time_step)
-//
-//                                 << "\n";
+                            LOG("Backward");
+                            cout << MessageNode::get_name(node->get_label(),
+                                                          time_step)
+                                 << " <- "
+                                 << MessageNode::get_name(
+                                     child_node->get_label(), time_step)
+
+                                 << "\n";
 
                             Tensor3 message =
                                 child_node->get_outward_message_to(
@@ -314,8 +314,8 @@ namespace tomcat {
                                     time_step,
                                     MessageNode::Direction::backwards);
 
-//                            LOG(message);
-//                            LOG("");
+                            LOG(message);
+                            LOG("");
 
                             node->set_incoming_message_from(
                                 child_node,

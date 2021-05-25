@@ -85,11 +85,14 @@ namespace tomcat {
                                                const Tensor3& message,
                                                Direction direction) {
 
-            this->max_time_step_stored =
-                max(this->max_time_step_stored, target_time_step);
+            if(!message.is_empty()) {
+                this->max_time_step_stored =
+                    max(this->max_time_step_stored, target_time_step);
 
-            this->incoming_messages_per_time_slice[target_time_step]
-                .set_message_for(source_node_label, source_time_step, message);
+                this->incoming_messages_per_time_slice[target_time_step]
+                    .set_message_for(
+                        source_node_label, source_time_step, message);
+            }
         }
 
         string MessageNode::get_name() const {

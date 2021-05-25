@@ -246,101 +246,115 @@ namespace tomcat {
             int target_time_step,
             const PotentialFunction& potential_function) const {
 
-            int num_messages =
-                this->incoming_messages_per_time_slice.at(template_time_step)
-                    .size();
-            vector<Tensor3> messages_in_order(num_messages);
-            int added_duplicate_key_order = -1;
-            int added_duplicate_key_time_step = -1;
+            int num_messages = 0;
+            vector<Tensor3> messages_in_order;
 
-            MessageContainer message_container =
-                this->incoming_messages_per_time_slice.at(template_time_step);
+            if (EXISTS(template_time_step,
+                       this->incoming_messages_per_time_slice)) {
 
-            for (const auto& [incoming_node_name, incoming_message] :
-                 message_container.node_name_to_messages) {
+                num_messages = this->incoming_messages_per_time_slice
+                                   .at(template_time_step)
+                                   .size();
+                messages_in_order.resize(num_messages);
+                int added_duplicate_key_order = -1;
+                int added_duplicate_key_time_step = -1;
 
-                if (MessageNode::is_prior(incoming_node_name)) {
-                    // No parents. There's only one incoming message.
-                    messages_in_order.resize(1);
-                    messages_in_order[0] = incoming_message;
-                    break;
-                }
-                else {
-                    // Ignore messages that come from a specific node. Because
-                    // messages can go forward and backwards in the graph, when
-                    // computing the messages that go towards a target node via
-                    // this node, the messages that arrive in this node from
-                    // that same target have to be ignored.
-                    if (incoming_node_name ==
-                        MessageNode::get_name(ignore_label, target_time_step)) {
-                        messages_in_order.pop_back();
-                        continue;
+                MessageContainer message_container =
+                    this->incoming_messages_per_time_slice.at(
+                        template_time_step);
+
+                for (const auto& [incoming_node_name, incoming_message] :
+                     message_container.node_name_to_messages) {
+
+                    if (MessageNode::is_prior(incoming_node_name)) {
+                        // No parents. There's only one incoming message.
+                        messages_in_order.resize(1);
+                        messages_in_order[0] = incoming_message;
+                        break;
                     }
+                    else {
+                        // Ignore messages that come from a specific node.
+                        // Because messages can go forward and backwards in the
+                        // graph, when computing the messages that go towards a
+                        // target node via this node, the messages that arrive
+                        // in this node from that same target have to be
+                        // ignored.
+                        if (incoming_node_name ==
+                            MessageNode::get_name(ignore_label,
+                                                  target_time_step)) {
+                            messages_in_order.pop_back();
+                            continue;
+                        }
 
-                    int order = 0;
-                    auto [incoming_node_label, incoming_node_time_step] =
-                        MessageNode::strip(incoming_node_name);
+                        int order = 0;
+                        auto [incoming_node_label, incoming_node_time_step] =
+                            MessageNode::strip(incoming_node_name);
 
-                    incoming_node_label =
-                        VariableNode::remove_intermediary_marker(
-                            incoming_node_label);
+                        incoming_node_label =
+                            VariableNode::remove_intermediary_marker(
+                                incoming_node_label);
 
-                    if (potential_function.duplicate_key ==
-                        incoming_node_label) {
-                        // The potential function matrix is indexed by another
-                        // node with the same label. We need to detect the
-                        // correct order of this node somehow. We simply use the
-                        // order defined for one of the labels and adjust later
-                        // by swapping the orders when we process the second
-                        // entry with the same label.
+                        if (potential_function.duplicate_key ==
+                            incoming_node_label) {
+                            // The potential function matrix is indexed by
+                            // another node with the same label. We need to
+                            // detect the correct order of this node somehow. We
+                            // simply use the order defined for one of the
+                            // labels and adjust later by swapping the orders
+                            // when we process the second entry with the same
+                            // label.
 
-                        if (added_duplicate_key_order < 0 &&
-                            EXISTS(incoming_node_label,
-                                   potential_function.ordering_map)) {
+                            if (added_duplicate_key_order < 0 &&
+                                EXISTS(incoming_node_label,
+                                       potential_function.ordering_map)) {
+                                order = potential_function.ordering_map
+                                            .at(incoming_node_label)
+                                            .order;
+                                added_duplicate_key_order = order;
+                                added_duplicate_key_time_step =
+                                    incoming_node_time_step;
+                            }
+                            else {
+                                string alternative_key_label =
+                                    PotentialFunction::
+                                        get_alternative_key_label(
+                                            incoming_node_label);
+                                order = potential_function.ordering_map
+                                            .at(alternative_key_label)
+                                            .order;
+                                if (incoming_node_time_step <
+                                    added_duplicate_key_time_step) {
+                                    // This node is in the past with respect to
+                                    // the previous node with the same key
+                                    // processed. Therefore, they have to change
+                                    // position as the node's alternative key
+                                    // has to be in the future according to how
+                                    // CPDs were defined in this implementation.
+                                    // An CPD indexing node is never in the
+                                    // future regarding the CPD's main node.
+                                    // When CPDs were adjusted in this factor
+                                    // node, the main node was swapped with one
+                                    // of the indexing nodes and an alternative
+                                    // key was created if there was a conflict
+                                    // with an already existing label.
+                                    // Therefore, nodes with alternative keys
+                                    // can never be in the past and we must swap
+                                    // the order with the previously processed
+                                    // label of the same kind.
+                                    messages_in_order[order] = messages_in_order
+                                        [added_duplicate_key_order];
+                                    order = added_duplicate_key_order;
+                                }
+                            }
+                        }
+                        else {
                             order = potential_function.ordering_map
                                         .at(incoming_node_label)
                                         .order;
-                            added_duplicate_key_order = order;
-                            added_duplicate_key_time_step =
-                                incoming_node_time_step;
                         }
-                        else {
-                            string alternative_key_label =
-                                PotentialFunction::get_alternative_key_label(
-                                    incoming_node_label);
-                            order = potential_function.ordering_map
-                                        .at(alternative_key_label)
-                                        .order;
-                            if (incoming_node_time_step <
-                                added_duplicate_key_time_step) {
-                                // This node is in the past with respect to the
-                                // previous node with the same key processed.
-                                // Therefore, they have to change position as
-                                // the node's alternative key has to be in the
-                                // future according to how CPDs were defined in
-                                // this implementation. An CPD indexing node is
-                                // never in the future regarding the CPD's
-                                // main node. When CPDs were adjusted in this
-                                // factor node, the main node was swapped with
-                                // one of the indexing nodes and an alternative
-                                // key was created if there was a conflict with
-                                // an already existing label. Therefore, nodes
-                                // with alternative keys can never be in the
-                                // past and we must swap the order with the
-                                // previously processed label of the same kind.
-                                messages_in_order[order] = messages_in_order
-                                    [added_duplicate_key_order];
-                                order = added_duplicate_key_order;
-                            }
-                        }
-                    }
-                    else {
-                        order = potential_function.ordering_map
-                                    .at(incoming_node_label)
-                                    .order;
-                    }
 
-                    messages_in_order[order] = incoming_message;
+                        messages_in_order[order] = incoming_message;
+                    }
                 }
             }
 

@@ -805,7 +805,7 @@ BOOST_FIXTURE_TEST_CASE(sum_product, HMM) {
     SumProductEstimator yellow_estimator_h3(
         pre_trained_model, 3, YELLOW, VectorXd::Constant(1, 1));
     SumProductEstimator tc_estimator(pre_trained_model, 0, TC);
-
+        FactorGraph::create_from_unrolled_dbn(*pre_trained_model).print_graph(cout);
     // Green node is observed
     EvidenceSet data;
     data.add_data(GREEN, sampler.get_samples(GREEN));

@@ -292,6 +292,16 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
+             * Adds a copies of a non-replicable node at every time step. This
+             * makes it possible to propagate the estimates computed so far and
+             * prevents message passing backwards in time to update the only
+             * occurrence of the node in the past.
+             *
+             * @param random_variable: random variable
+             */
+            void add_non_replicable_node_copy(RVNodePtr random_variable);
+
+            /**
              * Adds nodes necessary to to inference in a random variable
              * controlled by a timer.
              *
@@ -330,13 +340,16 @@ namespace tomcat {
              * @param cpd: cpd table of the factor node's child
              * @param cpd_ordering_map: how the factor's parent nodes index its
              * cpd table
+             * @param cpd_owner_label: label of the node to which forward
+             * messages flows through (owner of the cpd)
              *
              * @return Index of the vertex in the graph.
              */
             int add_factor_node(const std::string& node_label,
                                 int time_step,
                                 const Eigen::MatrixXd& cpd,
-                                const CPD::TableOrderingMap& cpd_ordering_map);
+                                const CPD::TableOrderingMap& cpd_ordering_map,
+                                const std::string& cpd_owner_label);
 
             /**
              * Return an ordering map that is a combination of dependencies
@@ -426,6 +439,38 @@ namespace tomcat {
                 const DistributionPtrVec& duration_distributions,
                 const CPD::TableOrderingMap& duration_ordering_map,
                 const CPD::TableOrderingMap& total_ordering_map);
+
+            /**
+             * Gets the actual labels of the source and target nodes to be
+             * linked by an edge in the factor graph. Some intermediary edges
+             * may be created in this function.
+             *
+             * @param source_node: source random variable
+             * @param target_node: target random variable
+             *
+             * @return Source and target actual labels
+             */
+            std::pair<std::string, std::string>
+            get_edge_labels(const RVNodePtr& source_node,
+                            const RVNodePtr& target_node);
+
+            /**
+             * Adds an intermediary node to the graph which is a copy of a node
+             * from time step t in time step t + 1. Relevant edges are created
+             * in this function.
+             *
+             * @param source_node: random variable of the source node
+             * @param source_label: actual label of the source node
+             * @param source_time_step: time step of the source node that gives
+             * rise to the intermediary node
+             * @param time_step: time step of the intermediary node
+             *
+             * @retun Label of the newly created intermediary node
+             */
+            std::string add_intermediary_node(const RVNodePtr& source_node,
+                                              const std::string& source_label,
+                                              int source_time_step,
+                                              int time_step);
 
             //------------------------------------------------------------------
             // Data members
