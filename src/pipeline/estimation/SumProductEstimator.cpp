@@ -92,6 +92,12 @@ namespace tomcat {
                 this->compute_backward_messages(
                     this->factor_graph, t, new_data, false);
 
+                cout << "COLLECT" << endl;
+                this->compute_forward_messages(
+                    this->factor_graph, t, new_data, false);
+                this->compute_backward_messages(
+                    this->factor_graph, t, new_data, false);
+
                 if (this->inference_horizon > 0) {
                     int discrete_assignment = this->estimates.assignment[0];
 
@@ -218,8 +224,8 @@ namespace tomcat {
 
                         LOG("Forward");
                         cout << MessageNode::get_name(
-                            parent_node->get_label(),
-                            parent_incoming_messages_time_step)
+                                    parent_node->get_label(),
+                                    parent_incoming_messages_time_step)
                              << " -> "
                              << MessageNode::get_name(node->get_label(),
                                                       time_step)
@@ -303,7 +309,7 @@ namespace tomcat {
                                                           time_step)
                                  << " <- "
                                  << MessageNode::get_name(
-                                     child_node->get_label(), time_step)
+                                        child_node->get_label(), time_step)
 
                                  << "\n";
 

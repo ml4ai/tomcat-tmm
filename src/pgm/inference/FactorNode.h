@@ -205,6 +205,11 @@ namespace tomcat {
              */
             void use_original_potential();
 
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
+            void set_block_forward_message(bool block_forward_message);
+
           protected:
             //------------------------------------------------------------------
             // Structs
@@ -327,6 +332,11 @@ namespace tomcat {
 
             // Potentials used in a given moment. Either original or aggregated.
             Potential working_potential;
+
+            // Some factors exist only to update higher nodes in hierarchy when
+            // message flows backwards. No message should be emitted in the
+            // forward pass.
+            bool block_forward_message = false;
         };
 
     } // namespace model

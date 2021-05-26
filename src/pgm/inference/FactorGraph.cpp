@@ -66,14 +66,45 @@ namespace tomcat {
                                 non_replicable_nodes.push_back(random_variable);
                             }
 
+                            const string& node_label =
+                                random_variable->get_metadata()->get_label();
+                            CPD::TableOrderingMap ordering_map =
+                                random_variable->get_cpd()
+                                    ->get_parent_label_to_indexing();
+
+                            for (const auto& parent :
+                                 random_variable->get_parents()) {
+                                RVNodePtr rv_parent =
+                                    dynamic_pointer_cast<RandomVariableNode>(
+                                        parent);
+                                if (rv_parent->get_time_step() <
+                                        random_variable->get_time_step() &&
+                                    rv_parent->get_metadata()
+                                        ->is_replicable()) {
+                                    // Intermediary nodes will be created (when
+                                    // edges are created in this class) to bring
+                                    // a node in the past to the same time step
+                                    // of the target node. We need to change the
+                                    // labels of the index nodes properly in the
+                                    // ordering map.
+                                    const string& parent_label =
+                                        rv_parent->get_metadata()->get_label();
+                                    auto map_entry =
+                                        ordering_map.extract(parent_label);
+                                    map_entry.key() = VariableNode::
+                                        compose_intermediary_label(
+                                            parent_label);
+                                    ordering_map.insert(move(map_entry));
+                                }
+                            }
+
                             factor_graph.add_node(
-                                random_variable->get_metadata()->get_label(),
+                                node_label,
                                 random_variable->get_metadata()
                                     ->get_cardinality(),
                                 random_variable->get_time_step(),
                                 random_variable->get_cpd()->get_table(0),
-                                random_variable->get_cpd()
-                                    ->get_parent_label_to_indexing());
+                                ordering_map);
                         }
                     }
                 }
@@ -150,8 +181,25 @@ namespace tomcat {
                                                           source_time_step,
                                                           target_label,
                                                           target_time_step);
-
                                     if (t > 0) {
+                                        // The message should only flow forward
+                                        // once in this scenario. Backward
+                                        // message flows normally as it is
+                                        // evidence to update the probability of
+                                        // the source node.
+                                        string factor_label =
+                                            FactorNode::compose_label(
+                                                target_label);
+                                        string factor_name =
+                                            MessageNode::get_name(
+                                                factor_label, target_time_step);
+                                        int factor_id =
+                                            factor_graph.name_to_id.at(
+                                                factor_name);
+                                        dynamic_pointer_cast<FactorNode>(
+                                            factor_graph.graph[factor_id])
+                                            ->set_block_forward_message(true);
+
                                         factor_graph.add_intermediary_node(
                                             source_node,
                                             source_label,
@@ -189,7 +237,7 @@ namespace tomcat {
                                     factor_graph.add_intermediary_node(
                                         source_node,
                                         source_label,
-                                        source_node->get_time_step(),
+                                        target_node->get_time_step() - 1,
                                         target_node->get_time_step());
 
                                 if (source_node->get_metadata()
@@ -239,15 +287,7 @@ namespace tomcat {
                 // inference needs to account for external messages (not
                 // directly dependent on segment distributions) in a node
                 // that is a dependency of a timer.
-
-                if (random_variable->get_parents().empty()) {
-                    // The cpd table is the identity pass through messages.
-                    cpd_table =
-                        Eigen::MatrixXd::Identity(cardinality, cardinality);
-                    ParentIndexing indexing(0, cardinality, 1);
-                    ordering_map[node_label] = indexing;
-                }
-                else {
+                if (!random_variable->get_parents().empty()) {
                     cpd_table = random_variable->get_cpd()->get_table(0);
                     ordering_map = random_variable->get_cpd()
                                        ->get_parent_label_to_indexing();
@@ -703,6 +743,8 @@ namespace tomcat {
                 CPD::TableOrderingMap ordering_map;
                 ordering_map[source_label] = indexing;
 
+                // Link from source in the last time step to an intermediary
+                // node in the next time step.
                 this->add_node(intermediary_node_label,
                                cardinality,
                                time_step,
@@ -714,8 +756,7 @@ namespace tomcat {
                                intermediary_node_label,
                                time_step);
 
-                if (source_node->get_metadata()->has_self_transition() ||
-                    source_node->get_parents().empty()) {
+                if (source_node->get_metadata()->has_self_transition()) {
                     // We need to link the intermediary node to
                     // the factor attached to the source at the
                     // target time step. This factor defined the
@@ -730,18 +771,33 @@ namespace tomcat {
                     // We need to link the intermediary node to
                     // the source at the target time step with a
                     // pass trough factor.
-                    stringstream ss;
-                    ss << intermediary_node_label << "+" << source_label;
-                    string node_label = ss.str();
+                    int factor_id;
                     CPD::TableOrderingMap ordering_map;
-                    ordering_map[VariableNode::remove_intermediary_marker(
-                        node_label)] = indexing;
+                    ordering_map[intermediary_node_label] = indexing;
 
-                    int factor_id = this->add_factor_node(node_label,
+                    if (source_node->get_parents().empty()) {
+                        // No factor node was previously created and attached to
+                        // the source node. We create it here and link the
+                        // intermediary node to it.
+                        factor_id = this->add_factor_node(source_label,
                                                           time_step,
                                                           identity_table,
                                                           ordering_map,
                                                           source_label);
+                    }
+                    else {
+                        // The source node already has a factor node attached to
+                        // it. We need to create a new one here.
+                        stringstream ss;
+                        ss << intermediary_node_label << "+" << source_label;
+                        string node_label = ss.str();
+
+                        factor_id = this->add_factor_node(node_label,
+                                                          time_step,
+                                                          identity_table,
+                                                          ordering_map,
+                                                          source_label);
+                    }
 
                     int intermediary_node_id =
                         this->name_to_id.at(intermediary_node_name);

@@ -153,6 +153,7 @@ namespace tomcat {
             this->original_potential = node.original_potential;
             this->aggregate_potential = node.aggregate_potential;
             this->working_potential = node.working_potential;
+            this->block_forward_message = node.block_forward_message;
         }
 
         Tensor3 FactorNode::get_outward_message_to(
@@ -161,6 +162,10 @@ namespace tomcat {
             int target_time_step,
             Direction direction) const {
 
+            if (direction == Direction::forward && this->block_forward_message) {
+                return Tensor3();
+            }
+
             PotentialFunction potential_function;
             if (direction == Direction::forward) {
                 potential_function = this->working_potential.potential;
@@ -168,8 +173,7 @@ namespace tomcat {
             else {
                 potential_function =
                     this->working_potential.node_label_to_rotated_potential.at(
-                        VariableNode::remove_intermediary_marker(
-                            template_target_node->get_label()));
+                        template_target_node->get_label());
             }
 
             // To achieve the correct indexing when multiplying incoming
@@ -290,10 +294,6 @@ namespace tomcat {
                         auto [incoming_node_label, incoming_node_time_step] =
                             MessageNode::strip(incoming_node_name);
 
-                        incoming_node_label =
-                            VariableNode::remove_intermediary_marker(
-                                incoming_node_label);
-
                         if (potential_function.duplicate_key ==
                             incoming_node_label) {
                             // The potential function matrix is indexed by
@@ -403,6 +403,14 @@ namespace tomcat {
 
         void FactorNode::use_original_potential() {
             this->working_potential = this->original_potential;
+        }
+
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        void FactorNode::set_block_forward_message(bool block_forward_message) {
+            this->block_forward_message = block_forward_message;
         }
 
     } // namespace model
