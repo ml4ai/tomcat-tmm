@@ -87,16 +87,15 @@ namespace tomcat {
             }
             for (int t = this->next_time_step; t < total_time; t++) {
 
-                this->compute_forward_messages(
-                    this->factor_graph, t, new_data, false);
-                this->compute_backward_messages(
-                    this->factor_graph, t, new_data, false);
-
-                cout << "COLLECT" << endl;
-                this->compute_forward_messages(
-                    this->factor_graph, t, new_data, false);
-                this->compute_backward_messages(
-                    this->factor_graph, t, new_data, false);
+                bool any_change;
+                do {
+                    // We pass messages in the time slice until they converge
+                    any_change = false;
+                    any_change |= this->compute_forward_messages(
+                        this->factor_graph, t, new_data, false);
+                    any_change |= this->compute_backward_messages(
+                        this->factor_graph, t, new_data, false);
+                } while (any_change);
 
                 if (this->inference_horizon > 0) {
                     int discrete_assignment = this->estimates.assignment[0];
@@ -154,12 +153,13 @@ namespace tomcat {
             this->next_time_step += new_data.get_time_steps();
         }
 
-        void SumProductEstimator::compute_forward_messages(
+        bool SumProductEstimator::compute_forward_messages(
             const FactorGraph& factor_graph,
             int time_step,
             const EvidenceSet& new_data,
             bool in_future) {
 
+            bool any_change = false;
             for (auto& node :
                  factor_graph.get_vertices_topological_order_in(time_step)) {
 
@@ -222,14 +222,14 @@ namespace tomcat {
                             parent_incoming_messages_time_step = time_step - 1;
                         }
 
-                        LOG("Forward");
-                        cout << MessageNode::get_name(
-                                    parent_node->get_label(),
-                                    parent_incoming_messages_time_step)
-                             << " -> "
-                             << MessageNode::get_name(node->get_label(),
-                                                      time_step)
-                             << "\n";
+//                        LOG("Forward");
+//                        cout << MessageNode::get_name(
+//                                    parent_node->get_label(),
+//                                    parent_incoming_messages_time_step)
+//                             << " -> "
+//                             << MessageNode::get_name(node->get_label(),
+//                                                      time_step)
+//                             << "\n";
 
                         Tensor3 message = parent_node->get_outward_message_to(
                             node,
@@ -237,10 +237,10 @@ namespace tomcat {
                             time_step,
                             MessageNode::Direction::forward);
 
-                        LOG(message);
-                        LOG("");
+//                        LOG(message);
+//                        LOG("");
 
-                        node->set_incoming_message_from(
+                        any_change |= node->set_incoming_message_from(
                             parent_node,
                             parent_incoming_messages_time_step,
                             time_step,
@@ -249,14 +249,17 @@ namespace tomcat {
                     }
                 }
             }
+
+            return any_change;
         }
 
-        void SumProductEstimator::compute_backward_messages(
+        bool SumProductEstimator::compute_backward_messages(
             const FactorGraph& factor_graph,
             int time_step,
             const EvidenceSet& new_data,
             bool in_future) {
 
+            bool any_change = false;
             for (auto& node : factor_graph.get_vertices_topological_order_in(
                      time_step, false)) {
 
@@ -304,14 +307,14 @@ namespace tomcat {
                         // being processed, so we do not process child nodes in
                         // a future time step.
                         if (time_diff == 0) {
-                            LOG("Backward");
-                            cout << MessageNode::get_name(node->get_label(),
-                                                          time_step)
-                                 << " <- "
-                                 << MessageNode::get_name(
-                                        child_node->get_label(), time_step)
-
-                                 << "\n";
+//                            LOG("Backward");
+//                            cout << MessageNode::get_name(node->get_label(),
+//                                                          time_step)
+//                                 << " <- "
+//                                 << MessageNode::get_name(
+//                                        child_node->get_label(), time_step)
+//
+//                                 << "\n";
 
                             Tensor3 message =
                                 child_node->get_outward_message_to(
@@ -320,10 +323,10 @@ namespace tomcat {
                                     time_step,
                                     MessageNode::Direction::backwards);
 
-                            LOG(message);
-                            LOG("");
+//                            LOG(message);
+//                            LOG("");
 
-                            node->set_incoming_message_from(
+                            any_change |= node->set_incoming_message_from(
                                 child_node,
                                 time_step,
                                 time_step,
@@ -333,6 +336,8 @@ namespace tomcat {
                     }
                 }
             }
+
+            return any_change;
         }
 
         Eigen::VectorXd

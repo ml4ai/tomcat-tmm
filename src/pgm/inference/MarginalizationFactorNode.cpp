@@ -117,8 +117,7 @@ namespace tomcat {
 
                     const auto& ordering_map =
                         this->original_potential.potential.ordering_map.at(
-                            VariableNode::remove_intermediary_marker(
-                                template_target_node->get_label()));
+                            template_target_node->get_label());
 
                     // We will place the probability for each one of the values
                     // of the target node in the columns of a tensor. Each row

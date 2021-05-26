@@ -75,22 +75,7 @@ pair<bool, string> check_matrix_eq(const MatrixXd& estimated,
 bool check_tensor_eq(Tensor3& estimated,
                      Tensor3& expected,
                      double tolerance = 0.00001) {
-
-    if (estimated.get_shape() != expected.get_shape()) {
-        return false;
-    }
-
-    for (int i = 0; i < estimated.get_shape().at(0); i++) {
-        for (int j = 0; j < estimated.get_shape().at(1); j++) {
-            for (int k = 0; k < estimated.get_shape().at(2); k++) {
-                if (abs(estimated(i, j, k) - expected(i, j, k)) > tolerance) {
-                    return false;
-                }
-            }
-        }
-    }
-
-    return true;
+   return estimated.equals(expected, tolerance);
 }
 
 BOOST_AUTO_TEST_SUITE(distribution)
@@ -1534,7 +1519,6 @@ BOOST_AUTO_TEST_CASE(edhmm_exact_inference) {
     DBNPtr model = make_shared<DynamicBayesNet>(
         DynamicBayesNet::create_from_json("models/edhmm_exact_copy.json"));
     model->unroll(3, true);
-
     SumProductEstimator state_estimator(model, 0, "State");
 
     state_estimator.set_show_progress(false);

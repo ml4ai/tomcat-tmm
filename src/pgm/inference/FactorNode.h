@@ -210,6 +210,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             void set_block_forward_message(bool block_forward_message);
 
+            void set_block_backward_message(bool block_backward_message);
+
           protected:
             //------------------------------------------------------------------
             // Structs
@@ -333,10 +335,11 @@ namespace tomcat {
             // Potentials used in a given moment. Either original or aggregated.
             Potential working_potential;
 
-            // Some factors exist only to update higher nodes in hierarchy when
-            // message flows backwards. No message should be emitted in the
-            // forward pass.
+            // Some factors will be created to prevent the message passing to go
+            // backwards in time. Some incoming messages may need to be ignore
+            // to achieve this purpose .
             bool block_forward_message = false;
+            bool block_backward_message = false;
         };
 
     } // namespace model

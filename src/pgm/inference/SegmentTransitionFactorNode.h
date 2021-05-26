@@ -65,7 +65,7 @@ namespace tomcat {
             // Member functions
             //------------------------------------------------------------------
 
-            void
+            bool
             set_incoming_message_from(const MsgNodePtr& source_node_template,
                                       int source_time_step,
                                       int target_time_step,

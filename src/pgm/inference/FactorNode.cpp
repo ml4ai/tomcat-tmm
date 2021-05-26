@@ -162,7 +162,10 @@ namespace tomcat {
             int target_time_step,
             Direction direction) const {
 
-            if (direction == Direction::forward && this->block_forward_message) {
+            if ((direction == Direction::forward &&
+                    this->block_forward_message) ||
+                (direction == Direction::backwards &&
+                    this->block_backward_message)) {
                 return Tensor3();
             }
 
@@ -411,6 +414,11 @@ namespace tomcat {
 
         void FactorNode::set_block_forward_message(bool block_forward_message) {
             this->block_forward_message = block_forward_message;
+        }
+
+        void
+        FactorNode::set_block_backward_message(bool block_backward_message) {
+            this->block_backward_message = block_backward_message;
         }
 
     } // namespace model

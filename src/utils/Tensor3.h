@@ -640,6 +640,18 @@ namespace tomcat {
              */
             Eigen::MatrixXd::ColXpr col(int depth, int col_idx);
 
+            /**
+             * Checks whether the elements of a tensor are equals to the
+             * elements of another tensor.
+             *
+             * @param other: other tensor
+             * @param tolerance: precision in the comparison between the values
+             * of the elements
+             *
+             * @return
+             */
+            bool equals(const Tensor3& other, double tolerance = EPSILON) const;
+
           private:
             //------------------------------------------------------------------
             // Data members

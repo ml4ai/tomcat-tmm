@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_set>
+
 #include "MessageNode.h"
 
 #include "utils/Definitions.h"
@@ -62,29 +64,6 @@ namespace tomcat {
              */
             static std::string
             compose_segment_label(const std::string& timed_node_label);
-
-            /**
-             * Adds a marker to a label to identify it's an intermediary node
-             * (created to replicate a node one time step into the future).
-             *
-             * @param node_label: original node label
-             *
-             * @return Label of the intermediary node created for the original
-             * one
-             */
-            static std::string
-            compose_intermediary_label(const std::string& node_label);
-
-            /**
-             * Removes an intermediary node's marker from the label if there's
-             * such a maerker.
-             *
-             * @param node_label:node's label
-             *
-             * @return
-             */
-            static std::string
-            remove_intermediary_marker(const std::string& node_label);
 
             //------------------------------------------------------------------
             // Member functions
@@ -154,6 +133,18 @@ namespace tomcat {
              */
             void erase_data_at(int time_step);
 
+            /**
+             * Adds an income node to the set of nodes to be ignored when
+             * producing a backward message to a certain target.
+             *
+             * @param incoming_node_label: label of the incoming node to be
+             * ignored
+             * @param target_node_label: name of the target node to which the
+             * message is being produced
+             */
+            void add_backward_blocking(const std::string& incoming_node_label,
+                                       const std::string& target_node_label);
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
@@ -184,6 +175,11 @@ namespace tomcat {
 
             // True if the node represents a segment node.
             bool segment = false;
+
+            // Set of incoming nodes that must be ignored when producing a
+            // backward message to a certain target (the key of the mapping);
+            std::unordered_map<std::string, std::unordered_set<std::string>>
+                backward_blocking;
         };
 
     } // namespace model

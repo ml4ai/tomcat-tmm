@@ -41,20 +41,6 @@ namespace tomcat {
             return "seg:" + timed_node_label;
         }
 
-        string
-        VariableNode::compose_intermediary_label(const string& node_label) {
-            return "i:" + node_label;
-        }
-
-        string
-        VariableNode::remove_intermediary_marker(const string& node_label) {
-            if (node_label.rfind("i:", 0) == 0) {
-                return node_label.substr(2, node_label.size());
-            }
-
-            return node_label;
-        }
-
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
@@ -87,6 +73,21 @@ namespace tomcat {
 
                     for (const auto& [incoming_node_name, incoming_message] :
                          message_container.node_name_to_messages) {
+
+                        auto [incoming_node_label, incoming_node_time_step] =
+                            MessageNode::strip(incoming_node_name);
+
+                        // Only proceeds if the incoming node is not on the list
+                        // of nodes to be ignored for the target.
+                        if (direction == Direction::backwards &&
+                            EXISTS(template_target_node->get_label(),
+                                   this->backward_blocking)) {
+                            const auto& ignore_set = this->backward_blocking.at(
+                                template_target_node->get_label());
+                            if (EXISTS(incoming_node_label, ignore_set)) {
+                                continue;
+                            }
+                        }
 
                         if (incoming_node_name ==
                             MessageNode::get_name(
@@ -172,6 +173,13 @@ namespace tomcat {
 
         void VariableNode::erase_data_at(int time_step) {
             this->data_per_time_slice.erase(time_step);
+        }
+
+        void VariableNode::add_backward_blocking(
+            const std::string& incoming_node_label,
+            const std::string& target_node_label) {
+            this->backward_blocking[target_node_label].insert(
+                incoming_node_label);
         }
 
         //----------------------------------------------------------------------

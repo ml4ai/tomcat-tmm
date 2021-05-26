@@ -287,6 +287,31 @@ namespace tomcat {
             static std::string compose_joint_node_label(
                 const std::string& segment_expansion_factor_label);
 
+            /**
+             * Creates a label for a factor that stands between an intermediary
+             * node and the subsequent occurence of the node extended by the
+             * intermediary node.
+             *
+             * @param node_label: label of the node being extended by the
+             * intermediary node
+             *
+             * @return Label of the intermediary factor node
+             */
+            static std::string
+            compose_intermediary_factor_label(const std::string& node_label);
+
+            /**
+             * Adds a marker to a label to identify it's an intermediary node
+             * (created to replicate a node one time step into the future).
+             *
+             * @param node_label: original node label
+             *
+             * @return Label of the intermediary node created for the original
+             * one
+             */
+            static std::string
+            compose_intermediary_label(const std::string& node_label);
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -471,6 +496,28 @@ namespace tomcat {
                                               const std::string& source_label,
                                               int source_time_step,
                                               int time_step);
+
+            /**
+             * Gets an instance of a factor node in the graph.
+             *
+             * @param node_label: factor node label without the marker
+             * @param time_step: time step of the node
+             *
+             * @return Pointer to a factor node
+             */
+            FactorNodePtr get_factor_node(const std::string& node_label,
+                                          int time_step);
+
+            /**
+             * Gets an instance of a variable node in the graph.
+             *
+             * @param node_label: node label
+             * @param time_step: time step of the node
+             *
+             * @return Pointer to a variable node
+             */
+            VarNodePtr get_variable_node(const std::string& node_label,
+                                         int time_step);
 
             //------------------------------------------------------------------
             // Data members

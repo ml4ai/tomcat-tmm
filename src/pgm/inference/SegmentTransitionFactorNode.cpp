@@ -65,32 +65,61 @@ namespace tomcat {
             this->timed_node_cardinality = node.timed_node_cardinality;
         }
 
-        void SegmentTransitionFactorNode::set_incoming_message_from(
+        bool SegmentTransitionFactorNode::set_incoming_message_from(
             const MsgNodePtr& source_node_template,
             int source_time_step,
             int target_time_step,
             const Tensor3& message,
             Direction direction) {
 
-            this->max_time_step_stored =
-                max(this->max_time_step_stored, target_time_step);
+            bool changed = false;
+            if (!message.is_empty()) {
+                this->max_time_step_stored =
+                    max(this->max_time_step_stored, target_time_step);
 
-            if (source_node_template->is_segment() &&
-                direction == Direction::forward) {
-                this->incoming_last_segment_messages_per_time_slice
-                    [target_time_step] = message;
+                if (source_node_template->is_segment() &&
+                    direction == Direction::forward) {
+
+                    if (EXISTS(
+                            target_time_step,
+                            this->incoming_last_segment_messages_per_time_slice)) {
+                        const Tensor3& curr_msg =
+                            this->incoming_last_segment_messages_per_time_slice
+                                .at(target_time_step);
+                        changed = !curr_msg.equals(message);
+                    }
+                    else {
+                        changed = true;
+                    }
+
+                    this->incoming_last_segment_messages_per_time_slice
+                        [target_time_step] = message;
+                }
+                else if (source_node_template->is_segment() &&
+                         direction == Direction::backwards) {
+
+                    if (EXISTS(
+                            target_time_step,
+                            this->incoming_next_segment_messages_per_time_slice)) {
+                        const Tensor3& curr_msg =
+                            this->incoming_next_segment_messages_per_time_slice
+                                .at(target_time_step);
+                        changed = !curr_msg.equals(message);
+                    }
+                    else {
+                        changed = true;
+                    }
+
+                    this->incoming_next_segment_messages_per_time_slice
+                        [target_time_step] = message;
+                }
+                else {
+                    // It does not happen. This node is never connected to a
+                    // non-segment node.
+                }
             }
-            else if (source_node_template->is_segment() &&
-                     direction == Direction::backwards) {
-                this->incoming_next_segment_messages_per_time_slice
-                    [target_time_step] = message;
-            }
-            else {
-                this->incoming_messages_per_time_slice[target_time_step]
-                    .set_message_for(source_node_template->get_label(),
-                                     source_time_step,
-                                     message);
-            }
+
+            return changed;
         }
 
         void SegmentTransitionFactorNode::erase_incoming_messages_beyond(

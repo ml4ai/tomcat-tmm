@@ -89,8 +89,10 @@ namespace tomcat {
              * processed by the method
              * @param in_future: whether the computations are being performed
              * in the future (inside a positive inference horizon)
+             *
+             * @return whether any message changed
              */
-            void compute_forward_messages(const FactorGraph& factor_graph,
+            bool compute_forward_messages(const FactorGraph& factor_graph,
                                           int time_step,
                                           const EvidenceSet& new_data,
                                           bool in_future);
@@ -105,8 +107,10 @@ namespace tomcat {
              * processed by the method
              * @param in_future: whether the computations are being performed
              * in the future (inside a positive inference horizon)
+             *
+             * @return whether any message changed
              */
-            void compute_backward_messages(const FactorGraph& factor_graph,
+            bool compute_backward_messages(const FactorGraph& factor_graph,
                                            int time_step,
                                            const EvidenceSet& new_data,
                                            bool in_future);

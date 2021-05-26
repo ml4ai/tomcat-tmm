@@ -840,5 +840,24 @@ namespace tomcat {
             return this->tensor[depth].col(col_idx);
         }
 
+        bool Tensor3::equals(const Tensor3& other, double tolerance) const {
+            if (this->get_shape() != other.get_shape()) {
+                return false;
+            }
+
+            for (int i = 0; i < this->get_shape().at(0); i++) {
+                for (int j = 0; j < this->get_shape().at(1); j++) {
+                    for (int k = 0; k < this->get_shape().at(2); k++) {
+                        if (abs(this->tensor[i](j, k) - other.at(i, j, k)) >
+                            tolerance) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return true;
+        }
+
     } // namespace model
 } // namespace tomcat
