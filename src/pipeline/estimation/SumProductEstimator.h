@@ -63,8 +63,15 @@ namespace tomcat {
 
             std::string get_name() const override;
 
-          private:
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
 
+            void set_subgraph_window_size(int subgraph_window_size);
+
+            void set_variable_window(bool variable_window);
+
+          private:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -107,13 +114,15 @@ namespace tomcat {
              * processed by the method
              * @param in_future: whether the computations are being performed
              * in the future (inside a positive inference horizon)
+             * @param last_time_step: last time step to be processed
              *
              * @return whether any message changed
              */
             bool compute_backward_messages(const FactorGraph& factor_graph,
                                            int time_step,
                                            const EvidenceSet& new_data,
-                                           bool in_future);
+                                           bool in_future,
+                                           int last_time_step);
 
             /**
              * Computes the a node's marginal for a given assignment in the
@@ -163,6 +172,17 @@ namespace tomcat {
             // graph. Nodes with time steps before next_time_step already have
             // their messages computed.
             int next_time_step = 0;
+
+            // Number of time slices up to the current time step being
+            // processed, we update with message passing. By default, we only
+            // pass messages to the current and the previous time step.
+            int subgraph_window_size = 1;
+
+            // If set to true, the subgraph_window_size will be adjusted
+            // dynamically so that the full graph up to the current time step is
+            // updated with message passing. That is, whatever is defined in the
+            // attribute subgraph_window_size will be ignored.
+            bool variable_subgraph_window = false;
         };
 
     } // namespace model

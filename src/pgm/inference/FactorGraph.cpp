@@ -72,31 +72,57 @@ namespace tomcat {
                                 random_variable->get_cpd()
                                     ->get_parent_label_to_indexing();
 
-                            for (const auto& parent :
-                                 random_variable->get_parents()) {
-                                RVNodePtr rv_parent =
-                                    dynamic_pointer_cast<RandomVariableNode>(
-                                        parent);
-                                if (rv_parent->get_time_step() <
-                                        random_variable->get_time_step() &&
-                                    rv_parent->get_metadata()
-                                        ->is_replicable()) {
-                                    // Intermediary nodes will be created (when
-                                    // edges are created in this class) to bring
-                                    // a node in the past to the same time step
-                                    // of the target node. We need to change the
-                                    // labels of the index nodes properly in the
-                                    // ordering map.
-                                    const string& parent_label =
-                                        rv_parent->get_metadata()->get_label();
-                                    auto map_entry =
-                                        ordering_map.extract(parent_label);
-                                    map_entry.key() =
-                                        compose_intermediary_label(
-                                            parent_label);
-                                    ordering_map.insert(move(map_entry));
-                                }
-                            }
+                            //                            for (const auto&
+                            //                            parent :
+                            //                                 random_variable->get_parents())
+                            //                                 {
+                            //                                RVNodePtr
+                            //                                rv_parent =
+                            //                                    dynamic_pointer_cast<RandomVariableNode>(
+                            //                                        parent);
+                            //                                if
+                            //                                (rv_parent->get_time_step()
+                            //                                <
+                            //                                        random_variable->get_time_step()
+                            //                                        &&
+                            //                                    rv_parent->get_metadata()
+                            //                                        ->is_replicable())
+                            //                                        {
+                            //                                    //
+                            //                                    Intermediary
+                            //                                    nodes will be
+                            //                                    created (when
+                            //                                    // edges are
+                            //                                    created in
+                            //                                    this class) to
+                            //                                    bring
+                            //                                    // a node in
+                            //                                    the past to
+                            //                                    the same time
+                            //                                    step
+                            //                                    // of the
+                            //                                    target node.
+                            //                                    We need to
+                            //                                    change the
+                            //                                    // labels of
+                            //                                    the index
+                            //                                    nodes properly
+                            //                                    in the
+                            //                                    // ordering
+                            //                                    map. const
+                            //                                    string&
+                            //                                    parent_label =
+                            //                                        rv_parent->get_metadata()->get_label();
+                            //                                    auto map_entry
+                            //                                    =
+                            //                                        ordering_map.extract(parent_label);
+                            //                                    map_entry.key()
+                            //                                    =
+                            //                                        compose_intermediary_label(
+                            //                                            parent_label);
+                            //                                    ordering_map.insert(move(map_entry));
+                            //                                }
+                            //                            }
 
                             factor_graph.add_node(
                                 node_label,
@@ -127,159 +153,77 @@ namespace tomcat {
             unordered_map<string, int> non_replicable_multi_link_mapping;
 
             for (const auto& [source_node, target_node] : dbn.get_edges()) {
-                if (source_node->get_time_step() <= 2 &&
-                    !source_node->get_metadata()->is_parameter() &&
-                    target_node->get_time_step() <= 2 &&
-                    !target_node->get_metadata()->is_parameter()) {
+                if (source_node->get_time_step() >
+                        factor_graph.repeatable_time_step ||
+                    source_node->get_metadata()->is_parameter() ||
+                    target_node->get_time_step() >
+                        factor_graph.repeatable_time_step ||
+                    target_node->get_metadata()->is_parameter()) {
+                    continue;
+                }
 
-                    if (source_node->get_metadata()->is_timer() ||
-                        source_node->get_timer() == target_node) {
-                        continue;
-                    }
+                if (source_node->get_metadata()->is_timer() ||
+                    source_node->get_timer() == target_node) {
+                    // Links handled by segment nodes
+                    continue;
+                }
 
-                    auto [source_label, target_label] =
-                        factor_graph.get_edge_labels(source_node, target_node);
+                auto [source_label, target_label] =
+                    factor_graph.get_edge_labels(source_node, target_node);
 
-                    if (source_node->is_segment_dependency()) {
-                        int source_time_step;
-                        int target_time_step;
-                        if (source_node->get_metadata()->is_replicable()) {
-                            source_time_step = source_node->get_time_step();
-                            target_time_step = target_node->get_time_step();
-                        }
-                        else {
-                            source_time_step = target_node->get_time_step();
-                            target_time_step = target_node->get_time_step();
-                        }
+                int source_time_step;
+                int target_time_step;
+                if (source_node->get_metadata()->is_replicable()) {
+                    source_time_step = source_node->get_time_step();
+                    target_time_step = target_node->get_time_step();
+                }
+                else {
+                    // Copies of the single time nodes were created for
+                    // every time step previously.
+                    source_time_step = target_node->get_time_step();
+                    target_time_step = target_node->get_time_step();
+                }
 
-                        factor_graph.add_edge(source_label,
-                                              source_time_step,
-                                              target_label,
-                                              target_time_step);
-                    }
-                    else {
-                        if (!source_node->get_metadata()->is_replicable() &&
-                            !target_node->get_metadata()->is_replicable()) {
+                factor_graph.add_edge(source_label,
+                                      source_time_step,
+                                      target_label,
+                                      target_time_step);
 
-                            // There's only one edge in the DBN. Here we unroll
-                            // over time to create temporal edges for the copies
-                            // previously created of these nodes.
-                            int source_time_step;
-                            int target_time_step;
-                            for (int t = 0;
-                                 t <= factor_graph.repeatable_time_step -
-                                          target_node->get_time_step();
-                                 t++) {
+                if (!source_node->get_metadata()->is_replicable() &&
+                    !source_node->is_segment_dependency()) {
 
-                                source_time_step =
-                                    source_node->get_time_step() + t;
-                                target_time_step =
-                                    target_node->get_time_step() + t;
+                    if (!target_node->get_metadata()->is_replicable()) {
 
-                                if (source_time_step == target_time_step) {
-                                    factor_graph.add_edge(source_label,
-                                                          source_time_step,
-                                                          target_label,
-                                                          target_time_step);
-                                    if (t > 0) {
-                                        // The message should only flow forward
-                                        // once in this scenario. Backward
-                                        // message flows normally as it is
-                                        // evidence to update the probability of
-                                        // the source node.
-                                        auto target_factor =
-                                            factor_graph.get_factor_node(
-                                                target_label, target_time_step);
-                                        target_factor
-                                            ->set_block_forward_message(true);
+                        for (int t = 1; t <= factor_graph.repeatable_time_step -
+                                                 target_node->get_time_step();
+                             t++) {
 
-                                        factor_graph.add_intermediary_node(
-                                            source_node,
-                                            source_label,
-                                            target_time_step - 1,
-                                            target_time_step);
+                            source_time_step = source_node->get_time_step() + t;
+                            target_time_step = target_node->get_time_step() + t;
 
-                                        // Prevent message that comes from an
-                                        // intermediary node to flow backwards
-                                        // to the source node in this specific
-                                        // scenario.
-                                        auto var_node =
-                                            factor_graph.get_variable_node(
-                                                target_label, target_time_step);
-                                        string ignore_label =
-                                            FactorNode::compose_label(
-                                                compose_intermediary_factor_label(
-                                                    target_label));
-                                        var_node->add_backward_blocking(
-                                            ignore_label,
-                                            target_factor->get_label());
-                                    }
-                                }
-                                else {
-                                    // TODO - not tested. It probably needs some
-                                    // adjust.
-                                    string intermediary_node_label =
-                                        factor_graph.add_intermediary_node(
-                                            source_node,
-                                            source_label,
-                                            source_time_step,
-                                            target_time_step);
+                            factor_graph.add_edge(source_label,
+                                                  source_time_step,
+                                                  target_label,
+                                                  target_time_step);
 
-                                    factor_graph.add_edge(
-                                        intermediary_node_label,
-                                        target_time_step,
-                                        target_label,
-                                        target_time_step);
-                                }
-                            }
-                        }
-                        else {
-                            if (source_node->get_time_step() ==
-                                target_node->get_time_step()) {
-                                factor_graph.add_edge(
-                                    source_label,
-                                    source_node->get_time_step(),
-                                    target_label,
-                                    target_node->get_time_step());
-                            }
-                            else {
-                                if (source_node->has_timer() &&
-                                    source_node->get_metadata()->get_label() ==
-                                        target_node->get_metadata()
-                                            ->get_label()) {
-                                    // Self-transitions are handled by segment
-                                    // nodes. Just connect them.
-                                    factor_graph.add_edge(
-                                        source_label,
-                                        source_node->get_time_step(),
-                                        target_label,
-                                        target_node->get_time_step());
-                                }
-                                else {
-                                    string intermediary_node_label =
-                                        factor_graph.add_intermediary_node(
-                                            source_node,
-                                            source_label,
-                                            target_node->get_time_step() - 1,
-                                            target_node->get_time_step());
+                            // The message  should only flow forward once in
+                            // this scenario .Backward message flows normally as
+                            // it is evidence to  update the probability of the
+                            // source  node.
+                            auto target_factor = factor_graph.get_factor_node(
+                                target_label, target_time_step);
+                            target_factor->set_block_forward_message(true);
 
-                                    if (source_node->get_metadata()
-                                            ->is_replicable()) {
-                                        factor_graph.add_edge(
-                                            intermediary_node_label,
-                                            target_node->get_time_step(),
-                                            target_label,
-                                            target_node->get_time_step());
-                                    }
-                                    else {
-                                        factor_graph.add_edge(
-                                            source_label,
-                                            target_node->get_time_step(),
-                                            target_label,
-                                            target_node->get_time_step());
-                                    }
-                                }
-                            }
+                            // Prevent message that comes from an intermediary
+                            // node to flow backwards to the source node in this
+                            // specific scenario.
+                            auto var_node = factor_graph.get_variable_node(
+                                target_label, target_time_step);
+                            string ignore_label = FactorNode::compose_label(
+                                compose_intermediary_factor_label(
+                                    target_label));
+                            var_node->add_backward_blocking(
+                                ignore_label, target_factor->get_label());
                         }
                     }
                 }
@@ -299,7 +243,9 @@ namespace tomcat {
         string FactorGraph::compose_intermediary_factor_label(
             const string& node_label) {
             stringstream ss;
-            ss << compose_intermediary_label(node_label) << "+" << node_label;
+            //            ss << compose_intermediary_label(node_label) << "+" <<
+            //            node_label;
+            ss << node_label << "+" << node_label;
             return ss.str();
         }
 
@@ -320,10 +266,16 @@ namespace tomcat {
                 // are passed through time via a joint node and therefore
                 // there's no need to attach a factor to its copies.
                 // TODO - this needs to be revisited when EDHMM exact
-                // inference needs to account for external messages (not
-                // directly dependent on segment distributions) in a node
-                // that is a dependency of a timer.
-                if (!random_variable->get_parents().empty()) {
+                //  inference needs to account for external messages (not
+                //  directly dependent on segment distributions) in a node
+                //  that is a dependency of a timer.
+                if (random_variable->get_parents().empty()) {
+                    cpd_table =
+                        Eigen::MatrixXd::Identity(cardinality, cardinality);
+                    ParentIndexing indexing(0, cardinality, 1);
+                    ordering_map[node_label] = indexing;
+                }
+                else {
                     cpd_table = random_variable->get_cpd()->get_table(0);
                     ordering_map = random_variable->get_cpd()
                                        ->get_parent_label_to_indexing();
@@ -333,9 +285,46 @@ namespace tomcat {
             for (int t = random_variable->get_time_step() + 1;
                  t <= this->repeatable_time_step;
                  t++) {
-
                 this->add_node(
                     node_label, cardinality, t, cpd_table, ordering_map);
+
+                if (random_variable->get_parents().empty()) {
+                    // A factor node was already created when the node was
+                    // created and there's no other node to be attached to it.
+                    // We can just connect the source in the previous time step
+                    // to that factor.
+                    this->add_edge(node_label, t - 1, node_label, t);
+                }
+                else {
+                    // The factor node created with the copy of the node in a
+                    // future time step contains other dependencies that will be
+                    // attached to it when edges are created in this class. We
+                    // need to create another factor to pass messages from the
+                    // source in the previous time step to its copy in the next
+                    // time step.
+
+                    Eigen::MatrixXd identity_table =
+                        Eigen::MatrixXd::Identity(cardinality, cardinality);
+                    ParentIndexing indexing(0, cardinality, 1);
+                    CPD::TableOrderingMap ordering_map;
+                    ordering_map[node_label] = indexing;
+                    string factor_label =
+                        compose_intermediary_factor_label(node_label);
+                    int factor_id = this->add_factor_node(factor_label,
+                                                          t,
+                                                          identity_table,
+                                                          ordering_map,
+                                                          node_label);
+
+                    int source_node_id = this->name_to_id.at(
+                        MessageNode::get_name(node_label, t - 1));
+                    int source_node_id_copy = this->name_to_id.at(
+                        MessageNode::get_name(node_label, t));
+                    boost::add_edge(
+                        source_node_id, factor_id, this->graph);
+                    boost::add_edge(
+                        factor_id, source_node_id_copy, this->graph);
+                }
             }
         }
 
@@ -768,6 +757,15 @@ namespace tomcat {
             if (!EXISTS(intermediary_node_name, this->name_to_id)) {
                 int cardinality =
                     source_node->get_metadata()->get_cardinality();
+
+                for (const auto& parent : source_node->get_parents()) {
+                    const auto& rv_parent =
+                        dynamic_pointer_cast<RandomVariableNode>(parent);
+                    if (rv_parent->get_time_step() ==
+                        source_node->get_time_step()) {
+                    }
+                }
+
                 Eigen::MatrixXd cpd_table;
 
                 if (source_node->get_metadata()->has_self_transition() ||
@@ -782,7 +780,6 @@ namespace tomcat {
                     // node.
                     cpd_table = Eigen::MatrixXd::Ones(cardinality, cardinality);
                 }
-
                 ParentIndexing indexing(0, cardinality, 1);
                 CPD::TableOrderingMap ordering_map;
                 ordering_map[source_label] = indexing;
@@ -926,24 +923,23 @@ namespace tomcat {
             }
         }
 
-        vector<pair<shared_ptr<MessageNode>, bool>> FactorGraph::get_parents_of(
-            const shared_ptr<MessageNode>& template_node, int time_step) const {
+        vector<pair<MsgNodePtr, bool>>
+        FactorGraph::get_parents_of(const MsgNodePtr& template_node,
+                                    int time_step) const {
 
             int vertex_id = this->name_to_id.at(template_node->get_name());
             Graph::in_edge_iterator in_begin, in_end;
             boost::tie(in_begin, in_end) = in_edges(vertex_id, this->graph);
 
-            vector<pair<shared_ptr<MessageNode>, bool>> parent_nodes;
+            vector<pair<MsgNodePtr, bool>> parent_nodes;
             while (in_begin != in_end) {
                 int parent_vertex_id = source(*in_begin, graph);
-                shared_ptr<MessageNode> parent_node =
-                    this->graph[parent_vertex_id];
+                MsgNodePtr parent_node = this->graph[parent_vertex_id];
                 bool transition = false;
                 if (parent_node->get_time_step() <
                     template_node->get_time_step()) {
 
                     transition = true;
-
                     if (time_step > this->repeatable_time_step) {
                         string real_parent_name =
                             MessageNode::get_name(parent_node->get_label(),
@@ -961,17 +957,34 @@ namespace tomcat {
             return parent_nodes;
         }
 
-        vector<shared_ptr<MessageNode>> FactorGraph::get_children_of(
-            const shared_ptr<MessageNode>& template_node) const {
+        vector<pair<MsgNodePtr, bool>>
+        FactorGraph::get_children_of(const MsgNodePtr& template_node,
+                                     int time_step) const {
 
             int vertex_id = this->name_to_id.at(template_node->get_name());
             Graph::out_edge_iterator out_begin, out_end;
             boost::tie(out_begin, out_end) = out_edges(vertex_id, this->graph);
 
-            vector<shared_ptr<MessageNode>> child_nodes;
+            vector<pair<MsgNodePtr, bool>> child_nodes;
             while (out_begin != out_end) {
                 int child_vertex_id = target(*out_begin, graph);
-                child_nodes.push_back(this->graph[child_vertex_id]);
+                MsgNodePtr child_node = this->graph[child_vertex_id];
+                bool transition = false;
+                if (template_node->get_time_step() <
+                    child_node->get_time_step()) {
+
+                    transition = true;
+                    if (time_step >= this->repeatable_time_step) {
+                        string real_child_name =
+                            MessageNode::get_name(child_node->get_label(),
+                                                  this->repeatable_time_step);
+                        int real_child_vertex_id =
+                            this->name_to_id.at(real_child_name);
+                        child_node = this->graph[real_child_vertex_id];
+                    }
+                }
+
+                child_nodes.push_back(make_pair(child_node, transition));
                 out_begin++;
             }
 

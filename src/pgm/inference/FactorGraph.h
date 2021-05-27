@@ -144,26 +144,29 @@ namespace tomcat {
              * structure since this structure repeats beyond that
              * point in time).
              *
-             * @param node: node in the factor graph
-             * @param time_step: real time step
+             * @param template_node: node in the factor graph
+             * @param time_step: real time step of the template node
              *
              * @return Parents of the template node informed
              */
-            std::vector<std::pair<std::shared_ptr<MessageNode>, bool>>
-            get_parents_of(const std::shared_ptr<MessageNode>& template_node,
+            std::vector<std::pair<MsgNodePtr, bool>>
+            get_parents_of(const MsgNodePtr& template_node,
                            int time_step) const;
 
             /**
-             * Returns the children of a given node. The child nodes are not
-             * constrained to the node's time step and can come from a posterior
-             * time step.
+             * Returns a list of pairs (child, transition) for a given node. The
+             * child nodes are not constrained to the node's time step and can
+             * come from a posterior time step. In that case, transition will be
+             * marked as true.
              *
-             * @param node: node in the factor graph
+             * @param template_node: node in the factor graph
+             * @param time_step: real time step of the template node
              *
              * @return Children of the template node informed
              */
-            std::vector<std::shared_ptr<MessageNode>> get_children_of(
-                const std::shared_ptr<MessageNode>& template_node) const;
+            std::vector<std::pair<MsgNodePtr, bool>>
+            get_children_of(const MsgNodePtr& template_node,
+                            int time_step) const;
 
             /**
              * Returns the marginal distribution for a given node in a certain

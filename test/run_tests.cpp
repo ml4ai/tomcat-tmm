@@ -1520,7 +1520,7 @@ BOOST_AUTO_TEST_CASE(edhmm_exact_inference) {
         DynamicBayesNet::create_from_json("models/edhmm_exact_copy.json"));
     model->unroll(3, true);
     SumProductEstimator state_estimator(model, 0, "State");
-
+        FactorGraph::create_from_unrolled_dbn(*model).print_graph(cout);
     state_estimator.set_show_progress(false);
     state_estimator.prepare();
     state_estimator.estimate(data);
