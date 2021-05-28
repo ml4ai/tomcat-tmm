@@ -183,7 +183,8 @@ namespace tomcat {
                 auto parent_nodes =
                     factor_graph.get_parents_of(node, time_step);
 
-                if (!node->is_factor()) {
+                if (!node->is_factor() && time_step >= this->next_time_step) {
+                    // Do not temper with data set in previous time steps.
                     shared_ptr<VariableNode> variable_node =
                         dynamic_pointer_cast<VariableNode>(node);
                     if (new_data.has_data_for(node->get_label())) {

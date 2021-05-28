@@ -75,7 +75,7 @@ pair<bool, string> check_matrix_eq(const MatrixXd& estimated,
 bool check_tensor_eq(Tensor3& estimated,
                      Tensor3& expected,
                      double tolerance = 0.00001) {
-   return estimated.equals(expected, tolerance);
+    return estimated.equals(expected, tolerance);
 }
 
 BOOST_AUTO_TEST_SUITE(distribution)
@@ -771,84 +771,90 @@ BOOST_FIXTURE_TEST_CASE(sum_product, HMM) {
      * TC from a non-deterministic model.
      */
 
-    DBNPtr deterministic_model = create_model(true, false);
+    fs::current_path("../../test");
+    DBNPtr deterministic_model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn_deterministic.json"));
+
+    //    DBNPtr deterministic_model = create_model(true, false);
     deterministic_model->unroll(4, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
+    //    DBNPtr pre_trained_model = create_model(false, false);
+    DBNPtr pre_trained_model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn.json"));
+
+    pre_trained_model->unroll(4, true);
+    SumProductEstimator obs1_estimator_h1(
+        pre_trained_model, 1, "Obs1", VectorXd::Constant(1, 1));
+    SumProductEstimator obs2_estimator_h1(
+        pre_trained_model, 1, "Obs2", VectorXd::Constant(1, 1));
+    SumProductEstimator obs1_estimator_h3(
+        pre_trained_model, 3, "Obs1", VectorXd::Constant(1, 1));
+    SumProductEstimator obs2_estimator_h3(
+        pre_trained_model, 3, "Obs2", VectorXd::Constant(1, 1));
+    SumProductEstimator fixed_estimator(pre_trained_model, 0, "Fixed");
+
+    obs1_estimator_h1.set_variable_window(true);
+
+
+    // Green node is observed
     // One sample from the deterministic model will be used for estimation.
     AncestralSampler sampler(deterministic_model);
     sampler.sample(gen, 1);
-
-    DBNPtr pre_trained_model = create_model(false, false);
-    pre_trained_model->unroll(4, true);
-    SumProductEstimator green_estimator_h1(
-        pre_trained_model, 1, GREEN, VectorXd::Constant(1, 1));
-    SumProductEstimator yellow_estimator_h1(
-        pre_trained_model, 1, YELLOW, VectorXd::Constant(1, 1));
-    SumProductEstimator green_estimator_h3(
-        pre_trained_model, 3, GREEN, VectorXd::Constant(1, 1));
-    SumProductEstimator yellow_estimator_h3(
-        pre_trained_model, 3, YELLOW, VectorXd::Constant(1, 1));
-    SumProductEstimator tc_estimator(pre_trained_model, 0, TC);
-        FactorGraph::create_from_unrolled_dbn(*pre_trained_model).print_graph(cout);
-    // Green node is observed
     EvidenceSet data;
-    data.add_data(GREEN, sampler.get_samples(GREEN));
+    data.add_data("Obs1", sampler.get_samples("Obs1"));
 
-    green_estimator_h1.set_show_progress(false);
-    green_estimator_h1.prepare();
-    green_estimator_h1.estimate(data);
-    yellow_estimator_h1.set_show_progress(false);
-    yellow_estimator_h1.prepare();
-    yellow_estimator_h1.estimate(data);
-    green_estimator_h3.set_show_progress(false);
-    green_estimator_h3.prepare();
-    green_estimator_h3.estimate(data);
-    yellow_estimator_h3.set_show_progress(false);
-    yellow_estimator_h3.prepare();
-    yellow_estimator_h3.estimate(data);
-    tc_estimator.set_show_progress(false);
-    tc_estimator.prepare();
-    tc_estimator.estimate(data);
+    obs1_estimator_h1.set_show_progress(false);
+    obs1_estimator_h1.prepare();
+    obs1_estimator_h1.estimate(data);
+    obs2_estimator_h1.set_show_progress(false);
+    obs2_estimator_h1.prepare();
+    obs2_estimator_h1.estimate(data);
+    obs1_estimator_h3.set_show_progress(false);
+    obs1_estimator_h3.prepare();
+    obs1_estimator_h3.estimate(data);
+    obs2_estimator_h3.set_show_progress(false);
+    obs2_estimator_h3.prepare();
+    obs2_estimator_h3.estimate(data);
+    fixed_estimator.set_show_progress(false);
+    fixed_estimator.prepare();
+    fixed_estimator.estimate(data);
 
-    MatrixXd green_estimates_h1 =
-        green_estimator_h1.get_estimates().estimates[0];
-    MatrixXd yellow_estimates_h1 =
-        yellow_estimator_h1.get_estimates().estimates[0];
-    MatrixXd green_estimates_h3 =
-        green_estimator_h3.get_estimates().estimates[0];
-    MatrixXd yellow_estimates_h3 =
-        yellow_estimator_h3.get_estimates().estimates[0];
-    vector<MatrixXd> tc_estimates = tc_estimator.get_estimates().estimates;
+    MatrixXd obs1_estimates_h1 = obs1_estimator_h1.get_estimates().estimates[0];
+    MatrixXd obs2_estimates_h1 = obs2_estimator_h1.get_estimates().estimates[0];
+    MatrixXd obs1_estimates_h3 = obs1_estimator_h3.get_estimates().estimates[0];
+    MatrixXd obs2_estimates_h3 = obs2_estimator_h3.get_estimates().estimates[0];
+    vector<MatrixXd> fixed_estimates =
+        fixed_estimator.get_estimates().estimates;
 
-    MatrixXd expected_green_h1(1, 4);
-    expected_green_h1 << 0.56788, 0.56589, 0.566867, 0.565993;
-    auto check = check_matrix_eq(green_estimates_h1, expected_green_h1);
+    MatrixXd expected_obs1_h1(1, 4);
+    expected_obs1_h1 << 0.56788, 0.56589, 0.566867, 0.565993;
+    auto check = check_matrix_eq(obs1_estimates_h1, expected_obs1_h1);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd expected_yellow_h1(1, 4);
-    expected_yellow_h1 << 0.43212, 0.43411, 0.433133, 0.434007;
-    check = check_matrix_eq(yellow_estimates_h1, expected_yellow_h1);
+    MatrixXd expected_obs2_h1(1, 4);
+    expected_obs2_h1 << 0.43212, 0.43411, 0.433133, 0.434007;
+    check = check_matrix_eq(obs2_estimates_h1, expected_obs2_h1);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd expected_green_h3(1, 4);
-    expected_green_h3 << 0.91875, 0.918454, 0.918545, 0.918483;
-    check = check_matrix_eq(green_estimates_h3, expected_green_h3);
+    MatrixXd expected_obs1_h3(1, 4);
+    expected_obs1_h3 << 0.91875, 0.918454, 0.918545, 0.918483;
+    check = check_matrix_eq(obs1_estimates_h3, expected_obs1_h3);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd expected_yellow_h3(1, 4);
-    expected_yellow_h3 << 0.818174, 0.818918, 0.818499, 0.818842;
-    check = check_matrix_eq(yellow_estimates_h3, expected_yellow_h3);
+    MatrixXd expected_obs2_h3(1, 4);
+    expected_obs2_h3 << 0.818174, 0.818918, 0.818499, 0.818842;
+    check = check_matrix_eq(obs2_estimates_h3, expected_obs2_h3);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd expected_tc(3, 4);
-    expected_tc << -1, 0.500324, 0.506335, 0.504282, -1, 0.294363, 0.286289,
+    MatrixXd expected_fixed(3, 4);
+    expected_fixed << -1, 0.500324, 0.506335, 0.504282, -1, 0.294363, 0.286289,
         0.291487, -1, 0.205313, 0.207376, 0.204232;
-    check = check_matrix_eq(tc_estimates[0], expected_tc.row(0));
+    check = check_matrix_eq(fixed_estimates[0], expected_fixed.row(0));
     BOOST_TEST(check.first, check.second);
-    check = check_matrix_eq(tc_estimates[1], expected_tc.row(1));
+    check = check_matrix_eq(fixed_estimates[1], expected_fixed.row(1));
     BOOST_TEST(check.first, check.second);
-    check = check_matrix_eq(tc_estimates[2], expected_tc.row(2));
+    check = check_matrix_eq(fixed_estimates[2], expected_fixed.row(2));
     BOOST_TEST(check.first, check.second);
 }
 
@@ -1520,7 +1526,7 @@ BOOST_AUTO_TEST_CASE(edhmm_exact_inference) {
         DynamicBayesNet::create_from_json("models/edhmm_exact_copy.json"));
     model->unroll(3, true);
     SumProductEstimator state_estimator(model, 0, "State");
-        FactorGraph::create_from_unrolled_dbn(*model).print_graph(cout);
+    FactorGraph::create_from_unrolled_dbn(*model).print_graph(cout);
     state_estimator.set_show_progress(false);
     state_estimator.prepare();
     state_estimator.estimate(data);
