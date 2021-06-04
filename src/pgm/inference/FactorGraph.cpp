@@ -288,12 +288,14 @@ namespace tomcat {
                 this->add_node(
                     node_label, cardinality, t, cpd_table, ordering_map);
 
+                string factor_label;
                 if (random_variable->get_parents().empty()) {
                     // A factor node was already created when the node was
                     // created and there's no other node to be attached to it.
                     // We can just connect the source in the previous time step
                     // to that factor.
                     this->add_edge(node_label, t - 1, node_label, t);
+                    factor_label = node_label;
                 }
                 else {
                     // The factor node created with the copy of the node in a
@@ -308,7 +310,7 @@ namespace tomcat {
                     ParentIndexing indexing(0, cardinality, 1);
                     CPD::TableOrderingMap ordering_map;
                     ordering_map[node_label] = indexing;
-                    string factor_label =
+                    factor_label =
                         compose_intermediary_factor_label(node_label);
                     int factor_id = this->add_factor_node(factor_label,
                                                           t,
@@ -320,11 +322,13 @@ namespace tomcat {
                         MessageNode::get_name(node_label, t - 1));
                     int source_node_id_copy = this->name_to_id.at(
                         MessageNode::get_name(node_label, t));
-                    boost::add_edge(
-                        source_node_id, factor_id, this->graph);
+                    boost::add_edge(source_node_id, factor_id, this->graph);
                     boost::add_edge(
                         factor_id, source_node_id_copy, this->graph);
                 }
+
+//                get_factor_node(factor_label, t)
+//                    ->set_block_backward_message(true);
             }
         }
 

@@ -16,11 +16,13 @@
 #include "mock_models.h"
 #include "pgm/EvidenceSet.h"
 #include "pgm/inference/MarginalizationFactorNode.h"
+#include "pgm/inference/ParticleFilter.h"
 #include "pgm/inference/SegmentExpansionFactorNode.h"
 #include "pgm/inference/SegmentMarginalizationFactorNode.h"
 #include "pgm/inference/SegmentTransitionFactorNode.h"
 #include "pgm/inference/VariableNode.h"
 #include "pipeline/estimation/CompoundSamplerEstimator.h"
+#include "pipeline/estimation/ParticleFilterEstimator.h"
 #include "pipeline/estimation/SamplerEstimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
 #include "pipeline/training/DBNSamplingTrainer.h"
@@ -764,6 +766,98 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(estimation)
 
+BOOST_AUTO_TEST_CASE(sum_product_small) {
+    /**
+     * Test exact inference with sum product in a small DBN with an state, an
+     * observation and a non repeatable node linked to the states.
+     */
+
+    fs::current_path("../../test");
+
+    // Data
+    Eigen::MatrixXd data_matrix(1, 10);
+    data_matrix << NO_OBS, 0, 0, 0, 0, 0, 0, 0, 0, 0;
+    EvidenceSet data;
+    data.add_data("Obs", Tensor3(data_matrix));
+
+    // Model
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn_small.json"));
+
+    model->unroll(data.get_time_steps(), true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    SumProductEstimator obs_estimator_h1(
+        model, 1, "Obs", VectorXd::Constant(1, 1));
+    SumProductEstimator obs_estimator_h3(
+        model, 3, "Obs", VectorXd::Constant(1, 1));
+    SumProductEstimator fixed_estimator(model, 0, "Fixed");
+    SumProductEstimator state_estimator(model, 0, "State");
+
+    //    obs_estimator_h1.set_variable_window(true);
+    //    obs_estimator_h3.set_variable_window(true);
+    fixed_estimator.set_variable_window(true);
+    state_estimator.set_variable_window(true);
+
+    //    obs_estimator_h1.set_show_progress(false);
+    //    obs_estimator_h1.prepare();
+    //    obs_estimator_h1.estimate(data);
+    //    obs_estimator_h3.set_show_progress(false);
+    //    obs_estimator_h3.prepare();
+    //    obs_estimator_h3.estimate(data);
+    fixed_estimator.set_show_progress(false);
+    fixed_estimator.prepare();
+    fixed_estimator.estimate(data);
+    state_estimator.set_show_progress(false);
+    state_estimator.prepare();
+    state_estimator.estimate(data);
+
+    //    cout << Tensor3(obs_estimator_h1.get_estimates().estimates) << endl;
+    //    cout << Tensor3(obs_estimator_h3.get_estimates().estimates) << endl;
+    cout << Tensor3(fixed_estimator.get_estimates().estimates) << endl;
+    cout << Tensor3(state_estimator.get_estimates().estimates) << endl;
+
+    //    MatrixXd obs1_estimates_h1 =
+    //    obs1_estimator_h1.get_estimates().estimates[0]; MatrixXd
+    //    obs2_estimates_h1 = obs2_estimator_h1.get_estimates().estimates[0];
+    //    MatrixXd obs1_estimates_h3 =
+    //    obs1_estimator_h3.get_estimates().estimates[0]; MatrixXd
+    //    obs2_estimates_h3 = obs2_estimator_h3.get_estimates().estimates[0];
+    //    vector<MatrixXd> fixed_estimates =
+    //        fixed_estimator.get_estimates().estimates;
+    //
+    //    MatrixXd expected_obs1_h1(1, 4);
+    //    expected_obs1_h1 << 0.56788, 0.56589, 0.566867, 0.565993;
+    //    auto check = check_matrix_eq(obs1_estimates_h1, expected_obs1_h1);
+    //    BOOST_TEST(check.first, check.second);
+    //
+    //    MatrixXd expected_obs2_h1(1, 4);
+    //    expected_obs2_h1 << 0.43212, 0.43411, 0.433133, 0.434007;
+    //    check = check_matrix_eq(obs2_estimates_h1, expected_obs2_h1);
+    //    BOOST_TEST(check.first, check.second);
+    //
+    //    MatrixXd expected_obs1_h3(1, 4);
+    //    expected_obs1_h3 << 0.91875, 0.918454, 0.918545, 0.918483;
+    //    check = check_matrix_eq(obs1_estimates_h3, expected_obs1_h3);
+    //    BOOST_TEST(check.first, check.second);
+    //
+    //    MatrixXd expected_obs2_h3(1, 4);
+    //    expected_obs2_h3 << 0.818174, 0.818918, 0.818499, 0.818842;
+    //    check = check_matrix_eq(obs2_estimates_h3, expected_obs2_h3);
+    //    BOOST_TEST(check.first, check.second);
+    //
+    //    MatrixXd expected_fixed(3, 4);
+    //    expected_fixed << -1, 0.500324, 0.506335, 0.504282, -1, 0.294363,
+    //    0.286289,
+    //        0.291487, -1, 0.205313, 0.207376, 0.204232;
+    //    check = check_matrix_eq(fixed_estimates[0], expected_fixed.row(0));
+    //    BOOST_TEST(check.first, check.second);
+    //    check = check_matrix_eq(fixed_estimates[1], expected_fixed.row(1));
+    //    BOOST_TEST(check.first, check.second);
+    //    check = check_matrix_eq(fixed_estimates[2], expected_fixed.row(2));
+    //    BOOST_TEST(check.first, check.second);
+}
+
 BOOST_FIXTURE_TEST_CASE(sum_product, HMM) {
     /**
      * This test case checks if the sum-product procedure can estimate
@@ -794,8 +888,10 @@ BOOST_FIXTURE_TEST_CASE(sum_product, HMM) {
         pre_trained_model, 3, "Obs2", VectorXd::Constant(1, 1));
     SumProductEstimator fixed_estimator(pre_trained_model, 0, "Fixed");
 
-    obs1_estimator_h1.set_variable_window(true);
+    SumProductEstimator state_estimator(pre_trained_model, 0, "State");
 
+    fixed_estimator.set_variable_window(true);
+    state_estimator.set_variable_window(true);
 
     // Green node is observed
     // One sample from the deterministic model will be used for estimation.
@@ -803,6 +899,7 @@ BOOST_FIXTURE_TEST_CASE(sum_product, HMM) {
     sampler.sample(gen, 1);
     EvidenceSet data;
     data.add_data("Obs1", sampler.get_samples("Obs1"));
+    cout << data << endl;
 
     obs1_estimator_h1.set_show_progress(false);
     obs1_estimator_h1.prepare();
@@ -819,6 +916,12 @@ BOOST_FIXTURE_TEST_CASE(sum_product, HMM) {
     fixed_estimator.set_show_progress(false);
     fixed_estimator.prepare();
     fixed_estimator.estimate(data);
+
+    state_estimator.set_show_progress(false);
+    state_estimator.prepare();
+    state_estimator.estimate(data);
+
+    cout << Tensor3(state_estimator.get_estimates().estimates) << endl;
 
     MatrixXd obs1_estimates_h1 = obs1_estimator_h1.get_estimates().estimates[0];
     MatrixXd obs2_estimates_h1 = obs2_estimator_h1.get_estimates().estimates[0];
@@ -1605,6 +1708,72 @@ BOOST_AUTO_TEST_CASE(edhmm_exact_inference) {
     Tensor3 expected_y_estimates(expected_y_estimates_matrices);
 
     BOOST_TEST(check_tensor_eq(y_estimates, expected_y_estimates));
+}
+
+BOOST_AUTO_TEST_CASE(particle_filter) {
+    /**
+     * Test sampling generation
+     */
+
+    fs::current_path("../../test");
+
+    // Data
+    Eigen::MatrixXd data_matrix(1, 4);
+    data_matrix << NO_OBS, 1, 0, 1;
+    EvidenceSet data;
+    data.add_data("Obs", Tensor3(data_matrix));
+
+    // Model
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn_small.json"));
+
+    model->unroll(data.get_time_steps(), true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    shared_ptr<SamplerEstimator> fixed_estimator =
+        make_shared<SamplerEstimator>(model, 0, "Fixed");
+    shared_ptr<SamplerEstimator> state_estimator =
+        make_shared<SamplerEstimator>(model, 0, "State");
+    shared_ptr<SamplerEstimator> state_estimator_h3 =
+        make_shared<SamplerEstimator>(
+            model, 3, "State", Eigen::VectorXd::Constant(1, 1));
+    ParticleFilterEstimator estimator(model, 5000, gen, 4);
+    estimator.add_base_estimator(fixed_estimator);
+    estimator.add_base_estimator(state_estimator);
+    estimator.add_base_estimator(state_estimator_h3);
+
+    estimator.prepare();
+    estimator.estimate(data);
+
+    double tolerance = 0.1;
+
+    vector<Eigen::MatrixXd> tmp(3);
+
+    // Fixed
+    tmp[0] = Eigen::MatrixXd(1, 4);
+    tmp[0] << 0, 0.487544483985765, 0.478224303688923, 0.465036546679178;
+    tmp[1] = Eigen::MatrixXd(1, 4);
+    tmp[1] << 0, 0.307473309608541, 0.318151085898979, 0.328913085804547;
+    tmp[2] = Eigen::MatrixXd(1, 4);
+    tmp[2] << 0, 0.204982206405694, 0.203624610412097, 0.206050367516275;
+    Tensor3 expected_fixed(tmp);
+    Tensor3 fixed_estimates =
+        Tensor3(fixed_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(fixed_estimates, expected_fixed, tolerance));
+
+    // State
+    tmp[0] << 0.300000000000000, 0.450889679715303, 0.262470935505681,
+        0.445661170635589;
+    tmp[1] << 0.500000000000000, 0.184163701067616, 0.533619993073993,
+        0.182120380793999;
+    tmp[2] << 0.200000000000000, 0.364946619217082, 0.203909071420326,
+        0.372218448570412;
+    Tensor3 expected_state(tmp);
+    Tensor3 state_estimates =
+        Tensor3(state_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(state_estimates, expected_state, tolerance));
+
+    cout << state_estimates << endl;
 }
 
 BOOST_AUTO_TEST_SUITE_END()

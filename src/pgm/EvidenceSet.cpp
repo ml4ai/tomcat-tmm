@@ -253,9 +253,12 @@ namespace tomcat {
                     this->num_data_points += other.get_num_data_points();
                 }
                 else {
-                    this->add_data(label, other.node_label_to_data.at(label));
+                    this->node_label_to_data[label] =
+                        other.node_label_to_data.at(label);
+                    this->time_steps = other.time_steps;
                 }
             }
+            this->num_data_points += other.num_data_points;
         }
 
         void EvidenceSet::hstack(const EvidenceSet& other) {
@@ -263,12 +266,33 @@ namespace tomcat {
                 if (this->has_data_for(label)) {
                     this->node_label_to_data.at(label).hstack(
                         other.node_label_to_data.at(label));
-                    this->time_steps += other.get_time_steps();
                 }
                 else {
-                    this->add_data(label, other.node_label_to_data.at(label));
+                    this->node_label_to_data[label] =
+                        other.node_label_to_data.at(label);
+                    this->num_data_points = other.num_data_points;
                 }
             }
+            this->time_steps += other.get_time_steps();
+        }
+
+        EvidenceSet
+        EvidenceSet::get_single_point_data(int data_point_idx) const {
+            EvidenceSet new_set;
+            for (const auto& [node_label, data] : this->node_label_to_data) {
+                new_set.add_data(node_label, data.row(data_point_idx));
+            }
+
+            return new_set;
+        }
+
+        EvidenceSet EvidenceSet::get_single_time_data(int time_step) const {
+            EvidenceSet new_set;
+            for (const auto& [node_label, data] : this->node_label_to_data) {
+                new_set.add_data(node_label, data.col(time_step));
+            }
+
+            return new_set;
         }
 
         //----------------------------------------------------------------------

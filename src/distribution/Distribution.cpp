@@ -1,6 +1,9 @@
 #include "distribution/Distribution.h"
 
+#include <thread>
+
 #include "pgm/RandomVariableNode.h"
+#include "utils/Multithreading.h"
 
 namespace tomcat {
     namespace model {
@@ -87,6 +90,79 @@ namespace tomcat {
 
         void Distribution::copy(const Distribution& distribution) {
             this->parameters = distribution.parameters;
+        }
+
+        Eigen::MatrixXd Distribution::sample_many(
+            std::vector<std::shared_ptr<gsl_rng>> random_generator_per_job,
+            int num_samples,
+            int parameter_idx) const {
+
+            Eigen::MatrixXd samples(num_samples, 1);
+            mutex samples_mutex;
+
+            int num_jobs = random_generator_per_job.size();
+            if (num_jobs == 1) {
+                // Run in the main thread
+                this->run_sample_thread(random_generator_per_job.at(0),
+                                        parameter_idx,
+                                        samples,
+                                        make_pair(0, num_samples),
+                                        samples_mutex);
+            }
+            else {
+                const auto processing_blocks =
+                    get_parallel_processing_blocks(num_jobs, num_samples);
+                vector<thread> threads;
+                for (int i = 0; i < processing_blocks.size(); i++) {
+                    thread samples_thread(&Distribution::run_sample_thread,
+                                          this,
+                                          ref(random_generator_per_job.at(i)),
+                                          parameter_idx,
+                                          ref(samples),
+                                          ref(processing_blocks.at(i)),
+                                          ref(samples_mutex));
+                    threads.push_back(move(samples_thread));
+                }
+
+                for (auto& samples_thread : threads) {
+                    samples_thread.join();
+                }
+            }
+
+            return samples;
+        }
+
+        void Distribution::run_sample_thread(
+            shared_ptr<gsl_rng> random_generator,
+            int parameter_idx,
+            Eigen::MatrixXd& full_samples,
+            const pair<int, int>& processing_block,
+            mutex& samples_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
+            Eigen::MatrixXd samples(num_rows, 1);
+
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
+                Eigen::VectorXd sample;
+
+                sample = this->sample(random_generator, parameter_idx);
+
+                if (samples.cols() < sample.size()) {
+                    samples.resize(Eigen::NoChange, sample.size());
+                }
+
+                samples.row(i - initial_row) = move(sample);
+            }
+
+            scoped_lock lock(samples_mutex);
+
+            if (full_samples.cols() < samples.cols()) {
+                full_samples.resize(Eigen::NoChange, samples.cols());
+            }
+            full_samples.block(initial_row, 0, num_rows, full_samples.cols()) =
+                samples;
         }
 
     } // namespace model

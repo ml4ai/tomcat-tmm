@@ -166,6 +166,104 @@ namespace tomcat {
             }
         }
 
+        void SamplerEstimator::estimate(EvidenceSet particles,
+                                        EvidenceSet projected_particles,
+                                        int data_point_idx) {
+
+            if (this->inference_horizon == 0) {
+                const Tensor3 samples_tensor = particles[this->estimates.label];
+
+                for (int t = 0; t < particles.get_time_steps(); t++) {
+                    // Each dimensionality is computed individually
+                    const auto& metadata = this->get_model()->get_metadata_of(
+                        this->estimates.label);
+
+                    if (this->estimates.assignment.size() == 0) {
+                        // Compute estimates for each value the node can take
+                        // (assuming the node's distribution is discrete)
+                        Eigen::MatrixXd samples = samples_tensor(0, 0);
+
+                        int k = this->get_model()->get_cardinality_of(
+                            this->estimates.label);
+                        Eigen::VectorXd probs = Eigen::VectorXd::Zero(k);
+
+                        const auto& metadata =
+                            this->get_model()->get_metadata_of(
+                                this->estimates.label);
+                        int time_step = this->estimates.estimates.at(0).size();
+                        if (time_step >= metadata->get_initial_time_step()) {
+                            for (int i = 0; i < samples.rows(); i++) {
+                                probs[samples(i, t)] += 1;
+                            }
+
+                            probs /= samples.rows();
+                        }
+
+                        for (int i = 0; i < k; i++) {
+                            auto& estimates_matrix =
+                                this->estimates.estimates.at(i);
+                            estimates_matrix.conservativeResize(
+                                data_point_idx + 1,
+                                estimates_matrix.cols() + 1);
+                            estimates_matrix(data_point_idx,
+                                             estimates_matrix.cols() - 1) =
+                                probs[i];
+                        }
+                    }
+                    else {
+                        double low = this->estimates.assignment[0];
+                        // TODO - change this when range is implemented
+                        double high = low;
+
+                        double prob = this->get_probability_in_range(
+                            samples_tensor.col(t), low, high);
+
+                        auto& estimates_matrix =
+                            this->estimates.estimates.at(0);
+                        estimates_matrix.conservativeResize(
+                            data_point_idx + 1, estimates_matrix.cols() + 1);
+                        estimates_matrix(data_point_idx,
+                                         estimates_matrix.cols() - 1) = prob;
+                    }
+                }
+            }
+            else {
+                const Tensor3 samples_tensor =
+                    projected_particles[this->estimates.label];
+
+                if (this->estimates.assignment.size() == 0) {
+                    // Compute estimates for each value the node can take
+                    // (assuming the node's distribution is discrete)
+                    int k = this->get_model()->get_cardinality_of(
+                        this->estimates.label);
+
+                    for (int i = 0; i < k; i++) {
+                        auto& estimates_matrix =
+                            this->estimates.estimates.at(i);
+                        estimates_matrix.conservativeResize(
+                            data_point_idx + 1, estimates_matrix.cols() + 1);
+                        estimates_matrix(data_point_idx,
+                                         estimates_matrix.cols() - 1) =
+                            this->get_probability_in_range(
+                                samples_tensor, i, i);
+                    }
+                }
+                else {
+                    double low = this->estimates.assignment[0];
+                    // TODO - change this when range is implemented
+                    double high = low;
+
+                    auto& estimates_matrix = this->estimates.estimates.at(0);
+                    estimates_matrix.conservativeResize(
+                        data_point_idx + 1, estimates_matrix.cols() + 1);
+                    estimates_matrix(data_point_idx,
+                                     estimates_matrix.cols() - 1) =
+                        1 - this->get_probability_in_range(
+                                samples_tensor, low, high);
+                }
+            }
+        }
+
         double SamplerEstimator::get_probability_in_range(
             const Eigen::MatrixXd& samples, double low, double high) const {
 
@@ -189,6 +287,46 @@ namespace tomcat {
             }
 
             probability = matches.mean();
+            return probability;
+        }
+
+        double SamplerEstimator::get_probability_in_range(
+            const Tensor3& samples, double low, double high) const {
+
+            Eigen::VectorXi matches =
+                Eigen::VectorXi::Ones(samples.get_shape()[1]);
+            double probability;
+            for (int i = 0; i < samples.get_shape()[0]; i++) {
+                Eigen::MatrixXd matrix = samples(i, 0);
+
+                if (low == high) {
+                    matches =
+                        (matches.array() ==
+                         ((matrix.array() == low).cast<int>().rowwise().sum() >
+                          0)
+                             .cast<int>())
+                            .cast<int>();
+                }
+                else {
+                    Eigen::VectorXi matches_low =
+                        (matches.array() ==
+                         ((matrix.array() >= low).cast<int>().rowwise().sum() >
+                          0)
+                             .cast<int>())
+                            .cast<int>();
+
+                    Eigen::VectorXi matches_high =
+                        (matches.array() ==
+                         ((matrix.array() <= high).cast<int>().rowwise().sum() >
+                          0)
+                             .cast<int>())
+                            .cast<int>();
+                    matches = (matches_low.array() == matches_high.array())
+                                  .cast<int>();
+                }
+            }
+
+            probability = matches.cast<double>().mean();
             return probability;
         }
 

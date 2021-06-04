@@ -94,8 +94,12 @@ namespace tomcat {
                         ? 0
                         : max(t - this->subgraph_window_size + 1, 0);
 
+                cout << "T = " << t << endl;
+                int pass = 0;
+
                 bool any_change;
                 do {
+                    cout << "PASS = " << pass++ << endl;
 
                     // Propagate messages forward within a window
                     for (int w = initial_time_step_in_window; w <= t; w++) {
@@ -111,7 +115,7 @@ namespace tomcat {
                         any_change |= this->compute_backward_messages(
                             this->factor_graph, w, new_data, false, t);
                     }
-
+//                    break;
                 } while (any_change);
 
                 if (this->inference_horizon > 0) {
@@ -240,15 +244,15 @@ namespace tomcat {
                             parent_incoming_messages_time_step = time_step - 1;
                         }
 
-                        LOG("Forward");
-                        stringstream ss;
-                        ss << MessageNode::get_name(
-                                  parent_node->get_label(),
-                                  parent_incoming_messages_time_step)
-                           << " -> "
-                           << MessageNode::get_name(node->get_label(),
-                                                    time_step);
-                        LOG(ss.str());
+//                        LOG("Forward");
+//                        stringstream ss;
+//                        ss << MessageNode::get_name(
+//                                  parent_node->get_label(),
+//                                  parent_incoming_messages_time_step)
+//                           << " -> "
+//                           << MessageNode::get_name(node->get_label(),
+//                                                    time_step);
+//                        LOG(ss.str());
 
                         Tensor3 message = parent_node->get_outward_message_to(
                             node,
@@ -256,7 +260,7 @@ namespace tomcat {
                             time_step,
                             MessageNode::Direction::forward);
 
-                        LOG(message);
+//                        LOG(message);
 
                         any_change |= node->set_incoming_message_from(
                             parent_node,
@@ -285,31 +289,32 @@ namespace tomcat {
                 auto child_nodes =
                     factor_graph.get_children_of(node, time_step);
 
-                if (child_nodes.empty() ||
-                    (child_nodes.size() == 1 &&
-                     child_nodes[0].first->get_time_step() > last_time_step)) {
+                int num_data_points = max(1, new_data.get_num_data_points());
+
+                if (child_nodes.empty()) {
                     // This vertex is a leaf in the factor graph for that time
                     // step (it can have a child in the next time step, which
                     // should not be considered at this point). It's single
                     // incoming bottom up message is a vector of ones.
                     // Implemented as a matrix so that messages for multiple
                     // data sets can be processes at once.
-                    int num_rows = max(1, new_data.get_num_data_points());
-                    int num_cols = dynamic_pointer_cast<VariableNode>(node)
-                                       ->get_cardinality();
-
+                    int cardinality;
                     if (in_future &&
                         node->get_label() == this->estimates.label) {
                         // In a positive inference horizon, messages of an
                         // estimated node are aggregated.
-                        num_cols = 2;
+                        cardinality = 2;
+                    }
+                    else {
+                        cardinality = dynamic_pointer_cast<VariableNode>(node)
+                                          ->get_cardinality();
                     }
 
                     node->set_incoming_message_from(
                         MessageNode::END_NODE_LABEL,
                         time_step,
                         time_step,
-                        Tensor3::constant(1, num_rows, num_cols, 1),
+                        Tensor3::ones(1, num_data_points, cardinality),
                         MessageNode::Direction::backwards);
                 }
                 else {
@@ -323,28 +328,36 @@ namespace tomcat {
                             child_incoming_messages_time_step = time_step + 1;
                         }
 
+//                        LOG("Backward");
+//                        stringstream ss;
+//                        ss << MessageNode::get_name(node->get_label(),
+//                                                    time_step)
+//                           << " <- "
+//                           << MessageNode::get_name(
+//                                  child_node->get_label(),
+//                                  child_incoming_messages_time_step);
+//                        LOG(ss.str());
+
+                        Tensor3 message;
                         if (child_incoming_messages_time_step >
                             last_time_step) {
-                            continue;
+                            // Boundary nodes are never factor nodes. Therefore,
+                            // the cast will work.
+                            int cardinality =
+                                dynamic_pointer_cast<VariableNode>(node)
+                                    ->get_cardinality();
+                            message =
+                                Tensor3::ones(1, num_data_points, cardinality);
+                        }
+                        else {
+                            message = child_node->get_outward_message_to(
+                                node,
+                                child_incoming_messages_time_step,
+                                time_step,
+                                MessageNode::Direction::backwards);
                         }
 
-                        LOG("Backward");
-                        stringstream ss;
-                        ss << MessageNode::get_name(node->get_label(),
-                                                    time_step)
-                           << " <- "
-                           << MessageNode::get_name(
-                                  child_node->get_label(),
-                                  child_incoming_messages_time_step);
-                        LOG(ss.str());
-
-                        Tensor3 message = child_node->get_outward_message_to(
-                            node,
-                            child_incoming_messages_time_step,
-                            time_step,
-                            MessageNode::Direction::backwards);
-
-                        LOG(message);
+//                        LOG(message);
 
                         any_change |= node->set_incoming_message_from(
                             child_node,
@@ -402,6 +415,7 @@ namespace tomcat {
                 // which assignment does not shows up.
                 this->factor_graph.use_aggregate_potential(node_label,
                                                            assignment);
+                int curr_next_time_step = this->next_time_step;
                 for (int t = time_step + 1;
                      t < time_step + this->inference_horizon;
                      t++) {
@@ -445,8 +459,8 @@ namespace tomcat {
                     }
                 }
 
-                // We only need to pass the message forward once in the last time
-                // step to collect the final probability.
+                // We only need to pass the message forward once in the last
+                // time step to collect the final probability.
                 EvidenceSet empty_set;
                 this->compute_forward_messages(this->factor_graph,
                                                time_step +
@@ -465,7 +479,7 @@ namespace tomcat {
                 estimated_probabilities = 1 - estimated_probabilities.array();
 
                 // Adjust the time counter back to it's original position.
-                this->next_time_step -= this->inference_horizon - 1;
+                this->next_time_step = curr_next_time_step;
                 this->factor_graph.use_original_potential(node_label);
                 this->factor_graph.erase_incoming_messages_beyond(time_step);
             }

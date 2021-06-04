@@ -10,6 +10,7 @@ namespace tomcat {
         class NodeMetadata;
         class CPD;
         class Distribution;
+        class DynamicBayesNet;
 
         typedef std::shared_ptr<NodeMetadata> MetadataPtr;
         typedef std::shared_ptr<Node> NodePtr;
@@ -19,6 +20,7 @@ namespace tomcat {
         typedef std::shared_ptr<CPD> CPDPtr;
         typedef std::shared_ptr<Distribution> DistributionPtr;
         typedef std::vector<DistributionPtr> DistributionPtrVec;
+        typedef std::shared_ptr<DynamicBayesNet> DBNPtr;
 
         // Exact Inference
         class MessageNode;

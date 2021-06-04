@@ -386,6 +386,32 @@ namespace tomcat {
                              const std::string& cpd_owner_label,
                              int cpd_owner_cardinality);
 
+            /**
+             * Enumerate probabilities in a matrix from the list of
+             * distributions to speed up computations.
+             *
+             * @param parameter_idx: index of the parameter's assignment to
+             * consider
+             */
+            virtual void freeze_distributions(int parameter_idx);
+
+            /**
+             * Returns the pdfs computed for the assignments of the cpw owner.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param num_jobs: number of threads created for parallel
+             * sampling. If 1, no parallel processing is performed and the code
+             * runs in the main thread
+             * @param parameter_idx: index of the parameter's assignment to
+             * consider
+             *
+             * @return Vector of PDFs
+             */
+            virtual Eigen::VectorXd
+            get_pdfs(const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                     int num_jobs,
+                     int parameter_idx) const;
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -755,6 +781,37 @@ namespace tomcat {
                 const std::pair<int, int>& processing_block,
                 Eigen::MatrixXd& full_samples,
                 std::mutex& samples_mutex) const;
+
+            /**
+             * Computes pdfs for the assignments of a CPD owner in a separate
+             * thread.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param distribution_indices: indices of the distributions from
+             * this CPD to be used
+             * @param parameter_idx: row of the node's assignment that holds the
+             * parameters of the distribution
+             * @param full_pdfs: vector of pdfs to be updated by this function
+             * @param processing_block: block of data to process in this thread
+             * @param pdf_mutex: mutex to control writing in the
+             * full_pdfs vector
+             */
+            void run_pdf_thread(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::VectorXi& distribution_indices,
+                int parameter_idx,
+                Eigen::VectorXd& full_pdfs,
+                const std::pair<int, int>& processing_block,
+                std::mutex& pdf_mutex) const;
+
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+
+            bool frozen_distributions = false;
+
+            // Filled when distributions are frozen
+            Eigen::MatrixXd distribution_table;
         };
 
     } // namespace model

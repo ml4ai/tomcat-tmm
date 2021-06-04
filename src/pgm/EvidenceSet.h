@@ -232,6 +232,24 @@ namespace tomcat {
              */
             void hstack(const EvidenceSet& other);
 
+            /**
+             * Gets only data for a single data point
+             *
+             * @param data_point_idx: index of the data point
+             *
+             * @return Data
+             */
+            EvidenceSet get_single_point_data(int data_point_idx) const;
+
+            /**
+             * Gets only data for a single time step
+             *
+             * @param time_step: time step to select data from
+             *
+             * @return Data
+             */
+            EvidenceSet get_single_time_data(int time_step) const;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------

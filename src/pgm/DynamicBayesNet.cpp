@@ -60,6 +60,8 @@ namespace tomcat {
 
         void DynamicBayesNet::expand(int new_time_steps) {
             if (new_time_steps > 0) {
+                this->data_nodes_per_time_step.resize(
+                    this->data_nodes_per_time_step.size() + new_time_steps);
                 this->create_vertices_from_nodes(new_time_steps);
                 this->create_edges(new_time_steps);
                 this->set_timers_to_nodes(new_time_steps);
@@ -135,9 +137,18 @@ namespace tomcat {
             // Include node in the list of created nodes
             this->label_to_nodes[data.node->get_metadata()->get_label()]
                 .push_back(data.node);
+
             this->nodes.push_back(data.node);
+
             if (data.node->get_metadata()->is_parameter()) {
                 this->parameter_nodes_map[node_name] = data.node;
+            }
+            else {
+                this->data_nodes_per_time_step[time_step].push_back(data.node);
+            }
+
+            if (!data.node->get_metadata()->is_replicable()) {
+                this->single_time_nodes.push_back(data.node);
             }
 
             return data;
@@ -385,12 +396,19 @@ namespace tomcat {
         void DynamicBayesNet::save_topological_list() {
             this->topological_nodes_per_time =
                 vector<RVNodePtrVec>(this->time_steps);
+            this->topological_data_nodes_per_time =
+                vector<RVNodePtrVec>(this->time_steps);
 
             for (const auto& node : this->get_nodes_topological_order()) {
                 const RVNodePtr& rv_node =
                     dynamic_pointer_cast<RandomVariableNode>(node);
                 int t = rv_node->get_time_step();
                 this->topological_nodes_per_time.at(t).push_back(rv_node);
+
+                if (!rv_node->get_metadata()->is_parameter()) {
+                    this->topological_data_nodes_per_time.at(t).push_back(
+                        rv_node);
+                }
             }
         }
 
@@ -611,7 +629,7 @@ namespace tomcat {
             return this->label_to_nodes.at(node_label)[0]->get_metadata();
         }
 
-        DynamicBayesNet DynamicBayesNet::clone(bool unroll) {
+        DynamicBayesNet DynamicBayesNet::clone(bool unroll) const {
             DynamicBayesNet new_dbn(this->node_templates.size());
             for (const auto& node_template : this->node_templates) {
                 new_dbn.add_node_template(node_template);
@@ -685,11 +703,26 @@ namespace tomcat {
             }
         }
 
+        RVNodePtrVec DynamicBayesNet::get_data_nodes(int time_step) const {
+            return this->data_nodes_per_time_step.at(time_step);
+        }
+
+        RVNodePtrVec
+        DynamicBayesNet::get_data_nodes_in_topological_order_at(int time_step) {
+            return this->topological_data_nodes_per_time.at(time_step);
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
 
         int DynamicBayesNet::get_time_steps() const { return time_steps; }
+
+        NodePtrVec DynamicBayesNet::get_nodes() const { return this->nodes; }
+
+        const RVNodePtrVec& DynamicBayesNet::get_single_time_nodes() const {
+            return single_time_nodes;
+        }
 
     } // namespace model
 } // namespace tomcat

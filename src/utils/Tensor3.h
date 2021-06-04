@@ -630,15 +630,44 @@ namespace tomcat {
             Eigen::MatrixXd::RowXpr row(int depth, int row_idx);
 
             /**
+             * Gets a new tensor formed only by one of the rows of its matrices.
+             *
+             * @param row_idx: index of the row
+             *
+             * @return Assignable row
+             */
+            Tensor3 row(int row_idx) const;
+
+            /**
              * Gets an assignable reference to a specific column in one of the
              * matrices in the first axis of the tensor.
              *
              * @param depth: index of the first axis
              * @param col_idx: index of the column
              *
-             * @return Assignable row
+             * @return Tensor
              */
             Eigen::MatrixXd::ColXpr col(int depth, int col_idx);
+
+            /**
+             * Gets a new tensor formed only by one of the columns of its
+             * matrices.
+             *
+             * @param col_idx: index of the row
+             *
+             * @return Tensor
+             */
+            Tensor3 col(int col_idx) const;
+
+            /**
+             * Returns the vector formed by the values along the depth axis.
+             *
+             * @param row_idx: index of the row
+             * @param col_idx: index of the column
+             *
+             * @return Values along the first axis
+             */
+            Eigen::VectorXd depth(int row_idx, int col_idx) const;
 
             /**
              * Checks whether the elements of a tensor are equals to the

@@ -189,18 +189,22 @@ namespace tomcat {
                     target_time_step,
                     potential_function);
 
-            Eigen::MatrixXd indexing_probs =
-                this->get_cartesian_tensor(messages_in_order)(0, 0);
+            Eigen::MatrixXd outward_message;
 
-            // This will marginalize the incoming nodes by summing the rows.
-            Eigen::MatrixXd outward_message =
-                indexing_probs * potential_function.probability_table;
+            if (!messages_in_order.empty()) {
+                Eigen::MatrixXd indexing_probs =
+                    this->get_cartesian_tensor(messages_in_order)(0, 0);
 
-            // Normalize the message
-            Eigen::VectorXd sum_per_row = outward_message.rowwise().sum();
-            outward_message =
-                (outward_message.array().colwise() / sum_per_row.array())
-                    .matrix();
+                // This will marginalize the incoming nodes by summing the rows.
+                outward_message =
+                    indexing_probs * potential_function.probability_table;
+
+                // Normalize the message
+                Eigen::VectorXd sum_per_row = outward_message.rowwise().sum();
+                outward_message =
+                    (outward_message.array().colwise() / sum_per_row.array())
+                        .matrix();
+            }
 
             return Tensor3(outward_message);
         }
