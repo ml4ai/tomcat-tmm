@@ -102,14 +102,16 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(data_generation)
 
-BOOST_FIXTURE_TEST_CASE(complete, HMM) {
+BOOST_AUTO_TEST_CASE(complete) {
     /**
      * This test case checks if data can be generated correctly, following
      * the distributions defined in the model. A deterministic model is used
      * so that the values generated can be known in advance.
      */
 
-    DBNPtr model = create_model(true, false);
+    fs::current_path("../../test");
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/deterministic_dbn.json"));
 
     int time_steps = 4;
     model->unroll(time_steps, true);
@@ -119,45 +121,47 @@ BOOST_FIXTURE_TEST_CASE(complete, HMM) {
     sampler.set_num_in_plate_samples(1);
     sampler.sample(gen, 1);
 
-    MatrixXd tcs = sampler.get_samples(TC)(0, 0);
-    MatrixXd expected_tcs(1, time_steps);
-    expected_tcs << NO_OBS, 0, 0, 0;
-    auto check = check_matrix_eq(tcs, expected_tcs);
+    MatrixXd fixed = sampler.get_samples("Fixed")(0, 0);
+    MatrixXd expected_fixed(1, time_steps);
+    expected_fixed << NO_OBS, 0, 0, 0;
+    auto check = check_matrix_eq(fixed, expected_fixed);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd pbaes = sampler.get_samples(PBAE)(0, 0);
-    MatrixXd expected_pbaes(1, time_steps);
-    expected_pbaes << 1, 0, 1, 0;
-    check = check_matrix_eq(pbaes, expected_pbaes);
+    MatrixXd movable = sampler.get_samples("Movable")(0, 0);
+    MatrixXd expected_movable(1, time_steps);
+    expected_movable << 1, 0, 1, 0;
+    check = check_matrix_eq(movable, expected_movable);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd states = sampler.get_samples(STATE)(0, 0);
+    MatrixXd states = sampler.get_samples("State")(0, 0);
     MatrixXd expected_states(1, time_steps);
     expected_states << 0, 1, 1, 2;
     check = check_matrix_eq(states, expected_states);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd greens = sampler.get_samples(GREEN)(0, 0);
-    MatrixXd expected_greens(1, time_steps);
-    expected_greens << NO_OBS, 0, 0, 1;
-    check = check_matrix_eq(greens, expected_greens);
+    MatrixXd obs1 = sampler.get_samples("Obs1")(0, 0);
+    MatrixXd expected_obs1(1, time_steps);
+    expected_obs1 << NO_OBS, 0, 0, 1;
+    check = check_matrix_eq(obs1, expected_obs1);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd yellows = sampler.get_samples(YELLOW)(0, 0);
-    MatrixXd expected_yellows(1, time_steps);
-    expected_yellows << NO_OBS, 1, 1, 0;
-    check = check_matrix_eq(yellows, expected_yellows);
+    MatrixXd obs2 = sampler.get_samples("Obs2")(0, 0);
+    MatrixXd expected_obs2(1, time_steps);
+    expected_obs2 << NO_OBS, 1, 1, 0;
+    check = check_matrix_eq(obs2, expected_obs2);
     BOOST_TEST(check.first, check.second);
 }
 
-BOOST_FIXTURE_TEST_CASE(truncated, HMM) {
+BOOST_AUTO_TEST_CASE(truncated) {
     /**
      * This test case checks if data can be generated correctly up to a time
      * t smaller than the final time T that the DBN was unrolled into. A
      * deterministic model is used.
      */
 
-    DBNPtr model = create_model(true, false);
+    fs::current_path("../../test");
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/deterministic_dbn.json"));
 
     model->unroll(10, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
@@ -168,45 +172,47 @@ BOOST_FIXTURE_TEST_CASE(truncated, HMM) {
     sampler.set_max_time_step_to_sample(time_steps - 1);
     sampler.sample(gen, 1);
 
-    MatrixXd tcs = sampler.get_samples(TC)(0, 0);
-    MatrixXd expected_tcs(1, time_steps);
-    expected_tcs << NO_OBS, 0, 0, 0;
-    auto check = check_matrix_eq(tcs, expected_tcs);
+    MatrixXd fixed = sampler.get_samples("Fixed")(0, 0);
+    MatrixXd expected_fixed(1, time_steps);
+    expected_fixed << NO_OBS, 0, 0, 0;
+    auto check = check_matrix_eq(fixed, expected_fixed);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd pbaes = sampler.get_samples(PBAE)(0, 0);
-    MatrixXd expected_pbaes(1, time_steps);
-    expected_pbaes << 1, 0, 1, 0;
-    check = check_matrix_eq(pbaes, expected_pbaes);
+    MatrixXd movable = sampler.get_samples("Movable")(0, 0);
+    MatrixXd expected_movable(1, time_steps);
+    expected_movable << 1, 0, 1, 0;
+    check = check_matrix_eq(movable, expected_movable);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd states = sampler.get_samples(STATE)(0, 0);
+    MatrixXd states = sampler.get_samples("State")(0, 0);
     MatrixXd expected_states(1, time_steps);
     expected_states << 0, 1, 1, 2;
     check = check_matrix_eq(states, expected_states);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd greens = sampler.get_samples(GREEN)(0, 0);
-    MatrixXd expected_greens(1, time_steps);
-    expected_greens << NO_OBS, 0, 0, 1;
-    check = check_matrix_eq(greens, expected_greens);
+    MatrixXd obs1 = sampler.get_samples("Obs1")(0, 0);
+    MatrixXd expected_obs1(1, time_steps);
+    expected_obs1 << NO_OBS, 0, 0, 1;
+    check = check_matrix_eq(obs1, expected_obs1);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd yellows = sampler.get_samples(YELLOW)(0, 0);
-    MatrixXd expected_yellows(1, time_steps);
-    expected_yellows << NO_OBS, 1, 1, 0;
-    check = check_matrix_eq(yellows, expected_yellows);
+    MatrixXd obs2 = sampler.get_samples("Obs2")(0, 0);
+    MatrixXd expected_obs2(1, time_steps);
+    expected_obs2 << NO_OBS, 1, 1, 0;
+    check = check_matrix_eq(obs2, expected_obs2);
     BOOST_TEST(check.first, check.second);
 }
 
-BOOST_FIXTURE_TEST_CASE(heterogeneous, HMM) {
+BOOST_AUTO_TEST_CASE(heterogeneous) {
     /**
      * This test case checks if samples are correctly generated and vary
      * according to the distributions defined in the DBN. A non-deterministic
      * model is used so samples can have different values.
      */
 
-    DBNPtr model = create_model(false, false);
+    fs::current_path("../../test");
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn.json"));
 
     model->unroll(10, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
@@ -217,24 +223,25 @@ BOOST_FIXTURE_TEST_CASE(heterogeneous, HMM) {
     AncestralSampler sampler(model);
     sampler.sample(gen, num_samples);
 
-    MatrixXd tcs = sampler.get_samples(TC)(0, 0);
-    MatrixXd first_tcs = tcs.row(0);
-    MatrixXd equal_samples_tcs = first_tcs.replicate<10, 1>();
-    MatrixXd cropped_tcs = tcs.block(0, 0, num_samples, equal_samples_until);
-    MatrixXd cropped_etc_samples_tcs =
-        equal_samples_tcs.block(0, 0, num_samples, equal_samples_until);
-    BOOST_TEST(!is_equal(cropped_tcs, cropped_etc_samples_tcs));
+    MatrixXd fixed = sampler.get_samples("Fixed")(0, 0);
+    MatrixXd first_fixed = fixed.row(0);
+    MatrixXd equal_samples_fixed = first_fixed.replicate<10, 1>();
+    MatrixXd cropped_fixed =
+        fixed.block(0, 0, num_samples, equal_samples_until);
+    MatrixXd cropped_etc_samples_fixed =
+        equal_samples_fixed.block(0, 0, num_samples, equal_samples_until);
+    BOOST_TEST(!is_equal(cropped_fixed, cropped_etc_samples_fixed));
 
-    MatrixXd pbaes = sampler.get_samples(PBAE)(0, 0);
-    MatrixXd first_pbaes = pbaes.row(0);
-    MatrixXd equal_samples_pbaes = first_pbaes.replicate<10, 1>();
-    MatrixXd cropped_pbaes =
-        pbaes.block(0, 0, num_samples, equal_samples_until);
-    MatrixXd cropped_etc_samples_pbaes =
-        equal_samples_pbaes.block(0, 0, num_samples, equal_samples_until);
-    BOOST_TEST(!is_equal(cropped_pbaes, cropped_etc_samples_pbaes));
+    MatrixXd movable = sampler.get_samples("Movable")(0, 0);
+    MatrixXd first_movable = movable.row(0);
+    MatrixXd equal_samples_movable = first_movable.replicate<10, 1>();
+    MatrixXd cropped_movable =
+        movable.block(0, 0, num_samples, equal_samples_until);
+    MatrixXd cropped_etc_samples_movable =
+        equal_samples_movable.block(0, 0, num_samples, equal_samples_until);
+    BOOST_TEST(!is_equal(cropped_movable, cropped_etc_samples_movable));
 
-    MatrixXd states = sampler.get_samples(STATE)(0, 0);
+    MatrixXd states = sampler.get_samples("State")(0, 0);
     MatrixXd first_states = states.row(0);
     MatrixXd equal_samples_states = first_states.replicate<10, 1>();
     MatrixXd cropped_states =
@@ -243,26 +250,24 @@ BOOST_FIXTURE_TEST_CASE(heterogeneous, HMM) {
         equal_samples_states.block(0, 0, num_samples, equal_samples_until);
     BOOST_TEST(!is_equal(cropped_states, cropped_etc_samples_states));
 
-    MatrixXd greens = sampler.get_samples(GREEN)(0, 0);
-    MatrixXd first_greens = greens.row(0);
-    MatrixXd equal_samples_greens = first_greens.replicate<10, 1>();
-    MatrixXd cropped_greens =
-        greens.block(0, 0, num_samples, equal_samples_until);
-    MatrixXd cropped_etc_samples_greens =
-        equal_samples_greens.block(0, 0, num_samples, equal_samples_until);
-    BOOST_TEST(!is_equal(cropped_greens, cropped_etc_samples_greens));
+    MatrixXd obs1 = sampler.get_samples("Obs1")(0, 0);
+    MatrixXd first_obs1 = obs1.row(0);
+    MatrixXd equal_samples_obs1 = first_obs1.replicate<10, 1>();
+    MatrixXd cropped_obs1 = obs1.block(0, 0, num_samples, equal_samples_until);
+    MatrixXd cropped_etc_samples_obs1 =
+        equal_samples_obs1.block(0, 0, num_samples, equal_samples_until);
+    BOOST_TEST(!is_equal(cropped_obs1, cropped_etc_samples_obs1));
 
-    MatrixXd yellows = sampler.get_samples(YELLOW)(0, 0);
-    MatrixXd first_yellows = yellows.row(0);
-    MatrixXd equal_samples_yellows = first_yellows.replicate<10, 1>();
-    MatrixXd cropped_yellows =
-        yellows.block(0, 0, num_samples, equal_samples_until);
-    MatrixXd cropped_etc_samples_yellows =
-        equal_samples_yellows.block(0, 0, num_samples, equal_samples_until);
-    BOOST_TEST(!is_equal(cropped_yellows, cropped_etc_samples_yellows));
+    MatrixXd obs2 = sampler.get_samples("Obs2")(0, 0);
+    MatrixXd first_obs2 = obs2.row(0);
+    MatrixXd equal_samples_obs2 = first_obs2.replicate<10, 1>();
+    MatrixXd cropped_obs2 = obs2.block(0, 0, num_samples, equal_samples_until);
+    MatrixXd cropped_etc_samples_obs2 =
+        equal_samples_obs2.block(0, 0, num_samples, equal_samples_until);
+    BOOST_TEST(!is_equal(cropped_obs2, cropped_etc_samples_obs2));
 }
 
-BOOST_FIXTURE_TEST_CASE(homogeneous, HMM) {
+BOOST_AUTO_TEST_CASE(homogeneous) {
     /**
      * This test case checks if samples are correctly generated and present
      * the same values up to a certain time t. After this time, values are
@@ -270,7 +275,9 @@ BOOST_FIXTURE_TEST_CASE(homogeneous, HMM) {
      * values for the nodes in the DBN. A non-deterministic model is used.
      */
 
-    DBNPtr model = create_model(false, false);
+    fs::current_path("../../test");
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn.json"));
 
     model->unroll(10, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
@@ -282,27 +289,28 @@ BOOST_FIXTURE_TEST_CASE(homogeneous, HMM) {
     sampler.set_equal_samples_time_step_limit(equal_samples_until);
     sampler.sample(gen, num_samples);
 
-    MatrixXd tcs = sampler.get_samples(TC)(0, 0);
-    MatrixXd first_tcs = tcs.row(0);
-    MatrixXd equal_samples_tcs = first_tcs.replicate<10, 1>();
-    MatrixXd cropped_tcs = tcs.block(0, 0, num_samples, equal_samples_until);
-    MatrixXd cropped_etc_samples_tcs =
-        equal_samples_tcs.block(0, 0, num_samples, equal_samples_until);
+    MatrixXd fixed = sampler.get_samples("Fixed")(0, 0);
+    MatrixXd first_fixed = fixed.row(0);
+    MatrixXd equal_samples_fixed = first_fixed.replicate<10, 1>();
+    MatrixXd cropped_fixed =
+        fixed.block(0, 0, num_samples, equal_samples_until);
+    MatrixXd cropped_etc_samples_fixed =
+        equal_samples_fixed.block(0, 0, num_samples, equal_samples_until);
     // Samples equal up to time 4 and above because tc don't change over time
-    BOOST_TEST(is_equal(cropped_tcs, cropped_etc_samples_tcs));
+    BOOST_TEST(is_equal(cropped_fixed, cropped_etc_samples_fixed));
 
-    MatrixXd pbaes = sampler.get_samples(PBAE)(0, 0);
-    MatrixXd first_pbaes = pbaes.row(0);
-    MatrixXd equal_samples_pbaes = first_pbaes.replicate<10, 1>();
-    MatrixXd cropped_pbaes =
-        pbaes.block(0, 0, num_samples, equal_samples_until);
-    MatrixXd cropped_etc_samples_pbaes =
-        equal_samples_pbaes.block(0, 0, num_samples, equal_samples_until);
-    BOOST_TEST(is_equal(cropped_pbaes, cropped_etc_samples_pbaes));
-    BOOST_TEST(!is_equal(pbaes, equal_samples_pbaes));
+    MatrixXd movable = sampler.get_samples("Movable")(0, 0);
+    MatrixXd first_movable = movable.row(0);
+    MatrixXd equal_samples_movable = first_movable.replicate<10, 1>();
+    MatrixXd cropped_movable =
+        movable.block(0, 0, num_samples, equal_samples_until);
+    MatrixXd cropped_etc_samples_movable =
+        equal_samples_movable.block(0, 0, num_samples, equal_samples_until);
+    BOOST_TEST(is_equal(cropped_movable, cropped_etc_samples_movable));
+    BOOST_TEST(!is_equal(movable, equal_samples_movable));
 
     // Samplers differ after time step 4 for the other nodes.
-    MatrixXd states = sampler.get_samples(STATE)(0, 0);
+    MatrixXd states = sampler.get_samples("State")(0, 0);
     MatrixXd first_states = states.row(0);
     MatrixXd equal_samples_states = first_states.replicate<10, 1>();
     MatrixXd cropped_states =
@@ -312,77 +320,81 @@ BOOST_FIXTURE_TEST_CASE(homogeneous, HMM) {
     BOOST_TEST(is_equal(cropped_states, cropped_etc_samples_states));
     BOOST_TEST(!is_equal(states, equal_samples_states));
 
-    MatrixXd greens = sampler.get_samples(GREEN)(0, 0);
-    MatrixXd first_greens = greens.row(0);
-    MatrixXd equal_samples_greens = first_greens.replicate<10, 1>();
-    MatrixXd cropped_greens =
-        greens.block(0, 0, num_samples, equal_samples_until);
-    MatrixXd cropped_etc_samples_greens =
-        equal_samples_greens.block(0, 0, num_samples, equal_samples_until);
-    BOOST_TEST(is_equal(cropped_greens, cropped_etc_samples_greens));
-    BOOST_TEST(!is_equal(greens, equal_samples_greens));
+    MatrixXd obs1 = sampler.get_samples("Obs1")(0, 0);
+    MatrixXd first_obs1 = obs1.row(0);
+    MatrixXd equal_samples_obs1 = first_obs1.replicate<10, 1>();
+    MatrixXd cropped_obs1 = obs1.block(0, 0, num_samples, equal_samples_until);
+    MatrixXd cropped_etc_samples_obs1 =
+        equal_samples_obs1.block(0, 0, num_samples, equal_samples_until);
+    BOOST_TEST(is_equal(cropped_obs1, cropped_etc_samples_obs1));
+    BOOST_TEST(!is_equal(obs1, equal_samples_obs1));
 
-    MatrixXd yellows = sampler.get_samples(YELLOW)(0, 0);
-    MatrixXd first_yellows = yellows.row(0);
-    MatrixXd equal_samples_yellows = first_yellows.replicate<10, 1>();
-    MatrixXd cropped_yellows =
-        yellows.block(0, 0, num_samples, equal_samples_until);
-    MatrixXd cropped_etc_samples_yellows =
-        equal_samples_yellows.block(0, 0, num_samples, equal_samples_until);
-    BOOST_TEST(is_equal(cropped_yellows, cropped_etc_samples_yellows));
-    BOOST_TEST(!is_equal(yellows, equal_samples_yellows));
+    MatrixXd obs2 = sampler.get_samples("Obs2")(0, 0);
+    MatrixXd first_obs2 = obs2.row(0);
+    MatrixXd equal_samples_obs2 = first_obs2.replicate<10, 1>();
+    MatrixXd cropped_obs2 = obs2.block(0, 0, num_samples, equal_samples_until);
+    MatrixXd cropped_etc_samples_obs2 =
+        equal_samples_obs2.block(0, 0, num_samples, equal_samples_until);
+    BOOST_TEST(is_equal(cropped_obs2, cropped_etc_samples_obs2));
+    BOOST_TEST(!is_equal(obs2, equal_samples_obs2));
 }
 
-BOOST_FIXTURE_TEST_CASE(semi_markov, HSMM) {
+BOOST_AUTO_TEST_CASE(semi_markov) {
     /**
      * This test case checks if data can be generated correctly, following
      * the distributions defined in the semi-Markov model. A deterministic model
      * is used so that the values generated can be known in advance.
      */
 
-    DBNPtr model = create_model(true, false);
+    fs::current_path("../../test");
+    DBNPtr model =
+        make_shared<DynamicBayesNet>(DynamicBayesNet::create_from_json(
+            "models/deterministic_semi_markov_dbn.json"));
 
     int time_steps = 15;
     model->unroll(time_steps, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
+    vector<int> deterministic_timer(
+        {0, 4, 3, 2, 1, 0, 4, 3, 2, 1, 0, 2, 1, 0, 0});
+    for (int t = 0; t < time_steps; t++) {
+        auto timer = model->get_node("StateTimer", t);
+        timer->set_assignment(
+            Eigen::MatrixXd::Constant(1, 1, deterministic_timer[t]));
+        timer->freeze();
+    }
+
     AncestralSampler sampler(model);
     sampler.set_num_in_plate_samples(1);
     sampler.sample(gen, 1);
 
-    MatrixXd tcs = sampler.get_samples(TC)(0, 0);
-    MatrixXd expected_tcs = MatrixXd::Zero(1, time_steps);
-    auto check = check_matrix_eq(tcs, expected_tcs);
+    MatrixXd fixed = sampler.get_samples("Fixed")(0, 0);
+    MatrixXd expected_fixed = MatrixXd::Zero(1, time_steps);
+    auto check = check_matrix_eq(fixed, expected_fixed);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd pbaes = sampler.get_samples(PBAE)(0, 0);
-    MatrixXd expected_pbaes(1, time_steps);
-    expected_pbaes << 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1;
-    check = check_matrix_eq(pbaes, expected_pbaes);
+    MatrixXd movable = sampler.get_samples("Movable")(0, 0);
+    MatrixXd expected_movable(1, time_steps);
+    expected_movable << 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1;
+    check = check_matrix_eq(movable, expected_movable);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd states = sampler.get_samples(STATE)(0, 0);
+    MatrixXd states = sampler.get_samples("State")(0, 0);
     MatrixXd expected_states(1, time_steps);
     expected_states << 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 0;
     check = check_matrix_eq(states, expected_states);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd greens = sampler.get_samples(GREEN)(0, 0);
-    MatrixXd expected_greens(1, time_steps);
-    expected_greens << NO_OBS, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 1;
-    check = check_matrix_eq(greens, expected_greens);
+    MatrixXd obs1 = sampler.get_samples("Obs1")(0, 0);
+    MatrixXd expected_obs1(1, time_steps);
+    expected_obs1 << NO_OBS, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 1;
+    check = check_matrix_eq(obs1, expected_obs1);
     BOOST_TEST(check.first, check.second);
 
-    MatrixXd yellows = sampler.get_samples(YELLOW)(0, 0);
-    MatrixXd expected_yellows(1, time_steps);
-    expected_yellows << NO_OBS, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 0;
-    check = check_matrix_eq(yellows, expected_yellows);
-    BOOST_TEST(check.first, check.second);
-
-    MatrixXd timer = sampler.get_samples(TIMER)(0, 0);
-    MatrixXd expected_timer(1, time_steps);
-    expected_timer << 0, 4, 3, 2, 1, 0, 4, 3, 2, 1, 0, 2, 1, 0, 0;
-    check = check_matrix_eq(timer, expected_timer);
+    MatrixXd obs2 = sampler.get_samples("Obs2")(0, 0);
+    MatrixXd expected_obs2(1, time_steps);
+    expected_obs2 << NO_OBS, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 0;
+    check = check_matrix_eq(obs2, expected_obs2);
     BOOST_TEST(check.first, check.second);
 }
 
@@ -392,7 +404,7 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(model_training)
 
-BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
+BOOST_AUTO_TEST_CASE(dbn_training) {
     /**
      * This test case checks if the model can learn the parameters of a
      * non-deterministic model, given data generated from such a model.
@@ -401,7 +413,9 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
      * nodes are hidden.
      */
 
-    DBNPtr oracle = create_model(false, false);
+    fs::current_path("../../test");
+    DBNPtr oracle = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn.json"));
     oracle->unroll(20, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
@@ -409,7 +423,8 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     AncestralSampler sampler(oracle);
     sampler.sample(gen, 1000);
 
-    DBNPtr model = create_model(false, true);
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/trainable_dbn.json"));
     model->unroll(20, true);
 
     shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
@@ -419,96 +434,103 @@ BOOST_FIXTURE_TEST_CASE(gibbs_sampling_hmm, HMM) {
     DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
 
     double tolerance = 0.05;
-    CPDTableCollection tables = this->create_cpd_tables(false);
 
-    // Check parameter learning when tc is not provided.
+    // Check parameter learning when Fixed is not provided.
     EvidenceSet data;
-    data.add_data(PBAE, sampler.get_samples(PBAE));
-    data.add_data(STATE, sampler.get_samples(STATE));
-    data.add_data(GREEN, sampler.get_samples(GREEN));
-    data.add_data(YELLOW, sampler.get_samples(YELLOW));
+    data.add_data("Movable", sampler.get_samples("Movable"));
+    data.add_data("State", sampler.get_samples("State"));
+    data.add_data("Obs1", sampler.get_samples("Obs1"));
+    data.add_data("Obs2", sampler.get_samples("Obs2"));
 
-    // Fix some parameters to avoid permutation of TC and
-    // PBAE.
-    const shared_ptr<RandomVariableNode>& theta_tc =
+    // Fix some parameters to avoid permutation of Fixed and Movable
+    const shared_ptr<RandomVariableNode>& theta_fixed =
         dynamic_pointer_cast<RandomVariableNode>(
-            model->get_nodes_by_label(THETA_TC)[0]);
-    theta_tc->set_assignment(tables.tc_prior);
-    theta_tc->freeze();
+            model->get_nodes_by_label("ThetaFixed_0")[0]);
+    Eigen::MatrixXd fixed_prior(1, 3);
+    fixed_prior << 0.5, 0.3, 0.2;
+    theta_fixed->set_assignment(fixed_prior);
+    theta_fixed->freeze();
 
-    for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE;
-         i = i + PBAE_CARDINALITY) {
+    Eigen::MatrixXd theta_state_given_others(18, 3);
+    theta_state_given_others << 0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.3, 0.5, 0.2,
+        0.3, 0.2, 0.5, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.3, 0.2,
+        0.5, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2, 0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.3,
+        0.2, 0.5, 0.5, 0.3, 0.2, 0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.3, 0.5, 0.2,
+        0.3, 0.2, 0.5;
+    for (int i = 0; i < 18; i = i + 2) {
         stringstream label;
-        label << THETA_STATE_GIVEN_STATE_TC_PBAE << "_" << i;
+        label << "ThetaState.State.Fixed.Movable_" << i;
         const shared_ptr<RandomVariableNode>& theta_state =
             dynamic_pointer_cast<RandomVariableNode>(
                 model->get_nodes_by_label(label.str())[0]);
-        theta_state->set_assignment(tables.state_given_state_tc_pbae.row(i));
+        theta_state->set_assignment(theta_state_given_others.row(i));
         theta_state->freeze();
     }
 
     trainer.prepare();
     trainer.fit(data);
-    model->get_nodes_by_label(THETA_TC)[0]->get_assignment();
-    MatrixXd estimated_theta_tc =
-        model->get_nodes_by_label(THETA_TC)[0]->get_assignment();
-    auto check =
-        check_matrix_eq(estimated_theta_tc, tables.tc_prior, tolerance);
-    BOOST_TEST(check.first, check.second);
 
+    // Check trained values
+    Eigen::MatrixXd movable_prior(1, 2);
+    movable_prior << 0.3, 0.7;
     MatrixXd estimated_pi_pbae =
-        model->get_nodes_by_label(PI_PBAE)[0]->get_assignment();
-    check = check_matrix_eq(estimated_pi_pbae, tables.pbae_prior, tolerance);
+        model->get_nodes_by_label("PiMovable_0")[0]->get_assignment();
+    auto check = check_matrix_eq(estimated_pi_pbae, movable_prior, tolerance);
     BOOST_TEST(check.first, check.second);
 
+    Eigen::MatrixXd state_prior(1, 3);
+    state_prior << 0.3, 0.5, 0.2;
     MatrixXd estimated_theta_state =
-        model->get_nodes_by_label(THETA_STATE)[0]->get_assignment();
-    check =
-        check_matrix_eq(estimated_theta_state, tables.state_prior, tolerance);
+        model->get_nodes_by_label("ThetaState_0")[0]->get_assignment();
+    check = check_matrix_eq(estimated_theta_state, state_prior, tolerance);
     BOOST_TEST(check.first, check.second);
 
-    for (int i = 0; i < NUM_PI_PBAE_GIVEN_PBAE; i++) {
+    Eigen::MatrixXd pi_movable_given_movable(2, 2);
+    pi_movable_given_movable << 0.3, 0.7, 0.7, 0.3;
+    for (int i = 0; i < 2; i++) {
         stringstream label;
-        label << PI_PBAE_GIVEN_PBAE << '_' << i;
-        MatrixXd estimated_pi_pbae_given_pbae =
+        label << "PiMovable.Movable_" << i;
+        MatrixXd estimated_pi_movable_given_movable =
             model->get_nodes_by_label(label.str())[0]->get_assignment();
-        check = check_matrix_eq(estimated_pi_pbae_given_pbae,
-                                tables.pbae_given_pbae.row(i),
+        check = check_matrix_eq(estimated_pi_movable_given_movable,
+                                pi_movable_given_movable.row(i),
                                 tolerance);
         BOOST_TEST(check.first, check.second);
     }
 
-    for (int i = 0; i < NUM_THETA_STATE_GIVEN_STATE_TC_PBAE; i++) {
+    for (int i = 0; i < 18; i++) {
         stringstream label;
-        label << THETA_STATE_GIVEN_STATE_TC_PBAE << '_' << i;
-        MatrixXd estimated_theta_state_given_tc_pbae_state =
+        label << "ThetaState.State.Fixed.Movable_" << i;
+        MatrixXd estimated_theta_state_given_others =
             model->get_nodes_by_label(label.str())[0]->get_assignment();
-        check = check_matrix_eq(estimated_theta_state_given_tc_pbae_state,
-                                tables.state_given_state_tc_pbae.row(i),
+        check = check_matrix_eq(estimated_theta_state_given_others,
+                                theta_state_given_others.row(i),
                                 tolerance);
         BOOST_TEST(check.first, check.second);
     }
 
-    for (int i = 0; i < NUM_PI_GREEN_GIVEN_STATE; i++) {
+    Eigen::MatrixXd pi_obs1_given_state(3, 2);
+    pi_obs1_given_state << 0.3, 0.7, 0.7, 0.3, 0.3, 0.7;
+    for (int i = 0; i < 3; i++) {
         stringstream label;
-        label << PI_GREEN_GIVEN_STATE << '_' << i;
-
-        MatrixXd estimated_pi_green_given_state =
+        label << "PiObs1.State_" << i;
+        MatrixXd estimated_pi_obs1_given_state =
             model->get_nodes_by_label(label.str())[0]->get_assignment();
-        check = check_matrix_eq(estimated_pi_green_given_state,
-                                tables.green_given_state.row(i),
+        check = check_matrix_eq(estimated_pi_obs1_given_state,
+                                pi_obs1_given_state.row(i),
                                 tolerance);
         BOOST_TEST(check.first, check.second);
     }
 
-    for (int i = 0; i < NUM_PI_YELLOW_GIVEN_STATE; i++) {
+    Eigen::MatrixXd pi_obs2_given_state(3, 2);
+    pi_obs2_given_state << 0.7, 0.3, 0.3, 0.7, 0.7, 0.3;
+    for (int i = 0; i < 3; i++) {
         stringstream label;
-        label << PI_YELLOW_GIVEN_STATE << '_' << i;
-
-        MatrixXd estimated_pi_yellow_given_state =
+        label << "PiObs2.State_" << i;
+        MatrixXd estimated_pi_obs2_given_state =
             model->get_nodes_by_label(label.str())[0]->get_assignment();
-        check = check_matrix_eq(estimated_pi_yellow_given_state,
-                                tables.yellow_given_state.row(i),
+        check = check_matrix_eq(estimated_pi_obs2_given_state,
+                                pi_obs2_given_state.row(i),
                                 tolerance);
         BOOST_TEST(check.first, check.second);
     }
@@ -1774,6 +1796,70 @@ BOOST_AUTO_TEST_CASE(particle_filter) {
     BOOST_TEST(check_tensor_eq(state_estimates, expected_state, tolerance));
 
     cout << state_estimates << endl;
+}
+
+BOOST_AUTO_TEST_CASE(particle_filter_edhmm) {
+    /**
+     * Test sampling generation
+     */
+
+    fs::current_path("../../test");
+
+    // Data
+    EvidenceSet data("data/edhmm_exact");
+
+    // Model
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/edhmm_exact.json"));
+
+    model->unroll(3, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    shared_ptr<SamplerEstimator> fixed_estimator =
+        make_shared<SamplerEstimator>(model, 0, "X");
+    shared_ptr<SamplerEstimator> state_estimator =
+        make_shared<SamplerEstimator>(model, 0, "State");
+    ParticleFilterEstimator estimator(model, 1000, gen, 4);
+    estimator.add_base_estimator(fixed_estimator);
+    estimator.add_base_estimator(state_estimator);
+
+    estimator.prepare();
+    estimator.estimate(data);
+
+    double tolerance = 0.1;
+
+    vector<Eigen::MatrixXd> tmp(2);
+
+    // Fixed
+    tmp[0] = Eigen::MatrixXd(3, 3);
+    tmp[0] << 0.300000000000000, 0.280193102611091, 0.299770796337916,
+        0.300000000000000, 0.296558942602415, 0.326256122382083,
+        0.300000000000000, 0.357164701839202, 0.369581233225729;
+    tmp[1] = Eigen::MatrixXd(3, 3);
+    tmp[1] << 0.700000000000000, 0.719806897388909, 0.700229203662084,
+        0.700000000000000, 0.703441057397585, 0.673743877617917,
+        0.700000000000000, 0.642835298160798, 0.630418766774271;
+    Tensor3 expected_fixed(tmp);
+    Tensor3 fixed_estimates =
+        Tensor3(fixed_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(fixed_estimates, expected_fixed, tolerance));
+
+    // State
+    tmp.resize(3);
+    tmp[0] << 0.100000000000000, 0.419337322156391, 0.050132215740921,
+        0.100000000000000, 0.013690494759586, 0.283051616180588,
+        0.800000000000000, 0.331975148485154, 0.082254553733401;
+    tmp[1] << 0.100000000000000, 0.064758439123537, 0.016177740115953,
+        0.800000000000000, 0.966356173762999, 0.656128456484349,
+        0.100000000000000, 0.547538495549392, 0.190278854229972;
+    tmp[2] = Eigen::MatrixXd(3, 3);
+    tmp[2] << 0.800000000000000, 0.515904238720073, 0.933690044143126,
+        0.100000000000000, 0.019953331477415, 0.060819927335064,
+        0.100000000000000, 0.120486355965454, 0.727466592036626;
+    Tensor3 expected_state(tmp);
+    Tensor3 state_estimates =
+        Tensor3(state_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(state_estimates, expected_state, tolerance));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

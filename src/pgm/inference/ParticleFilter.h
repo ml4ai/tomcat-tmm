@@ -85,6 +85,11 @@ namespace tomcat {
              */
             EvidenceSet forward_particles(int num_time_steps);
 
+            /**
+             * Prepare to start generating particles from scratch.
+             */
+            void clear_cache();
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------

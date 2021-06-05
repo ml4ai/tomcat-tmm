@@ -168,7 +168,8 @@ namespace tomcat {
 
         void SamplerEstimator::estimate(EvidenceSet particles,
                                         EvidenceSet projected_particles,
-                                        int data_point_idx) {
+                                        int data_point_idx,
+                                        int time_step) {
 
             if (this->inference_horizon == 0) {
                 const Tensor3 samples_tensor = particles[this->estimates.label];
@@ -190,7 +191,6 @@ namespace tomcat {
                         const auto& metadata =
                             this->get_model()->get_metadata_of(
                                 this->estimates.label);
-                        int time_step = this->estimates.estimates.at(0).size();
                         if (time_step >= metadata->get_initial_time_step()) {
                             for (int i = 0; i < samples.rows(); i++) {
                                 probs[samples(i, t)] += 1;
@@ -200,14 +200,8 @@ namespace tomcat {
                         }
 
                         for (int i = 0; i < k; i++) {
-                            auto& estimates_matrix =
-                                this->estimates.estimates.at(i);
-                            estimates_matrix.conservativeResize(
-                                data_point_idx + 1,
-                                estimates_matrix.cols() + 1);
-                            estimates_matrix(data_point_idx,
-                                             estimates_matrix.cols() - 1) =
-                                probs[i];
+                            this->update_estimates(
+                                i, data_point_idx, time_step, probs[i]);
                         }
                     }
                     else {
@@ -217,14 +211,11 @@ namespace tomcat {
 
                         double prob = this->get_probability_in_range(
                             samples_tensor.col(t), low, high);
-
-                        auto& estimates_matrix =
-                            this->estimates.estimates.at(0);
-                        estimates_matrix.conservativeResize(
-                            data_point_idx + 1, estimates_matrix.cols() + 1);
-                        estimates_matrix(data_point_idx,
-                                         estimates_matrix.cols() - 1) = prob;
+                        this->update_estimates(
+                            0, data_point_idx, time_step, prob);
                     }
+
+                    time_step++;
                 }
             }
             else {
@@ -238,28 +229,19 @@ namespace tomcat {
                         this->estimates.label);
 
                     for (int i = 0; i < k; i++) {
-                        auto& estimates_matrix =
-                            this->estimates.estimates.at(i);
-                        estimates_matrix.conservativeResize(
-                            data_point_idx + 1, estimates_matrix.cols() + 1);
-                        estimates_matrix(data_point_idx,
-                                         estimates_matrix.cols() - 1) =
-                            this->get_probability_in_range(
-                                samples_tensor, i, i);
+                        double prob = this->get_probability_in_range(
+                            samples_tensor, i, i);
+                        this->update_estimates(
+                            i, data_point_idx, time_step, prob);
                     }
                 }
                 else {
                     double low = this->estimates.assignment[0];
                     // TODO - change this when range is implemented
                     double high = low;
-
-                    auto& estimates_matrix = this->estimates.estimates.at(0);
-                    estimates_matrix.conservativeResize(
-                        data_point_idx + 1, estimates_matrix.cols() + 1);
-                    estimates_matrix(data_point_idx,
-                                     estimates_matrix.cols() - 1) =
-                        1 - this->get_probability_in_range(
-                                samples_tensor, low, high);
+                    double prob = this->get_probability_in_range(
+                        samples_tensor, low, high);
+                    this->update_estimates(0, data_point_idx, time_step, prob);
                 }
             }
         }
@@ -328,6 +310,19 @@ namespace tomcat {
 
             probability = matches.cast<double>().mean();
             return probability;
+        }
+
+        void SamplerEstimator::update_estimates(int estimates_idx,
+                                                int data_point_idx,
+                                                int time_step,
+                                                double probability) {
+            auto& estimates_matrix =
+                this->estimates.estimates.at(estimates_idx);
+            int new_rows =
+                max(data_point_idx + 1, (int)estimates_matrix.rows());
+            int new_cols = max(time_step + 1, (int)estimates_matrix.cols());
+            estimates_matrix.conservativeResize(new_rows, new_cols);
+            estimates_matrix(data_point_idx, time_step) = probability;
         }
 
     } // namespace model

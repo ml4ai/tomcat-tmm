@@ -47,9 +47,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void ParticleFilterEstimator::copy(
             const ParticleFilterEstimator& estimator) {
-            this->next_time_step = estimator.next_time_step;
             this->filter = estimator.filter;
             this->max_inference_horizon = estimator.inference_horizon;
+            this->last_time_step = estimator.last_time_step;
         }
 
         void ParticleFilterEstimator::cleanup() {
@@ -65,7 +65,7 @@ namespace tomcat {
                 base_estimator->prepare();
             }
 
-            this->next_time_step = 0;
+            this->last_time_step = -1;
         }
 
         void ParticleFilterEstimator::keep_estimates() {
@@ -84,8 +84,6 @@ namespace tomcat {
                     new_data.get_num_data_points() * new_data.get_time_steps());
             }
 
-            int max_time_step =
-                this->next_time_step + new_data.get_time_steps();
             for (int d = 0; d < new_data.get_num_data_points(); d++) {
                 EvidenceSet single_point_data =
                     new_data.get_single_point_data(d);
@@ -99,7 +97,7 @@ namespace tomcat {
 
                     for (const auto& base_estimator : this->base_estimators) {
                         base_estimator->estimate(
-                            particles, projected_particles, d);
+                            particles, projected_particles, d, this->last_time_step + 1);
                     }
                 }
                 else {
@@ -120,17 +118,19 @@ namespace tomcat {
                         for (const auto& base_estimator :
                              this->base_estimators) {
                             base_estimator->estimate(
-                                particles, projected_particles, d);
+                                particles, projected_particles, d, this->last_time_step + 1 + t);
                         }
                     }
                 }
+
+                this->filter.clear_cache();
 
                 if (this->show_progress) {
                     ++(*progress);
                 }
             }
 
-            this->next_time_step = max_time_step;
+            this->last_time_step += new_data.get_time_steps();
         }
 
         void ParticleFilterEstimator::get_info(nlohmann::json& json) const {

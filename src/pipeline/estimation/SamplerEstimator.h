@@ -109,10 +109,13 @@ namespace tomcat {
              * some time steps into the future
              * @param data_point_idx: index of the data point for which
              * particles were generated
+             * @param time_step: time step when the first particles in de set
+             * were generated
              */
             void estimate(EvidenceSet particles,
                           EvidenceSet projected_particles,
-                          int data_point_idx);
+                          int data_point_idx,
+                          int time_step);
 
           private:
             //------------------------------------------------------------------
@@ -140,8 +143,22 @@ namespace tomcat {
                                             double low,
                                             double high) const;
 
-            double get_probability_in_range(
-                const Tensor3& samples, double low, double high) const;
+            double get_probability_in_range(const Tensor3& samples,
+                                            double low,
+                                            double high) const;
+
+            /**
+             * Append a new probability to the list of estimates.
+             *
+             * @param estimates_idx: index of the estimates matrix to use
+             * @param data_point_idx: row of the estimates matrix being updated
+             * @param time_step: column of the estimates matrix being updated
+             * @param probability: probability estimate
+             */
+            void update_estimates(int estimates_idx,
+                                  int data_point_idx,
+                                  int time_step,
+                                  double probability);
 
             //------------------------------------------------------------------
             // Data members

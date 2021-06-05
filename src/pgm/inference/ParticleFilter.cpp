@@ -220,7 +220,9 @@ namespace tomcat {
                     // will be sampled. Therefore, the samples generated
                     // here will be assigned to the proper parent of the
                     // nodes at time step 2.
-                    prev_node->set_assignment(filtered_samples);
+                    if(prev_node) {
+                        prev_node->set_assignment(filtered_samples);
+                    }
                 }
                 else {
                     node->set_assignment(filtered_samples);
@@ -268,6 +270,10 @@ namespace tomcat {
             }
 
             return particles;
+        }
+
+        void ParticleFilter::clear_cache() {
+            this->last_time_step = -1;
         }
 
         //----------------------------------------------------------------------

@@ -106,8 +106,7 @@ namespace tomcat {
 
             ParticleFilter filter;
 
-            // Next time step to generate samples to.
-            int next_time_step = 0;
+            int last_time_step = -1;
 
             // Max inference horizon among all base samplers
             int max_inference_horizon = 0;
