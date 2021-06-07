@@ -77,6 +77,7 @@ namespace tomcat {
                 }
             }
             this->sufficient_statistics = Eigen::VectorXd::Zero(2);
+            this->freeze_distributions(0);
         }
 
         unique_ptr<CPD> GammaCPD::clone() const {

@@ -149,22 +149,31 @@ namespace tomcat {
                 Eigen::VectorXd sum_per_row = marginal.rowwise().sum().array();
                 marginal =
                     (marginal.array().colwise() / sum_per_row.array()).matrix();
+
+                if (aggregation_value > 0) {
+                    Eigen::VectorXd fixed_probs =
+                        1 - marginal.col(aggregation_value).array();
+                    Eigen::MatrixXd new_marginal =
+                        marginal.col(aggregation_value).array() /
+                        (marginal.cols() - 1);
+                    new_marginal = new_marginal.replicate(1, marginal.cols());
+                    new_marginal.col(aggregation_value) = fixed_probs;
+                }
             }
 
             return marginal;
         }
 
         void VariableNode::set_data_at(int time_step,
-                                       const Eigen::VectorXd& data,
-                                       bool aggregate) {
+                                       const Eigen::MatrixXd& data) {
 
-            int cols = aggregate ? 2 : this->cardinality;
             // Convert each element of the vector to a binary row vector and
             // stack them horizontally;
-            Eigen::MatrixXd data_matrix(data.size(), cols);
+            Eigen::MatrixXd data_matrix(data.size(), this->cardinality);
             for (int i = 0; i < data.size(); i++) {
-                Eigen::VectorXd binary_vector = Eigen::VectorXd::Zero(cols);
-                binary_vector[data[i]] = 1;
+                Eigen::VectorXd binary_vector =
+                    Eigen::VectorXd::Zero(this->cardinality);
+                binary_vector[data(i, 0)] = 1;
                 data_matrix.row(i) = move(binary_vector);
             }
 

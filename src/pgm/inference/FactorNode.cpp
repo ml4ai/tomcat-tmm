@@ -29,7 +29,7 @@ namespace tomcat {
             this->original_potential.node_label_to_rotated_potential =
                 this->create_potential_function_rotations(
                     this->original_potential.potential);
-            this->use_original_potential();
+            this->working_potential = this->original_potential;
         }
 
         FactorNode::FactorNode(const string& label,
@@ -151,7 +151,6 @@ namespace tomcat {
         void FactorNode::copy_node(const FactorNode& node) {
             MessageNode::copy_node(node);
             this->original_potential = node.original_potential;
-            this->aggregate_potential = node.aggregate_potential;
             this->working_potential = node.working_potential;
             this->block_forward_message = node.block_forward_message;
         }
@@ -163,9 +162,9 @@ namespace tomcat {
             Direction direction) const {
 
             if ((direction == Direction::forward &&
-                    this->block_forward_message) ||
+                 this->block_forward_message) ||
                 (direction == Direction::backwards &&
-                    this->block_backward_message)) {
+                 this->block_backward_message)) {
                 return Tensor3();
             }
 
@@ -372,45 +371,6 @@ namespace tomcat {
 
         bool FactorNode::is_segment() const { return false; }
 
-        void FactorNode::create_aggregate_potential(int value) {
-            PotentialFunction agg_potential =
-                this->original_potential.potential;
-
-            // Binary distribution. It's either value or not.
-            Eigen::MatrixXd agg_matrix = Eigen::MatrixXd::Zero(
-                agg_potential.probability_table.rows(), 2);
-
-            for (int col = 0; col < agg_potential.probability_table.cols();
-                 col++) {
-                if (value == col) {
-                    agg_matrix.col(1) =
-                        agg_potential.probability_table.col(col);
-                }
-                else {
-                    agg_matrix.col(0) =
-                        agg_matrix.col(0).array() +
-                        agg_potential.probability_table.col(col).array();
-                }
-            }
-
-            agg_potential.probability_table = agg_matrix;
-
-            this->aggregate_potential.potential[value] = agg_potential;
-            this->aggregate_potential.node_label_to_rotated_potential[value] =
-                this->create_potential_function_rotations(agg_potential);
-        }
-
-        void FactorNode::use_aggregate_potential(int value) {
-            this->working_potential.potential =
-                this->aggregate_potential.potential.at(value);
-            this->working_potential.node_label_to_rotated_potential =
-                this->aggregate_potential.node_label_to_rotated_potential.at(
-                    value);
-        }
-
-        void FactorNode::use_original_potential() {
-            this->working_potential = this->original_potential;
-        }
 
         //----------------------------------------------------------------------
         // Getters & Setters

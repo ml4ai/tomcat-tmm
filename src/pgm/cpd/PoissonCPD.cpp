@@ -70,6 +70,7 @@ namespace tomcat {
                     make_shared<Poisson>(lambdas(i));
                 this->distributions.push_back(distribution_ptr);
             }
+            this->freeze_distributions(0);
         }
 
         unique_ptr<CPD> PoissonCPD::clone() const {

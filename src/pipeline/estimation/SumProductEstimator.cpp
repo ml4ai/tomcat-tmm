@@ -24,10 +24,19 @@ namespace tomcat {
             const Eigen::VectorXd& assignment)
             : Estimator(model, inference_horizon, node_label, assignment) {
 
-            if (inference_horizon > 0 && assignment.size() == 0) {
-                throw TomcatModelException(
-                    "An assignment must be given for estimations with "
-                    "inference horizon greater than 0.");
+            if (inference_horizon > 2) {
+                if (assignment.size() == 0) {
+                    throw TomcatModelException(
+                        "An assignment must be given for estimations with "
+                        "inference horizon greater than 0.");
+                }
+                else if (this->model->get_metadata_of(node_label)
+                             ->get_cardinality() != 2) {
+                    throw TomcatModelException(
+                        "Prediction within a window larger than 1 time step "
+                        "ahead is only implemented for nodes with a binary "
+                        "distribution.");
+                }
             }
         }
 
@@ -58,20 +67,10 @@ namespace tomcat {
             this->factor_graph =
                 FactorGraph::create_from_unrolled_dbn(*this->model);
             this->factor_graph.store_topological_traversal_per_time_step();
-
-            if (this->inference_horizon > 0) {
-                this->factor_graph.create_aggregate_potential(
-                    this->estimates.label, this->estimates.assignment(0, 0));
-            }
         }
 
         void SumProductEstimator::estimate(const EvidenceSet& new_data) {
             this->estimate_forward_in_time(new_data);
-
-            // The following is only needed in case there's a need for
-            // re-estimating things in the past given observations in the
-            // future. So far there's no such requirement.
-            // this->estimate_backward_in_time(new_data);
         }
 
         void SumProductEstimator::estimate_forward_in_time(
@@ -94,12 +93,8 @@ namespace tomcat {
                         ? 0
                         : max(t - this->subgraph_window_size + 1, 0);
 
-                cout << "T = " << t << endl;
-                int pass = 0;
-
                 bool any_change;
                 do {
-                    cout << "PASS = " << pass++ << endl;
 
                     // Propagate messages forward within a window
                     for (int w = initial_time_step_in_window; w <= t; w++) {
@@ -107,63 +102,60 @@ namespace tomcat {
                         // converge
                         any_change = false;
                         any_change |= this->compute_forward_messages(
-                            this->factor_graph, w, new_data, false);
+                            this->factor_graph, w, new_data);
                     }
 
                     // Propagate messages backwards within a window
                     for (int w = t; w >= initial_time_step_in_window; w--) {
                         any_change |= this->compute_backward_messages(
-                            this->factor_graph, w, new_data, false, t);
+                            this->factor_graph, w, new_data, t);
                     }
-//                    break;
                 } while (any_change);
 
+                Eigen::MatrixXd marginal;
+
                 if (this->inference_horizon > 0) {
-                    int discrete_assignment = this->estimates.assignment[0];
-
-                    Eigen::VectorXd estimates_in_time_step =
-                        this->get_predictions_for(
-                            this->estimates.label,
-                            t,
-                            discrete_assignment,
-                            new_data.get_num_data_points());
-
-                    this->add_column_to_estimates(estimates_in_time_step);
+                    marginal = this->get_predictions(
+                        t, new_data.get_num_data_points());
                 }
                 else {
-                    Eigen::MatrixXd marginal =
-                        this->factor_graph.get_marginal_for(
-                            this->estimates.label, t, true);
+                    marginal = this->factor_graph.get_marginal_for(
+                        this->estimates.label, t, true);
+                }
 
-                    Eigen::VectorXd no_obs = Eigen::MatrixXd::Constant(
-                        new_data.get_num_data_points(), 1, NO_OBS);
+                Eigen::VectorXd no_obs = Eigen::MatrixXd::Constant(
+                    new_data.get_num_data_points(), 1, NO_OBS);
 
-                    if (this->estimates.assignment.size() == 0) {
-                        // For each possible discrete value the node can
-                        // take, we compute the probability estimate.
-                        // marginal.cols() is the cardinality of the node.
-                        int cardinality = this->model->get_cardinality_of(
-                            this->estimates.label);
+                if (this->estimates.assignment.size() == 0) {
+                    // For each possible discrete value the node can
+                    // take, we compute the probability estimate.
+                    // marginal.cols() is the cardinality of the node.
+                    int cardinality =
+                        this->model->get_cardinality_of(this->estimates.label);
 
-                        for (int col = 0; col < cardinality; col++) {
-                            Eigen::VectorXd estimates_in_time_step = no_obs;
-                            if (marginal.size() > 0) {
-                                estimates_in_time_step = marginal.col(col);
-                            }
-                            this->add_column_to_estimates(
-                                estimates_in_time_step, col);
-                        }
-                    }
-                    else {
-                        int discrete_assignment = this->estimates.assignment[0];
+                    for (int col = 0; col < cardinality; col++) {
                         Eigen::VectorXd estimates_in_time_step = no_obs;
                         if (marginal.size() > 0) {
+                            estimates_in_time_step = marginal.col(col);
+                        }
+                        this->add_column_to_estimates(estimates_in_time_step,
+                                                      col);
+                    }
+                }
+                else {
+                    int discrete_assignment = this->estimates.assignment[0];
+                    Eigen::VectorXd estimates_in_time_step = no_obs;
+                    if (marginal.size() > 0) {
+                        if(marginal.cols() == 1) {
+                            estimates_in_time_step =
+                                marginal.col(0);
+                        } else {
                             estimates_in_time_step =
                                 marginal.col(discrete_assignment);
                         }
-
-                        this->add_column_to_estimates(estimates_in_time_step);
                     }
+
+                    this->add_column_to_estimates(estimates_in_time_step);
                 }
 
                 if (this->show_progress) {
@@ -177,8 +169,7 @@ namespace tomcat {
         bool SumProductEstimator::compute_forward_messages(
             const FactorGraph& factor_graph,
             int time_step,
-            const EvidenceSet& new_data,
-            bool in_future) {
+            const EvidenceSet& new_data) {
 
             bool any_change = false;
             for (auto& node :
@@ -194,11 +185,13 @@ namespace tomcat {
                     if (new_data.has_data_for(node->get_label())) {
                         // Column of the data matrix that contains data for the
                         // time step being processed.
-                        Tensor3 node_data = new_data[node->get_label()];
-                        Eigen::VectorXd data_in_time_step = node_data(0, 0).col(
-                            time_step - this->next_time_step);
-                        variable_node->set_data_at(
-                            time_step, data_in_time_step, in_future);
+                        Eigen::MatrixXd node_data =
+                            new_data[node->get_label()](0, 0);
+                        Eigen::MatrixXd data_in_time_step =
+                            node_data.col(time_step - this->next_time_step);
+
+                        variable_node->set_data_at(time_step,
+                                                   data_in_time_step);
                     }
                     else {
                         variable_node->erase_data_at(time_step);
@@ -244,15 +237,16 @@ namespace tomcat {
                             parent_incoming_messages_time_step = time_step - 1;
                         }
 
-//                        LOG("Forward");
-//                        stringstream ss;
-//                        ss << MessageNode::get_name(
-//                                  parent_node->get_label(),
-//                                  parent_incoming_messages_time_step)
-//                           << " -> "
-//                           << MessageNode::get_name(node->get_label(),
-//                                                    time_step);
-//                        LOG(ss.str());
+                        //                        LOG("Forward");
+                        //                        stringstream ss;
+                        //                        ss << MessageNode::get_name(
+                        //                                  parent_node->get_label(),
+                        //                                  parent_incoming_messages_time_step)
+                        //                           << " -> "
+                        //                           <<
+                        //                           MessageNode::get_name(node->get_label(),
+                        //                                                    time_step);
+                        //                        LOG(ss.str());
 
                         Tensor3 message = parent_node->get_outward_message_to(
                             node,
@@ -260,7 +254,7 @@ namespace tomcat {
                             time_step,
                             MessageNode::Direction::forward);
 
-//                        LOG(message);
+                        //                        LOG(message);
 
                         any_change |= node->set_incoming_message_from(
                             parent_node,
@@ -279,7 +273,6 @@ namespace tomcat {
             const FactorGraph& factor_graph,
             int time_step,
             const EvidenceSet& new_data,
-            bool in_future,
             int last_time_step) {
 
             bool any_change = false;
@@ -298,17 +291,8 @@ namespace tomcat {
                     // incoming bottom up message is a vector of ones.
                     // Implemented as a matrix so that messages for multiple
                     // data sets can be processes at once.
-                    int cardinality;
-                    if (in_future &&
-                        node->get_label() == this->estimates.label) {
-                        // In a positive inference horizon, messages of an
-                        // estimated node are aggregated.
-                        cardinality = 2;
-                    }
-                    else {
-                        cardinality = dynamic_pointer_cast<VariableNode>(node)
+                    int cardinality = dynamic_pointer_cast<VariableNode>(node)
                                           ->get_cardinality();
-                    }
 
                     node->set_incoming_message_from(
                         MessageNode::END_NODE_LABEL,
@@ -328,24 +312,30 @@ namespace tomcat {
                             child_incoming_messages_time_step = time_step + 1;
                         }
 
-//                        LOG("Backward");
-//                        stringstream ss;
-//                        ss << MessageNode::get_name(node->get_label(),
-//                                                    time_step)
-//                           << " <- "
-//                           << MessageNode::get_name(
-//                                  child_node->get_label(),
-//                                  child_incoming_messages_time_step);
-//                        LOG(ss.str());
+                        //                        LOG("Backward");
+                        //                        stringstream ss;
+                        //                        ss <<
+                        //                        MessageNode::get_name(node->get_label(),
+                        //                                                    time_step)
+                        //                           << " <- "
+                        //                           << MessageNode::get_name(
+                        //                                  child_node->get_label(),
+                        //                                  child_incoming_messages_time_step);
+                        //                        LOG(ss.str());
 
                         Tensor3 message;
                         if (child_incoming_messages_time_step >
                             last_time_step) {
+                            if (node->is_segment()) {
+                                continue;
+                            }
+
                             // Boundary nodes are never factor nodes. Therefore,
                             // the cast will work.
                             int cardinality =
                                 dynamic_pointer_cast<VariableNode>(node)
                                     ->get_cardinality();
+
                             message =
                                 Tensor3::ones(1, num_data_points, cardinality);
                         }
@@ -357,7 +347,7 @@ namespace tomcat {
                                 MessageNode::Direction::backwards);
                         }
 
-//                        LOG(message);
+                        //                        LOG(message);
 
                         any_change |= node->set_incoming_message_from(
                             child_node,
@@ -372,49 +362,38 @@ namespace tomcat {
             return any_change;
         }
 
-        Eigen::VectorXd
-        SumProductEstimator::get_predictions_for(const string& node_label,
-                                                 int time_step,
-                                                 int assignment,
-                                                 int num_data_points) {
+        Eigen::MatrixXd
+        SumProductEstimator::get_predictions(int time_step,
+                                             int num_data_points) {
 
-            Eigen::VectorXd estimated_probabilities;
+            const string& node_label = this->estimates.label;
+
+            Eigen::MatrixXd estimated_probabilities;
             if (this->inference_horizon == 1) {
                 EvidenceSet empty_set;
                 this->compute_forward_messages(
-                    this->factor_graph, time_step + 1, empty_set, true);
+                    this->factor_graph, time_step + 1, empty_set);
 
-                Eigen::MatrixXd marginal = this->factor_graph.get_marginal_for(
+                estimated_probabilities = this->factor_graph.get_marginal_for(
                     this->estimates.label, time_step + 1, true);
-
-                estimated_probabilities = marginal.col(assignment);
             }
             else {
                 // To compute the probability of observing at least one
                 // occurence of an assignment in the inference_horizon, we
                 // compute the complement of not observing the assignment in
                 // any of the time steps in the inference horizon.
-                Eigen::MatrixXd opposite_assignment_matrix =
+                // This implementation only supports prediction in horizons
+                // larger than 1 for nodes with binary distribution. The
+                // following codes, assumes that to work properly.
+                int discrete_assignment = this->estimates.assignment[0];
+                Eigen::MatrixXd opposite_assignment =
                     Eigen::MatrixXd::Zero(num_data_points, 1);
-                EvidenceSet horizon_data;
-                horizon_data.add_data(node_label,
-                                      Tensor3(opposite_assignment_matrix));
+                opposite_assignment.col(discrete_assignment) =
+                    Eigen::VectorXd::Constant(num_data_points, 1 - discrete_assignment);
 
-                // This will make the factor graph to aggregate the CPD table of
-                // the node below such that it becomes a binary CPD
-                // distribution, where 0 is the probability of the node's value
-                // to be different from the assignment we are looking for, and 1
-                // is the probability that the node's value is the assignment of
-                // interest. After we compute the predictions, we restore the
-                // original table. By doing this, we can compute p(x_{t+1} =
-                // assignment or x_{t+2} = assignment or ... x_{t+h} =
-                // assignment) by computing 1 - p(x_{t+1} != assignment and
-                // x_{t+2}
-                // !=  assignment and ... x_{t+h} != assignment) without having
-                // to iterate over all possible combinations of sequences in
-                // which assignment does not shows up.
-                this->factor_graph.use_aggregate_potential(node_label,
-                                                           assignment);
+                EvidenceSet horizon_data;
+                horizon_data.add_data(node_label, Tensor3(opposite_assignment));
+
                 int curr_next_time_step = this->next_time_step;
                 for (int t = time_step + 1;
                      t < time_step + this->inference_horizon;
@@ -429,20 +408,12 @@ namespace tomcat {
                             : max(t - this->subgraph_window_size + 1, 0);
                     bool any_change;
                     do {
-                        // Propagate messages forward within a window
-                        for (int w = initial_time_step_in_window; w <= t; w++) {
-                            // We pass messages in the time slice until they
-                            // converge
-                            any_change = false;
-                            any_change |= this->compute_forward_messages(
-                                this->factor_graph, w, horizon_data, false);
-                        }
+                        any_change = false;
+                        any_change |= this->compute_forward_messages(
+                            this->factor_graph, t, horizon_data);
 
-                        // Propagate messages backwards within a window
-                        for (int w = t; w >= initial_time_step_in_window; w--) {
-                            any_change |= this->compute_backward_messages(
-                                this->factor_graph, w, horizon_data, false, t);
-                        }
+                        any_change |= this->compute_backward_messages(
+                            this->factor_graph, t, horizon_data, t);
 
                     } while (any_change);
 
@@ -450,12 +421,13 @@ namespace tomcat {
                         factor_graph.get_marginal_for(node_label, t, true);
 
                     if (estimated_probabilities.size() == 0) {
-                        estimated_probabilities = marginal.col(0);
+                        estimated_probabilities =
+                            marginal.col(1 - discrete_assignment).array();
                     }
                     else {
                         estimated_probabilities =
                             estimated_probabilities.array() *
-                            marginal.col(0).array();
+                            marginal.col(1 - discrete_assignment).array();
                     }
                 }
 
@@ -465,22 +437,20 @@ namespace tomcat {
                 this->compute_forward_messages(this->factor_graph,
                                                time_step +
                                                    this->inference_horizon,
-                                               empty_set,
-                                               true);
+                                               empty_set);
 
                 Eigen::MatrixXd marginal = this->factor_graph.get_marginal_for(
                     this->estimates.label,
                     time_step + this->inference_horizon,
                     true);
 
-                estimated_probabilities =
-                    estimated_probabilities.array() * marginal.col(0).array();
+                estimated_probabilities = estimated_probabilities.array() *
+                                          marginal.col(1 - discrete_assignment).array();
 
                 estimated_probabilities = 1 - estimated_probabilities.array();
 
                 // Adjust the time counter back to it's original position.
                 this->next_time_step = curr_next_time_step;
-                this->factor_graph.use_original_potential(node_label);
                 this->factor_graph.erase_incoming_messages_beyond(time_step);
             }
 
@@ -494,49 +464,6 @@ namespace tomcat {
                 this->estimates.estimates.push_back(Eigen::MatrixXd(0, 0));
             }
             matrix_hstack(this->estimates.estimates[index], new_column);
-        }
-
-        void SumProductEstimator::estimate_backward_in_time(
-            const EvidenceSet& new_data) {
-
-            //            for (int t = this->next_time_step - 1; t > 0; t--) {
-            //                unordered_set<shared_ptr<FactorNode>>
-            //                transition_factors =
-            //                    this->factor_graph.get_transition_factors_at(t);
-            //
-            //                for (auto& factor : transition_factors) {
-            //                    // Pass message from transition factor
-            //                    backward in time, to
-            //                    // it's parents in a different time step.
-            //                    for (auto& [parent_node, transition] :
-            //                         this->factor_graph.get_parents_of(factor,
-            //                         t)) {
-            //                        if (transition) {
-            //                            Tensor3 message =
-            //                            factor->get_outward_message_to(
-            //                                parent_node,
-            //                                t,
-            //                                t - 1,
-            //                                MessageNode::Direction::backwards);
-            //
-            //                            parent_node->set_incoming_message_from(
-            //                                factor->get_label(),
-            //                                t,
-            //                                t - 1,
-            //                                message,
-            //                                MessageNode::Direction::backwards);
-            //                        }
-            //                    }
-            //                }
-            //
-            //                // Adjust messages in the previous time slice to
-            //                account for the
-            //                // new message that was passed backward.
-            //                this->compute_forward_messages(
-            //                    this->factor_graph, t - 1, new_data, false);
-            //                this->compute_backward_messages(
-            //                    this->factor_graph, t - 1, new_data, false);
-            //            }
         }
 
         void SumProductEstimator::get_info(nlohmann::json& json) const {

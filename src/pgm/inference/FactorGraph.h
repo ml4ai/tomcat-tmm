@@ -205,31 +205,6 @@ namespace tomcat {
             get_transition_factors_at(int time_step) const;
 
             /**
-             * Creates an aggregate potential for a given factor node.
-             *
-             * @param node_label: node's label associated with the factor node
-             * @param value: aggregation key value
-             */
-            void create_aggregate_potential(const std::string& node_label,
-                                            int value);
-
-            /**
-             * Sets the aggregate potential for a given factor node as the
-             * working one.
-             *
-             * @param node_label: node's label associated with the factor node
-             * @param value: aggregation key value
-             */
-            void use_aggregate_potential(const std::string& node_label,
-                                         int value);
-
-            /**
-             * Uses the factor node's original potential. The one without
-             * aggregation.
-             */
-            void use_original_potential(const std::string& node_label);
-
-            /**
              * Writes the graph content in graphviz format.
              *
              * @param output_stream: output stream to write the graph.

@@ -74,6 +74,8 @@ namespace tomcat {
                     make_shared<Categorical>(Categorical(move(matrix.row(i))));
                 this->distributions.push_back(distribution_ptr);
             }
+
+            this->freeze_distributions(0);
         }
 
         unique_ptr<CPD> CategoricalCPD::clone() const {

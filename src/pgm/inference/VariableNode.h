@@ -115,14 +115,10 @@ namespace tomcat {
              *
              * @param time_step: time step where the data must be set
              * @param data: vector with node's values from several data sets
-             * @param aggregate: whether the data is result of an aggregate
-             * computation. If true, the message of this node must be
-             * 2-dimensional (either 0 or 1).
              *
              */
             void set_data_at(int time_step,
-                             const Eigen::VectorXd& data,
-                             bool aggregate);
+                             const Eigen::MatrixXd& data);
 
             /**
              * If there's data assigned to a node in a given time step, remove
@@ -144,6 +140,19 @@ namespace tomcat {
              */
             void add_backward_blocking(const std::string& incoming_node_label,
                                        const std::string& target_node_label);
+
+            /**
+             * Aggregates the probabilities of the values different than the
+             * provided assignment value.
+             *
+             * @param node_assignment_value: value to be preserved.
+             */
+            void aggregate(int node_assignment_value);
+
+            /**
+             * Incoming messages won't be aggregated.
+             */
+            void do_not_aggregate();
 
             //------------------------------------------------------------------
             // Getters & Setters
@@ -180,6 +189,12 @@ namespace tomcat {
             // backward message to a certain target (the key of the mapping);
             std::unordered_map<std::string, std::unordered_set<std::string>>
                 backward_blocking;
+
+            // For prediction, we might want to transform this node distribution
+            // into a binary distribution. The value here indicates the
+            // assignment that represents the value 1 in the binary
+            // distribution.
+            int aggregation_value = -1;
         };
 
     } // namespace model

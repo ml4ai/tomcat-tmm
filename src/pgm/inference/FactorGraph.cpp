@@ -72,58 +72,6 @@ namespace tomcat {
                                 random_variable->get_cpd()
                                     ->get_parent_label_to_indexing();
 
-                            //                            for (const auto&
-                            //                            parent :
-                            //                                 random_variable->get_parents())
-                            //                                 {
-                            //                                RVNodePtr
-                            //                                rv_parent =
-                            //                                    dynamic_pointer_cast<RandomVariableNode>(
-                            //                                        parent);
-                            //                                if
-                            //                                (rv_parent->get_time_step()
-                            //                                <
-                            //                                        random_variable->get_time_step()
-                            //                                        &&
-                            //                                    rv_parent->get_metadata()
-                            //                                        ->is_replicable())
-                            //                                        {
-                            //                                    //
-                            //                                    Intermediary
-                            //                                    nodes will be
-                            //                                    created (when
-                            //                                    // edges are
-                            //                                    created in
-                            //                                    this class) to
-                            //                                    bring
-                            //                                    // a node in
-                            //                                    the past to
-                            //                                    the same time
-                            //                                    step
-                            //                                    // of the
-                            //                                    target node.
-                            //                                    We need to
-                            //                                    change the
-                            //                                    // labels of
-                            //                                    the index
-                            //                                    nodes properly
-                            //                                    in the
-                            //                                    // ordering
-                            //                                    map. const
-                            //                                    string&
-                            //                                    parent_label =
-                            //                                        rv_parent->get_metadata()->get_label();
-                            //                                    auto map_entry
-                            //                                    =
-                            //                                        ordering_map.extract(parent_label);
-                            //                                    map_entry.key()
-                            //                                    =
-                            //                                        compose_intermediary_label(
-                            //                                            parent_label);
-                            //                                    ordering_map.insert(move(map_entry));
-                            //                                }
-                            //                            }
-
                             factor_graph.add_node(
                                 node_label,
                                 random_variable->get_metadata()
@@ -288,47 +236,46 @@ namespace tomcat {
                 this->add_node(
                     node_label, cardinality, t, cpd_table, ordering_map);
 
-                string factor_label;
-                if (random_variable->get_parents().empty()) {
-                    // A factor node was already created when the node was
-                    // created and there's no other node to be attached to it.
-                    // We can just connect the source in the previous time step
-                    // to that factor.
-                    this->add_edge(node_label, t - 1, node_label, t);
-                    factor_label = node_label;
+                if (!random_variable->is_segment_dependency()) {
+                    string factor_label;
+                    if (random_variable->get_parents().empty()) {
+                        // A factor node was already created when the node was
+                        // created and there's no other node to be attached to
+                        // it. We can just connect the source in the previous
+                        // time step to that factor.
+                        this->add_edge(node_label, t - 1, node_label, t);
+                        factor_label = node_label;
+                    }
+                    else {
+                        // The factor node created with the copy of the node in
+                        // a future time step contains other dependencies that
+                        // will be attached to it when edges are created in this
+                        // class. We need to create another factor to pass
+                        // messages from the source in the previous time step to
+                        // its copy in the next time step.
+
+                        Eigen::MatrixXd identity_table =
+                            Eigen::MatrixXd::Identity(cardinality, cardinality);
+                        ParentIndexing indexing(0, cardinality, 1);
+                        CPD::TableOrderingMap ordering_map;
+                        ordering_map[node_label] = indexing;
+                        factor_label =
+                            compose_intermediary_factor_label(node_label);
+                        int factor_id = this->add_factor_node(factor_label,
+                                                              t,
+                                                              identity_table,
+                                                              ordering_map,
+                                                              node_label);
+
+                        int source_node_id = this->name_to_id.at(
+                            MessageNode::get_name(node_label, t - 1));
+                        int source_node_id_copy = this->name_to_id.at(
+                            MessageNode::get_name(node_label, t));
+                        boost::add_edge(source_node_id, factor_id, this->graph);
+                        boost::add_edge(
+                            factor_id, source_node_id_copy, this->graph);
+                    }
                 }
-                else {
-                    // The factor node created with the copy of the node in a
-                    // future time step contains other dependencies that will be
-                    // attached to it when edges are created in this class. We
-                    // need to create another factor to pass messages from the
-                    // source in the previous time step to its copy in the next
-                    // time step.
-
-                    Eigen::MatrixXd identity_table =
-                        Eigen::MatrixXd::Identity(cardinality, cardinality);
-                    ParentIndexing indexing(0, cardinality, 1);
-                    CPD::TableOrderingMap ordering_map;
-                    ordering_map[node_label] = indexing;
-                    factor_label =
-                        compose_intermediary_factor_label(node_label);
-                    int factor_id = this->add_factor_node(factor_label,
-                                                          t,
-                                                          identity_table,
-                                                          ordering_map,
-                                                          node_label);
-
-                    int source_node_id = this->name_to_id.at(
-                        MessageNode::get_name(node_label, t - 1));
-                    int source_node_id_copy = this->name_to_id.at(
-                        MessageNode::get_name(node_label, t));
-                    boost::add_edge(source_node_id, factor_id, this->graph);
-                    boost::add_edge(
-                        factor_id, source_node_id_copy, this->graph);
-                }
-
-//                get_factor_node(factor_label, t)
-//                    ->set_block_backward_message(true);
             }
         }
 
@@ -1032,47 +979,6 @@ namespace tomcat {
         FactorGraph::get_transition_factors_at(int time_step) const {
             int relative_time_step = min(time_step, this->repeatable_time_step);
             return this->transition_factors_per_time_step[relative_time_step];
-        }
-
-        void FactorGraph::create_aggregate_potential(const string& node_label,
-                                                     int value) {
-            for (int t = 0; t <= this->repeatable_time_step; t++) {
-                string factor_label = FactorNode::compose_label(node_label);
-                string factor_name = MessageNode::get_name(factor_label, t);
-
-                if (EXISTS(factor_name, this->name_to_id)) {
-                    int id = this->name_to_id.at(factor_name);
-                    dynamic_pointer_cast<FactorNode>(this->graph[id])
-                        ->create_aggregate_potential(value);
-                }
-            }
-        }
-
-        void FactorGraph::use_aggregate_potential(const string& node_label,
-                                                  int value) {
-            for (int t = 0; t <= this->repeatable_time_step; t++) {
-                string factor_label = FactorNode::compose_label(node_label);
-                string factor_name = MessageNode::get_name(factor_label, t);
-
-                if (EXISTS(factor_name, this->name_to_id)) {
-                    int id = this->name_to_id.at(factor_name);
-                    dynamic_pointer_cast<FactorNode>(this->graph[id])
-                        ->use_aggregate_potential(value);
-                }
-            }
-        }
-
-        void FactorGraph::use_original_potential(const string& node_label) {
-            for (int t = 0; t <= this->repeatable_time_step; t++) {
-                string factor_label = FactorNode::compose_label(node_label);
-                string factor_name = MessageNode::get_name(factor_label, t);
-
-                if (EXISTS(factor_name, this->name_to_id)) {
-                    int id = this->name_to_id.at(factor_name);
-                    dynamic_pointer_cast<FactorNode>(this->graph[id])
-                        ->use_original_potential();
-                }
-            }
         }
 
         void FactorGraph::print_graph(std::ostream& output_stream) const {

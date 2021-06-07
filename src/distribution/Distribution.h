@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utility>
+#include <mutex>
 
 #include <eigen3/Eigen/Dense>
 #include <gsl/gsl_rng.h>

@@ -75,6 +75,7 @@ namespace tomcat {
                     this->distributions.push_back(distribution_ptr);
                 }
             }
+            this->freeze_distributions(0);
         }
 
         unique_ptr<CPD> GaussianCPD::clone() const {
