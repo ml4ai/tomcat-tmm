@@ -125,9 +125,9 @@ namespace tomcat {
              * children from time step smaller than this value
              * @param max_time_step_to_sample: ignore children from time step
              * larger than this value
-             * @param use_weights_cache: whether the node must use cache to process
-             * posterior weights os multi-time nodes when the samples are
-             * generated to do forward inference.
+             * @param use_weights_cache: whether the node must use cache to
+             * process posterior weights os multi-time nodes when the samples
+             * are generated to do forward inference.
              *
              * @return Posterior weights
              */
@@ -147,6 +147,18 @@ namespace tomcat {
             Eigen::MatrixXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
                 int num_samples) const;
+
+            /**
+             * Gets pdfs associated with the node's assignments.
+             *
+             * @param num_jobs: number of threads to be used in this
+             * computation.
+             * @param parameter_idx: index of the parameter's assignments to
+             * consider as parameters of the distributions in the CPD.
+             *
+             * @return Pdfs.
+             */
+            Eigen::VectorXd get_pdfs(int num_jobs, int parameter_idx) const;
 
             /**
              * Update sufficient statistics of parent parameter nodes with this
@@ -477,15 +489,14 @@ namespace tomcat {
                                                int max_time_step_to_sample);
 
             /**
-             * Accumulate cached weights from children computed from the immediate
-             * previous sampling range.
+             * Accumulate cached weights from children computed from the
+             * immediate previous sampling range.
              *
              * @param min_time_step_to_sample: min time step to sample in the
              * current sampling range
              *
              */
-            void accumulate_cached_log_weights(int
-            min_time_step_to_sample);
+            void accumulate_cached_log_weights(int min_time_step_to_sample);
 
             /**
              * Gets the cached weights from children computed from the immediate
@@ -496,8 +507,8 @@ namespace tomcat {
              *
              * @return Pre-computed log posterior weights
              */
-            Eigen::MatrixXd get_cached_log_weights(int
-            min_time_step_to_sample) const;
+            Eigen::MatrixXd
+            get_cached_log_weights(int min_time_step_to_sample) const;
 
             /**
              * Save log weights of relevant children in the cache to be
@@ -510,8 +521,8 @@ namespace tomcat {
              * @param log_weights: log weights computed for the child
              */
             void cache_current_log_weights(int min_time_step_to_sample,
-                                   const RVNodePtr& child_node,
-                                   const Eigen::MatrixXd& log_weights);
+                                           const RVNodePtr& child_node,
+                                           const Eigen::MatrixXd& log_weights);
 
             /**
              * Resets saved data used to speed up the sampling process.

@@ -63,8 +63,15 @@ namespace tomcat {
 
             std::string get_name() const override;
 
-          private:
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
 
+            void set_subgraph_window_size(int subgraph_window_size);
+
+            void set_variable_window(bool variable_window);
+
+          private:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -87,13 +94,12 @@ namespace tomcat {
              * @param time_step: time step to process
              * @param new_data: observed values for time steps not already
              * processed by the method
-             * @param in_future: whether the computations are being performed
-             * in the future (inside a positive inference horizon)
+             *
+             * @return whether any message changed
              */
-            void compute_forward_messages(const FactorGraph& factor_graph,
+            bool compute_forward_messages(const FactorGraph& factor_graph,
                                           int time_step,
-                                          const EvidenceSet& new_data,
-                                          bool in_future);
+                                          const EvidenceSet& new_data);
 
             /**
              * Computes messages from children to parent nodes in a given time
@@ -103,19 +109,19 @@ namespace tomcat {
              * @param time_step: time step to process
              * @param new_data: observed values for time steps not already
              * processed by the method
-             * @param in_future: whether the computations are being performed
-             * in the future (inside a positive inference horizon)
+             * @param last_time_step: last time step to be processed
+             *
+             * @return whether any message changed
              */
-            void compute_backward_messages(const FactorGraph& factor_graph,
+            bool compute_backward_messages(const FactorGraph& factor_graph,
                                            int time_step,
                                            const EvidenceSet& new_data,
-                                           bool in_future);
+                                           int last_time_step);
 
             /**
              * Computes the a node's marginal for a given assignment in the
              * future, according to the the horizons provided to the estimator;
              *
-             * @param node_label: node's label
              * @param time_step: current estimated time step. The predictions
              * are made beyond this time step up to the limit of the maximum
              * horizon provided to the estimator
@@ -124,10 +130,7 @@ namespace tomcat {
              *
              * @return Estimates for each data point in a single time step.
              */
-            Eigen::VectorXd get_predictions_for(const std::string& node_label,
-                                                int time_step,
-                                                int assignment,
-                                                int num_data_points);
+            Eigen::MatrixXd get_predictions(int time_step, int num_data_points);
 
             /**
              * Appends the estimates matrix with a new column.
@@ -141,14 +144,6 @@ namespace tomcat {
             void add_column_to_estimates(const Eigen::VectorXd new_column,
                                          int index = 0);
 
-            /**
-             * Passes messages from transition factors in a time step to the
-             * previous time step, and then passes messages forward and
-             * backwards within that time step. Repeat until the first time
-             * step.
-             */
-            void estimate_backward_in_time(const EvidenceSet& new_data);
-
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
@@ -159,6 +154,17 @@ namespace tomcat {
             // graph. Nodes with time steps before next_time_step already have
             // their messages computed.
             int next_time_step = 0;
+
+            // Number of time slices up to the current time step being
+            // processed, we update with message passing. By default, we only
+            // pass messages to the current and the previous time step.
+            int subgraph_window_size = 1;
+
+            // If set to true, the subgraph_window_size will be adjusted
+            // dynamically so that the full graph up to the current time step is
+            // updated with message passing. That is, whatever is defined in the
+            // attribute subgraph_window_size will be ignored.
+            bool variable_subgraph_window = false;
         };
 
     } // namespace model

@@ -282,13 +282,13 @@ namespace tomcat {
         }
 
         void CPD::run_samples_from_posterior_thread(
-            const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+            const shared_ptr<const RandomVariableNode>& cpd_owner,
             const Eigen::MatrixXd& posterior_weights,
             const Eigen::VectorXi& distribution_indices,
             const shared_ptr<gsl_rng>& random_generator,
-            const std::pair<int, int>& processing_block,
+            const pair<int, int>& processing_block,
             Eigen::MatrixXd& full_samples,
-            std::mutex& samples_mutex) const {
+            mutex& samples_mutex) const {
 
             int initial_row = processing_block.first;
             int num_rows = processing_block.second;
@@ -1116,19 +1116,24 @@ namespace tomcat {
         Eigen::MatrixXd CPD::get_table(int parameter_idx) const {
             Eigen::MatrixXd table;
 
-            int row = 0;
-            for (const auto& distribution : this->distributions) {
-                Eigen::VectorXd parameters =
-                    distribution->get_values(parameter_idx);
-                if (table.size() == 0) {
-                    table = Eigen::MatrixXd(this->distributions.size(),
-                                            parameters.size());
-                    table.row(row) = parameters;
+            if (this->frozen_distributions) {
+                table = this->distribution_table;
+            }
+            else {
+                int row = 0;
+                for (const auto& distribution : this->distributions) {
+                    Eigen::VectorXd parameters =
+                        distribution->get_values(parameter_idx);
+                    if (table.size() == 0) {
+                        table = Eigen::MatrixXd(this->distributions.size(),
+                                                parameters.size());
+                        table.row(row) = parameters;
+                    }
+                    else {
+                        table.row(row) = parameters;
+                    }
+                    row++;
                 }
-                else {
-                    table.row(row) = parameters;
-                }
-                row++;
             }
 
             return table;
@@ -1139,6 +1144,77 @@ namespace tomcat {
                                               int cpd_owner_cardinality) {
             throw TomcatModelException("Only implemented to categorical "
                                        "CPDs.");
+        }
+
+        void CPD::freeze_distributions(int parameter_idx) {
+            this->frozen_distributions = false;
+            this->distribution_table = this->get_table(parameter_idx);
+            this->frozen_distributions = true;
+        }
+
+        Eigen::VectorXd
+        CPD::get_pdfs(const shared_ptr<const RandomVariableNode>& cpd_owner,
+                      int num_jobs,
+                      int parameter_idx) const {
+
+            int num_samples = cpd_owner->get_size();
+            Eigen::VectorXi distribution_indices =
+                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
+                                                       num_samples);
+            Eigen::VectorXd pdfs(num_samples);
+            mutex pdfs_mutex;
+            if (num_jobs == 1) {
+                // Run in the main thread
+                this->run_pdf_thread(cpd_owner,
+                                     distribution_indices,
+                                     parameter_idx,
+                                     pdfs,
+                                     make_pair(0, num_samples),
+                                     pdfs_mutex);
+            }
+            else {
+                const auto processing_blocks =
+                    get_parallel_processing_blocks(num_jobs, num_samples);
+                vector<thread> threads;
+                for (int i = 0; i < processing_blocks.size(); i++) {
+                    thread pdfs_thread(&CPD::run_pdf_thread,
+                                       this,
+                                       ref(cpd_owner),
+                                       ref(distribution_indices),
+                                       parameter_idx,
+                                       ref(pdfs),
+                                       ref(processing_blocks.at(i)),
+                                       ref(pdfs_mutex));
+                    threads.push_back(move(pdfs_thread));
+                }
+
+                for (auto& samples_thread : threads) {
+                    samples_thread.join();
+                }
+            }
+
+            return pdfs;
+        }
+
+        void CPD::run_pdf_thread(
+            const shared_ptr<const RandomVariableNode>& cpd_owner,
+            const Eigen::VectorXi& distribution_indices,
+            int parameter_idx,
+            Eigen::VectorXd& full_pdfs,
+            const pair<int, int>& processing_block,
+            mutex& pdf_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
+            Eigen::VectorXd pdfs(num_rows, 1);
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
+                pdfs[i] = this->distributions[i]->get_pdf(
+                    cpd_owner->get_assignment().row(i));
+            }
+
+            scoped_lock lock(pdf_mutex);
+            full_pdfs.block(initial_row, 0, num_rows, 1) = pdfs;
         }
 
         //------------------------------------------------------------------

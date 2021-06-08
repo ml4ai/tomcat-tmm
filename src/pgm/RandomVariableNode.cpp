@@ -476,6 +476,12 @@ namespace tomcat {
                 random_generator, num_samples, shared_from_this());
         }
 
+        Eigen::VectorXd RandomVariableNode::get_pdfs(int num_jobs,
+                                                     int parameter_idx) const {
+            return this->cpd->get_pdfs(
+                shared_from_this(), num_jobs, parameter_idx);
+        }
+
         void RandomVariableNode::update_parents_sufficient_statistics() {
             this->cpd->update_sufficient_statistics(shared_from_this());
         }
@@ -596,12 +602,14 @@ namespace tomcat {
         }
 
         bool RandomVariableNode::is_segment_dependency() const {
-            if (this->timer_children_per_time_step.size() > 0) return true;
+            if (this->timer_children_per_time_step.size() > 0)
+                return true;
 
-            for(const auto& child :
-                this->children_per_time_step[this->metadata->get_initial_time_step()]) {
+            for (const auto& child :
+                 this->children_per_time_step[this->metadata
+                                                  ->get_initial_time_step()]) {
                 if (dynamic_pointer_cast<RandomVariableNode>(child)
-                    ->has_timer()){
+                        ->has_timer()) {
                     return true;
                 }
             }

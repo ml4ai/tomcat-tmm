@@ -1,5 +1,7 @@
 #include "FactorNode.h"
 
+#include "pgm/inference/VariableNode.h"
+
 using namespace std;
 
 namespace tomcat {
@@ -27,7 +29,7 @@ namespace tomcat {
             this->original_potential.node_label_to_rotated_potential =
                 this->create_potential_function_rotations(
                     this->original_potential.potential);
-            this->use_original_potential();
+            this->working_potential = this->original_potential;
         }
 
         FactorNode::FactorNode(const string& label,
@@ -149,8 +151,8 @@ namespace tomcat {
         void FactorNode::copy_node(const FactorNode& node) {
             MessageNode::copy_node(node);
             this->original_potential = node.original_potential;
-            this->aggregate_potential = node.aggregate_potential;
             this->working_potential = node.working_potential;
+            this->block_forward_message = node.block_forward_message;
         }
 
         Tensor3 FactorNode::get_outward_message_to(
@@ -158,6 +160,13 @@ namespace tomcat {
             int template_time_step,
             int target_time_step,
             Direction direction) const {
+
+            if ((direction == Direction::forward &&
+                 this->block_forward_message) ||
+                (direction == Direction::backwards &&
+                 this->block_backward_message)) {
+                return Tensor3();
+            }
 
             PotentialFunction potential_function;
             if (direction == Direction::forward) {
@@ -179,18 +188,22 @@ namespace tomcat {
                     target_time_step,
                     potential_function);
 
-            Eigen::MatrixXd indexing_probs =
-                this->get_cartesian_tensor(messages_in_order)(0, 0);
+            Eigen::MatrixXd outward_message;
 
-            // This will marginalize the incoming nodes by summing the rows.
-            Eigen::MatrixXd outward_message =
-                indexing_probs * potential_function.probability_table;
+            if (!messages_in_order.empty()) {
+                Eigen::MatrixXd indexing_probs =
+                    this->get_cartesian_tensor(messages_in_order)(0, 0);
 
-            // Normalize the message
-            Eigen::VectorXd sum_per_row = outward_message.rowwise().sum();
-            outward_message =
-                (outward_message.array().colwise() / sum_per_row.array())
-                    .matrix();
+                // This will marginalize the incoming nodes by summing the rows.
+                outward_message =
+                    indexing_probs * potential_function.probability_table;
+
+                // Normalize the message
+                Eigen::VectorXd sum_per_row = outward_message.rowwise().sum();
+                outward_message =
+                    (outward_message.array().colwise() / sum_per_row.array())
+                        .matrix();
+            }
 
             return Tensor3(outward_message);
         }
@@ -243,95 +256,111 @@ namespace tomcat {
             int target_time_step,
             const PotentialFunction& potential_function) const {
 
-            int num_messages =
-                this->incoming_messages_per_time_slice.at(template_time_step)
-                    .size();
-            vector<Tensor3> messages_in_order(num_messages);
-            int added_duplicate_key_order = -1;
-            int added_duplicate_key_time_step = -1;
+            int num_messages = 0;
+            vector<Tensor3> messages_in_order;
 
-            MessageContainer message_container =
-                this->incoming_messages_per_time_slice.at(template_time_step);
+            if (EXISTS(template_time_step,
+                       this->incoming_messages_per_time_slice)) {
 
-            for (const auto& [incoming_node_name, incoming_message] :
-                 message_container.node_name_to_messages) {
+                num_messages = this->incoming_messages_per_time_slice
+                                   .at(template_time_step)
+                                   .size();
+                messages_in_order.resize(num_messages);
+                int added_duplicate_key_order = -1;
+                int added_duplicate_key_time_step = -1;
 
-                if (MessageNode::is_prior(incoming_node_name)) {
-                    // No parents. There's only one incoming message.
-                    messages_in_order.resize(1);
-                    messages_in_order[0] = incoming_message;
-                    break;
-                }
-                else {
-                    // Ignore messages that come from a specific node. Because
-                    // messages can go forward and backwards in the graph, when
-                    // computing the messages that go towards a target node via
-                    // this node, the messages that arrive in this node from
-                    // that same target have to be ignored.
-                    if (incoming_node_name ==
-                        MessageNode::get_name(ignore_label, target_time_step)) {
-                        messages_in_order.pop_back();
-                        continue;
+                MessageContainer message_container =
+                    this->incoming_messages_per_time_slice.at(
+                        template_time_step);
+
+                for (const auto& [incoming_node_name, incoming_message] :
+                     message_container.node_name_to_messages) {
+
+                    if (MessageNode::is_prior(incoming_node_name)) {
+                        // No parents. There's only one incoming message.
+                        messages_in_order.resize(1);
+                        messages_in_order[0] = incoming_message;
+                        break;
                     }
+                    else {
+                        // Ignore messages that come from a specific node.
+                        // Because messages can go forward and backwards in the
+                        // graph, when computing the messages that go towards a
+                        // target node via this node, the messages that arrive
+                        // in this node from that same target have to be
+                        // ignored.
+                        if (incoming_node_name ==
+                            MessageNode::get_name(ignore_label,
+                                                  target_time_step)) {
+                            messages_in_order.pop_back();
+                            continue;
+                        }
 
-                    int order = 0;
-                    auto [incoming_node_label, incoming_node_time_step] =
-                        MessageNode::strip(incoming_node_name);
+                        int order = 0;
+                        auto [incoming_node_label, incoming_node_time_step] =
+                            MessageNode::strip(incoming_node_name);
 
-                    if (potential_function.duplicate_key ==
-                        incoming_node_label) {
-                        // The potential function matrix is indexed by another
-                        // node with the same label. We need to detect the
-                        // correct order of this node somehow. We simply use the
-                        // order defined for one of the labels and adjust later
-                        // by swapping the orders when we process the second
-                        // entry with the same label.
+                        if (potential_function.duplicate_key ==
+                            incoming_node_label) {
+                            // The potential function matrix is indexed by
+                            // another node with the same label. We need to
+                            // detect the correct order of this node somehow. We
+                            // simply use the order defined for one of the
+                            // labels and adjust later by swapping the orders
+                            // when we process the second entry with the same
+                            // label.
 
-                        if (added_duplicate_key_order < 0) {
+                            if (added_duplicate_key_order < 0 &&
+                                EXISTS(incoming_node_label,
+                                       potential_function.ordering_map)) {
+                                order = potential_function.ordering_map
+                                            .at(incoming_node_label)
+                                            .order;
+                                added_duplicate_key_order = order;
+                                added_duplicate_key_time_step =
+                                    incoming_node_time_step;
+                            }
+                            else {
+                                string alternative_key_label =
+                                    PotentialFunction::
+                                        get_alternative_key_label(
+                                            incoming_node_label);
+                                order = potential_function.ordering_map
+                                            .at(alternative_key_label)
+                                            .order;
+                                if (incoming_node_time_step <
+                                    added_duplicate_key_time_step) {
+                                    // This node is in the past with respect to
+                                    // the previous node with the same key
+                                    // processed. Therefore, they have to change
+                                    // position as the node's alternative key
+                                    // has to be in the future according to how
+                                    // CPDs were defined in this implementation.
+                                    // An CPD indexing node is never in the
+                                    // future regarding the CPD's main node.
+                                    // When CPDs were adjusted in this factor
+                                    // node, the main node was swapped with one
+                                    // of the indexing nodes and an alternative
+                                    // key was created if there was a conflict
+                                    // with an already existing label.
+                                    // Therefore, nodes with alternative keys
+                                    // can never be in the past and we must swap
+                                    // the order with the previously processed
+                                    // label of the same kind.
+                                    messages_in_order[order] = messages_in_order
+                                        [added_duplicate_key_order];
+                                    order = added_duplicate_key_order;
+                                }
+                            }
+                        }
+                        else {
                             order = potential_function.ordering_map
                                         .at(incoming_node_label)
                                         .order;
-                            added_duplicate_key_order = order;
-                            added_duplicate_key_time_step =
-                                incoming_node_time_step;
                         }
-                        else {
-                            string alternative_key_label =
-                                PotentialFunction::get_alternative_key_label(
-                                    incoming_node_label);
-                            order = potential_function.ordering_map
-                                        .at(alternative_key_label)
-                                        .order;
-                            if (incoming_node_time_step <
-                                added_duplicate_key_time_step) {
-                                // This node is in the past with respect to the
-                                // previous node with the same key processed.
-                                // Therefore, they have to change position as
-                                // the node's alternative key has to be in the
-                                // future according to how CPDs were defined in
-                                // this implementation. An CPD indexing node is
-                                // never in the future regarding the CPD's
-                                // main node. When CPDs were adjusted in this
-                                // factor node, the main node was swapped with
-                                // one of the indexing nodes and an alternative
-                                // key was created if there was a conflict with
-                                // an already existing label. Therefore, nodes
-                                // with alternative keys can never be in the
-                                // past and we must swap the order with the
-                                // previously processed label of the same kind.
-                                messages_in_order[order] = messages_in_order
-                                    [added_duplicate_key_order];
-                                order = added_duplicate_key_order;
-                            }
-                        }
-                    }
-                    else {
-                        order = potential_function.ordering_map
-                                    .at(incoming_node_label)
-                                    .order;
-                    }
 
-                    messages_in_order[order] = incoming_message;
+                        messages_in_order[order] = incoming_message;
+                    }
                 }
             }
 
@@ -342,46 +371,19 @@ namespace tomcat {
 
         bool FactorNode::is_segment() const { return false; }
 
-        void FactorNode::create_aggregate_potential(int value) {
-            PotentialFunction agg_potential =
-                this->original_potential.potential;
 
-            // Binary distribution. It's either value or not.
-            Eigen::MatrixXd agg_matrix = Eigen::MatrixXd::Zero(
-                agg_potential.probability_table.rows(), 2);
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
 
-            for (int col = 0; col < agg_potential.probability_table.cols();
-                 col++) {
-                if (value == col) {
-                    agg_matrix.col(1) =
-                        agg_potential.probability_table.col(col);
-                }
-                else {
-                    agg_matrix.col(0) =
-                        agg_matrix.col(0).array() +
-                        agg_potential.probability_table.col(col).array();
-                }
-            }
-
-            agg_potential.probability_table = agg_matrix;
-
-            this->aggregate_potential.potential[value] = agg_potential;
-            this->aggregate_potential.node_label_to_rotated_potential[value] =
-                this->create_potential_function_rotations(agg_potential);
+        void FactorNode::set_block_forward_message(bool block_forward_message) {
+            this->block_forward_message = block_forward_message;
         }
 
-        void FactorNode::use_aggregate_potential(int value) {
-            this->working_potential.potential =
-                this->aggregate_potential.potential.at(value);
-            this->working_potential.node_label_to_rotated_potential =
-                this->aggregate_potential.node_label_to_rotated_potential.at(
-                    value);
+        void
+        FactorNode::set_block_backward_message(bool block_backward_message) {
+            this->block_backward_message = block_backward_message;
         }
-
-        void FactorNode::use_original_potential() {
-            this->working_potential = this->original_potential;
-        }
-
 
     } // namespace model
 } // namespace tomcat

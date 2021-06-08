@@ -146,6 +146,11 @@ namespace tomcat {
 
             bool is_continuous() const override;
 
+            Eigen::VectorXd
+            get_pdfs(const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                     int num_jobs,
+                     int parameter_idx) const override;
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -228,6 +233,29 @@ namespace tomcat {
                 const std::pair<int, int>& processing_block,
                 Eigen::MatrixXd& full_weights,
                 std::mutex& weights_mutex) const;
+
+            /**
+             * Computes pdfs for the assignments of a CPD owner in a separate
+             * thread.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param distribution_indices: indices of the distributions from
+             * this CPD to be used
+             * @param parameter_idx: row of the node's assignment that holds the
+             * parameters of the distribution
+             * @param full_pdfs: vector of pdfs to be updated by this function
+             * @param processing_block: block of data to process in this thread
+             * @param pdf_mutex: mutex to control writing in the
+             * full_pdfs vector
+             */
+            void run_pdf_thread(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::VectorXi& distribution_indices,
+                const Eigen::MatrixXd& cpd_table,
+                int parameter_idx,
+                Eigen::VectorXd& full_pdfs,
+                const std::pair<int, int>& processing_block,
+                std::mutex& pdf_mutex) const;
         };
 
     } // namespace model

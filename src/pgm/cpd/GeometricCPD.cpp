@@ -46,7 +46,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        GeometricCPD::GeometricCPD(const GeometricCPD& cpd) { this->copy_cpd(cpd); }
+        GeometricCPD::GeometricCPD(const GeometricCPD& cpd) {
+            this->copy_cpd(cpd);
+        }
 
         GeometricCPD& GeometricCPD::operator=(const GeometricCPD& cpd) {
             this->copy_cpd(cpd);
@@ -70,6 +72,7 @@ namespace tomcat {
                     make_shared<Geometric>(ps(i));
                 this->distributions.push_back(distribution_ptr);
             }
+            this->freeze_distributions(0);
         }
 
         unique_ptr<CPD> GeometricCPD::clone() const {
@@ -85,12 +88,10 @@ namespace tomcat {
             }
         }
 
-        string GeometricCPD::get_name() const {
-            return "Geometric";
-        }
+        string GeometricCPD::get_name() const { return "Geometric"; }
 
-        void
-        GeometricCPD::add_to_sufficient_statistics(const vector<double>& values) {
+        void GeometricCPD::add_to_sufficient_statistics(
+            const vector<double>& values) {
 
             throw invalid_argument(
                 "No conjugate prior with a Geometric distribution.");
@@ -109,9 +110,7 @@ namespace tomcat {
             // Nothing to reset
         }
 
-        bool GeometricCPD::is_continuous() const {
-            return false;
-        }
+        bool GeometricCPD::is_continuous() const { return false; }
 
     } // namespace model
 } // namespace tomcat

@@ -211,7 +211,7 @@ namespace tomcat {
                                                 bool baseline,
                                                 const string& train_dir,
                                                 bool only_estimates) {
-
+//            FactorGraph::create_from_unrolled_dbn(*this->model).print_graph(cout);
             shared_ptr<DataSplitter> data_splitter;
             string final_params_dir;
             if (num_folds > 1) {

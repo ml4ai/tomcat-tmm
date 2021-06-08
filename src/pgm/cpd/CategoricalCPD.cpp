@@ -74,6 +74,8 @@ namespace tomcat {
                     make_shared<Categorical>(Categorical(move(matrix.row(i))));
                 this->distributions.push_back(distribution_ptr);
             }
+
+            this->freeze_distributions(0);
         }
 
         unique_ptr<CPD> CategoricalCPD::clone() const {
@@ -323,6 +325,76 @@ namespace tomcat {
         }
 
         bool CategoricalCPD::is_continuous() const { return false; }
+
+        Eigen::VectorXd CategoricalCPD::get_pdfs(
+            const shared_ptr<const RandomVariableNode>& cpd_owner,
+            int num_jobs,
+            int parameter_idx) const {
+
+            int num_samples = cpd_owner->get_size();
+            Eigen::VectorXi distribution_indices =
+                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
+                                                       num_samples);
+            Eigen::MatrixXd cpd_table = this->get_table(parameter_idx);
+
+            Eigen::VectorXd pdfs(num_samples);
+            mutex pdfs_mutex;
+            if (num_jobs == 1) {
+                // Run in the main thread
+                this->run_pdf_thread(cpd_owner,
+                                     distribution_indices,
+                                     cpd_table,
+                                     parameter_idx,
+                                     pdfs,
+                                     make_pair(0, num_samples),
+                                     pdfs_mutex);
+            }
+            else {
+                const auto processing_blocks =
+                    get_parallel_processing_blocks(num_jobs, num_samples);
+                vector<thread> threads;
+                for (int i = 0; i < processing_blocks.size(); i++) {
+                    thread pdfs_thread(&CategoricalCPD::run_pdf_thread,
+                                       this,
+                                       ref(cpd_owner),
+                                       ref(distribution_indices),
+                                       ref(cpd_table),
+                                       parameter_idx,
+                                       ref(pdfs),
+                                       ref(processing_blocks.at(i)),
+                                       ref(pdfs_mutex));
+                    threads.push_back(move(pdfs_thread));
+                }
+
+                for (auto& samples_thread : threads) {
+                    samples_thread.join();
+                }
+            }
+
+            return pdfs;
+        }
+
+        void CategoricalCPD::run_pdf_thread(
+            const shared_ptr<const RandomVariableNode>& cpd_owner,
+            const Eigen::VectorXi& distribution_indices,
+            const Eigen::MatrixXd& cpd_table,
+            int parameter_idx,
+            Eigen::VectorXd& full_pdfs,
+            const pair<int, int>& processing_block,
+            mutex& pdf_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
+            Eigen::VectorXd pdfs(num_rows, 1);
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
+                pdfs[i - initial_row] = cpd_table(
+                    distribution_indices[i], cpd_owner->get_assignment()(i, 0));
+            }
+
+            scoped_lock lock(pdf_mutex);
+            full_pdfs.block(initial_row, 0, num_rows, 1) = pdfs;
+        }
 
     } // namespace model
 } // namespace tomcat

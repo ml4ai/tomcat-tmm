@@ -1,0 +1,89 @@
+{
+  "nodes": {
+    "timers": [
+    ],
+    "parameters": [
+    ],
+    "data": [
+      {
+        "label": "Fixed",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.5, 0.3, 0.2",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "State",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.3, 0.5, 0.2",
+            "index_nodes": []
+          },
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.3, 0.2, 0.5, 0.3, 0.5, 0.2, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2, 0.3, 0.2, 0.5, 0.5, 0.3, 0.2, 0.3, 0.5, 0.2",
+            "index_nodes": [
+              "State",
+              "Fixed"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Obs",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.3, 0.7, 0.7, 0.3, 0.3, 0.7",
+            "index_nodes": [
+              "State"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "connections": [
+    {
+      "parent": "Fixed",
+      "child": "State",
+      "time_crossing": true
+    },
+    {
+      "parent": "State",
+      "child": "State",
+      "time_crossing": true
+    },
+    {
+      "parent": "State",
+      "child": "Obs",
+      "time_crossing": false
+    }
+  ]
+}

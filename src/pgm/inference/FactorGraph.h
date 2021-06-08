@@ -144,26 +144,29 @@ namespace tomcat {
              * structure since this structure repeats beyond that
              * point in time).
              *
-             * @param node: node in the factor graph
-             * @param time_step: real time step
+             * @param template_node: node in the factor graph
+             * @param time_step: real time step of the template node
              *
              * @return Parents of the template node informed
              */
-            std::vector<std::pair<std::shared_ptr<MessageNode>, bool>>
-            get_parents_of(const std::shared_ptr<MessageNode>& template_node,
+            std::vector<std::pair<MsgNodePtr, bool>>
+            get_parents_of(const MsgNodePtr& template_node,
                            int time_step) const;
 
             /**
-             * Returns the children of a given node. The child nodes are not
-             * constrained to the node's time step and can come from a posterior
-             * time step.
+             * Returns a list of pairs (child, transition) for a given node. The
+             * child nodes are not constrained to the node's time step and can
+             * come from a posterior time step. In that case, transition will be
+             * marked as true.
              *
-             * @param node: node in the factor graph
+             * @param template_node: node in the factor graph
+             * @param time_step: real time step of the template node
              *
              * @return Children of the template node informed
              */
-            std::vector<std::shared_ptr<MessageNode>> get_children_of(
-                const std::shared_ptr<MessageNode>& template_node) const;
+            std::vector<std::pair<MsgNodePtr, bool>>
+            get_children_of(const MsgNodePtr& template_node,
+                            int time_step) const;
 
             /**
              * Returns the marginal distribution for a given node in a certain
@@ -200,31 +203,6 @@ namespace tomcat {
              */
             std::unordered_set<std::shared_ptr<FactorNode>>
             get_transition_factors_at(int time_step) const;
-
-            /**
-             * Creates an aggregate potential for a given factor node.
-             *
-             * @param node_label: node's label associated with the factor node
-             * @param value: aggregation key value
-             */
-            void create_aggregate_potential(const std::string& node_label,
-                                            int value);
-
-            /**
-             * Sets the aggregate potential for a given factor node as the
-             * working one.
-             *
-             * @param node_label: node's label associated with the factor node
-             * @param value: aggregation key value
-             */
-            void use_aggregate_potential(const std::string& node_label,
-                                         int value);
-
-            /**
-             * Uses the factor node's original potential. The one without
-             * aggregation.
-             */
-            void use_original_potential(const std::string& node_label);
 
             /**
              * Writes the graph content in graphviz format.
@@ -287,9 +265,44 @@ namespace tomcat {
             static std::string compose_joint_node_label(
                 const std::string& segment_expansion_factor_label);
 
+            /**
+             * Creates a label for a factor that stands between an intermediary
+             * node and the subsequent occurence of the node extended by the
+             * intermediary node.
+             *
+             * @param node_label: label of the node being extended by the
+             * intermediary node
+             *
+             * @return Label of the intermediary factor node
+             */
+            static std::string
+            compose_intermediary_factor_label(const std::string& node_label);
+
+            /**
+             * Adds a marker to a label to identify it's an intermediary node
+             * (created to replicate a node one time step into the future).
+             *
+             * @param node_label: original node label
+             *
+             * @return Label of the intermediary node created for the original
+             * one
+             */
+            static std::string
+            compose_intermediary_label(const std::string& node_label);
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Adds a copies of a non-replicable node at every time step. This
+             * makes it possible to propagate the estimates computed so far and
+             * prevents message passing backwards in time to update the only
+             * occurrence of the node in the past.
+             *
+             * @param random_variable: random variable
+             */
+            void add_non_replicable_node_copy(RVNodePtr random_variable);
 
             /**
              * Adds nodes necessary to to inference in a random variable
@@ -330,13 +343,16 @@ namespace tomcat {
              * @param cpd: cpd table of the factor node's child
              * @param cpd_ordering_map: how the factor's parent nodes index its
              * cpd table
+             * @param cpd_owner_label: label of the node to which forward
+             * messages flows through (owner of the cpd)
              *
              * @return Index of the vertex in the graph.
              */
             int add_factor_node(const std::string& node_label,
                                 int time_step,
                                 const Eigen::MatrixXd& cpd,
-                                const CPD::TableOrderingMap& cpd_ordering_map);
+                                const CPD::TableOrderingMap& cpd_ordering_map,
+                                const std::string& cpd_owner_label);
 
             /**
              * Return an ordering map that is a combination of dependencies
@@ -426,6 +442,60 @@ namespace tomcat {
                 const DistributionPtrVec& duration_distributions,
                 const CPD::TableOrderingMap& duration_ordering_map,
                 const CPD::TableOrderingMap& total_ordering_map);
+
+            /**
+             * Gets the actual labels of the source and target nodes to be
+             * linked by an edge in the factor graph. Some intermediary edges
+             * may be created in this function.
+             *
+             * @param source_node: source random variable
+             * @param target_node: target random variable
+             *
+             * @return Source and target actual labels
+             */
+            std::pair<std::string, std::string>
+            get_edge_labels(const RVNodePtr& source_node,
+                            const RVNodePtr& target_node);
+
+            /**
+             * Adds an intermediary node to the graph which is a copy of a node
+             * from time step t in time step t + 1. Relevant edges are created
+             * in this function.
+             *
+             * @param source_node: random variable of the source node
+             * @param source_label: actual label of the source node
+             * @param source_time_step: time step of the source node that gives
+             * rise to the intermediary node
+             * @param time_step: time step of the intermediary node
+             *
+             * @retun Label of the newly created intermediary node
+             */
+            std::string add_intermediary_node(const RVNodePtr& source_node,
+                                              const std::string& source_label,
+                                              int source_time_step,
+                                              int time_step);
+
+            /**
+             * Gets an instance of a factor node in the graph.
+             *
+             * @param node_label: factor node label without the marker
+             * @param time_step: time step of the node
+             *
+             * @return Pointer to a factor node
+             */
+            FactorNodePtr get_factor_node(const std::string& node_label,
+                                          int time_step);
+
+            /**
+             * Gets an instance of a variable node in the graph.
+             *
+             * @param node_label: node label
+             * @param time_step: time step of the node
+             *
+             * @return Pointer to a variable node
+             */
+            VarNodePtr get_variable_node(const std::string& node_label,
+                                         int time_step);
 
             //------------------------------------------------------------------
             // Data members

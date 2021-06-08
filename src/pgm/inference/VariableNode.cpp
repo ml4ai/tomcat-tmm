@@ -36,8 +36,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Static functions
         //----------------------------------------------------------------------
-        std::string VariableNode::compose_segment_label(
-            const std::string& timed_node_label) {
+        string
+        VariableNode::compose_segment_label(const string& timed_node_label) {
             return "seg:" + timed_node_label;
         }
 
@@ -65,35 +65,55 @@ namespace tomcat {
                     Tensor3(this->data_per_time_slice.at(template_time_step));
             }
             else {
-                MessageContainer message_container =
-                    this->incoming_messages_per_time_slice.at(
-                        template_time_step);
+                if (EXISTS(template_time_step,
+                           this->incoming_messages_per_time_slice)) {
+                    MessageContainer message_container =
+                        this->incoming_messages_per_time_slice.at(
+                            template_time_step);
 
-                for (const auto& [incoming_node_name, incoming_message] :
-                     message_container.node_name_to_messages) {
+                    for (const auto& [incoming_node_name, incoming_message] :
+                         message_container.node_name_to_messages) {
 
-                    if (incoming_node_name ==
-                        MessageNode::get_name(template_target_node->get_label(),
-                                              target_time_step)) {
-                        continue;
+                        auto [incoming_node_label, incoming_node_time_step] =
+                            MessageNode::strip(incoming_node_name);
+
+                        // Only proceeds if the incoming node is not on the list
+                        // of nodes to be ignored for the target.
+                        if (direction == Direction::backwards &&
+                            EXISTS(template_target_node->get_label(),
+                                   this->backward_blocking)) {
+                            const auto& ignore_set = this->backward_blocking.at(
+                                template_target_node->get_label());
+                            if (EXISTS(incoming_node_label, ignore_set)) {
+                                continue;
+                            }
+                        }
+
+                        if (incoming_node_name ==
+                            MessageNode::get_name(
+                                template_target_node->get_label(),
+                                target_time_step)) {
+                            continue;
+                        }
+
+                        if (outward_message.is_empty()) {
+                            outward_message = incoming_message;
+                        }
+                        else {
+                            outward_message =
+                                outward_message * incoming_message;
+                        }
                     }
 
-                    if (outward_message.is_empty()) {
-                        outward_message = incoming_message;
+                    if (!this->segment || template_target_node->is_segment()) {
+                        // If the node is a segment node, only normalize if the
+                        // message goes to a segment factor. This avoid
+                        // normalizing messages to a segment marginalization
+                        // factor, which would remove the contribution of the
+                        // segment dependencies to the time controlled node
+                        // probability.
+                        outward_message.normalize_rows();
                     }
-                    else {
-                        outward_message = outward_message * incoming_message;
-                    }
-                }
-
-                if (!this->segment || template_target_node->is_segment()) {
-                    // If the node is a segment node, only normalize if the
-                    // message goes to a segment factor. This avoid
-                    // normalizing messages to a segment marginalization
-                    // factor, which would remove the contribution of the
-                    // segment dependencies to the time controlled node
-                    // probability.
-                    outward_message.normalize_rows();
                 }
             }
 
@@ -129,22 +149,31 @@ namespace tomcat {
                 Eigen::VectorXd sum_per_row = marginal.rowwise().sum().array();
                 marginal =
                     (marginal.array().colwise() / sum_per_row.array()).matrix();
+
+                if (aggregation_value > 0) {
+                    Eigen::VectorXd fixed_probs =
+                        1 - marginal.col(aggregation_value).array();
+                    Eigen::MatrixXd new_marginal =
+                        marginal.col(aggregation_value).array() /
+                        (marginal.cols() - 1);
+                    new_marginal = new_marginal.replicate(1, marginal.cols());
+                    new_marginal.col(aggregation_value) = fixed_probs;
+                }
             }
 
             return marginal;
         }
 
         void VariableNode::set_data_at(int time_step,
-                                       const Eigen::VectorXd& data,
-                                       bool aggregate) {
+                                       const Eigen::MatrixXd& data) {
 
-            int cols = aggregate ? 2 : this->cardinality;
             // Convert each element of the vector to a binary row vector and
             // stack them horizontally;
-            Eigen::MatrixXd data_matrix(data.size(), cols);
+            Eigen::MatrixXd data_matrix(data.size(), this->cardinality);
             for (int i = 0; i < data.size(); i++) {
-                Eigen::VectorXd binary_vector = Eigen::VectorXd::Zero(cols);
-                binary_vector[data[i]] = 1;
+                Eigen::VectorXd binary_vector =
+                    Eigen::VectorXd::Zero(this->cardinality);
+                binary_vector[data(i, 0)] = 1;
                 data_matrix.row(i) = move(binary_vector);
             }
 
@@ -153,6 +182,13 @@ namespace tomcat {
 
         void VariableNode::erase_data_at(int time_step) {
             this->data_per_time_slice.erase(time_step);
+        }
+
+        void VariableNode::add_backward_blocking(
+            const std::string& incoming_node_label,
+            const std::string& target_node_label) {
+            this->backward_blocking[target_node_label].insert(
+                incoming_node_label);
         }
 
         //----------------------------------------------------------------------

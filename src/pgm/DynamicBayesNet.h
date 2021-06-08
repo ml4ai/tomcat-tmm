@@ -279,7 +279,7 @@ namespace tomcat {
              *
              * @return a deep copy of this DBN
              */
-            DynamicBayesNet clone(bool unroll);
+            DynamicBayesNet clone(bool unroll) const;
 
             /**
              * Set relevant attributes (assignment and frozen) of parameter
@@ -319,10 +319,31 @@ namespace tomcat {
              */
             void print_cpds(std::ostream& output_stream) const;
 
+            /**
+             * Get a list of concrete nodes at a given time step.
+             *
+             * @param time_step: time step
+             *
+             * @return List of nodes
+             */
+            RVNodePtrVec get_data_nodes(int time_step) const;
+
+            /**
+             * Retrieves the list of data nodes (non parameter) in topological
+             * order (from the roots to the leaves) in a specific time slice.
+             *
+             * @param List of data nodes.
+             */
+            RVNodePtrVec get_data_nodes_in_topological_order_at(int time_step);
+
             // --------------------------------------------------------
             // Getters & Setters
             // --------------------------------------------------------
             int get_time_steps() const;
+
+            NodePtrVec get_nodes() const;
+
+            const RVNodePtrVec& get_single_time_nodes() const;
 
           private:
             //------------------------------------------------------------------
@@ -442,8 +463,15 @@ namespace tomcat {
             // List of concrete timed instances node of the unrolled DBN.
             NodePtrVec nodes;
 
+            // List of concrete nodes per time step
+            std::vector<RVNodePtrVec> data_nodes_per_time_step;
+
+            RVNodePtrVec single_time_nodes;
+
             // List of nodes per time step and topological order.
             std::vector<RVNodePtrVec> topological_nodes_per_time;
+
+            std::vector<RVNodePtrVec> topological_data_nodes_per_time;
 
             // Mapping between a timed instance parameter node's label and its
             // node object.

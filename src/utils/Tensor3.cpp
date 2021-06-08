@@ -661,12 +661,20 @@ namespace tomcat {
         }
 
         void Tensor3::vstack(const Tensor3& other) {
+            if (this->is_empty()) {
+                this->tensor = other.tensor;
+            }
+
             for (int i = 0; i < this->tensor.size(); i++) {
                 matrix_vstack(this->tensor[i], other.tensor.at(i));
             }
         }
 
         void Tensor3::hstack(const Tensor3& other) {
+            if (this->is_empty()) {
+                this->tensor = other.tensor;
+            }
+
             for (int i = 0; i < this->tensor.size(); i++) {
                 matrix_hstack(this->tensor[i], other.tensor.at(i));
             }
@@ -836,8 +844,45 @@ namespace tomcat {
             return this->tensor[depth].row(row_idx);
         }
 
+        Tensor3 Tensor3::row(int row_idx) const {
+            return this->slice(row_idx, row_idx + 1, 1);
+        }
+
         Eigen::MatrixXd::ColXpr Tensor3::col(int depth, int col_idx) {
             return this->tensor[depth].col(col_idx);
+        }
+
+        Tensor3 Tensor3::col(int col_idx) const {
+            return this->slice(col_idx, col_idx + 1, 2);
+        }
+
+        Eigen::VectorXd Tensor3::depth(int row_idx, int col_idx) const {
+            Eigen::VectorXd values(this->tensor.size());
+
+            for (int i = 0; i < this->tensor.size(); i++) {
+                values(i) = this->tensor[i](row_idx, col_idx);
+            }
+
+            return values;
+        }
+
+        bool Tensor3::equals(const Tensor3& other, double tolerance) const {
+            if (this->get_shape() != other.get_shape()) {
+                return false;
+            }
+
+            for (int i = 0; i < this->get_shape().at(0); i++) {
+                for (int j = 0; j < this->get_shape().at(1); j++) {
+                    for (int k = 0; k < this->get_shape().at(2); k++) {
+                        if (abs(this->tensor[i](j, k) - other.at(i, j, k)) >
+                            tolerance) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return true;
         }
 
     } // namespace model

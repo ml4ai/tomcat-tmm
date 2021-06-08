@@ -41,7 +41,7 @@ namespace tomcat {
         void FactorGraph::create_nodes(const DynamicBayesNet& dbn,
                                        FactorGraph& factor_graph) {
 
-            RVNodePtrVec multitime_nodes;
+            RVNodePtrVec non_replicable_nodes;
             RVNodePtrVec timed_nodes;
 
             for (const auto& node : dbn.get_nodes_topological_order()) {
@@ -50,6 +50,9 @@ namespace tomcat {
                         dynamic_pointer_cast<RandomVariableNode>(node);
 
                     if (random_variable->get_metadata()->is_timer()) {
+                        // Timer nodes are not created as a factor graph node.
+                        // We have specific nodes that represent distributions
+                        // over segments to deal with the EDHMM case.
                         continue;
                     }
 
@@ -58,74 +61,35 @@ namespace tomcat {
                             timed_nodes.push_back(random_variable);
                         }
                         else {
-                            if (random_variable->get_metadata()
-                                    ->is_multitime()) {
-                                // It will be added later
-                                multitime_nodes.push_back(random_variable);
+                            if (!random_variable->get_metadata()
+                                     ->is_replicable()) {
+                                non_replicable_nodes.push_back(random_variable);
                             }
 
+                            const string& node_label =
+                                random_variable->get_metadata()->get_label();
+                            CPD::TableOrderingMap ordering_map =
+                                random_variable->get_cpd()
+                                    ->get_parent_label_to_indexing();
+
                             factor_graph.add_node(
-                                random_variable->get_metadata()->get_label(),
+                                node_label,
                                 random_variable->get_metadata()
                                     ->get_cardinality(),
                                 random_variable->get_time_step(),
                                 random_variable->get_cpd()->get_table(0),
-                                random_variable->get_cpd()
-                                    ->get_parent_label_to_indexing());
+                                ordering_map);
                         }
                     }
                 }
             }
 
-            for (const auto& random_variable : multitime_nodes) {
-                // We create copies of the multitime node at every subsequent
-                // time step to propagate the estimates computed so far. This
-                // prevents us from doing message passing backwards in time to
-                // update the multitime node in the past.
-
-                int cardinality =
-                    random_variable->get_metadata()->get_cardinality();
-                Eigen::MatrixXd cpd_table;
-                if (random_variable->is_segment_dependency()) {
-                    // Messages are not passed forward because they are
-                    // incorporated in the joint node that handles a segment.
-                    // Messages of the joint node pass forward in time instead.
-                    cpd_table = Eigen::MatrixXd::Ones(cardinality, cardinality);
-                }
-                else {
-                    // The cpd table is the identity to make sure all
-                    // messages aggregated in the previous copy of the
-                    // node will be fully passed to the copy in the next
-                    // time step.
-                    cpd_table =
-                        Eigen::MatrixXd::Identity(cardinality, cardinality);
-                }
-
-                ParentIndexing indexing(0, cardinality, 1);
-                CPD::TableOrderingMap ordering_map;
-                ordering_map[random_variable->get_metadata()->get_label()] =
-                    indexing;
-                const string& node_label =
-                    random_variable->get_metadata()->get_label();
-
-                for (int t = random_variable->get_time_step() + 1;
-                     t <= factor_graph.repeatable_time_step;
-                     t++) {
-
-                    factor_graph.add_node(
-                        random_variable->get_metadata()->get_label(),
-                        random_variable->get_metadata()->get_cardinality(),
-                        t,
-                        cpd_table,
-                        ordering_map);
-
-                    factor_graph.add_edge(node_label, t - 1, node_label, t);
-                }
+            for (const auto& node : non_replicable_nodes) {
+                factor_graph.add_non_replicable_node_copy(node);
             }
 
-            // Add timed nodes
-            for (const auto& timed_node : timed_nodes) {
-                factor_graph.add_timed_node(timed_node);
+            for (const auto& node : timed_nodes) {
+                factor_graph.add_timed_node(node);
             }
         }
 
@@ -137,111 +101,78 @@ namespace tomcat {
             unordered_map<string, int> non_replicable_multi_link_mapping;
 
             for (const auto& [source_node, target_node] : dbn.get_edges()) {
-                if (source_node->get_time_step() <= 2 &&
-                    !source_node->get_metadata()->is_parameter() &&
-                    target_node->get_time_step() <= 2 &&
-                    !target_node->get_metadata()->is_parameter()) {
+                if (source_node->get_time_step() >
+                        factor_graph.repeatable_time_step ||
+                    source_node->get_metadata()->is_parameter() ||
+                    target_node->get_time_step() >
+                        factor_graph.repeatable_time_step ||
+                    target_node->get_metadata()->is_parameter()) {
+                    continue;
+                }
 
-                    if (source_node->get_metadata()->is_timer()) {
-                        continue;
-                    }
+                if (source_node->get_metadata()->is_timer() ||
+                    source_node->get_timer() == target_node) {
+                    // Links handled by segment nodes
+                    continue;
+                }
 
-                    string source_label;
-                    string target_label;
+                auto [source_label, target_label] =
+                    factor_graph.get_edge_labels(source_node, target_node);
 
-                    if (target_node->has_timer()) {
-                        if (target_node->get_metadata()
-                                ->get_initial_time_step() ==
-                            target_node->get_time_step()) {
-                            // Prior. In that case, we link the parent directly
-                            // to the child node and segment joint node.
-                            source_label =
-                                source_node->get_metadata()->get_label();
-                            target_label =
-                                target_node->get_metadata()->get_label();
+                int source_time_step;
+                int target_time_step;
+                if (source_node->get_metadata()->is_replicable()) {
+                    source_time_step = source_node->get_time_step();
+                    target_time_step = target_node->get_time_step();
+                }
+                else {
+                    // Copies of the single time nodes were created for
+                    // every time step previously.
+                    source_time_step = target_node->get_time_step();
+                    target_time_step = target_node->get_time_step();
+                }
+
+                factor_graph.add_edge(source_label,
+                                      source_time_step,
+                                      target_label,
+                                      target_time_step);
+
+                if (!source_node->get_metadata()->is_replicable() &&
+                    !source_node->is_segment_dependency()) {
+
+                    if (!target_node->get_metadata()->is_replicable()) {
+
+                        for (int t = 1; t <= factor_graph.repeatable_time_step -
+                                                 target_node->get_time_step();
+                             t++) {
+
+                            source_time_step = source_node->get_time_step() + t;
+                            target_time_step = target_node->get_time_step() + t;
 
                             factor_graph.add_edge(source_label,
-                                                  source_node->get_time_step(),
+                                                  source_time_step,
                                                   target_label,
-                                                  target_node->get_time_step());
+                                                  target_time_step);
 
-                            target_label =
-                                MarginalizationFactorNode::compose_label(
-                                    compose_joint_node_label(
-                                        VariableNode::compose_segment_label(
-                                            target_node->get_metadata()
-                                                ->get_label())));
-                        }
-                        else {
-                            if (source_node->get_next() == target_node) {
-                                // From one segment to the expansion factor
-                                // of the next segment.
-                                source_label =
-                                    VariableNode::compose_segment_label(
-                                        source_node->get_metadata()
-                                            ->get_label());
-                                target_label =
-                                    SegmentExpansionFactorNode::compose_label(
-                                        target_node->get_metadata()
-                                            ->get_label());
-                            }
-                            else {
-                                // Link between dependencies of a segment and
-                                // the segment dependencies joint node.
-                                source_label =
-                                    source_node->get_metadata()->get_label();
-                                target_label =
-                                    MarginalizationFactorNode::compose_label(
-                                        compose_joint_node_label(
-                                            VariableNode::compose_segment_label(
-                                                target_node->get_metadata()
-                                                    ->get_label())));
-                            }
-                        }
-                    }
-                    else if (target_node->get_metadata()->is_timer()) {
-                        if (source_node->get_timer() == target_node) {
-                            // Link between the segment and the timed node
-                            // marginal factor. This link was already created
-                            // when the segment node was created.
-                            continue;
-                        }
-                        else {
-                            // We link the original source to the
-                            // marginalization factor of the joint node that
-                            // represent segment dependencies
-                            source_label =
-                                source_node->get_metadata()->get_label();
-                            const string& timed_node_label =
-                                dynamic_pointer_cast<TimerNode>(target_node)
-                                    ->get_controlled_node()
-                                    ->get_metadata()
-                                    ->get_label();
-                            target_label =
-                                MarginalizationFactorNode::compose_label(
-                                    compose_joint_node_label(
-                                        VariableNode::compose_segment_label(
-                                            timed_node_label)));
-                        }
-                    }
-                    else {
-                        source_label = source_node->get_metadata()->get_label();
-                        target_label = target_node->get_metadata()->get_label();
-                    }
+                            // The message  should only flow forward once in
+                            // this scenario .Backward message flows normally as
+                            // it is evidence to  update the probability of the
+                            // source  node.
+                            auto target_factor = factor_graph.get_factor_node(
+                                target_label, target_time_step);
+                            target_factor->set_block_forward_message(true);
 
-                    // Add edge
-                    if (source_node->get_metadata()->is_multitime()) {
-                        // Copies were created over time when nodes were created
-                        factor_graph.add_edge(source_label,
-                                              target_node->get_time_step(),
-                                              target_label,
-                                              target_node->get_time_step());
-                    }
-                    else {
-                        factor_graph.add_edge(source_label,
-                                              source_node->get_time_step(),
-                                              target_label,
-                                              target_node->get_time_step());
+                            // Prevent message that comes from an intermediary
+                            // node to flow backwards to the source node in this
+                            // specific scenario.
+                            auto var_node = factor_graph.get_variable_node(
+                                target_label, target_time_step);
+                            string ignore_label = FactorNode::compose_label(
+                                compose_intermediary_factor_label(
+                                    target_label));
+                            var_node->add_backward_blocking(
+                                ignore_label, target_factor->get_label());
+                        }
                     }
                 }
             }
@@ -252,9 +183,102 @@ namespace tomcat {
             return "j(" + segment_expansion_factor_label + ")";
         }
 
+        string
+        FactorGraph::compose_intermediary_label(const string& node_label) {
+            return "i:" + node_label;
+        }
+
+        string FactorGraph::compose_intermediary_factor_label(
+            const string& node_label) {
+            stringstream ss;
+            //            ss << compose_intermediary_label(node_label) << "+" <<
+            //            node_label;
+            ss << node_label << "+" << node_label;
+            return ss.str();
+        }
+
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+        void
+        FactorGraph::add_non_replicable_node_copy(RVNodePtr random_variable) {
+            const string& node_label =
+                random_variable->get_metadata()->get_label();
+            int cardinality =
+                random_variable->get_metadata()->get_cardinality();
+
+            Eigen::MatrixXd cpd_table;
+            CPD::TableOrderingMap ordering_map;
+            if (!random_variable->is_segment_dependency()) {
+                // If a node is a dependency of a segment timer, messages
+                // are passed through time via a joint node and therefore
+                // there's no need to attach a factor to its copies.
+                // TODO - this needs to be revisited when EDHMM exact
+                //  inference needs to account for external messages (not
+                //  directly dependent on segment distributions) in a node
+                //  that is a dependency of a timer.
+                if (random_variable->get_parents().empty()) {
+                    cpd_table =
+                        Eigen::MatrixXd::Identity(cardinality, cardinality);
+                    ParentIndexing indexing(0, cardinality, 1);
+                    ordering_map[node_label] = indexing;
+                }
+                else {
+                    cpd_table = random_variable->get_cpd()->get_table(0);
+                    ordering_map = random_variable->get_cpd()
+                                       ->get_parent_label_to_indexing();
+                }
+            }
+
+            for (int t = random_variable->get_time_step() + 1;
+                 t <= this->repeatable_time_step;
+                 t++) {
+                this->add_node(
+                    node_label, cardinality, t, cpd_table, ordering_map);
+
+                if (!random_variable->is_segment_dependency()) {
+                    string factor_label;
+                    if (random_variable->get_parents().empty()) {
+                        // A factor node was already created when the node was
+                        // created and there's no other node to be attached to
+                        // it. We can just connect the source in the previous
+                        // time step to that factor.
+                        this->add_edge(node_label, t - 1, node_label, t);
+                        factor_label = node_label;
+                    }
+                    else {
+                        // The factor node created with the copy of the node in
+                        // a future time step contains other dependencies that
+                        // will be attached to it when edges are created in this
+                        // class. We need to create another factor to pass
+                        // messages from the source in the previous time step to
+                        // its copy in the next time step.
+
+                        Eigen::MatrixXd identity_table =
+                            Eigen::MatrixXd::Identity(cardinality, cardinality);
+                        ParentIndexing indexing(0, cardinality, 1);
+                        CPD::TableOrderingMap ordering_map;
+                        ordering_map[node_label] = indexing;
+                        factor_label =
+                            compose_intermediary_factor_label(node_label);
+                        int factor_id = this->add_factor_node(factor_label,
+                                                              t,
+                                                              identity_table,
+                                                              ordering_map,
+                                                              node_label);
+
+                        int source_node_id = this->name_to_id.at(
+                            MessageNode::get_name(node_label, t - 1));
+                        int source_node_id_copy = this->name_to_id.at(
+                            MessageNode::get_name(node_label, t));
+                        boost::add_edge(source_node_id, factor_id, this->graph);
+                        boost::add_edge(
+                            factor_id, source_node_id_copy, this->graph);
+                    }
+                }
+            }
+        }
+
         void FactorGraph::add_timed_node(RVNodePtr random_variable) {
             const string& timed_node_label =
                 random_variable->get_metadata()->get_label();
@@ -302,7 +326,8 @@ namespace tomcat {
                     timed_node_label,
                     random_variable->get_time_step(),
                     random_variable->get_cpd()->get_table(0),
-                    random_variable->get_cpd()->get_parent_label_to_indexing());
+                    random_variable->get_cpd()->get_parent_label_to_indexing(),
+                    timed_node_label);
 
                 boost::add_edge(prior_factor, timed_node_id, this->graph);
 
@@ -325,7 +350,8 @@ namespace tomcat {
             cardinality = num_segment_rows;
             if (cardinality > 1) {
                 // There are dependencies to the duration or transition
-                // distributions other than the times controlled node itself.
+                // distributions other than the times controlled node
+                // itself.
                 string joint_label = compose_joint_node_label(
                     VariableNode::compose_segment_label(timed_node_label));
 
@@ -360,7 +386,8 @@ namespace tomcat {
                         add_factor_node(joint_label,
                                         random_variable->get_time_step(),
                                         cpd_table,
-                                        ordering_map);
+                                        ordering_map,
+                                        joint_label);
                     boost::add_edge(factor_id, joint_node_id, this->graph);
 
                     add_edge(joint_label,
@@ -391,10 +418,12 @@ namespace tomcat {
             // function.
             int target_id =
                 this->add_variable_node(node_label, cardinality, time_step);
-            int source_id = this->add_factor_node(
-                node_label, time_step, cpd, cpd_ordering_map);
 
-            boost::add_edge(source_id, target_id, this->graph);
+            if (cpd.size() > 0) {
+                int source_id = this->add_factor_node(
+                    node_label, time_step, cpd, cpd_ordering_map, node_label);
+                boost::add_edge(source_id, target_id, this->graph);
+            }
         }
 
         int FactorGraph::add_variable_node(const string& node_label,
@@ -428,11 +457,12 @@ namespace tomcat {
             const string& node_label,
             int time_step,
             const Eigen::MatrixXd& cpd,
-            const CPD::TableOrderingMap& cpd_ordering_map) {
+            const CPD::TableOrderingMap& cpd_ordering_map,
+            const string& cpd_owner_label) {
 
             int vertex_id = boost::add_vertex(this->graph);
             this->graph[vertex_id] = make_shared<FactorNode>(
-                node_label, time_step, cpd, cpd_ordering_map, node_label);
+                node_label, time_step, cpd, cpd_ordering_map, cpd_owner_label);
 
             string factor_name = this->graph[vertex_id]->get_name();
             this->name_to_id[factor_name] = vertex_id;
@@ -565,17 +595,18 @@ namespace tomcat {
             if (source_node_time_step > this->repeatable_time_step ||
                 target_node_time_step > this->repeatable_time_step) {
                 stringstream ss;
-                ss << "It's not possible to define connections between nodes "
+                ss << "It's not possible to define connections between "
+                      "nodes "
                       "with time step greater than "
                    << this->repeatable_time_step;
                 throw TomcatModelException(ss.str());
             }
 
-            // When adding an edge between two variable nodes, the target node
-            // must be the parent factor of the target variable node. Since the
-            // CPD of a variable node is given by a joint distribution of its
-            // parents, it's guaranteed to have only one parent factor node per
-            // variable node in the graph.
+            // When adding an edge between two variable nodes, the target
+            // node must be the parent factor of the target variable node.
+            // Since the CPD of a variable node is given by a joint
+            // distribution of its parents, it's guaranteed to have only one
+            // parent factor node per variable node in the graph.
             string source_node_name =
                 MessageNode::get_name(source_node_label, source_node_time_step);
             string target_factor_label =
@@ -596,6 +627,202 @@ namespace tomcat {
                 this->transition_factors_per_time_step[target_node_time_step]
                     .insert(factor_node);
             }
+        }
+
+        std::pair<std::string, std::string>
+        FactorGraph::get_edge_labels(const RVNodePtr& source_node,
+                                     const RVNodePtr& target_node) {
+            string source_label;
+            string target_label;
+
+            if (target_node->has_timer()) {
+                if (target_node->get_metadata()->get_initial_time_step() ==
+                    target_node->get_time_step()) {
+                    // Prior. In that case, we link the parent directly
+                    // to the child node and segment joint node.
+                    source_label = source_node->get_metadata()->get_label();
+                    target_label = target_node->get_metadata()->get_label();
+
+                    this->add_edge(source_label,
+                                   source_node->get_time_step(),
+                                   target_label,
+                                   target_node->get_time_step());
+
+                    target_label = MarginalizationFactorNode::compose_label(
+                        compose_joint_node_label(
+                            VariableNode::compose_segment_label(
+                                target_node->get_metadata()->get_label())));
+                }
+                else {
+                    if (source_node->get_next() == target_node) {
+                        // From one segment to the expansion factor
+                        // of the next segment.
+                        source_label = VariableNode::compose_segment_label(
+                            source_node->get_metadata()->get_label());
+                        target_label =
+                            SegmentExpansionFactorNode::compose_label(
+                                target_node->get_metadata()->get_label());
+                    }
+                    else {
+                        // Link between dependencies of a segment and
+                        // the segment dependencies joint node.
+                        source_label = source_node->get_metadata()->get_label();
+                        target_label = MarginalizationFactorNode::compose_label(
+                            compose_joint_node_label(
+                                VariableNode::compose_segment_label(
+                                    target_node->get_metadata()->get_label())));
+                    }
+                }
+            }
+            else if (target_node->get_metadata()->is_timer()) {
+                // We link the original source to the
+                // marginalization factor of the joint node that
+                // represent segment dependencies
+                source_label = source_node->get_metadata()->get_label();
+                const string& timed_node_label =
+                    dynamic_pointer_cast<TimerNode>(target_node)
+                        ->get_controlled_node()
+                        ->get_metadata()
+                        ->get_label();
+                target_label = MarginalizationFactorNode::compose_label(
+                    compose_joint_node_label(
+                        VariableNode::compose_segment_label(timed_node_label)));
+            }
+            else {
+                source_label = source_node->get_metadata()->get_label();
+                target_label = target_node->get_metadata()->get_label();
+            }
+
+            return make_pair(source_label, target_label);
+        }
+
+        string FactorGraph::add_intermediary_node(const RVNodePtr& source_node,
+                                                  const string& source_label,
+                                                  int source_time_step,
+                                                  int time_step) {
+            string intermediary_node_label =
+                compose_intermediary_label(source_label);
+            string intermediary_node_name =
+                MessageNode::get_name(intermediary_node_label, time_step);
+
+            if (!EXISTS(intermediary_node_name, this->name_to_id)) {
+                int cardinality =
+                    source_node->get_metadata()->get_cardinality();
+
+                for (const auto& parent : source_node->get_parents()) {
+                    const auto& rv_parent =
+                        dynamic_pointer_cast<RandomVariableNode>(parent);
+                    if (rv_parent->get_time_step() ==
+                        source_node->get_time_step()) {
+                    }
+                }
+
+                Eigen::MatrixXd cpd_table;
+
+                if (source_node->get_metadata()->has_self_transition() ||
+                    !source_node->get_metadata()->is_replicable()) {
+                    // Pass through function
+                    cpd_table =
+                        Eigen::MatrixXd::Identity(cardinality, cardinality);
+                }
+                else {
+                    // Uniform message will be passed to the intermediary node.
+                    // No message is passed from the source to the intermediary
+                    // node.
+                    cpd_table = Eigen::MatrixXd::Ones(cardinality, cardinality);
+                }
+                ParentIndexing indexing(0, cardinality, 1);
+                CPD::TableOrderingMap ordering_map;
+                ordering_map[source_label] = indexing;
+
+                // Link from source in the last time step to an intermediary
+                // node in the next time step.
+                this->add_node(intermediary_node_label,
+                               cardinality,
+                               time_step,
+                               cpd_table,
+                               ordering_map);
+
+                this->add_edge(source_label,
+                               source_time_step,
+                               intermediary_node_label,
+                               time_step);
+
+                if (source_node->get_metadata()->has_self_transition()) {
+                    // We need to link the intermediary node to
+                    // the factor attached to the source at the
+                    // target time step. This factor defined the
+                    // distribution of the target with respect
+                    // to the source (and other nodes).
+                    this->add_edge(intermediary_node_label,
+                                   time_step,
+                                   source_label,
+                                   time_step);
+                }
+                else {
+                    // We need to link the intermediary node to
+                    // the source at the target time step with a
+                    // pass trough factor.
+                    // Pass through function
+                    Eigen::MatrixXd identity_table =
+                        Eigen::MatrixXd::Identity(cardinality, cardinality);
+                    ParentIndexing indexing(0, cardinality, 1);
+                    CPD::TableOrderingMap ordering_map;
+                    ordering_map[intermediary_node_label] = indexing;
+
+                    int factor_id;
+                    if (source_node->get_parents().empty()) {
+                        // No factor node was previously created and attached to
+                        // the source node. We create it here and link the
+                        // intermediary node to it.
+                        factor_id = this->add_factor_node(source_label,
+                                                          time_step,
+                                                          identity_table,
+                                                          ordering_map,
+                                                          source_label);
+                    }
+                    else {
+                        // The source node already has a factor node attached to
+                        // it. We need to create a new one here.
+                        string factor_label =
+                            compose_intermediary_factor_label(source_label);
+                        factor_id = this->add_factor_node(factor_label,
+                                                          time_step,
+                                                          identity_table,
+                                                          ordering_map,
+                                                          source_label);
+                    }
+
+                    int intermediary_node_id =
+                        this->name_to_id.at(intermediary_node_name);
+                    string source_node_name =
+                        MessageNode::get_name(source_label, time_step);
+                    int source_node_id = this->name_to_id.at(source_node_name);
+
+                    boost::add_edge(
+                        intermediary_node_id, factor_id, this->graph);
+                    boost::add_edge(factor_id, source_node_id, this->graph);
+                }
+            }
+
+            return intermediary_node_label;
+        }
+
+        FactorNodePtr FactorGraph::get_factor_node(const string& node_label,
+                                                   int time_step) {
+            string factor_label = FactorNode::compose_label(node_label);
+            string factor_name = MessageNode::get_name(factor_label, time_step);
+            int factor_id = this->name_to_id.at(factor_name);
+
+            return dynamic_pointer_cast<FactorNode>(this->graph[factor_id]);
+        }
+
+        VarNodePtr FactorGraph::get_variable_node(const string& node_label,
+                                                  int time_step) {
+            string node_name = MessageNode::get_name(node_label, time_step);
+            int node_id = this->name_to_id.at(node_name);
+
+            return dynamic_pointer_cast<VariableNode>(this->graph[node_id]);
         }
 
         void FactorGraph::store_topological_traversal_per_time_step() {
@@ -647,24 +874,23 @@ namespace tomcat {
             }
         }
 
-        vector<pair<shared_ptr<MessageNode>, bool>> FactorGraph::get_parents_of(
-            const shared_ptr<MessageNode>& template_node, int time_step) const {
+        vector<pair<MsgNodePtr, bool>>
+        FactorGraph::get_parents_of(const MsgNodePtr& template_node,
+                                    int time_step) const {
 
             int vertex_id = this->name_to_id.at(template_node->get_name());
             Graph::in_edge_iterator in_begin, in_end;
             boost::tie(in_begin, in_end) = in_edges(vertex_id, this->graph);
 
-            vector<pair<shared_ptr<MessageNode>, bool>> parent_nodes;
+            vector<pair<MsgNodePtr, bool>> parent_nodes;
             while (in_begin != in_end) {
                 int parent_vertex_id = source(*in_begin, graph);
-                shared_ptr<MessageNode> parent_node =
-                    this->graph[parent_vertex_id];
+                MsgNodePtr parent_node = this->graph[parent_vertex_id];
                 bool transition = false;
                 if (parent_node->get_time_step() <
                     template_node->get_time_step()) {
 
                     transition = true;
-
                     if (time_step > this->repeatable_time_step) {
                         string real_parent_name =
                             MessageNode::get_name(parent_node->get_label(),
@@ -682,17 +908,34 @@ namespace tomcat {
             return parent_nodes;
         }
 
-        vector<shared_ptr<MessageNode>> FactorGraph::get_children_of(
-            const shared_ptr<MessageNode>& template_node) const {
+        vector<pair<MsgNodePtr, bool>>
+        FactorGraph::get_children_of(const MsgNodePtr& template_node,
+                                     int time_step) const {
 
             int vertex_id = this->name_to_id.at(template_node->get_name());
             Graph::out_edge_iterator out_begin, out_end;
             boost::tie(out_begin, out_end) = out_edges(vertex_id, this->graph);
 
-            vector<shared_ptr<MessageNode>> child_nodes;
+            vector<pair<MsgNodePtr, bool>> child_nodes;
             while (out_begin != out_end) {
                 int child_vertex_id = target(*out_begin, graph);
-                child_nodes.push_back(this->graph[child_vertex_id]);
+                MsgNodePtr child_node = this->graph[child_vertex_id];
+                bool transition = false;
+                if (template_node->get_time_step() <
+                    child_node->get_time_step()) {
+
+                    transition = true;
+                    if (time_step >= this->repeatable_time_step) {
+                        string real_child_name =
+                            MessageNode::get_name(child_node->get_label(),
+                                                  this->repeatable_time_step);
+                        int real_child_vertex_id =
+                            this->name_to_id.at(real_child_name);
+                        child_node = this->graph[real_child_vertex_id];
+                    }
+                }
+
+                child_nodes.push_back(make_pair(child_node, transition));
                 out_begin++;
             }
 
@@ -710,8 +953,8 @@ namespace tomcat {
                 int vertex_id = this->name_to_id.at(relative_name);
 
                 if (this->graph[vertex_id]->is_factor()) {
-                    throw TomcatModelException(
-                        "Factor nodes do not have a marginal distribution.");
+                    throw TomcatModelException("Factor nodes do not have a "
+                                               "marginal distribution.");
                 }
 
                 marginal =
@@ -736,47 +979,6 @@ namespace tomcat {
         FactorGraph::get_transition_factors_at(int time_step) const {
             int relative_time_step = min(time_step, this->repeatable_time_step);
             return this->transition_factors_per_time_step[relative_time_step];
-        }
-
-        void FactorGraph::create_aggregate_potential(const string& node_label,
-                                                     int value) {
-            for (int t = 0; t <= this->repeatable_time_step; t++) {
-                string factor_label = FactorNode::compose_label(node_label);
-                string factor_name = MessageNode::get_name(factor_label, t);
-
-                if (EXISTS(factor_name, this->name_to_id)) {
-                    int id = this->name_to_id.at(factor_name);
-                    dynamic_pointer_cast<FactorNode>(this->graph[id])
-                        ->create_aggregate_potential(value);
-                }
-            }
-        }
-
-        void FactorGraph::use_aggregate_potential(const string& node_label,
-                                                  int value) {
-            for (int t = 0; t <= this->repeatable_time_step; t++) {
-                string factor_label = FactorNode::compose_label(node_label);
-                string factor_name = MessageNode::get_name(factor_label, t);
-
-                if (EXISTS(factor_name, this->name_to_id)) {
-                    int id = this->name_to_id.at(factor_name);
-                    dynamic_pointer_cast<FactorNode>(this->graph[id])
-                        ->use_aggregate_potential(value);
-                }
-            }
-        }
-
-        void FactorGraph::use_original_potential(const string& node_label) {
-            for (int t = 0; t <= this->repeatable_time_step; t++) {
-                string factor_label = FactorNode::compose_label(node_label);
-                string factor_name = MessageNode::get_name(factor_label, t);
-
-                if (EXISTS(factor_name, this->name_to_id)) {
-                    int id = this->name_to_id.at(factor_name);
-                    dynamic_pointer_cast<FactorNode>(this->graph[id])
-                        ->use_original_potential();
-                }
-            }
         }
 
         void FactorGraph::print_graph(std::ostream& output_stream) const {

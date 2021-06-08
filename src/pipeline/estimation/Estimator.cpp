@@ -26,6 +26,12 @@ namespace tomcat {
                                            "0.");
             }
 
+            if (assignment.size() == 0 && metadata->get_cardinality() <= 1) {
+                throw TomcatModelException(
+                    "An assignment has to be provided for nodes with "
+                    "continuous distributions.");
+            }
+
             this->estimates.label = node_label;
             this->estimates.assignment = assignment;
             this->cumulative_estimates.label = node_label;
@@ -74,6 +80,12 @@ namespace tomcat {
             // Clear estimates so they can be recalculated over the new
             // training data in the next call to the function estimate.
             this->estimates.estimates.clear();
+
+            int k = 1;
+            if(this->estimates.assignment.size() == 0) {
+                k = this->model->get_cardinality_of(this->estimates.label);
+            }
+            this->estimates.estimates.resize(k);
         }
 
         void Estimator::keep_estimates() {
@@ -85,12 +97,12 @@ namespace tomcat {
         }
 
         void Estimator::cleanup() {
-            int i = 0;
             this->estimates.estimates.clear();
             this->cumulative_estimates.estimates.clear();
         }
 
-        bool Estimator::is_computing_estimates_for(const std::string& node_label) const {
+        bool Estimator::is_computing_estimates_for(
+            const std::string& node_label) const {
             return this->estimates.label == node_label;
         }
 

@@ -182,28 +182,12 @@ namespace tomcat {
 
             bool is_segment() const override;
 
-            /**
-             * Creates a potential function (and associated rotations) by
-             * having a binary distribution table, where the column 0 contains
-             * p(x != value) and column 1 contains p(x == value).
-             *
-             * @param value: value to preserve the probabilities
-             */
-            void create_aggregate_potential(int value);
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
+            void set_block_forward_message(bool block_forward_message);
 
-            /**
-             * Sets the aggregate potential for a given value as the working
-             * one.
-             *
-             * @param value: key value of a previously created aggregate
-             * potential
-             */
-            void use_aggregate_potential(int value);
-
-            /**
-             * Uses the node's original potential. The one without aggregation.
-             */
-            void use_original_potential();
+            void set_block_backward_message(bool block_backward_message);
 
           protected:
             //------------------------------------------------------------------
@@ -222,21 +206,6 @@ namespace tomcat {
                 // according to the the node that should assume the child's
                 // position.
                 std::unordered_map<std::string, PotentialFunction>
-                    node_label_to_rotated_potential;
-            };
-
-            struct AggregatePotential {
-                // The following data structures store potential functions
-                // aggregated into binary distributions. The key to the map is
-                // the assignment preserved (value 1 in the modified potential
-                // function). This will be used by a message passing estimator
-                // to make predictions about a certain assignment.
-
-                std::unordered_map<int, PotentialFunction> potential;
-
-                std::unordered_map<
-                    int,
-                    std::unordered_map<std::string, PotentialFunction>>
                     node_label_to_rotated_potential;
             };
 
@@ -323,10 +292,14 @@ namespace tomcat {
             //------------------------------------------------------------------
             Potential original_potential;
 
-            AggregatePotential aggregate_potential;
-
             // Potentials used in a given moment. Either original or aggregated.
             Potential working_potential;
+
+            // Some factors will be created to prevent the message passing to go
+            // backwards in time. Some incoming messages may need to be ignore
+            // to achieve this purpose .
+            bool block_forward_message = false;
+            bool block_backward_message = false;
         };
 
     } // namespace model

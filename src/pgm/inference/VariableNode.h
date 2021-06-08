@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_set>
+
 #include "MessageNode.h"
 
 #include "utils/Definitions.h"
@@ -113,14 +115,10 @@ namespace tomcat {
              *
              * @param time_step: time step where the data must be set
              * @param data: vector with node's values from several data sets
-             * @param aggregate: whether the data is result of an aggregate
-             * computation. If true, the message of this node must be
-             * 2-dimensional (either 0 or 1).
              *
              */
             void set_data_at(int time_step,
-                             const Eigen::VectorXd& data,
-                             bool aggregate);
+                             const Eigen::MatrixXd& data);
 
             /**
              * If there's data assigned to a node in a given time step, remove
@@ -130,6 +128,31 @@ namespace tomcat {
              *
              */
             void erase_data_at(int time_step);
+
+            /**
+             * Adds an income node to the set of nodes to be ignored when
+             * producing a backward message to a certain target.
+             *
+             * @param incoming_node_label: label of the incoming node to be
+             * ignored
+             * @param target_node_label: name of the target node to which the
+             * message is being produced
+             */
+            void add_backward_blocking(const std::string& incoming_node_label,
+                                       const std::string& target_node_label);
+
+            /**
+             * Aggregates the probabilities of the values different than the
+             * provided assignment value.
+             *
+             * @param node_assignment_value: value to be preserved.
+             */
+            void aggregate(int node_assignment_value);
+
+            /**
+             * Incoming messages won't be aggregated.
+             */
+            void do_not_aggregate();
 
             //------------------------------------------------------------------
             // Getters & Setters
@@ -161,6 +184,17 @@ namespace tomcat {
 
             // True if the node represents a segment node.
             bool segment = false;
+
+            // Set of incoming nodes that must be ignored when producing a
+            // backward message to a certain target (the key of the mapping);
+            std::unordered_map<std::string, std::unordered_set<std::string>>
+                backward_blocking;
+
+            // For prediction, we might want to transform this node distribution
+            // into a binary distribution. The value here indicates the
+            // assignment that represents the value 1 in the binary
+            // distribution.
+            int aggregation_value = -1;
         };
 
     } // namespace model
