@@ -10,6 +10,7 @@
 #include <boost/filesystem.hpp>
 #include <gsl/gsl_rng.h>
 
+#include "converter/ASISTMultiPlayerMessageConverter.h"
 #include "distribution/Distribution.h"
 #include "distribution/Gamma.h"
 #include "distribution/Poisson.h"
@@ -20,10 +21,10 @@
 #include "pgm/inference/SegmentMarginalizationFactorNode.h"
 #include "pgm/inference/SegmentTransitionFactorNode.h"
 #include "pgm/inference/VariableNode.h"
-#include "pipeline/estimation/CompoundSamplerEstimator.h"
 #include "pipeline/estimation/ParticleFilterEstimator.h"
 #include "pipeline/estimation/SamplerEstimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
+#include "pipeline/estimation/custom_metrics/FinalScore.h"
 #include "pipeline/training/DBNSamplingTrainer.h"
 #include "sampling/AncestralSampler.h"
 #include "sampling/GibbsSampler.h"
@@ -491,7 +492,6 @@ BOOST_AUTO_TEST_CASE(semi_markov_durations) {
      * capture the ability of the procedure to learn the parameters given that
      * some nodes are hidden.
      */
-
 
     int time_steps = 120;
     DBNPtr oracle = make_shared<DynamicBayesNet>(
@@ -1536,7 +1536,8 @@ BOOST_AUTO_TEST_CASE(semi_markov_extended_hmm_particle_filter) {
         0.108306347192622, 0.692826202475116;
     Tensor3 expected_state_estimates(expected_state_estimates_matrices);
 
-    BOOST_TEST(check_tensor_eq(state_estimates, expected_state_estimates, tolerance));
+    BOOST_TEST(
+        check_tensor_eq(state_estimates, expected_state_estimates, tolerance));
 
     Tensor3 x_estimates(x_estimator->get_estimates().estimates);
 
@@ -1576,5 +1577,6 @@ BOOST_AUTO_TEST_CASE(semi_markov_extended_hmm_particle_filter) {
 
     BOOST_TEST(check_tensor_eq(y_estimates, expected_y_estimates, tolerance));
 }
+
 
 BOOST_AUTO_TEST_SUITE_END()

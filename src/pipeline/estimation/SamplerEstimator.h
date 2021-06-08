@@ -30,6 +30,8 @@ namespace tomcat {
             // Constructors & Destructor
             //------------------------------------------------------------------
 
+            SamplerEstimator();
+
             /**
              * Creates an instance of a sampler estimator.
              *
@@ -100,6 +102,10 @@ namespace tomcat {
                           int data_point_idx,
                           int time_step);
 
+            //------------------------------------------------------------------
+            // Virtual member functions
+            //------------------------------------------------------------------
+
             /**
              * Compute and save probability estimates empirically from generated
              * particles.
@@ -112,12 +118,12 @@ namespace tomcat {
              * @param time_step: time step when the first particles in de set
              * were generated
              */
-            void estimate(EvidenceSet particles,
-                          EvidenceSet projected_particles,
-                          int data_point_idx,
-                          int time_step);
+            virtual void estimate(const EvidenceSet& particles,
+                                  const EvidenceSet& projected_particles,
+                                  int data_point_idx,
+                                  int time_step);
 
-          private:
+          protected:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -128,6 +134,24 @@ namespace tomcat {
              * @param estimator: other estimator
              */
             void copy(const SamplerEstimator& estimator);
+
+            /**
+             * Append a new probability to the list of estimates.
+             *
+             * @param estimates_idx: index of the estimates matrix to use
+             * @param data_point_idx: row of the estimates matrix being updated
+             * @param time_step: column of the estimates matrix being updated
+             * @param probability: probability estimate
+             */
+            void update_estimates(int estimates_idx,
+                                  int data_point_idx,
+                                  int time_step,
+                                  double probability);
+
+          private:
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
 
             /**
              * Computes the frequency of samples generated whithin a time
@@ -146,19 +170,6 @@ namespace tomcat {
             double get_probability_in_range(const Tensor3& samples,
                                             double low,
                                             double high) const;
-
-            /**
-             * Append a new probability to the list of estimates.
-             *
-             * @param estimates_idx: index of the estimates matrix to use
-             * @param data_point_idx: row of the estimates matrix being updated
-             * @param time_step: column of the estimates matrix being updated
-             * @param probability: probability estimate
-             */
-            void update_estimates(int estimates_idx,
-                                  int data_point_idx,
-                                  int time_step,
-                                  double probability);
 
             //------------------------------------------------------------------
             // Data members
