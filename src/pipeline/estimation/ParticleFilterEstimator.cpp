@@ -19,9 +19,11 @@ namespace tomcat {
             const DBNPtr& model,
             int num_particles,
             const std::shared_ptr<gsl_rng>& random_generator,
-            int num_jobs)
-            : Estimator(model), filter(*model, num_particles, random_generator, num_jobs) {
-        }
+            int num_jobs,
+            int variable_horizon_max_time_step)
+            : Estimator(model),
+              filter(*model, num_particles, random_generator, num_jobs),
+              variable_horizon_max_time_step(variable_horizon_max_time_step) {}
 
         ParticleFilterEstimator::~ParticleFilterEstimator() {}
 
@@ -88,7 +90,8 @@ namespace tomcat {
                 EvidenceSet single_point_data =
                     new_data.get_single_point_data(d);
 
-                if (this->max_inference_horizon == 0) {
+                if (this->max_inference_horizon == 0 &&
+                    !this->variable_horizon) {
                     // Generate particles for all time steps and compute
                     // estimates in the end
                     EvidenceSet particles =
@@ -96,8 +99,10 @@ namespace tomcat {
                     EvidenceSet projected_particles;
 
                     for (const auto& base_estimator : this->base_estimators) {
-                        base_estimator->estimate(
-                            particles, projected_particles, d, this->last_time_step + 1);
+                        base_estimator->estimate(particles,
+                                                 projected_particles,
+                                                 d,
+                                                 this->last_time_step + 1);
                     }
                 }
                 else {
@@ -111,14 +116,23 @@ namespace tomcat {
 
                         EvidenceSet particles =
                             this->filter.generate_particles(single_time_data);
+
+                        int time_steps_ahead =
+                            this->variable_horizon
+                                ? this->variable_horizon_max_time_step -
+                                      (this->last_time_step + t + 1)
+                                : this->max_inference_horizon;
+
                         EvidenceSet projected_particles =
-                            this->filter.forward_particles(
-                                this->max_inference_horizon);
+                            this->filter.forward_particles(time_steps_ahead);
 
                         for (const auto& base_estimator :
                              this->base_estimators) {
-                            base_estimator->estimate(
-                                particles, projected_particles, d, this->last_time_step + 1 + t);
+                            base_estimator->estimate(particles,
+                                                     projected_particles,
+                                                     d,
+                                                     this->last_time_step + 1 +
+                                                         t);
                         }
                     }
                 }
@@ -172,6 +186,10 @@ namespace tomcat {
             this->max_inference_horizon =
                 max(this->max_inference_horizon,
                     estimator->get_inference_horizon());
+
+            if (estimator->get_inference_horizon() < 0) {
+                this->variable_horizon = true;
+            }
         }
 
     } // namespace model

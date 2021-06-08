@@ -14,6 +14,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
+        SamplerEstimator::SamplerEstimator() {}
+
         // TODO - update sEstimator to receive a range
         SamplerEstimator::SamplerEstimator(
             const shared_ptr<DynamicBayesNet>& model,
@@ -24,11 +26,7 @@ namespace tomcat {
             : Estimator(model, inference_horizon, node_label, low),
               update_estimates_mutex(make_unique<mutex>()) {
 
-            if (node_label == "FinalScore") {
-                this->custom_metric = make_shared<FinalScore>();
-            }
-
-            if (low.size() == 0 && !this->custom_metric) {
+            if (low.size() == 0) {
                 int cardinality = model->get_cardinality_of(node_label);
                 this->estimates.estimates =
                     vector<Eigen::MatrixXd>(cardinality);
@@ -59,7 +57,7 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
         void SamplerEstimator::copy(const SamplerEstimator& estimator) {
-            // TODO - remove this function if there's nothing to copy
+            Estimator::copy_estimator(estimator);
         }
 
         void SamplerEstimator::prepare() {
@@ -166,8 +164,8 @@ namespace tomcat {
             }
         }
 
-        void SamplerEstimator::estimate(EvidenceSet particles,
-                                        EvidenceSet projected_particles,
+        void SamplerEstimator::estimate(const EvidenceSet& particles,
+                                        const EvidenceSet& projected_particles,
                                         int data_point_idx,
                                         int time_step) {
 

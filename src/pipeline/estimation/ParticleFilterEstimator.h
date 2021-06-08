@@ -37,12 +37,16 @@ namespace tomcat {
              * @param num_particles: number of particles to generate to
              * approximate the estimated distributions
              * @param num_jobs: number of threads used
+             * @param variable_horizon_max_time_step: maximum time step to
+             * project particles in case any of the base estimators requires a
+             * variable horizon
              */
             ParticleFilterEstimator(
                 const DBNPtr& model,
                 int num_particles,
                 const std::shared_ptr<gsl_rng>& random_generator,
-                int num_jobs);
+                int num_jobs,
+                int variable_horizon_max_time_step = 0);
 
             ~ParticleFilterEstimator();
 
@@ -112,6 +116,10 @@ namespace tomcat {
             int max_inference_horizon = 0;
 
             std::vector<std::shared_ptr<SamplerEstimator>> base_estimators;
+
+            bool variable_horizon = false;
+
+            int variable_horizon_max_time_step = 0;
         };
 
     } // namespace model

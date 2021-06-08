@@ -49,7 +49,6 @@ namespace tomcat {
         void Estimator::copy_estimator(const Estimator& estimator) {
             this->model = estimator.model;
             this->training_data = estimator.training_data;
-            //            this->test_data = estimator.test_data;
             this->estimates = estimator.estimates;
             this->cumulative_estimates = estimator.cumulative_estimates;
             this->inference_horizon = estimator.inference_horizon;

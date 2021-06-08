@@ -74,6 +74,7 @@ namespace tomcat {
         void matrix_hstack(Eigen::MatrixXd& original_matrix,
                     const Eigen::MatrixXd& other_matrix);
 
+
         /**
          * Transform a vector of numbers into a matrix where each row
          * contains the binary representation of each number in the vector.

@@ -48,6 +48,7 @@ namespace tomcat {
 
             // Area
             const static int HALLWAY = 0;
+            const static int ROOM = 1;
 
             // Building sections
             const static int OUT_OF_BUILDING = 0;

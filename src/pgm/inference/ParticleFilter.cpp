@@ -220,7 +220,7 @@ namespace tomcat {
                     // will be sampled. Therefore, the samples generated
                     // here will be assigned to the proper parent of the
                     // nodes at time step 2.
-                    if(prev_node) {
+                    if (prev_node) {
                         prev_node->set_assignment(filtered_samples);
                     }
                 }
@@ -233,48 +233,50 @@ namespace tomcat {
         }
 
         EvidenceSet ParticleFilter::forward_particles(int num_time_steps) {
-            int template_time_step =
-                min(this->last_time_step, LAST_TEMPLATE_TIME_STEP);
-
-            RVNodePtrVec nodes =
-                this->template_dbn.get_data_nodes(template_time_step);
-            for (const auto& node :
-                 this->template_dbn.get_single_time_nodes()) {
-                if (node->get_metadata()->get_initial_time_step() <
-                    template_time_step) {
-                    nodes.push_back(node);
-                }
-            }
-
-            // Save last particles generated to be restored after we generate
-            // samples forward
-            EvidenceSet last_particles;
-            for (const auto& node : nodes) {
-                last_particles.add_data(node->get_metadata()->get_label(),
-                                        node->get_assignment());
-            }
-
             EvidenceSet particles;
-            EvidenceSet empty_set;
-            int initial_time_step = this->last_time_step + 1;
-            int final_time_step = this->last_time_step + num_time_steps;
-            for (int t = initial_time_step; t <= final_time_step; t++) {
-                this->elapse(empty_set, t);
-                particles.hstack(this->resample(empty_set, t));
-            }
 
-            // Restore particles
-            for (const auto& node : nodes) {
-                node->set_assignment(
-                    last_particles[node->get_metadata()->get_label()](0, 0));
+            if (num_time_steps > 0) {
+                int template_time_step =
+                    min(this->last_time_step, LAST_TEMPLATE_TIME_STEP);
+
+                RVNodePtrVec nodes =
+                    this->template_dbn.get_data_nodes(template_time_step);
+                for (const auto& node :
+                     this->template_dbn.get_single_time_nodes()) {
+                    if (node->get_metadata()->get_initial_time_step() <
+                        template_time_step) {
+                        nodes.push_back(node);
+                    }
+                }
+
+                // Save last particles generated to be restored after we
+                // generate samples forward
+                EvidenceSet last_particles;
+                for (const auto& node : nodes) {
+                    last_particles.add_data(node->get_metadata()->get_label(),
+                                            node->get_assignment());
+                }
+
+                EvidenceSet empty_set;
+                int initial_time_step = this->last_time_step + 1;
+                int final_time_step = this->last_time_step + num_time_steps;
+                for (int t = initial_time_step; t <= final_time_step; t++) {
+                    this->elapse(empty_set, t);
+                    particles.hstack(this->resample(empty_set, t));
+                }
+
+                // Restore particles
+                for (const auto& node : nodes) {
+                    node->set_assignment(
+                        last_particles[node->get_metadata()->get_label()](0,
+                                                                          0));
+                }
             }
 
             return particles;
         }
 
-        void ParticleFilter::clear_cache() {
-            this->last_time_step = -1;
-        }
+        void ParticleFilter::clear_cache() { this->last_time_step = -1; }
 
         //----------------------------------------------------------------------
         // Getters & Setters
