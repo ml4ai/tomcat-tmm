@@ -33,9 +33,7 @@ void evaluate(const string& experiment_id,
     EvidenceSet test_data(data_dir);
     shared_ptr<DynamicBayesNet> model = make_shared<DynamicBayesNet>(
         DynamicBayesNet ::create_from_json(model_json));
-    model->unroll(num_time_steps, true);
-
-    test_data.shrink_up_to(num_time_steps - 1);
+    model->unroll(3, true);
 
     Experimentation experimentation(random_generator, experiment_id, model);
     experimentation.add_estimators_from_json(inference_json,
@@ -43,7 +41,9 @@ void evaluate(const string& experiment_id,
                                              num_samples,
                                              num_jobs,
                                              baseline,
-                                             exact_inference);
+                                             exact_inference,
+                                             num_time_steps - 1);
+
     experimentation.evaluate_and_save(params_dir,
                                       num_folds,
                                       eval_dir,

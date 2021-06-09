@@ -35,7 +35,6 @@ namespace tomcat {
         void AncestralSampler::sample_latent(
             const shared_ptr<gsl_rng>& random_generator) {
 
-            this->init_sampling();
             NodeSet node_set = this->get_node_set();
 
             vector<shared_ptr<gsl_rng>> random_generators_per_job =
@@ -87,33 +86,16 @@ namespace tomcat {
             // until we reach the leaves. Sampling a node depends on the values
             // sampled from its parents. Therefore, a top-down topological order
             // of the nodes is used here.
-            int from_time = this->min_time_step_to_sample;
-            for (int t = from_time; t <= this->max_time_step_to_sample; t++) {
+            for (int t = 0; t < this->model->get_time_steps(); t++) {
                 for (auto& node :
                     this->model->get_nodes_in_topological_order_at(t)) {
 
                     shared_ptr<RandomVariableNode> rv_node =
                         dynamic_pointer_cast<RandomVariableNode>(node);
 
-                    // We only generate samples for nodes within the time range
-                    // set.
-                    int t = rv_node->get_time_step();
-                    int t_min = this->min_time_step_to_sample;
-                    int t_max = this->max_time_step_to_sample;
-                    if (t < t_min || t > t_max) {
-                        continue;
-                    }
-
                     // If a node is frozen, we don't generate samples for it as it
                     // already contains pre-defined samples.
                     if (rv_node->is_frozen()) {
-                        continue;
-                    }
-
-                    // If the node is a parameter node, we only generate samples
-                    // for it if the sampler is trainable.
-                    bool is_parameter = node->get_metadata()->is_parameter();
-                    if (is_parameter && !this->trainable) {
                         continue;
                     }
 
@@ -122,13 +104,6 @@ namespace tomcat {
             }
 
             return node_set;
-        }
-
-        void AncestralSampler::init_sampling() {
-            this->max_time_step_to_sample =
-                this->max_time_step_to_sample >= 0
-                ? this->max_time_step_to_sample
-                : this->model->get_time_steps() - 1;
         }
 
         void AncestralSampler::get_info(nlohmann::json& json) const {
@@ -159,15 +134,6 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
-        void AncestralSampler::set_min_initialization_time_step(int time_step) {
-            Sampler::set_min_initialization_time_step(time_step);
-
-            // If ancestral sampling is used for estimation. There's no
-            // initialization necessary. Therefore, the minimum
-            // initialization time steps is actually the first time step to
-            // sample.
-            this->min_time_step_to_sample = time_step;
-        }
 
         void AncestralSampler::set_equal_samples_time_step_limit(
             int equal_samples_time_step_limit) {

@@ -88,7 +88,7 @@ void start_agent(const string& agent_id,
                                     num_connection_trials,
                                     milliseconds_before_retrial);
     experimentation.add_estimators_from_json(
-        inference_json, burn_in, num_samples, num_jobs, false, true);
+        inference_json, burn_in, num_samples, num_jobs, false, true, num_time_steps - 1);
     experimentation.start_real_time_estimation(params_dir);
 }
 

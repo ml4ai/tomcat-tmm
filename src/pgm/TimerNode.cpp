@@ -47,10 +47,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd TimerNode::sample_from_posterior(
-            const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
-            int min_time_step_to_sample,
-            int max_time_step_to_sample,
-            bool use_weights_cache) {
+            const vector<shared_ptr<gsl_rng>>& random_generator_per_job) {
             // Timer is not sampled in parallel since it only requires
             // straight forward matrix operations.
 
@@ -82,12 +79,9 @@ namespace tomcat {
             return sample;
         }
 
-        void
-        TimerNode::update_backward_assignment(int max_time_step_to_sample) {
+        void TimerNode::update_backward_assignment() {
             const auto& next_timer =
-                this->time_step < max_time_step_to_sample
-                    ? dynamic_pointer_cast<TimerNode>(this->get_next())
-                    : nullptr;
+                dynamic_pointer_cast<TimerNode>(this->get_next());
 
             int rows = this->controlled_node->get_size();
             if (next_timer) {

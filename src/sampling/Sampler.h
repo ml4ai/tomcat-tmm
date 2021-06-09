@@ -99,21 +99,6 @@ namespace tomcat {
             virtual Tensor3 get_samples(const std::string& node_label) const;
 
             /**
-             * Returns samples generated for a specific latent node withing a
-             * given time range.
-             *
-             * @param node_label: latent node label
-             * @param low_time_step: lower bound (inclusive)
-             * @param high_time_step: upper bound (not inclusive)
-             *
-             * @return Samples over time. A matrix of dimension (num_samples,
-             * time_steps).
-             */
-            virtual Tensor3 get_samples(const std::string& node_label,
-                                        int low_time_step,
-                                        int high_time_step) const;
-
-            /**
              * Method to do any sort of initialization prior a call to the
              * sample function.
              */
@@ -167,21 +152,11 @@ namespace tomcat {
 
             void set_model(const std::shared_ptr<DynamicBayesNet>& model);
 
-            void set_trainable(bool trainable);
-
             int get_num_jobs() const;
 
             int get_num_samples() const;
 
             void set_show_progress(bool show_progress);
-
-            virtual void set_min_initialization_time_step(int time_step);
-
-            void set_min_time_step_to_sample(int time_step);
-
-            void set_max_time_step_to_sample(int time_step);
-
-            void set_inference_horizon(int inference_horizon);
 
           protected:
             //------------------------------------------------------------------
@@ -214,22 +189,9 @@ namespace tomcat {
             // Number of threads created for parallel sampling.
             int num_jobs = 1;
 
-            // Indicates whether the sampler should update parameter nodes.
-            bool trainable = true;
-
             int num_samples = 0;
 
             bool show_progress = true;
-
-            // These are mostly relevant for when the sampler is used
-            // for estimation (approximate inference).
-            int min_initialization_time_step = 0;
-
-            int min_time_step_to_sample = 0;
-
-            int max_time_step_to_sample = -1;
-
-            int inference_horizon = 0;
 
           private:
             //------------------------------------------------------------------

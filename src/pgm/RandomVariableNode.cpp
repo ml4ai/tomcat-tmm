@@ -50,11 +50,7 @@ namespace tomcat {
             this->frozen = node.frozen;
             this->parents = node.parents;
             this->timer = node.timer;
-            this->timed_copies = node.timed_copies;
-            this->cached_posterior_weights = node.cached_posterior_weights;
-            this->children_per_time_step = node.children_per_time_step;
-            this->timer_children_per_time_step =
-                node.timer_children_per_time_step;
+            this->children = node.children;
         }
 
         string RandomVariableNode::get_description() const {
@@ -124,10 +120,7 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
-            const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
-            int min_time_step_to_sample,
-            int max_time_step_to_sample,
-            bool use_weights_cache) {
+            const vector<shared_ptr<gsl_rng>>& random_generator_per_job) {
             Eigen::MatrixXd sample;
 
             if (this->metadata->is_parameter()) {
@@ -136,11 +129,7 @@ namespace tomcat {
             }
             else {
                 int num_jobs = random_generator_per_job.size();
-                Eigen::MatrixXd weights =
-                    this->get_posterior_weights(num_jobs,
-                                                min_time_step_to_sample,
-                                                max_time_step_to_sample,
-                                                use_weights_cache);
+                Eigen::MatrixXd weights = this->get_posterior_weights(num_jobs);
                 sample = this->cpd->sample_from_posterior(
                     random_generator_per_job, weights, shared_from_this());
             }
@@ -149,26 +138,17 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd
-        RandomVariableNode::get_posterior_weights(int num_jobs,
-                                                  int min_time_step_to_sample,
-                                                  int max_time_step_to_sample,
-                                                  bool use_weights_cache) {
+        RandomVariableNode::get_posterior_weights(int num_jobs) {
+            int rows = this->get_size();
+            int cols = this->get_metadata()->get_cardinality();
+            Eigen::MatrixXd log_weights = Eigen::MatrixXd::Zero(rows, cols);
 
-            Eigen::MatrixXd log_weights(0, 0);
-            if (use_weights_cache) {
-                this->accumulate_cached_log_weights(min_time_step_to_sample);
-                log_weights =
-                    this->get_cached_log_weights(min_time_step_to_sample);
-            }
-
-            if (log_weights.size() == 0) {
-                int rows = this->get_size();
-                int cols = this->get_metadata()->get_cardinality();
-                log_weights = Eigen::MatrixXd::Zero(rows, cols);
-            }
-
-            for (auto& child : this->get_children_in_range(
-                     min_time_step_to_sample, max_time_step_to_sample)) {
+            for (auto& child : this->children) {
+                if (child == this->timer) {
+                    // The timer that controls this node will have posterior
+                    // weights processed next, ut segment posteriors.
+                    continue;
+                }
 
                 shared_ptr<RandomVariableNode> rv_child =
                     dynamic_pointer_cast<RandomVariableNode>(child);
@@ -178,8 +158,7 @@ namespace tomcat {
                         rv_child->get_parents(),
                         shared_from_this(),
                         rv_child,
-                        num_jobs,
-                        max_time_step_to_sample);
+                        num_jobs);
 
                 Eigen::MatrixXd child_log_weights(0, 0);
                 if (this->get_metadata()->is_in_plate()) {
@@ -198,19 +177,13 @@ namespace tomcat {
                         (child_weights.array() + EPSILON).log().rowwise().sum();
                 }
 
-                if (use_weights_cache) {
-                    this->cache_current_log_weights(
-                        min_time_step_to_sample, rv_child, child_log_weights);
-                }
-
                 log_weights = (log_weights.array() + child_log_weights.array());
             }
 
             // Include posterior weights of immediate segments for nodes that
             // are time controlled.
             Eigen::MatrixXd segments_weights =
-                this->get_segments_log_posterior_weights(
-                    num_jobs, max_time_step_to_sample);
+                this->get_segments_log_posterior_weights(num_jobs);
             if (segments_weights.size() > 0) {
                 log_weights = (log_weights.array() + segments_weights.array());
             }
@@ -222,184 +195,8 @@ namespace tomcat {
             return (log_weights.array().colwise() / sum_per_row.array());
         }
 
-        void RandomVariableNode::accumulate_cached_log_weights(
-            int min_time_step_to_sample) {
-
-            if (this->metadata->is_multitime()) {
-                // Multi-time nodes can have weights computed previously
-                // cached when we perform forward inference. Other kinds of
-                // nodes do not have connections with previously processed
-                // nodes, therefore, they don't have any posterior weight to
-                // be cached.
-                if (min_time_step_to_sample <
-                    this->cached_posterior_weights.time_step) {
-                    // We are running a new estimation process
-                    this->clear_cache();
-                    return;
-                }
-
-                if (min_time_step_to_sample >
-                    this->cached_posterior_weights.time_step + 1) {
-
-                    auto& cum_log_weights = this->cached_posterior_weights
-                                                .cum_log_weights_from_children;
-                    auto& prev_log_weights = this->cached_posterior_weights
-                                                 .log_weights_from_children;
-
-                    // Accumulate the previous weights
-                    if (cum_log_weights.size() == 0) {
-                        cum_log_weights = prev_log_weights;
-                    }
-                    else {
-                        cum_log_weights =
-                            cum_log_weights.array() + prev_log_weights.array();
-                    }
-
-                    this->cached_posterior_weights.time_step += 1;
-                }
-
-                // A node can be sampled multiple times before the lower time
-                // step moves forward, we clear the cached log weights below
-                // because we only accumulate the weights from the last
-                // sampling step before the next lower time step.
-                this->cached_posterior_weights.log_weights_from_children =
-                    Eigen::MatrixXd(0, 0);
-            }
-        }
-
-        void RandomVariableNode::clear_cache() {
-            this->cached_posterior_weights = PosteriorWeightsCache();
-        }
-
-        Eigen::MatrixXd RandomVariableNode::get_cached_log_weights(
-            int min_time_step_to_sample) const {
-            Eigen::MatrixXd log_weights(0, 0);
-
-            if (this->metadata->is_multitime()) {
-                // Multitime nodes can have weights computed previously
-                // cached when we perform forward inference.
-
-                if (min_time_step_to_sample ==
-                    this->cached_posterior_weights.time_step + 1) {
-
-                    // Return the weights accumulated until the previous lower
-                    // time step.
-                    log_weights = this->cached_posterior_weights
-                                      .cum_log_weights_from_children;
-                }
-            }
-
-            return log_weights;
-        }
-
-        void RandomVariableNode::cache_current_log_weights(
-            int min_time_step_to_sample,
-            const RVNodePtr& child_node,
-            const Eigen::MatrixXd& log_weights) {
-
-            if (child_node->get_metadata()->is_timer()) {
-                // We don't cache posterior weights of timer nodes because
-                // it's a structural node. Samples in the future can change
-                // the structure in the past (size of segments). Therefore,
-                // we cannot cache and always have to compute the weights of
-                // previous timer nodes.
-                return;
-            }
-
-            if (this->metadata->is_multitime()) {
-                if (child_node->get_time_step() == min_time_step_to_sample) {
-                    if (this->cached_posterior_weights.log_weights_from_children
-                            .size() == 0) {
-                        this->cached_posterior_weights
-                            .log_weights_from_children = log_weights;
-                    }
-                    else {
-                        // Sum of the log weights of all the children in the
-                        // lower time step.
-                        this->cached_posterior_weights
-                            .log_weights_from_children =
-                            this->cached_posterior_weights
-                                .log_weights_from_children.array() +
-                            log_weights.array();
-                    }
-                }
-            }
-        }
-
-        NodePtrVec
-        RandomVariableNode::get_children_in_range(int min_time_step,
-                                                  int max_time_step) {
-            NodePtrVec nodes;
-
-            if (!this->children_per_time_step.empty()) {
-                if (this->metadata->is_multitime()) {
-                    for (int t = min_time_step; t <= max_time_step; t++) {
-                        const auto& children =
-                            this->children_per_time_step.at(t);
-                        nodes.insert(
-                            nodes.end(), children.begin(), children.end());
-                    }
-                }
-                else {
-                    // Children in the same time step as the node
-                    if (min_time_step <= this->time_step &&
-                        this->time_step <= max_time_step) {
-                        const auto& children =
-                            this->children_per_time_step.at(0);
-                        nodes.insert(
-                            nodes.end(), children.begin(), children.end());
-                    }
-
-                    // Children in the next time step
-                    if (min_time_step <= this->time_step + 1 &&
-                        this->time_step + 1 <= max_time_step) {
-                        const auto& children =
-                            this->children_per_time_step.at(1);
-                        nodes.insert(
-                            nodes.end(), children.begin(), children.end());
-                    }
-                }
-            }
-
-            // Timer nodes
-            if (!this->timer_children_per_time_step.empty()) {
-                if (this->metadata->is_multitime()) {
-                    // All timer nodes since the beginning as samples in a
-                    // timer at time t might change the size of a segment.
-                    // Then we need to recompute weights in the past.
-                    for (int t = 0; t <= max_time_step; t++) {
-                        const auto& children =
-                            this->timer_children_per_time_step.at(t);
-                        nodes.insert(
-                            nodes.end(), children.begin(), children.end());
-                    }
-                }
-                else {
-                    // Children in the same time step as the node
-                    if (min_time_step <= this->time_step &&
-                        this->time_step <= max_time_step) {
-                        const auto& children =
-                            this->timer_children_per_time_step.at(0);
-                        nodes.insert(
-                            nodes.end(), children.begin(), children.end());
-                    }
-
-                    // Children in the next time step
-                    if (min_time_step <= this->time_step + 1 &&
-                        this->time_step + 1 <= max_time_step) {
-                        const auto& children =
-                            this->timer_children_per_time_step.at(1);
-                        nodes.insert(
-                            nodes.end(), children.begin(), children.end());
-                    }
-                }
-            }
-
-            return nodes;
-        }
-
-        Eigen::MatrixXd RandomVariableNode::get_segments_log_posterior_weights(
-            int num_jobs, int max_time_step_to_sample) {
+        Eigen::MatrixXd
+        RandomVariableNode::get_segments_log_posterior_weights(int num_jobs) {
             Eigen::MatrixXd segments_weights(0, 0);
 
             if (!this->has_timer()) {
@@ -409,9 +206,7 @@ namespace tomcat {
 
             const auto& central_state = shared_from_this();
             const auto& left_state = this->get_previous();
-            const auto& right_state = this->time_step < max_time_step_to_sample
-                                          ? this->get_next()
-                                          : nullptr;
+            const auto& right_state = this->get_next();
 
             const auto& central_timer = this->get_timer();
             const auto& left_last_timer =
@@ -422,7 +217,7 @@ namespace tomcat {
             // Last time step being sampled. This will be used to deal with
             // right segment truncation in the computation of the segment
             // posteriors.
-            int last_time_step = max(this->time_step, max_time_step_to_sample);
+            int last_time_step = this->timed_copies->size() - 1;
 
             // Left segment
             if (left_state) {
@@ -597,19 +392,11 @@ namespace tomcat {
             }
         }
 
-        bool RandomVariableNode::has_child_timer() const {
-            return !this->timer_children_per_time_step.empty();
-        }
-
         bool RandomVariableNode::is_segment_dependency() const {
-            if (this->timer_children_per_time_step.size() > 0)
-                return true;
-
-            for (const auto& child :
-                 this->children_per_time_step[this->metadata
-                                                  ->get_initial_time_step()]) {
+            for (const auto& child : this->children) {
                 if (dynamic_pointer_cast<RandomVariableNode>(child)
-                        ->has_timer()) {
+                        ->has_timer() ||
+                    child->get_metadata()->is_timer()) {
                     return true;
                 }
             }
@@ -654,52 +441,12 @@ namespace tomcat {
 
         void RandomVariableNode::set_children(
             const vector<shared_ptr<Node>>& children) {
+            this->children = children;
 
-            this->children_per_time_step.clear();
-            this->timer_children_per_time_step.clear();
             for (const auto& child : children) {
-                if (child == this->timer) {
-                    // If a timer is a child of this node, it will only
-                    // be added to the list of children to have posterior
-                    // weights processed if it does not control this node,
-                    // since such dependency is handled separately by the
-                    // segment weights posterior computations.
-                    continue;
-                }
-                const auto& rv_child =
-                    dynamic_pointer_cast<RandomVariableNode>(child);
-
-                auto* container = &this->children_per_time_step;
                 if (child->get_metadata()->is_timer()) {
-                    container = &this->timer_children_per_time_step;
-                }
-
-                if (this->metadata->is_multitime()) {
-                    int t = rv_child->get_time_step();
-
-                    if (container->size() <= t) {
-                        container->resize(t + 1);
-                    }
-
-                    container->at(t).push_back(child);
-                }
-                else {
-                    // Per this implementation, this node can only have
-                    // children in the same time step or the next one.
-                    // Therefore, we only need a vector of size 2 with the time
-                    // steps relative to this node's time step.
-                    if (container->empty()) {
-                        container->resize(2);
-                    }
-
-                    if (rv_child->get_time_step() == this->time_step) {
-                        container->at(0).push_back(child);
-                    }
-                    else {
-                        // Next time step since back edges are not allowed
-                        // in the implementation
-                        container->at(1).push_back(child);
-                    }
+                    this->child_timer = true;
+                    break;
                 }
             }
         }
@@ -716,6 +463,10 @@ namespace tomcat {
             const shared_ptr<vector<shared_ptr<RandomVariableNode>>>&
                 timed_copies) {
             this->timed_copies = timed_copies;
+        }
+
+        bool RandomVariableNode::has_child_timer() const {
+            return this->child_timer;
         }
 
     } // namespace model

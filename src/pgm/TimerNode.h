@@ -73,33 +73,23 @@ namespace tomcat {
              *
              * @param random_generator_per_job: random number generator per
              * thread
-             * @param num_jobs: The computations in this method is not
-             * performed in parallel as they can be achieved by small matrix
-             * operations. Therefore, this parameter is irrelevant in this
-             * subclass.
-             * @param min_time_step_to_sample: not used in the timer node
-             * computation of the posterior
-             * @param max_time_step_to_sample: ignore segments with time step
-             * larger than this value
-             * @param use_weights_cache: not used in the timer node
-             * computation of the posterior
              *
              * @return Timer values given controlled nodes' assignment.
              */
             Eigen::MatrixXd
             sample_from_posterior(const std::vector<std::shared_ptr<gsl_rng>>&
-                                      random_generator_per_job,
-                                  int min_time_step_to_sample,
-                                  int max_time_step_to_sample,
-                                  bool use_weights_cache) override;
+                                      random_generator_per_job) override;
 
             /**
              * Gets posterior weights for the left segment of a node such
              * that this timer node is the timer at the beginning of that
              * segment.
              *
+             * @param right_segment_state: first state of the right segment
              * @param left_segment_duration of the left segment for the
              * sample_idx timer's assignment
+             * @param last_time_step: time step of the last timer being
+             * sampled in the unrolled DBN
              * @param sample_idx: row of the assignment to consider when
              * calculating the weights.
              *
@@ -115,11 +105,8 @@ namespace tomcat {
             /**
              * Computes the duration of the segments backwards.
              *
-             * @param max_time_step_to_sample: if this node's time step if
-             * equal to the value informed here, consider it the last node of
-             * the model
              */
-            void update_backward_assignment(int max_time_step_to_sample);
+            void update_backward_assignment();
 
             // -----------------------------------------------------------------
             // Getters & Setters
