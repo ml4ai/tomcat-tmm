@@ -121,20 +121,10 @@ namespace tomcat {
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
              * performed in the main thread
-             * @param min_time_step_to_sample: get cached posterior weights for
-             * children from time step smaller than this value
-             * @param max_time_step_to_sample: ignore children from time step
-             * larger than this value
-             * @param use_weights_cache: whether the node must use cache to
-             * process posterior weights os multi-time nodes when the samples
-             * are generated to do forward inference.
              *
              * @return Posterior weights
              */
-            Eigen::MatrixXd get_posterior_weights(int num_jobs,
-                                                  int min_time_step_to_sample,
-                                                  int max_time_step_to_sample,
-                                                  bool use_weights_cache);
+            Eigen::MatrixXd get_posterior_weights(int num_jobs);
 
             /**
              * Samples a node using conjugacy properties and sufficient
@@ -270,13 +260,6 @@ namespace tomcat {
              */
             void print_cpds(std::ostream& output_stream) const;
 
-            /**
-             * Whether the node is parent of a timer node.
-             *
-             * @return
-             */
-            bool has_child_timer() const;
-
             // -----------------------------------------------------------------
             // Virtual functions
             // -----------------------------------------------------------------
@@ -293,28 +276,12 @@ namespace tomcat {
              *
              * @param random_generator_per_job: random number generator per
              * thread
-             * @param min_time_step_to_sample: min time step to consider when
-             * computing the posterior distribution to sample from. This
-             * information is used to cache previously computed posterior
-             * weights for the node's children when estimation is being done.
-             * @param max_time_step_to_sample: max time step to consider when
-             * computing the posterior distribution to sample from. The DBN
-             * might have more time steps but we want to ignore time steps
-             * larger than the max_time_step_to_sample. This means that
-             * children or timers in a time step bigger than this attribute
-             * won't be considered in the computation.
-             * @param use_cache: whether the node must use cache to process
-             * posterior weights os multi-time nodes when the samples are
-             * generated to do forward inference.
              *
              * @return Sample for the node from its posterior
              */
             virtual Eigen::MatrixXd
             sample_from_posterior(const std::vector<std::shared_ptr<gsl_rng>>&
-                                      random_generator_per_job,
-                                  int min_time_step_to_sample,
-                                  int max_time_step_to_sample,
-                                  bool use_weights_cache);
+                                      random_generator_per_job);
 
             /**
              * Checks whether the node is a parent of a timer node or a
@@ -356,6 +323,8 @@ namespace tomcat {
             set_timed_copies(const std::shared_ptr<
                              std::vector<std::shared_ptr<RandomVariableNode>>>&
                                  timed_copies);
+
+            bool has_child_timer() const;
 
           protected:
             //------------------------------------------------------------------
@@ -444,17 +413,6 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Gets the collection of children of this node within a range
-             * of time steps.
-             *
-             * @param min_time_step: lower bound
-             * @param max_time_step: upper bound (inclusive)
-             * @return
-             */
-            NodePtrVec get_children_in_range(int min_time_step,
-                                             int max_time_step);
-
-            /**
              * Computes posterior weights from the left, central and right
              * segments from a time controlled node.
              *
@@ -478,74 +436,24 @@ namespace tomcat {
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
              * performed in the main thread
-             * @param max_time_step_to_sample: clamp the right segment to
-             * this value
              *
              * @return Posterior weights for the left, central and right
              * segments combined
              */
             Eigen::MatrixXd
-            get_segments_log_posterior_weights(int num_jobs,
-                                               int max_time_step_to_sample);
-
-            /**
-             * Accumulate cached weights from children computed from the
-             * immediate previous sampling range.
-             *
-             * @param min_time_step_to_sample: min time step to sample in the
-             * current sampling range
-             *
-             */
-            void accumulate_cached_log_weights(int min_time_step_to_sample);
-
-            /**
-             * Gets the cached weights from children computed from the immediate
-             * previous sampling range.
-             *
-             * @param min_time_step_to_sample: min time step to sample in the
-             * current sampling range
-             *
-             * @return Pre-computed log posterior weights
-             */
-            Eigen::MatrixXd
-            get_cached_log_weights(int min_time_step_to_sample) const;
-
-            /**
-             * Save log weights of relevant children in the cache to be
-             * accumulated as the estimation process advances to the next
-             * sampling range.
-             *
-             * @param min_time_step_to_sample: min time step to sample in the
-             * current sampling range
-             * @param child_node: child node which weights were computed for
-             * @param log_weights: log weights computed for the child
-             */
-            void cache_current_log_weights(int min_time_step_to_sample,
-                                           const RVNodePtr& child_node,
-                                           const Eigen::MatrixXd& log_weights);
-
-            /**
-             * Resets saved data used to speed up the sampling process.
-             */
-            void clear_cache();
+            get_segments_log_posterior_weights(int num_jobs);
 
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
 
-            std::vector<NodePtrVec> children_per_time_step;
-
-            std::vector<NodePtrVec> timer_children_per_time_step;
+            NodePtrVec children;
 
             // If set, the amount of time this node stays in the current
             // state, is defined by the timer's assignment (semi-Markov model).
             std::shared_ptr<TimerNode> timer;
 
-            // Stores posterior weights computed for children in time steps
-            // previous to the minimum time step to which posteriors are
-            // being computed. This speed up computation when we are sampling
-            // from posterior for estimation purposes.
-            PosteriorWeightsCache cached_posterior_weights;
+            bool child_timer = false;
         };
 
     } // namespace model

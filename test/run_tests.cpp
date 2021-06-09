@@ -110,56 +110,6 @@ BOOST_AUTO_TEST_CASE(complete) {
     BOOST_TEST(check.first, check.second);
 }
 
-BOOST_AUTO_TEST_CASE(truncated) {
-    /**
-     * This test case checks if data can be generated correctly up to a time
-     * t smaller than the final time T that the DBN was unrolled into. A
-     * deterministic model is used.
-     */
-
-    DBNPtr model = make_shared<DynamicBayesNet>(
-        DynamicBayesNet::create_from_json("models/deterministic_dbn.json"));
-
-    model->unroll(10, true);
-    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
-
-    int time_steps = 4;
-    AncestralSampler sampler(model);
-    sampler.set_num_in_plate_samples(1);
-    sampler.set_max_time_step_to_sample(time_steps - 1);
-    sampler.sample(gen, 1);
-
-    MatrixXd fixed = sampler.get_samples("Fixed")(0, 0);
-    MatrixXd expected_fixed(1, time_steps);
-    expected_fixed << NO_OBS, 0, 0, 0;
-    auto check = check_matrix_eq(fixed, expected_fixed);
-    BOOST_TEST(check.first, check.second);
-
-    MatrixXd movable = sampler.get_samples("Movable")(0, 0);
-    MatrixXd expected_movable(1, time_steps);
-    expected_movable << 1, 0, 1, 0;
-    check = check_matrix_eq(movable, expected_movable);
-    BOOST_TEST(check.first, check.second);
-
-    MatrixXd states = sampler.get_samples("State")(0, 0);
-    MatrixXd expected_states(1, time_steps);
-    expected_states << 0, 1, 1, 2;
-    check = check_matrix_eq(states, expected_states);
-    BOOST_TEST(check.first, check.second);
-
-    MatrixXd obs1 = sampler.get_samples("Obs1")(0, 0);
-    MatrixXd expected_obs1(1, time_steps);
-    expected_obs1 << NO_OBS, 0, 0, 1;
-    check = check_matrix_eq(obs1, expected_obs1);
-    BOOST_TEST(check.first, check.second);
-
-    MatrixXd obs2 = sampler.get_samples("Obs2")(0, 0);
-    MatrixXd expected_obs2(1, time_steps);
-    expected_obs2 << NO_OBS, 1, 1, 0;
-    check = check_matrix_eq(obs2, expected_obs2);
-    BOOST_TEST(check.first, check.second);
-}
-
 BOOST_AUTO_TEST_CASE(heterogeneous) {
     /**
      * This test case checks if samples are correctly generated and vary
@@ -1206,8 +1156,6 @@ BOOST_AUTO_TEST_CASE(segment_transition_factor) {
         0.100000000000000;
     expected_msg2ext_factor_matrices[1] = expected_msg2ext_factor_matrices[0];
     Tensor3 expected_msg2ext_factor(expected_msg2ext_factor_matrices);
-
-    cout << msg2exp_factor << endl;
 
     BOOST_TEST(check_tensor_eq(msg2exp_factor, expected_msg2ext_factor));
 }

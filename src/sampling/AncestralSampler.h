@@ -61,7 +61,6 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
-            void set_min_initialization_time_step(int time_step) override;
 
             void set_equal_samples_time_step_limit(
                 int equal_samples_time_step_limit);
@@ -79,11 +78,6 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-
-            /**
-             * Initializations before starting the next sampling chunk.
-             */
-            void init_sampling();
 
             /**
              * Gets a collection of nodes split into lists for fast

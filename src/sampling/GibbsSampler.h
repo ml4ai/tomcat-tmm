@@ -63,10 +63,6 @@ namespace tomcat {
 
             Tensor3 get_samples(const std::string& node_label) const override;
 
-            Tensor3 get_samples(const std::string& node_label,
-                                int low_time_step,
-                                int high_time_step) const override;
-
             void get_info(nlohmann::json& json) const override;
 
             std::unique_ptr<Sampler> clone(bool unroll_model) const override;
@@ -95,8 +91,6 @@ namespace tomcat {
                 std::unordered_set<std::string> sampled_node_labels;
 
                 NodePtrVec timer_nodes;
-
-                NodePtrVec nodes_in_inference_horizon;
 
                 // The nodes in this list cannot be processed in parallel
                 // over time because they can either depend on nodes across
@@ -131,25 +125,6 @@ namespace tomcat {
              * @return Node set
              */
             NodeSet get_node_set();
-
-            /**
-             * Checks if the node is within the sampling from the posterior
-             * range.
-             *
-             * @param node: node;
-             *
-             * @return true or false
-             */
-            bool is_in_sampling_range(const RVNodePtr& node) const;
-
-            /**
-             * Checks if the node is within the inference horizon.
-             *
-             * @param node: node;
-             *
-             * @return true or false
-             */
-            bool is_in_inference_horizon(const RVNodePtr& node) const;
 
             /**
              * Populates the nodes' assignments with initial values.
@@ -264,11 +239,6 @@ namespace tomcat {
             void keep_sample(const std::shared_ptr<RandomVariableNode>& node,
                              const Eigen::MatrixXd& sample);
 
-            /**
-             * Initializations before starting the next sampling chunk.
-             */
-            void init_sampling();
-
             void print_nodes(const NodeSet& node_set) const;
 
             //------------------------------------------------------------------
@@ -291,13 +261,6 @@ namespace tomcat {
             // store samples at the same time.
             std::unique_ptr<std::mutex> keep_sample_mutex;
 
-            // We store the list of data nodes that only show up once in the
-            // network but have connections over multiple time steps. These
-            // nodes need to be sampled every time during estimation, even if
-            // their time steps are out of the inference range. This list is
-            // only erased in the prepare method of this class.
-            NodePtrVec multitime_sampled_nodes;
-            NodePtrVec previous_timer_nodes;
         };
 
     } // namespace model

@@ -116,8 +116,7 @@ namespace tomcat {
             const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
             const std::shared_ptr<const RandomVariableNode>& cpd_owner,
-            int num_jobs,
-            int max_time_step_to_sample) const {
+            int num_jobs) const {
 
             int data_size = cpd_owner->get_size();
             int cardinality = sampled_node->get_metadata()->get_cardinality();

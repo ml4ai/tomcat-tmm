@@ -374,8 +374,7 @@ namespace tomcat {
             const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
             const shared_ptr<const RandomVariableNode>& cpd_owner,
-            int num_jobs,
-            int max_time_step_to_sample) const {
+            int num_jobs) const {
 
             if (sampled_node->has_timer() &&
                 cpd_owner->get_previous() == sampled_node) {
@@ -411,8 +410,7 @@ namespace tomcat {
                                                 distribution_indices,
                                                 cardinality,
                                                 offset,
-                                                num_jobs,
-                                                max_time_step_to_sample);
+                                                num_jobs);
             return weights;
         }
 
@@ -421,8 +419,7 @@ namespace tomcat {
             const Eigen::VectorXi& distribution_indices,
             int cardinality,
             int distribution_index_offset,
-            int num_jobs,
-            int max_time_step_to_sample) const {
+            int num_jobs) const {
 
             int data_size = cpd_owner->get_size();
             Eigen::MatrixXd weights(data_size, cardinality);
@@ -439,8 +436,7 @@ namespace tomcat {
                                                    distribution_index_offset,
                                                    make_pair(0, data_size),
                                                    weights,
-                                                   weights_mutex,
-                                                   max_time_step_to_sample);
+                                                   weights_mutex);
             }
             else {
                 vector<thread> threads;
@@ -453,8 +449,7 @@ namespace tomcat {
                                           distribution_index_offset,
                                           ref(processing_block),
                                           ref(weights),
-                                          ref(weights_mutex),
-                                          max_time_step_to_sample);
+                                          ref(weights_mutex));
                     threads.push_back(move(weights_thread));
                 }
 
@@ -473,8 +468,7 @@ namespace tomcat {
             int distribution_index_offset,
             const pair<int, int>& processing_block,
             Eigen::MatrixXd& full_weights,
-            mutex& weights_mutex,
-            int max_time_step_to_sample) const {
+            mutex& weights_mutex) const {
 
             int initial_row = processing_block.first;
             int num_rows = processing_block.second;
@@ -500,8 +494,7 @@ namespace tomcat {
 
                     int segment_duration =
                         timer->get_backward_assignment()(i, 0);
-                    if (timer->get_time_step() + segment_duration >=
-                        max_time_step_to_sample) {
+                    if (!timer->get_next(segment_duration + 1)) {
                         // If the timer is the last right segment. We use the
                         // CDF instead.
                         use_cdf = true;

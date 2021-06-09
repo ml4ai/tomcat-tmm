@@ -49,7 +49,6 @@ namespace tomcat {
             this->node_label_to_samples = sampler.node_label_to_samples;
             this->step_counter = sampler.step_counter;
             this->keep_sample_mutex = make_unique<mutex>();
-            this->multitime_sampled_nodes = sampler.multitime_sampled_nodes;
         }
 
         void GibbsSampler::print_nodes(const NodeSet& node_set) const {
@@ -63,7 +62,7 @@ namespace tomcat {
         void GibbsSampler::sample_latent(
             const shared_ptr<gsl_rng>& random_generator) {
 
-            this->init_sampling();
+            this->step_counter = 0;
             NodeSet node_set = this->get_node_set();
             vector<shared_ptr<gsl_rng>> random_generators_per_job =
                 split_random_generator(random_generator, this->num_jobs);
@@ -102,65 +101,38 @@ namespace tomcat {
 
                 this->update_timer_backward_assignment(node_set.timer_nodes);
 
-                this->sample_sequential_time_nodes(
-                    random_generators_per_job, this->multitime_sampled_nodes);
+                this->update_timer_sufficient_statistics(node_set.timer_nodes);
 
-                if (this->step_counter >= this->burn_in_period) {
-                    this->sample_sequential_time_nodes(
-                        random_generators_per_job,
-                        node_set.nodes_in_inference_horizon);
-                }
-
-                if (trainable) {
-                    this->update_timer_sufficient_statistics(
-                        node_set.timer_nodes);
-
-                    this->sample_parallel_time_nodes(
-                        random_generators_per_job,
-                        node_set.parameter_nodes_per_job);
-                }
+                this->sample_parallel_time_nodes(
+                    random_generators_per_job,
+                    node_set.parameter_nodes_per_job);
 
                 if (this->show_progress) {
                     ++(*progress);
                 }
-
-                //                if (this->step_counter >=
-                //                this->burn_in_period) {
-                //                    cout << "------------" << endl;
-                //                    cout << "------------" << endl << endl;
-                //                    this->print_nodes(node_set);
-                //                }
             }
-        }
-
-        void GibbsSampler::init_sampling() {
-            this->step_counter = 0;
-            this->max_time_step_to_sample =
-                this->max_time_step_to_sample >= 0
-                    ? this->max_time_step_to_sample
-                    : this->model->get_time_steps() - 1;
         }
 
         GibbsSampler::NodeSet GibbsSampler::get_node_set() {
             NodeSet node_set;
 
-            node_set.timer_nodes = this->previous_timer_nodes;
-
             // We proceed from the root to the leaves so that child nodes
             // can update the sufficient statistics of parameter nodes
             // correctly given that parent nodes were already sampled.
             int params = 0;
-            int from_time = this->min_time_step_to_sample;
-            for (int t = from_time; t <= this->max_time_step_to_sample; t++) {
+            for (int t = 0; t < this->model->get_time_steps(); t++) {
                 for (auto& node :
                      this->model->get_nodes_in_topological_order_at(t)) {
 
                     const string node_label = node->get_metadata()->get_label();
+                    node_set.sampled_node_labels.insert(node_label);
 
                     if (node->get_metadata()->is_parameter()) {
-                        // We don't sample parameter nodes that are frozen or if
-                        // the sampler is not trainable
-                        if (node->is_frozen() || !this->trainable) {
+                        if (node->is_frozen()) {
+                            // We include frozen data nodes because they
+                            // contribute to the sufficient statistics of the
+                            // parameters' distributions. Frozen parameters do
+                            // not need to be sampled.
                             continue;
                         }
 
@@ -170,47 +142,30 @@ namespace tomcat {
                             node_set.parameter_nodes_per_job.resize(job + 1);
                         }
                         node_set.parameter_nodes_per_job[job].push_back(node);
-                        node_set.sampled_node_labels.insert(node_label);
                     }
                     else {
-                        if (node->is_frozen() && !this->trainable) {
-                            // If the sampler is trainable, we include frozen
-                            // data nodes because they contribute to the
-                            // sufficient statistics of the parameters'
-                            // distributions.
-                            continue;
-                        }
-
-                        node_set.sampled_node_labels.insert(node_label);
-
                         // Timer nodes and the nodes controlled by them cannot
                         // be processed in parallel as the size of the left and
-                        // segments to which the controlled nodes belong to in
-                        // random.
+                        // right segments to which the controlled nodes belong
+                        // to are random.
                         if (node->get_metadata()->is_timer()) {
                             node_set.timer_nodes.push_back(node);
                             node_set.nodes_sampled_in_sequence.push_back(node);
                         }
                         else {
-                            if (node->get_metadata()->is_multitime()) {
-                                this->multitime_sampled_nodes.push_back(node);
-                            }
-                            else if (node->has_timer() ||
-                                     node->has_child_timer()) {
+                            if (node->get_metadata()->is_multitime() ||
+                                node->has_timer() || node->has_child_timer()) {
                                 node_set.nodes_sampled_in_sequence.push_back(
                                     node);
                             }
                             else {
                                 // Markov blankets
-                                int time_steps = this->max_time_step_to_sample -
-                                                 this->min_time_step_to_sample +
-                                                 1;
+                                int time_steps = this->model->get_time_steps();
                                 int time_steps_per_job = ceil(
                                     time_steps / (double)(2 * this->num_jobs));
 
                                 int job = 0;
-                                int time_step = node->get_time_step() -
-                                                this->min_time_step_to_sample;
+                                int time_step = node->get_time_step();
                                 if (time_step % 2 == 0) {
                                     job = time_step / (2 * time_steps_per_job);
                                     if (job >=
@@ -240,48 +195,7 @@ namespace tomcat {
                 }
             }
 
-            this->previous_timer_nodes = node_set.timer_nodes;
-
-            // Nodes in the inference horizon
-            for (int t = this->max_time_step_to_sample + 1;
-                 t <= this->max_time_step_to_sample + this->inference_horizon;
-                 t++) {
-                for (auto& node :
-                     this->model->get_nodes_in_topological_order_at(t)) {
-                    if (!node->get_metadata()->is_parameter()) {
-                        const string& node_label =
-                            node->get_metadata()->get_label();
-                        node_set.sampled_node_labels.insert(node_label);
-                        node_set.nodes_in_inference_horizon.push_back(node);
-
-                        if (node->get_metadata()->is_timer()) {
-                            node_set.timer_nodes.push_back(node);
-                        }
-                    }
-                }
-            }
-
             return node_set;
-        }
-
-        bool GibbsSampler::is_in_sampling_range(const RVNodePtr& node) const {
-            int t = node->get_time_step();
-            int t_min = this->min_time_step_to_sample;
-            int t_max = this->max_time_step_to_sample;
-
-            int t0 = node->get_metadata()->get_initial_time_step();
-            bool multi_time = node->get_metadata()->is_multitime();
-
-            return (t_min <= t && t <= t_max) || (multi_time && t0 < t_max);
-        }
-
-        bool
-        GibbsSampler::is_in_inference_horizon(const RVNodePtr& node) const {
-            int t = node->get_time_step();
-            int t_min = this->max_time_step_to_sample + 1;
-            int t_max = this->max_time_step_to_sample + this->inference_horizon;
-
-            return (t_min <= t && t <= t_max);
         }
 
         void GibbsSampler::init_timers(
@@ -298,7 +212,7 @@ namespace tomcat {
                 const auto& reverse_timer =
                     timer_nodes.at(timer_nodes.size() - i - 1);
                 dynamic_pointer_cast<TimerNode>(reverse_timer)
-                    ->update_backward_assignment(this->max_time_step_to_sample);
+                    ->update_backward_assignment();
             }
         }
 
@@ -307,11 +221,6 @@ namespace tomcat {
             // Observable nodes are already frozen by the Gibbs sampler thus
             // there's no need to add them as data in the ancestral sampler.
             AncestralSampler initial_sampler(this->model);
-            initial_sampler.set_trainable(this->trainable);
-            initial_sampler.set_min_time_step_to_sample(
-                this->min_initialization_time_step);
-            initial_sampler.set_max_time_step_to_sample(
-                this->max_time_step_to_sample + this->inference_horizon);
             initial_sampler.set_num_in_plate_samples(
                 this->num_in_plate_samples);
             initial_sampler.sample(random_generator, 1);
@@ -393,31 +302,8 @@ namespace tomcat {
                 dynamic_pointer_cast<RandomVariableNode>(node);
 
             if (!rv_node->is_frozen()) {
-                Eigen::MatrixXd sample(0, 0);
-                if (node->get_metadata()->is_timer() || rv_node->has_timer() ||
-                    !this->is_in_inference_horizon(rv_node) ||
-                    this->inference_horizon == 0) {
-                    // We estimate the posterior and sample from it. If this
-                    // sampler is used for forward inference (samples are
-                    // generated forward in time and we never go back to the
-                    // past), we cache the posterior weights of multi-time
-                    // nodes in the current time step to be used when making
-                    // estimations in the future time step.
-
-                    sample = rv_node->sample_from_posterior(
-                        random_generator_per_job,
-                        this->min_time_step_to_sample,
-                        this->max_time_step_to_sample,
-                        !this->trainable);
-                }
-                else {
-                    // We don't estimate the posterior. We just sample from
-                    // the current node's CPD. In estimation mode, the CPD's
-                    // should have been already updated with posteriors from
-                    // previous iterations of the estimator.
-                    sample = rv_node->sample(random_generator_per_job,
-                                             this->num_in_plate_samples);
-                }
+                Eigen::MatrixXd sample =
+                    rv_node->sample_from_posterior(random_generator_per_job);
 
                 if (rv_node->get_metadata()->is_timer()) {
                     dynamic_pointer_cast<TimerNode>(rv_node)
@@ -430,18 +316,16 @@ namespace tomcat {
                 this->keep_sample(rv_node, sample);
             }
 
-            if (this->trainable) {
-                if (node->get_metadata()->is_parameter()) {
-                    // As nodes are processed, the sufficient statistic
-                    // table of their dependent parent parameter nodes are
-                    // updated accordingly. So at this point we already have all
-                    // the information needed to sample the parameter from its
-                    // posterior.
-                    rv_node->reset_sufficient_statistics();
-                }
-                else if (update_sufficient_statistics) {
-                    rv_node->update_parents_sufficient_statistics();
-                }
+            if (node->get_metadata()->is_parameter()) {
+                // As nodes are processed, the sufficient statistic
+                // table of their dependent parent parameter nodes are
+                // updated accordingly. So at this point we already have all
+                // the information needed to sample the parameter from its
+                // posterior.
+                rv_node->reset_sufficient_statistics();
+            }
+            else if (update_sufficient_statistics) {
+                rv_node->update_parents_sufficient_statistics();
             }
         }
 
@@ -514,8 +398,7 @@ namespace tomcat {
             for (int j = timer_nodes.size() - 1; j >= 0; j--) {
                 const auto& timer =
                     dynamic_pointer_cast<TimerNode>(timer_nodes.at(j));
-                timer->update_backward_assignment(
-                    this->max_time_step_to_sample);
+                timer->update_backward_assignment();
             }
         }
 
@@ -529,22 +412,6 @@ namespace tomcat {
             }
 
             return this->node_label_to_samples.at(node_label);
-        }
-
-        Tensor3 GibbsSampler::get_samples(const std::string& node_label,
-                                          int low_time_step,
-                                          int high_time_step) const {
-
-            if (!EXISTS(node_label, this->node_label_to_samples)) {
-                stringstream ss;
-                ss << "The node " << node_label
-                   << " does not belong to the "
-                      "model.";
-                throw invalid_argument(ss.str());
-            }
-
-            return this->node_label_to_samples.at(node_label)
-                .slice(low_time_step, high_time_step, 2);
         }
 
         void GibbsSampler::get_info(nlohmann::json& json) const {
@@ -576,8 +443,6 @@ namespace tomcat {
         void GibbsSampler::prepare() {
             Sampler::prepare();
             this->node_label_to_samples.clear();
-            this->multitime_sampled_nodes.clear();
-            this->previous_timer_nodes.clear();
         }
 
     } // namespace model

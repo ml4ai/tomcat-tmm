@@ -37,12 +37,7 @@ namespace tomcat {
             this->sampled_node_labels = sampler.sampled_node_labels;
             this->num_samples = sampler.num_samples;
             this->data = sampler.data;
-            this->min_initialization_time_step = sampler.min_initialization_time_step;
-            this->min_time_step_to_sample = sampler.min_time_step_to_sample;
-            this->max_time_step_to_sample = sampler.max_time_step_to_sample;
-            this->inference_horizon = sampler.inference_horizon;
             this->num_jobs = sampler.num_jobs;
-            this->trainable = sampler.trainable;
             this->show_progress = sampler.show_progress;
         }
 
@@ -80,22 +75,6 @@ namespace tomcat {
         }
 
         Tensor3 Sampler::get_samples(const string& node_label) const {
-            vector<shared_ptr<Node>> nodes =
-                this->model->get_nodes_by_label(node_label);
-
-            // Get the max time step for which samples were generated
-            int max_time_step = this->max_time_step_to_sample > 0
-                                    ? min(this->max_time_step_to_sample + 1,
-                                          this->model->get_time_steps())
-                                    : this->model->get_time_steps();
-
-            return this->get_samples(node_label, 0, max_time_step);
-        }
-
-        Tensor3 Sampler::get_samples(const string& node_label,
-                                     int low_time_step,
-                                     int high_time_step) const {
-
             if (!this->model->has_node_with_label(node_label)) {
                 stringstream ss;
                 ss << "The node " << node_label
@@ -104,20 +83,15 @@ namespace tomcat {
                 throw invalid_argument(ss.str());
             }
 
-            // Get the max time step for which samples were generated
-            int min_time_step = low_time_step;
-            int max_time_step =
-                min(high_time_step, this->model->get_time_steps());
-
             // Use the first node to get the size of the matrix
             const NodePtr first_node =
                 this->model->get_nodes_by_label(node_label)[0];
             int d1 = first_node->get_metadata()->get_sample_size();
             int d2 = first_node->get_size();
-            int d3 = max_time_step - min_time_step;
+            int d3 = this->model->get_time_steps();
             double* buffer = new double[d1 * d2 * d3];
             fill_n(buffer, d1 * d2 * d3, NO_OBS);
-            for (int t = min_time_step; t < max_time_step; t++) {
+            for (int t = 0; t < this->model->get_time_steps(); t++) {
                 const auto& metadata = this->model->get_metadata_of(node_label);
                 // If a node is not replicable, it means there's
                 // only one instance of it in the unrolled DBN. We repeat
@@ -133,7 +107,7 @@ namespace tomcat {
                     for (int i = 0; i < assignment.rows(); i++) {
                         for (int j = 0; j < assignment.cols(); j++) {
                             int index =
-                                j * d2 * d3 + i * d3 + (t - min_time_step);
+                                j * d2 * d3 + i * d3 + t;
                             buffer[index] = assignment(i, j);
                         }
                     }
@@ -192,38 +166,12 @@ namespace tomcat {
             this->model = model;
         }
 
-        void Sampler::set_min_initialization_time_step(int time_step) {
-            this->min_initialization_time_step = time_step;
-        }
-
-        void Sampler::set_min_time_step_to_sample(int time_step) {
-            if (time_step < 0) {
-                throw TomcatModelException("The minimum time step to sample "
-                                           "must be at least 0.");
-            }
-            this->min_time_step_to_sample = time_step;
-        }
-
-        void Sampler::set_max_time_step_to_sample(int time_step) {
-            this->max_time_step_to_sample = time_step;
-        }
-
-        void Sampler::set_trainable(bool trainable) {
-            this->trainable = trainable;
-        }
-
         int Sampler::get_num_jobs() const { return num_jobs; }
 
-        int Sampler::get_num_samples() const {
-            return num_samples;
-        }
+        int Sampler::get_num_samples() const { return num_samples; }
 
         void Sampler::set_show_progress(bool show_progress) {
             this->show_progress = show_progress;
-        }
-
-        void Sampler::set_inference_horizon(int inference_horizon) {
-            this->inference_horizon = inference_horizon;
         }
 
     } // namespace model
