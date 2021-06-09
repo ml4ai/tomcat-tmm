@@ -22,7 +22,8 @@ namespace tomcat {
             int num_jobs,
             int variable_horizon_max_time_step)
             : Estimator(model),
-              filter(*model, num_particles, random_generator, num_jobs),
+              template_filter(
+                  *model, num_particles, random_generator, num_jobs),
               variable_horizon_max_time_step(variable_horizon_max_time_step) {}
 
         ParticleFilterEstimator::~ParticleFilterEstimator() {}
@@ -32,9 +33,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         ParticleFilterEstimator::ParticleFilterEstimator(
             const ParticleFilterEstimator& estimator)
-            : filter(estimator.filter) {
+            : template_filter(estimator.template_filter) {
             Estimator::copy_estimator(estimator);
-            this->copy_estimator(estimator);
+            this->copy(estimator);
         }
 
         ParticleFilterEstimator& ParticleFilterEstimator::operator=(
@@ -49,23 +50,17 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void ParticleFilterEstimator::copy(
             const ParticleFilterEstimator& estimator) {
-            this->filter = estimator.filter;
+            this->filter_per_data_point = estimator.filter_per_data_point;
             this->max_inference_horizon = estimator.inference_horizon;
             this->last_time_step = estimator.last_time_step;
-        }
-
-        void ParticleFilterEstimator::cleanup() {
-            Estimator::cleanup();
-
-            for (auto& base_estimator : this->base_estimators) {
-                base_estimator->cleanup();
-            }
         }
 
         void ParticleFilterEstimator::prepare() {
             for (auto& base_estimator : this->base_estimators) {
                 base_estimator->prepare();
             }
+
+            this->filter_per_data_point.clear();
 
             this->last_time_step = -1;
         }
@@ -87,6 +82,12 @@ namespace tomcat {
             }
 
             for (int d = 0; d < new_data.get_num_data_points(); d++) {
+                if (this->filter_per_data_point.size() <= d) {
+                    this->filter_per_data_point.push_back(
+                        this->template_filter);
+                }
+                auto& filter = this->filter_per_data_point[d];
+
                 EvidenceSet single_point_data =
                     new_data.get_single_point_data(d);
 
@@ -95,7 +96,7 @@ namespace tomcat {
                     // Generate particles for all time steps and compute
                     // estimates in the end
                     EvidenceSet particles =
-                        this->filter.generate_particles(single_point_data);
+                        filter.generate_particles(single_point_data);
                     EvidenceSet projected_particles;
 
                     for (const auto& base_estimator : this->base_estimators) {
@@ -115,7 +116,7 @@ namespace tomcat {
                             single_point_data.get_single_time_data(t);
 
                         EvidenceSet particles =
-                            this->filter.generate_particles(single_time_data);
+                            filter.generate_particles(single_time_data);
 
                         int time_steps_ahead =
                             this->variable_horizon
@@ -124,7 +125,7 @@ namespace tomcat {
                                 : this->max_inference_horizon;
 
                         EvidenceSet projected_particles =
-                            this->filter.forward_particles(time_steps_ahead);
+                            filter.forward_particles(time_steps_ahead);
 
                         for (const auto& base_estimator :
                              this->base_estimators) {
@@ -136,8 +137,6 @@ namespace tomcat {
                         }
                     }
                 }
-
-                this->filter.clear_cache();
 
                 if (this->show_progress) {
                     ++(*progress);

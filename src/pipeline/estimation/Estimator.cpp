@@ -96,7 +96,7 @@ namespace tomcat {
         }
 
         void Estimator::cleanup() {
-            this->estimates.estimates.clear();
+            this->prepare();
             this->cumulative_estimates.estimates.clear();
         }
 

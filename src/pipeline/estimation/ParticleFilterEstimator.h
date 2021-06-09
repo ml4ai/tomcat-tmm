@@ -66,8 +66,6 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void cleanup() override;
-
             void prepare() override;
 
             void keep_estimates() override;
@@ -108,7 +106,9 @@ namespace tomcat {
             // Data members
             //------------------------------------------------------------------
 
-            ParticleFilter filter;
+            ParticleFilter template_filter;
+
+            std::vector<ParticleFilter> filter_per_data_point;
 
             int last_time_step = -1;
 
