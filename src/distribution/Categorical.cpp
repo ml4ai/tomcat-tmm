@@ -13,6 +13,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
+
         Categorical::Categorical(const shared_ptr<Node>& probabilities)
             : Distribution({probabilities}) {}
 

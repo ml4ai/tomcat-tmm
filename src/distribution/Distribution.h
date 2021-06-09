@@ -113,16 +113,16 @@ namespace tomcat {
             void print(std::ostream& os) const;
 
             /**
-             *
-             * @param random_generators_per_job: random number generator to be
-             * used by individual threads
-             * @param num_samples: number of samples to generate
-             * @param parameter_idx: row of the node's assignment that holds the
-             * parameters of the distribution
-             *
-             * @return Matrix of samples generated for the distribution (one
-             * sample per row)
-             */
+            *
+            * @param random_generators_per_job: random number generator to be
+            * used by individual threads
+            * @param num_samples: number of samples to generate
+            * @param parameter_idx: row of the node's assignment that holds the
+            * parameters of the distribution
+            *
+            * @return Matrix of samples generated for the distribution (one
+            * sample per row)
+            */
             Eigen::MatrixXd sample_many(
                 std::vector<std::shared_ptr<gsl_rng>> random_generator_per_job,
                 int num_samples,
