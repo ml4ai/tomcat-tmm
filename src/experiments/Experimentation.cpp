@@ -7,9 +7,9 @@
 #include "pipeline/DBNSaver.h"
 #include "pipeline/DataSplitter.h"
 #include "pipeline/Pipeline.h"
-#include "pipeline/estimation/CompoundSamplerEstimator.h"
 #include "pipeline/estimation/OfflineEstimation.h"
 #include "pipeline/estimation/OnlineEstimation.h"
+#include "pipeline/estimation/ParticleFilterEstimator.h"
 #include "pipeline/estimation/SamplerEstimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
 #include "pipeline/estimation/TrainingFrequencyEstimator.h"
@@ -114,7 +114,8 @@ namespace tomcat {
                                                        int num_samples,
                                                        int num_jobs,
                                                        bool baseline,
-                                                       bool exact_inference) {
+                                                       bool exact_inference,
+                                                       int max_time_step) {
             fstream file;
             file.open(filepath);
             if (file.is_open()) {
@@ -130,16 +131,15 @@ namespace tomcat {
                 this->evaluation = make_shared<EvaluationAggregator>(
                     EvaluationAggregator::METHOD::no_aggregation);
 
-                shared_ptr<CompoundSamplerEstimator> approximate_estimator;
+                shared_ptr<ParticleFilterEstimator> approximate_estimator;
                 if (!exact_inference && !baseline) {
-                    shared_ptr<GibbsSampler> gibbs_sampler =
-                        make_shared<GibbsSampler>(
-                            this->model, burn_in, num_jobs);
                     approximate_estimator =
-                        make_shared<CompoundSamplerEstimator>(
-                            move(gibbs_sampler),
+                        make_shared<ParticleFilterEstimator>(
+                            this->model,
+                            num_samples,
                             this->random_generator,
-                            num_samples);
+                            num_jobs,
+                            max_time_step);
                     this->estimation->add_estimator(approximate_estimator);
                 }
 
@@ -173,6 +173,7 @@ namespace tomcat {
                             this->estimation->add_estimator(model_estimator);
                         }
                         else {
+                            // TODO - include custom estimators here
                             shared_ptr<SamplerEstimator> sampler_estimator =
                                 make_shared<SamplerEstimator>(
                                     this->model,
@@ -211,7 +212,7 @@ namespace tomcat {
                                                 bool baseline,
                                                 const string& train_dir,
                                                 bool only_estimates) {
-//            FactorGraph::create_from_unrolled_dbn(*this->model).print_graph(cout);
+            //            FactorGraph::create_from_unrolled_dbn(*this->model).print_graph(cout);
             shared_ptr<DataSplitter> data_splitter;
             string final_params_dir;
             if (num_folds > 1) {

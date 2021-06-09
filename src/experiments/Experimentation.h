@@ -116,13 +116,16 @@ namespace tomcat {
              * @param baseline: whether to use the baseline estimator based
              * on frequencies of values of training samples
              * @param exact_inference: whether exact inference should be used
+             * @param max_time_step: maximum time step to project estimates in
+             * case of variable horizon
              */
             void add_estimators_from_json(const std::string& filepath,
                                           int burn_in,
                                           int num_samples,
                                           int num_jobs,
                                           bool baseline,
-                                          bool exact_inference);
+                                          bool exact_inference,
+                                          int max_time_step);
 
             /**
              * Evaluates a pre-trained model and save the evaluations to a
