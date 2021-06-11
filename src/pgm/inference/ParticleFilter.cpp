@@ -3,6 +3,7 @@
 #include <boost/progress.hpp>
 
 #include "distribution/Categorical.h"
+#include "distribution/Distribution.h"
 #include "utils/Multithreading.h"
 
 namespace tomcat {
@@ -18,9 +19,9 @@ namespace tomcat {
             int num_particles,
             const std::shared_ptr<gsl_rng>& random_generator,
             int num_jobs)
-            : num_particles(num_particles) {
+            : original_dbn(dbn), num_particles(num_particles) {
 
-            this->create_template_dbn(dbn);
+            this->create_template_dbn();
             this->random_generators_per_job =
                 split_random_generator(random_generator, num_jobs);
         }
@@ -31,28 +32,8 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
 
-        void ParticleFilter::create_template_dbn(
-            const DynamicBayesNet& unrolled_dbn) {
-            this->template_dbn = unrolled_dbn.clone(false);
-            this->template_dbn.unroll(LAST_TEMPLATE_TIME_STEP + 1, true);
-            this->template_dbn.mirror_parameter_nodes_from(unrolled_dbn);
-
-            // Copy the values of the parameter nodes to their copies in the
-            // template dbn and freeze them.
-            //            for (const auto& node :
-            //            unrolled_dbn->get_parameter_nodes()) {
-            //                RVNodePtr rv_node =
-            //                    dynamic_pointer_cast<RandomVariableNode>(node);
-            //                const string& node_label =
-            //                node->get_metadata()->get_label(); int time_step =
-            //                rv_node->get_time_step();
-            //
-            //                RVNodePtr parameter_node =
-            //                    this->template_dbn.get_node(node_label,
-            //                    time_step);
-            //                parameter_node->set_assignment(rv_node->get_assignment());
-            //                parameter_node->freeze();
-            //            }
+        void ParticleFilter::prepare() {
+            this->template_dbn.mirror_parameter_nodes_from(this->original_dbn);
 
             // We freeze the distributions to optimize computations. This will
             // transform the list of distributions matrices of enumerated
@@ -64,8 +45,33 @@ namespace tomcat {
                     rv_node->get_cpd()->freeze_distributions(0);
                     data_node_labels.insert(
                         rv_node->get_metadata()->get_label());
+
+                    if (!node->get_metadata()->is_replicable()) {
+                        // Each particle starts with the prior distribution
+                        for (int i = 0; i < this->num_particles; i++) {
+                            DistributionPtr distribution =
+                                move(rv_node->get_cpd()
+                                         ->get_distributions()[0]
+                                         ->clone());
+                            this->single_time_node_distribution_per_particle
+                                [node->get_metadata()->get_label()]
+                                    .push_back(distribution);
+                        }
+
+                        rv_node->set_assignment(
+                            rv_node->get_cpd()
+                                ->get_distributions()[0]
+                                ->sample_many(this->random_generators_per_job,
+                                              this->num_particles,
+                                              0));
+                    }
                 }
             }
+        }
+
+        void ParticleFilter::create_template_dbn() {
+            this->template_dbn = this->original_dbn.clone(false);
+            this->template_dbn.unroll(LAST_TEMPLATE_TIME_STEP + 1, true);
         }
 
         EvidenceSet
@@ -119,9 +125,14 @@ namespace tomcat {
                     }
                 }
                 else {
-                    Eigen::MatrixXd samples = node->sample(
-                        this->random_generators_per_job, this->num_particles);
-                    node->set_assignment(samples);
+                    if (node->get_metadata()->is_replicable()) {
+                        // Single time nodes will be sampled directly from their
+                        // updated posterior
+                        Eigen::MatrixXd samples =
+                            node->sample(this->random_generators_per_job,
+                                         this->num_particles);
+                        node->set_assignment(samples);
+                    }
                 }
             }
         }
@@ -176,15 +187,13 @@ namespace tomcat {
 
             RVNodePtrVec nodes =
                 this->template_dbn.get_data_nodes(template_time_step);
-            // Add single time nodes to the list to be resampled
-            for (const auto& node :
-                 this->template_dbn.get_single_time_nodes()) {
-                if (node->get_metadata()->get_initial_time_step() <
-                    template_time_step) {
-                    nodes.push_back(node);
-                }
-            }
             for (const auto& node : nodes) {
+                if (!node->get_metadata()->is_replicable()) {
+                    // Single time nodes will be sampled from their updated
+                    // posterior next
+                    continue;
+                }
+
                 const string& node_label = node->get_metadata()->get_label();
 
                 const Eigen::MatrixXd& samples = node->get_assignment();
@@ -229,7 +238,66 @@ namespace tomcat {
                 }
             }
 
+            this->sample_single_time_nodes(particles, time_step);
+
             return particles;
+        }
+
+        void ParticleFilter::sample_single_time_nodes(EvidenceSet& particles,
+                                                      int time_step) {
+            for (const auto& node :
+                 this->template_dbn.get_single_time_nodes()) {
+                if (node->is_frozen()) {
+                    // Observations were provided for this node so there's no
+                    // need to sample from it.
+                    continue;
+                }
+
+                const auto& metadata = node->get_metadata();
+                if (metadata->get_initial_time_step() <= time_step) {
+                    Eigen::MatrixXd log_weights = Eigen::MatrixXd::Zero(
+                        this->num_particles,
+                        node->get_metadata()->get_cardinality());
+
+                    int template_time_step =
+                        min(time_step, LAST_TEMPLATE_TIME_STEP);
+
+                    for (const auto& child :
+                         node->get_children(template_time_step)) {
+                        Eigen::MatrixXd child_weights =
+                            child->get_cpd()->get_posterior_weights(
+                                child->get_parents(),
+                                node,
+                                child,
+                                this->random_generators_per_job.size());
+
+                        log_weights = (child_weights.array() + EPSILON).log();
+                    }
+
+                    // Unlog and normalize the weights
+                    log_weights.colwise() -= log_weights.rowwise().maxCoeff();
+                    log_weights = log_weights.array().exp();
+                    Eigen::VectorXd sum_per_row = log_weights.rowwise().sum();
+                    Eigen::MatrixXd posterior_weights =
+                        (log_weights.array().colwise() / sum_per_row.array());
+
+                    Eigen::MatrixXd samples(this->num_particles, 1);
+                    for (int i = 0; i < this->num_particles; i++) {
+                        auto& distribution =
+                            this->single_time_node_distribution_per_particle
+                                [metadata->get_label()][i];
+                        distribution->update_from_posterior(
+                            posterior_weights.row(i));
+                        auto sample = distribution->sample(
+                            this->random_generators_per_job[0], 0);
+                        samples.conservativeResize(this->num_particles,
+                                                   sample.size());
+                        samples.row(i) = move(sample);
+                    }
+
+                    particles.add_data(metadata->get_label(), Tensor3(samples));
+                }
+            }
         }
 
         EvidenceSet ParticleFilter::forward_particles(int num_time_steps) {

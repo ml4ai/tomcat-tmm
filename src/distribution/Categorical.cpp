@@ -182,5 +182,23 @@ namespace tomcat {
 
         int Categorical::get_sample_size() const { return 1; }
 
+        void Categorical::update_from_posterior(
+            const Eigen::VectorXd& posterior_weights) {
+
+            Eigen::VectorXd weighted_probabilities =
+                this->parameters[0]->get_assignment().row(0).transpose().array() *
+                posterior_weights.array();
+
+            if (weighted_probabilities.sum() < EPSILON) {
+                weighted_probabilities =
+                    Eigen::VectorXd::Ones(parameters.size());
+            }
+
+            weighted_probabilities /= weighted_probabilities.sum();
+
+            this->parameters[0] =
+                make_shared<ConstantNode>(weighted_probabilities);
+        }
+
     } // namespace model
 } // namespace tomcat

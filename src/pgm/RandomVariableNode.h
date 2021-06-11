@@ -291,6 +291,16 @@ namespace tomcat {
              */
             bool is_segment_dependency() const;
 
+            /**
+             * Gets children at a specific time step.
+             *
+             * @param time_step : time step of the child nodes
+             *
+             * @return List of child nodes
+             */
+            const RVNodePtrVec&
+            get_children(int time_step) const;
+
             // -----------------------------------------------------------------
             // Getters & Setters
             // -----------------------------------------------------------------
@@ -440,14 +450,15 @@ namespace tomcat {
              * @return Posterior weights for the left, central and right
              * segments combined
              */
-            Eigen::MatrixXd
-            get_segments_log_posterior_weights(int num_jobs);
+            Eigen::MatrixXd get_segments_log_posterior_weights(int num_jobs);
 
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
 
             NodePtrVec children;
+
+            std::vector<RVNodePtrVec> children_per_time_step;
 
             // If set, the amount of time this node stays in the current
             // state, is defined by the timer's assignment (semi-Markov model).

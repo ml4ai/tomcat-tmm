@@ -145,10 +145,10 @@ namespace tomcat {
             }
             else {
                 this->data_nodes_per_time_step[time_step].push_back(data.node);
-            }
 
-            if (!data.node->get_metadata()->is_replicable()) {
-                this->single_time_nodes.push_back(data.node);
+                if (!data.node->get_metadata()->is_replicable()) {
+                    this->single_time_nodes.push_back(data.node);
+                }
             }
 
             return data;
@@ -655,6 +655,7 @@ namespace tomcat {
                         dynamic_pointer_cast<RandomVariableNode>(
                             this->parameter_nodes_map.at(parameter_name));
 
+                    original_node->unfreeze();
                     original_node->set_assignment(
                         parameter_node->get_assignment());
                     if (rv_parameter_node->is_frozen()) {

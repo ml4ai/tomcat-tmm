@@ -838,6 +838,91 @@ BOOST_AUTO_TEST_CASE(hmm_particle_filter) {
         estimated_obs_prediction, expected_obs_prediction, tolerance));
 }
 
+BOOST_AUTO_TEST_CASE(extended_hmm_particle_filter) {
+    /**
+     * Test particle filter estimation in an HMM model with a static dependency
+     * on the state.
+     */
+
+    // Data
+    Eigen::MatrixXd obs1(1, 10);
+    obs1 << NO_OBS, 1, 0, 1, 0, 1, 1, 0, 0, 0;
+    Eigen::MatrixXd obs2(1, 10);
+    obs2 << NO_OBS, 0, 0, 0, 0, 1, 0, 1, 1, 1;
+
+    EvidenceSet data;
+    data.add_data("Obs1", Tensor3(obs1));
+    data.add_data("Obs2", Tensor3(obs2));
+
+    // Model
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/extended_hmm.json"));
+
+    model->unroll(3, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Inference
+    auto state_estimator = make_shared<SamplerEstimator>(model, 0, "State");
+    auto fixed_estimator = make_shared<SamplerEstimator>(model, 0, "Fixed");
+
+    ParticleFilterEstimator particle_estimator(model, 1000, gen, 1);
+    particle_estimator.add_base_estimator(state_estimator);
+    particle_estimator.add_base_estimator(fixed_estimator);
+    particle_estimator.set_show_progress(false);
+
+    particle_estimator.prepare();
+    particle_estimator.estimate(data);
+
+    double tolerance = 0.1;
+    Eigen::MatrixXd expected_state_inference1(1, 10);
+    expected_state_inference1 << 0.300000000000000, 0.357636333420384,
+        0.412468155252510, 0.334197212946051, 0.437342150389305,
+        0.268748130052360, 0.285357670986912, 0.126436541246598,
+        0.108960723306842, 0.102241891847670;
+    Eigen::MatrixXd expected_state_inference2(1, 10);
+    expected_state_inference2 << 0.500000000000000, 0.509603285771943,
+        0.251964020007764, 0.574753353414519, 0.242820207692847,
+        0.118417500986672, 0.636114531917015, 0.017118804061714,
+        0.036680990364526, 0.034704614635386;
+    Eigen::MatrixXd expected_state_inference3(1, 10);
+    expected_state_inference3 << 0.200000000000000, 0.132760380807673,
+        0.335567824739726, 0.091049433639429, 0.319837641917847,
+        0.612834368960968, 0.078527797096073, 0.856444654691688,
+        0.854358286328632, 0.863053493516944;
+    Tensor3 expected_state_inference({expected_state_inference1,
+                                      expected_state_inference2,
+                                      expected_state_inference3});
+    Tensor3 estimated_state_inference =
+        Tensor3(state_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(
+        estimated_state_inference, expected_state_inference, tolerance));
+
+    Eigen::MatrixXd expected_fixed_inference1(1, 10);
+    expected_fixed_inference1 << 0.200000000000000, 0.272168277106431,
+        0.286901616692489, 0.335535834113975, 0.350857398408302,
+        0.301271047538667, 0.327408070685641, 0.195082186084380,
+        0.171771886492546, 0.148000113014653;
+    Eigen::MatrixXd expected_fixed_inference2(1, 10);
+    expected_fixed_inference2 << 0.300000000000000, 0.216447852615085,
+        0.192938991422715, 0.157977157062240, 0.137601825773716,
+        0.163105165681335, 0.139745549080894, 0.218395346206434,
+        0.262267794124221, 0.318370195713490;
+    Eigen::MatrixXd expected_fixed_inference3(1, 10);
+    expected_fixed_inference3 << 0.500000000000000, 0.511383870278483,
+        0.520159391884796, 0.506487008823786, 0.511540775817981,
+        0.535623786779997, 0.532846380233465, 0.586522467709186,
+        0.565960319383233, 0.533629691271857;
+    Tensor3 expected_fixed_inference({expected_fixed_inference1,
+                                      expected_fixed_inference2,
+                                      expected_fixed_inference3});
+    Tensor3 estimated_fixed_inference =
+        Tensor3(fixed_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(
+        estimated_fixed_inference, expected_fixed_inference, tolerance));
+
+    cout << estimated_fixed_inference << endl;
+}
+
 BOOST_AUTO_TEST_CASE(segment_extension_factor) {
     // Testing whether the extension factor node is working properly at
     // producing an output message for two duration dependencies and
@@ -1525,6 +1610,5 @@ BOOST_AUTO_TEST_CASE(semi_markov_extended_hmm_particle_filter) {
 
     BOOST_TEST(check_tensor_eq(y_estimates, expected_y_estimates, tolerance));
 }
-
 
 BOOST_AUTO_TEST_SUITE_END()

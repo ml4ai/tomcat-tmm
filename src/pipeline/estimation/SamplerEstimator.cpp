@@ -92,12 +92,17 @@ namespace tomcat {
 
                         int k = this->get_model()->get_cardinality_of(
                             this->estimates.label);
+
                         Eigen::VectorXd probs = Eigen::VectorXd::Zero(k);
 
                         const auto& metadata =
                             this->get_model()->get_metadata_of(
                                 this->estimates.label);
-                        if (time_step >= metadata->get_initial_time_step()) {
+                        if (time_step < metadata->get_initial_time_step()) {
+                            // Prior distribution
+                            const auto& node = this->model->get_node(this->estimates.label, metadata->get_initial_time_step());
+                            probs = node->get_cpd()->get_distributions()[0]->get_values(0);
+                        } else {
                             for (int i = 0; i < samples.rows(); i++) {
                                 probs[samples(i, t)] += 1;
                             }

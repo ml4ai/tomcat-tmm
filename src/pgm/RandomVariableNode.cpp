@@ -404,6 +404,11 @@ namespace tomcat {
             return false;
         }
 
+        const RVNodePtrVec&
+        RandomVariableNode::get_children(int time_step) const {
+            return this->children_per_time_step.at(time_step);
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------
@@ -444,9 +449,15 @@ namespace tomcat {
             this->children = children;
 
             for (const auto& child : children) {
+                auto rv_child = dynamic_pointer_cast<RandomVariableNode>(child);
+
+                this->children_per_time_step.resize(rv_child->get_time_step() +
+                                                    1);
+                this->children_per_time_step[rv_child->get_time_step()]
+                    .push_back(rv_child);
+
                 if (child->get_metadata()->is_timer()) {
                     this->child_timer = true;
-                    break;
                 }
             }
         }

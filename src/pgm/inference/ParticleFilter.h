@@ -1,9 +1,10 @@
 #pragma once
 
-#include <vector>
-#include <string>
 #include <memory>
+#include <string>
 #include <unordered_set>
+#include <vector>
+#include <unordered_map>
 
 #include <gsl/gsl_rng.h>
 
@@ -58,6 +59,11 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
+             * Creates template DBN
+             */
+            void prepare();
+
+            /**
              * Generates particles for the next time steps given observations.
              * Particles are generated for the number of time steps contained in
              * the new_data. The last particles are stored in the nodes of the
@@ -105,9 +111,8 @@ namespace tomcat {
              * Creates a short DBN formed by nodes until at most time step 2.
              * After that time step the structure is repeatable.
              *
-             * @param unrolled_dbn: unrolled DBN
              */
-            void create_template_dbn(const DynamicBayesNet& unrolled_dbn);
+            void create_template_dbn();
 
             /**
              * Move particles to the next time step by the underlying process.
@@ -125,10 +130,23 @@ namespace tomcat {
              */
             EvidenceSet resample(const EvidenceSet& new_data, int time_step);
 
+            /**
+             * Update the particles with samples from single time nodes'
+             * posterior distribution. Also, update that distribution to be used
+             * as a prior in the next time step iteration.
+             *
+             * @param particles: particles for non-single time nodes
+             * @param time_step: time step of the inference process
+             */
+            void sample_single_time_nodes(EvidenceSet& particles,
+                                          int time_step);
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
             static inline int LAST_TEMPLATE_TIME_STEP = 2;
+
+            DynamicBayesNet original_dbn;
 
             DynamicBayesNet template_dbn;
 
@@ -143,6 +161,13 @@ namespace tomcat {
             bool show_progress = false;
 
             std::unordered_set<std::string> data_node_labels;
+
+            // Single time nodes have their distributions updated at every time
+            // step and are sampled from these distributions instead of being
+            // resampled by with the particles. This is a similar idea used in
+            // SLAM where the map is a single time node.
+            std::unordered_map<std::string, DistributionPtrVec>
+                single_time_node_distribution_per_particle;
         };
 
     } // namespace model

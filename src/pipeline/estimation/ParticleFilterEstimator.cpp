@@ -56,6 +56,7 @@ namespace tomcat {
         }
 
         void ParticleFilterEstimator::prepare() {
+            this->template_filter.prepare();
             for (auto& base_estimator : this->base_estimators) {
                 base_estimator->prepare();
             }
@@ -75,10 +76,16 @@ namespace tomcat {
 
         void ParticleFilterEstimator::estimate(const EvidenceSet& new_data) {
             unique_ptr<boost::progress_display> progress;
+
+            if (new_data.get_num_data_points() == 1) {
+                this->template_filter.set_show_progress(this->show_progress);
+                this->show_progress = false;
+            }
+
             if (this->show_progress) {
                 cout << "\nEmpirically computing estimations...\n";
                 progress = make_unique<boost::progress_display>(
-                    new_data.get_num_data_points() * new_data.get_time_steps());
+                    new_data.get_num_data_points());
             }
 
             for (int d = 0; d < new_data.get_num_data_points(); d++) {
