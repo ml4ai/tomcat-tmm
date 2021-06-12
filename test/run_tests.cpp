@@ -919,8 +919,6 @@ BOOST_AUTO_TEST_CASE(extended_hmm_particle_filter) {
         Tensor3(fixed_estimator->get_estimates().estimates);
     BOOST_TEST(check_tensor_eq(
         estimated_fixed_inference, expected_fixed_inference, tolerance));
-
-    cout << estimated_fixed_inference << endl;
 }
 
 BOOST_AUTO_TEST_CASE(segment_extension_factor) {

@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <utility>
 
 #include <gsl/gsl_rng.h>
 
@@ -59,11 +60,6 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Creates template DBN
-             */
-            void prepare();
-
-            /**
              * Generates particles for the next time steps given observations.
              * Particles are generated for the number of time steps contained in
              * the new_data. The last particles are stored in the nodes of the
@@ -75,7 +71,8 @@ namespace tomcat {
              * @return Samples generated for each one of the nodes and time
              * steps.
              */
-            EvidenceSet generate_particles(const EvidenceSet& new_data);
+            std::pair<EvidenceSet, EvidenceSet>
+            generate_particles(const EvidenceSet& new_data);
 
             /**
              * Update the particles with samples from single time nodes'
@@ -86,9 +83,10 @@ namespace tomcat {
              *
              * @param particles: particles for non-single time nodes
              * @param time_step: time step of the inference process
+             *
+             * @return Marginal probabilities
              */
-            void sample_single_time_nodes(EvidenceSet& particles,
-                                          int time_step);
+            EvidenceSet apply_rao_blackwellization(int time_step);
 
             /**
              * If the time step is bigger than the number of time steps in the
@@ -130,6 +128,11 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Empty constructor to be called by the clone function.
+             */
+            ParticleFilter();
 
             /**
              * Creates a short DBN formed by nodes until at most time step 2.
@@ -174,6 +177,9 @@ namespace tomcat {
             bool show_progress = false;
 
             std::unordered_set<std::string> data_node_labels;
+
+            // List of nodes that will be rao-blackwellized in order
+            RVNodePtrVec marginal_nodes;
         };
 
     } // namespace model

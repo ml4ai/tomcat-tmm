@@ -106,9 +106,11 @@ namespace tomcat {
             // Data members
             //------------------------------------------------------------------
 
-            ParticleFilter template_filter;
+            int num_particles;
 
-            std::vector<ParticleFilter> filter_per_data_point;
+            std::shared_ptr<gsl_rng> random_generator;
+
+            int num_jobs;
 
             int last_time_step = -1;
 

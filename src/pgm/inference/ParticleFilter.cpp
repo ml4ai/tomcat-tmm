@@ -4,6 +4,8 @@
 
 #include "distribution/Categorical.h"
 #include "distribution/Distribution.h"
+#include "pgm/TimerNode.h"
+#include "utils/EigenExtensions.h"
 #include "utils/Multithreading.h"
 
 namespace tomcat {
@@ -14,6 +16,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
+        ParticleFilter::ParticleFilter() {}
+
         ParticleFilter::ParticleFilter(
             const DynamicBayesNet& dbn,
             int num_particles,
@@ -32,7 +36,9 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
 
-        void ParticleFilter::prepare() {
+        void ParticleFilter::create_template_dbn() {
+            this->template_dbn = this->original_dbn.clone(false);
+            this->template_dbn.unroll(LAST_TEMPLATE_TIME_STEP + 1, true);
             this->template_dbn.mirror_parameter_nodes_from(this->original_dbn);
 
             // We freeze the distributions to optimize computations. This will
@@ -47,14 +53,20 @@ namespace tomcat {
                         rv_node->get_metadata()->get_label());
                 }
             }
+
+            // Single time nodes will be marginalized from the bottom to the
+            // top.
+            for (const auto& node :
+                 this->template_dbn.get_nodes_topological_order(false)) {
+                if (!node->get_metadata()->is_replicable() &&
+                    !node->get_metadata()->is_parameter()) {
+                    this->marginal_nodes.push_back(
+                        dynamic_pointer_cast<RandomVariableNode>(node));
+                }
+            }
         }
 
-        void ParticleFilter::create_template_dbn() {
-            this->template_dbn = this->original_dbn.clone(false);
-            this->template_dbn.unroll(LAST_TEMPLATE_TIME_STEP + 1, true);
-        }
-
-        EvidenceSet
+        pair<EvidenceSet, EvidenceSet>
         ParticleFilter::generate_particles(const EvidenceSet& new_data) {
             unique_ptr<boost::progress_display> progress;
 
@@ -64,12 +76,15 @@ namespace tomcat {
             }
 
             EvidenceSet particles;
+            EvidenceSet marginals;
             int initial_time_step = this->last_time_step + 1;
             int final_time_step =
                 this->last_time_step + new_data.get_time_steps();
             for (int t = initial_time_step; t <= final_time_step; t++) {
                 this->elapse(new_data, t);
                 particles.hstack(this->resample(new_data, t));
+                marginals.hstack(this->apply_rao_blackwellization(t));
+                this->move_particles_back_in_time(t);
 
                 if (this->show_progress) {
                     ++(*progress);
@@ -78,7 +93,7 @@ namespace tomcat {
 
             this->last_time_step = final_time_step;
 
-            return particles;
+            return make_pair(particles, marginals);
         }
 
         void ParticleFilter::elapse(const EvidenceSet& new_data,
@@ -108,6 +123,27 @@ namespace tomcat {
                     Eigen::MatrixXd samples = node->sample(
                         this->random_generators_per_job, this->num_particles);
                     node->set_assignment(samples);
+                    if (node->get_metadata()->is_timer()) {
+                        // Fill forward assignment
+                        Eigen::MatrixXd forward_assignment =
+                            Eigen::MatrixXd::Zero(this->num_particles, 1);
+                        auto timer = dynamic_pointer_cast<TimerNode>(node);
+                        if (auto prev_timer = dynamic_pointer_cast<TimerNode>(
+                                timer->get_previous(1))) {
+                            Eigen::MatrixXd previous_backward_assignment =
+                                prev_timer->get_backward_assignment();
+                            Eigen::MatrixXd previous_forward_assignment =
+                                prev_timer->get_forward_assignment();
+
+                            Eigen::MatrixXd open_segments =
+                                (previous_backward_assignment.array() != 0)
+                                    .cast<double>();
+                            forward_assignment =
+                                (previous_forward_assignment.array() + 1) *
+                                    open_segments.array();
+                        }
+                        timer->set_forward_assignment(forward_assignment);
+                    }
                 }
             }
         }
@@ -198,16 +234,12 @@ namespace tomcat {
                 node->set_assignment(filtered_samples);
             }
 
-            this->sample_single_time_nodes(particles, time_step);
-            this->move_particles_back_in_time(time_step);
-
             return particles;
         }
 
-        void ParticleFilter::sample_single_time_nodes(EvidenceSet& particles,
-                                                      int time_step) {
-            for (const auto& node :
-                 this->template_dbn.get_single_time_nodes()) {
+        EvidenceSet ParticleFilter::apply_rao_blackwellization(int time_step) {
+            EvidenceSet marginals;
+            for (const auto& node : this->marginal_nodes) {
                 if (node->is_frozen()) {
                     // Observations were provided for this node so there's no
                     // need to sample from it.
@@ -259,26 +291,34 @@ namespace tomcat {
                         log_weights_per_particle.array().colwise() /
                         sum_per_row.array();
 
-                    for (int i = 0;
-                         i < node->get_cpd()->get_distributions().size();
-                         i++) {
-                        node->get_cpd()
-                            ->get_distributions()[i]
-                            ->update_from_posterior(cum_posterior_weights);
-                    }
+                    node->get_cpd()
+                        ->get_distributions()[0]
+                        ->update_from_posterior(cum_posterior_weights);
                     node->get_cpd()->freeze_distributions(0);
+                    marginals.add_data(
+                        metadata->get_label(),
+                        Tensor3(
+                            node->get_cpd()->get_distributions()[0]->get_values(
+                                0)));
+
                     Eigen::MatrixXd samples =
-                        //                    node->sample(
-                        //                        this->random_generators_per_job,
-                        //                        this->num_particles);
                         node->get_cpd()->sample_from_posterior(
                             this->random_generators_per_job,
                             posterior_weights_per_particle,
                             node);
-                    particles.add_data(metadata->get_label(), Tensor3(samples));
                     node->set_assignment(samples);
                 }
+                else {
+                    // Prior
+                    marginals.add_data(
+                        metadata->get_label(),
+                        Tensor3(
+                            node->get_cpd()->get_distributions()[0]->get_values(
+                                0)));
+                }
             }
+
+            return marginals;
         }
 
         void ParticleFilter::move_particles_back_in_time(int time_step) {
@@ -295,6 +335,13 @@ namespace tomcat {
                     // nodes at time step 2.
                     if (previous_node) {
                         previous_node->set_assignment(node->get_assignment());
+
+                        if (node->get_metadata()->is_timer()) {
+                            dynamic_pointer_cast<TimerNode>(previous_node)
+                                ->set_forward_assignment(
+                                    dynamic_pointer_cast<TimerNode>(node)
+                                        ->get_forward_assignment());
+                        }
                     }
                 }
             }
