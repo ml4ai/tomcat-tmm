@@ -250,7 +250,6 @@ namespace tomcat {
                 if (this->has_data_for(label)) {
                     this->node_label_to_data.at(label).vstack(
                         other.node_label_to_data.at(label));
-                    this->num_data_points += other.get_num_data_points();
                 }
                 else {
                     this->node_label_to_data[label] =

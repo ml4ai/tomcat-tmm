@@ -2,9 +2,9 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <unordered_map>
 
 #include <gsl/gsl_rng.h>
 
@@ -78,6 +78,30 @@ namespace tomcat {
             EvidenceSet generate_particles(const EvidenceSet& new_data);
 
             /**
+             * Update the particles with samples from single time nodes'
+             * posterior distribution. Also, update that distribution to be used
+             * as a prior in the next time step iteration. This is called
+             * Rao-Blackwellization process, commonly used in SLAM for map
+             * estimation.
+             *
+             * @param particles: particles for non-single time nodes
+             * @param time_step: time step of the inference process
+             */
+            void sample_single_time_nodes(EvidenceSet& particles,
+                                          int time_step);
+
+            /**
+             * If the time step is bigger than the number of time steps in the
+             * template DBN, we move the particles to the nodes in the before
+             * last time step of the template DBN so that in the next time step
+             * iteration they become parents of the nodes being sampled.
+             *
+             * @param time_step: current time step which particles are being
+             * generated to
+             */
+            void move_particles_back_in_time(int time_step);
+
+            /**
              * Generates particles for a fixed number of time steps in the
              * future. This procedure returns the samples generated but does not
              * store the last samples in the nodes of the template dbn.
@@ -130,17 +154,6 @@ namespace tomcat {
              */
             EvidenceSet resample(const EvidenceSet& new_data, int time_step);
 
-            /**
-             * Update the particles with samples from single time nodes'
-             * posterior distribution. Also, update that distribution to be used
-             * as a prior in the next time step iteration.
-             *
-             * @param particles: particles for non-single time nodes
-             * @param time_step: time step of the inference process
-             */
-            void sample_single_time_nodes(EvidenceSet& particles,
-                                          int time_step);
-
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
@@ -161,13 +174,6 @@ namespace tomcat {
             bool show_progress = false;
 
             std::unordered_set<std::string> data_node_labels;
-
-            // Single time nodes have their distributions updated at every time
-            // step and are sampled from these distributions instead of being
-            // resampled by with the particles. This is a similar idea used in
-            // SLAM where the map is a single time node.
-            std::unordered_map<std::string, DistributionPtrVec>
-                single_time_node_distribution_per_particle;
         };
 
     } // namespace model

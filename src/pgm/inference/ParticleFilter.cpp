@@ -45,26 +45,6 @@ namespace tomcat {
                     rv_node->get_cpd()->freeze_distributions(0);
                     data_node_labels.insert(
                         rv_node->get_metadata()->get_label());
-
-                    if (!node->get_metadata()->is_replicable()) {
-                        // Each particle starts with the prior distribution
-                        for (int i = 0; i < this->num_particles; i++) {
-                            DistributionPtr distribution =
-                                move(rv_node->get_cpd()
-                                         ->get_distributions()[0]
-                                         ->clone());
-                            this->single_time_node_distribution_per_particle
-                                [node->get_metadata()->get_label()]
-                                    .push_back(distribution);
-                        }
-
-                        rv_node->set_assignment(
-                            rv_node->get_cpd()
-                                ->get_distributions()[0]
-                                ->sample_many(this->random_generators_per_job,
-                                              this->num_particles,
-                                              0));
-                    }
                 }
             }
         }
@@ -125,14 +105,9 @@ namespace tomcat {
                     }
                 }
                 else {
-                    if (node->get_metadata()->is_replicable()) {
-                        // Single time nodes will be sampled directly from their
-                        // updated posterior
-                        Eigen::MatrixXd samples =
-                            node->sample(this->random_generators_per_job,
-                                         this->num_particles);
-                        node->set_assignment(samples);
-                    }
+                    Eigen::MatrixXd samples = node->sample(
+                        this->random_generators_per_job, this->num_particles);
+                    node->set_assignment(samples);
                 }
             }
         }
@@ -220,25 +195,11 @@ namespace tomcat {
                 }
 
                 particles.add_data(node_label, filtered_samples_tensor);
-
-                if (time_step > LAST_TEMPLATE_TIME_STEP) {
-                    const auto& prev_node = this->template_dbn.get_node(
-                        node_label, LAST_TEMPLATE_TIME_STEP - 1);
-                    // We save the assignment in the node at time step 1
-                    // because next time we elapse, nodes in time step 2
-                    // will be sampled. Therefore, the samples generated
-                    // here will be assigned to the proper parent of the
-                    // nodes at time step 2.
-                    if (prev_node) {
-                        prev_node->set_assignment(filtered_samples);
-                    }
-                }
-                else {
-                    node->set_assignment(filtered_samples);
-                }
+                node->set_assignment(filtered_samples);
             }
 
             this->sample_single_time_nodes(particles, time_step);
+            this->move_particles_back_in_time(time_step);
 
             return particles;
         }
@@ -255,15 +216,18 @@ namespace tomcat {
 
                 const auto& metadata = node->get_metadata();
                 if (metadata->get_initial_time_step() <= time_step) {
-                    Eigen::MatrixXd log_weights = Eigen::MatrixXd::Zero(
-                        this->num_particles,
+                    Eigen::VectorXd cum_log_weights = Eigen::VectorXd::Zero(
                         node->get_metadata()->get_cardinality());
+                    Eigen::MatrixXd log_weights_per_particle =
+                        Eigen::MatrixXd::Zero(
+                            this->num_particles,
+                            node->get_metadata()->get_cardinality());
 
-                    int template_time_step =
+                    int children_template_time_step =
                         min(time_step, LAST_TEMPLATE_TIME_STEP);
 
                     for (const auto& child :
-                         node->get_children(template_time_step)) {
+                         node->get_children(children_template_time_step)) {
                         Eigen::MatrixXd child_weights =
                             child->get_cpd()->get_posterior_weights(
                                 child->get_parents(),
@@ -271,31 +235,67 @@ namespace tomcat {
                                 child,
                                 this->random_generators_per_job.size());
 
-                        log_weights = (child_weights.array() + EPSILON).log();
+                        cum_log_weights.array() +=
+                            (child_weights.colwise().sum().array() + EPSILON)
+                                .log();
+                        log_weights_per_particle.array() +=
+                            (child_weights.array() + EPSILON).log();
                     }
 
                     // Unlog and normalize the weights
-                    log_weights.colwise() -= log_weights.rowwise().maxCoeff();
-                    log_weights = log_weights.array().exp();
-                    Eigen::VectorXd sum_per_row = log_weights.rowwise().sum();
-                    Eigen::MatrixXd posterior_weights =
-                        (log_weights.array().colwise() / sum_per_row.array());
+                    cum_log_weights =
+                        cum_log_weights.array() - cum_log_weights.maxCoeff();
+                    cum_log_weights = cum_log_weights.array().exp();
+                    Eigen::VectorXd cum_posterior_weights =
+                        cum_log_weights.array() / cum_log_weights.sum();
 
-                    Eigen::MatrixXd samples(this->num_particles, 1);
-                    for (int i = 0; i < this->num_particles; i++) {
-                        auto& distribution =
-                            this->single_time_node_distribution_per_particle
-                                [metadata->get_label()][i];
-                        distribution->update_from_posterior(
-                            posterior_weights.row(i));
-                        auto sample = distribution->sample(
-                            this->random_generators_per_job[0], 0);
-                        samples.conservativeResize(this->num_particles,
-                                                   sample.size());
-                        samples.row(i) = move(sample);
+                    log_weights_per_particle.colwise() -=
+                        log_weights_per_particle.rowwise().maxCoeff();
+                    log_weights_per_particle =
+                        log_weights_per_particle.array().exp();
+                    Eigen::VectorXd sum_per_row =
+                        log_weights_per_particle.rowwise().sum();
+                    Eigen::MatrixXd posterior_weights_per_particle =
+                        log_weights_per_particle.array().colwise() /
+                        sum_per_row.array();
+
+                    for (int i = 0;
+                         i < node->get_cpd()->get_distributions().size();
+                         i++) {
+                        node->get_cpd()
+                            ->get_distributions()[i]
+                            ->update_from_posterior(cum_posterior_weights);
                     }
-
+                    node->get_cpd()->freeze_distributions(0);
+                    Eigen::MatrixXd samples =
+                        //                    node->sample(
+                        //                        this->random_generators_per_job,
+                        //                        this->num_particles);
+                        node->get_cpd()->sample_from_posterior(
+                            this->random_generators_per_job,
+                            posterior_weights_per_particle,
+                            node);
                     particles.add_data(metadata->get_label(), Tensor3(samples));
+                    node->set_assignment(samples);
+                }
+            }
+        }
+
+        void ParticleFilter::move_particles_back_in_time(int time_step) {
+            if (time_step > LAST_TEMPLATE_TIME_STEP) {
+                for (const auto& node : this->template_dbn.get_data_nodes(
+                         LAST_TEMPLATE_TIME_STEP)) {
+                    auto previous_node = this->template_dbn.get_node(
+                        node->get_metadata()->get_label(),
+                        LAST_TEMPLATE_TIME_STEP - 1);
+                    // We save the assignment in the node at time step 1
+                    // because next time we elapse, nodes in time step 2
+                    // will be sampled. Therefore, the samples generated
+                    // here will be assigned to the proper parent of the
+                    // nodes at time step 2.
+                    if (previous_node) {
+                        previous_node->set_assignment(node->get_assignment());
+                    }
                 }
             }
         }
