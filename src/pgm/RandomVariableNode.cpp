@@ -224,8 +224,12 @@ namespace tomcat {
                 // Left segment
                 Eigen::MatrixXd left_seg_weights =
                     left_last_timer->get_cpd()
-                        ->get_left_segment_posterior_weights(left_last_timer,
+                        ->get_left_segment_posterior_weights(shared_from_this(),
+                                                             left_last_timer,
+                                                             true,
+                                                             central_state,
                                                              right_state,
+                                                             this->get_time_step(),
                                                              last_time_step,
                                                              num_jobs);
                 segments_weights = (left_seg_weights.array() + EPSILON).log();
@@ -409,6 +413,13 @@ namespace tomcat {
             return this->children_per_time_step.at(time_step);
         }
 
+        void
+        RandomVariableNode::set_assignment(int i, int j, double value) {
+            if (!this->frozen) {
+                this->assignment(i, j) = value;
+            }
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------
@@ -451,8 +462,9 @@ namespace tomcat {
             for (const auto& child : children) {
                 auto rv_child = dynamic_pointer_cast<RandomVariableNode>(child);
 
-                this->children_per_time_step.resize(rv_child->get_time_step() +
-                                                    1);
+                int new_size = max(rv_child->get_time_step() + 1,
+                                   (int) this->children_per_time_step.size());
+                this->children_per_time_step.resize(new_size);
                 this->children_per_time_step[rv_child->get_time_step()]
                     .push_back(rv_child);
 

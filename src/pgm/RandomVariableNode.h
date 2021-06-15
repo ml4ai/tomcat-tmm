@@ -301,6 +301,15 @@ namespace tomcat {
             const RVNodePtrVec&
             get_children(int time_step) const;
 
+            /**
+             * Modify a single assignment value.
+             *
+             * @param i: row
+             * @param j: column
+             * @param value: value
+             */
+            void set_assignment(int i, int j, double value);
+
             // -----------------------------------------------------------------
             // Getters & Setters
             // -----------------------------------------------------------------

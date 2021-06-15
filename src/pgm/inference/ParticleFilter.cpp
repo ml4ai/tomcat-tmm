@@ -51,6 +51,34 @@ namespace tomcat {
                     rv_node->get_cpd()->freeze_distributions(0);
                     data_node_labels.insert(
                         rv_node->get_metadata()->get_label());
+
+                    // Keep separate structure for left segment timers
+                    if (node->get_metadata()->is_timer()) {
+                        const string& node_label =
+                            node->get_metadata()->get_label();
+                        NodePtr cloned_node = move(node->clone());
+                        this->left_segment_timer_map[node_label] =
+                            dynamic_pointer_cast<TimerNode>(cloned_node);
+                        this->left_segment_timer_map[node_label]
+                            ->get_cpd()
+                            ->freeze_distributions(0);
+                        NodePtrVec parents;
+                        for (const auto& parent : rv_node->get_parents()) {
+                            dynamic_pointer_cast<RandomVariableNode>(parent)
+                                ->set_assignment(Eigen::MatrixXd::Zero(
+                                    this->num_particles,
+                                    parent->get_metadata()->get_sample_size()));
+                            parents.push_back(move(parent->clone()));
+                        }
+                        this->left_segment_timer_map[node_label]->set_parents(
+                            parents);
+                        this->left_segment_timer_map[node_label]
+                            ->set_assignment(
+                                Eigen::MatrixXd::Zero(this->num_particles, 1));
+                        this->left_segment_timer_map[node_label]
+                            ->set_forward_assignment(
+                                Eigen::MatrixXd::Zero(this->num_particles, 1));
+                    }
                 }
             }
 
@@ -83,6 +111,7 @@ namespace tomcat {
             for (int t = initial_time_step; t <= final_time_step; t++) {
                 this->elapse(new_data, t);
                 particles.hstack(this->resample(new_data, t));
+                this->update_left_segment_particles(t);
                 marginals.hstack(this->apply_rao_blackwellization(t));
                 this->move_particles_back_in_time(t);
 
@@ -123,27 +152,68 @@ namespace tomcat {
                     Eigen::MatrixXd samples = node->sample(
                         this->random_generators_per_job, this->num_particles);
                     node->set_assignment(samples);
-                    if (node->get_metadata()->is_timer()) {
-                        // Fill forward assignment
-                        Eigen::MatrixXd forward_assignment =
-                            Eigen::MatrixXd::Zero(this->num_particles, 1);
-                        auto timer = dynamic_pointer_cast<TimerNode>(node);
-                        if (auto prev_timer = dynamic_pointer_cast<TimerNode>(
-                                timer->get_previous(1))) {
-                            Eigen::MatrixXd previous_backward_assignment =
-                                prev_timer->get_backward_assignment();
-                            Eigen::MatrixXd previous_forward_assignment =
-                                prev_timer->get_forward_assignment();
 
-                            Eigen::MatrixXd open_segments =
-                                (previous_backward_assignment.array() != 0)
-                                    .cast<double>();
-                            forward_assignment =
-                                (previous_forward_assignment.array() + 1) *
-                                    open_segments.array();
-                        }
-                        timer->set_forward_assignment(forward_assignment);
+                    if (node->get_metadata()->is_timer()) {
+                        auto timer = dynamic_pointer_cast<TimerNode>(node);
+                        this->update_timer_forward_assignment(timer);
                     }
+                }
+            }
+        }
+
+        void ParticleFilter::update_timer_forward_assignment(
+            const TimerNodePtr& timer) {
+            Eigen::MatrixXd forward_assignment =
+                Eigen::MatrixXd::Zero(this->num_particles, 1);
+            if (auto prev_timer =
+                    dynamic_pointer_cast<TimerNode>(timer->get_previous(1))) {
+                Eigen::MatrixXd previous_backward_assignment =
+                    prev_timer->get_backward_assignment();
+                Eigen::MatrixXd previous_forward_assignment =
+                    prev_timer->get_forward_assignment();
+
+                Eigen::MatrixXd open_segments =
+                    (previous_backward_assignment.array() != 0).cast<double>();
+                forward_assignment = (previous_forward_assignment.array() + 1) *
+                                     open_segments.array();
+            }
+            timer->set_forward_assignment(forward_assignment);
+        }
+
+        void ParticleFilter::update_left_segment_particles(int time_step) {
+            int template_time_step = min(time_step, LAST_TEMPLATE_TIME_STEP);
+            for (const auto& [timer_label, left_segment] :
+                 this->left_segment_timer_map) {
+                const TimerNodePtr& timer =
+                    dynamic_pointer_cast<TimerNode>(this->template_dbn.get_node(
+                        timer_label, template_time_step));
+
+                Eigen::MatrixXd new_segments =
+                    (timer->get_forward_assignment().array() == 0)
+                        .cast<double>();
+                Eigen::MatrixXd open_segments =
+                    (timer->get_forward_assignment().array() != 0)
+                        .cast<double>();
+
+                Eigen::MatrixXd new_particles =
+                    left_segment->get_assignment().array() *
+                        open_segments.array() +
+                    timer->get_assignment().array() * new_segments.array();
+                left_segment->set_assignment(new_particles);
+
+                for (const auto& parent : left_segment->get_parents()) {
+                    int parent_time_step = timer->get_time_step();
+                    if (dynamic_pointer_cast<RandomVariableNode>(parent)
+                            ->get_time_step() < left_segment->get_time_step()) {
+                        parent_time_step -= 1;
+                    }
+                    const auto& real_parent = this->template_dbn.get_node(
+                        parent->get_metadata()->get_label(), parent_time_step);
+                    new_particles = parent->get_assignment().array() *
+                                        open_segments.array() +
+                                    real_parent->get_assignment().array() *
+                                        new_segments.array();
+                    left_segment->set_assignment(new_particles);
                 }
             }
         }
@@ -266,6 +336,46 @@ namespace tomcat {
                                 node,
                                 child,
                                 this->random_generators_per_job.size());
+
+                        if (child->has_timer() && time_step > 0) {
+//                            const auto& left_state = child->get_previous();
+//                            const auto& central_timer = child->get_timer();
+//
+//                            const auto& left_last_timer =
+//                                this->left_segment_timer_map
+//                                    [child->get_timer()
+//                                         ->get_metadata()
+//                                         ->get_label()];
+//
+//                            Eigen::MatrixXd left_seg_weights =
+//                                left_last_timer->get_cpd()
+//                                    ->get_multi_left_segment_posterior_weights(
+//                                        left_last_timer,
+//                                        nullptr,
+//                                        time_step,
+//                                        this->random_generators_per_job.size());
+//                            Eigen::MatrixXd segment_weights =
+//                                (left_seg_weights.array() + EPSILON).log();
+//
+//                            Eigen::MatrixXd central_seg_weights =
+//                                child->get_timer()
+//                                    ->get_cpd()
+//                                    ->get_central_segment_posterior_weights(
+//                                        left_state,
+//                                        central_timer,
+//                                        nullptr,
+//                                        time_step,
+//                                        this->random_generators_per_job.size());
+//
+//                            segment_weights =
+//                                (segment_weights.array() +
+//                                 (central_seg_weights.array() + EPSILON).log());
+//                            cum_log_weights = (cum_log_weights.array() +
+//                                               segment_weights.array());
+//
+//                            child_weights =
+//                                child_weights.array() * segment_weights.array();
+                        }
 
                         cum_log_weights.array() +=
                             (child_weights.colwise().sum().array() + EPSILON)

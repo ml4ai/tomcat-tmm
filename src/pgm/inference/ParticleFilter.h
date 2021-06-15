@@ -4,8 +4,8 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include <gsl/gsl_rng.h>
 
@@ -157,6 +157,23 @@ namespace tomcat {
              */
             EvidenceSet resample(const EvidenceSet& new_data, int time_step);
 
+            /**
+             * Update the forward assignment of a timer node which accounts for
+             * the length of a current segment from the left to the right.
+             * .
+             * @param timer: timer node that is being sampled
+             */
+            void update_timer_forward_assignment(const TimerNodePtr& timer);
+
+            /**
+             * Keep in a separate structure, particles related to the beginning
+             * of the latest left segment created by a timer. That is, whenever
+             * the timer starts a new forward counter, a new segment begins.
+             *
+             *  @param time_step: time step being sampled
+             */
+            void update_left_segment_particles(int time_step);
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
@@ -180,6 +197,11 @@ namespace tomcat {
 
             // List of nodes that will be rao-blackwellized in order
             RVNodePtrVec marginal_nodes;
+
+            // For each timer node, keeps one copy of that node and its parents
+            // with assignments at the beginning of a new segment.
+            std::unordered_map<std::string, TimerNodePtr>
+                left_segment_timer_map;
         };
 
     } // namespace model

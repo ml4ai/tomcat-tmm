@@ -96,9 +96,12 @@ namespace tomcat {
              * @return Left segment posterior weights
              */
             Eigen::VectorXd get_left_segment_posterior_weights(
-                const std::shared_ptr<const RandomVariableNode>&
+                const std::shared_ptr<RandomVariableNode>& sampled_node,
+                const std::shared_ptr<RandomVariableNode>&
+                central_segment_state,
+                const std::shared_ptr<RandomVariableNode>&
                     right_segment_state,
-                int left_segment_duration,
+                int central_segment_time_step,
                 int last_time_step,
                 int sample_idx) const;
 
