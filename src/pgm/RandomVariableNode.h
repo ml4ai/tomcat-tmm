@@ -298,8 +298,7 @@ namespace tomcat {
              *
              * @return List of child nodes
              */
-            const RVNodePtrVec&
-            get_children(int time_step) const;
+            const RVNodePtrVec& get_children(int time_step) const;
 
             /**
              * Modify a single assignment value.
@@ -433,7 +432,7 @@ namespace tomcat {
 
             /**
              * Computes posterior weights from the left, central and right
-             * segments from a time controlled node.
+             * segments of a time controlled node.
              *
              *  1. If node == left seg. values and node == right seg. values
              *  p(duration left + 1 + duration right)
@@ -451,6 +450,7 @@ namespace tomcat {
              *  p(duration central == 1)p(right seg. value | node value)
              *  p(duration right)
              *
+             * @param time_controlled_node: node controlled by a timer
              * @param num_jobs: number of threads to perform vertical
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
@@ -459,7 +459,9 @@ namespace tomcat {
              * @return Posterior weights for the left, central and right
              * segments combined
              */
-            Eigen::MatrixXd get_segments_log_posterior_weights(int num_jobs);
+            Eigen::MatrixXd get_segments_log_posterior_weights(
+                const std::shared_ptr<RandomVariableNode>& time_controlled_node,
+                int num_jobs);
 
             //------------------------------------------------------------------
             // Data members
