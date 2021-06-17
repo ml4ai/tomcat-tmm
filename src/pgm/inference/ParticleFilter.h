@@ -165,15 +165,6 @@ namespace tomcat {
              */
             void update_timer_forward_assignment(const TimerNodePtr& timer);
 
-            /**
-             * Keep in a separate structure, particles related to the beginning
-             * of the latest left segment created by a timer. That is, whenever
-             * the timer starts a new forward counter, a new segment begins.
-             *
-             *  @param time_step: time step being sampled
-             */
-            void update_left_segment_particles(int time_step);
-
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
@@ -198,10 +189,8 @@ namespace tomcat {
             // List of nodes that will be rao-blackwellized in order
             RVNodePtrVec marginal_nodes;
 
-            // For each timer node, keeps one copy of that node and its parents
-            // with assignments at the beginning of a new segment.
-            std::unordered_map<std::string, TimerNodePtr>
-                left_segment_timer_map;
+            // Label of the nodes that will be marginalized
+            std::unordered_set<std::string> marginal_set;
         };
 
     } // namespace model

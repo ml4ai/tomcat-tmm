@@ -163,16 +163,6 @@ namespace tomcat {
                 Eigen::MatrixXd child_log_weights =
                     (child_weights.array() + EPSILON).log();
 
-                // Include posterior weights of immediate segments for nodes
-                // that are time controlled.
-                Eigen::MatrixXd segments_weights =
-                    this->get_segments_log_posterior_weights(rv_child,
-                                                             num_jobs);
-                if (segments_weights.size() > 0) {
-                    child_log_weights =
-                        (child_log_weights.array() + segments_weights.array());
-                }
-
                 if (!this->get_metadata()->is_in_plate()) {
                     // Multiply the weights of each one of the assignments of
                     // the child node. When an off-plate node is
@@ -186,6 +176,15 @@ namespace tomcat {
                 log_weights = (log_weights.array() + child_log_weights.array());
             }
 
+            // Include posterior weights of immediate segments for nodes
+            // that are time controlled.
+            Eigen::MatrixXd segment_log_weights =
+                this->get_segments_log_posterior_weights(num_jobs);
+            if (segment_log_weights.size() > 0) {
+                log_weights =
+                    (log_weights.array() + segment_log_weights.array());
+            }
+
             // Unlog and normalize the weights
             log_weights.colwise() -= log_weights.rowwise().maxCoeff();
             log_weights = log_weights.array().exp();
@@ -194,20 +193,18 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd RandomVariableNode::get_segments_log_posterior_weights(
-            const shared_ptr<RandomVariableNode>& time_controlled_node,
             int num_jobs) {
             Eigen::MatrixXd segments_weights(0, 0);
 
-            if (!time_controlled_node->has_timer()) {
+            if (!this->has_timer()) {
                 // No weights if the node is not controlled by a timer
                 return segments_weights;
             }
 
-            const auto& central_state = time_controlled_node;
-            const auto& left_state = time_controlled_node->get_previous();
-            const auto& right_state = time_controlled_node->get_next();
+            const auto& left_state = this->get_previous();
+            const auto& right_state = this->get_next();
 
-            const auto& central_timer = time_controlled_node->get_timer();
+            const auto& central_timer = this->get_timer();
             const auto& left_last_timer =
                 left_state ? left_state->get_timer() : nullptr;
             const auto& right_first_timer =
@@ -216,7 +213,7 @@ namespace tomcat {
             // Last time step being sampled. This will be used to deal with
             // right segment truncation in the computation of the segment
             // posteriors.
-            int last_time_step = time_controlled_node->timed_copies->size() - 1;
+            int last_time_step = this->timed_copies->size() - 1;
 
             // Left segment
             if (left_state) {
@@ -224,12 +221,10 @@ namespace tomcat {
                 Eigen::MatrixXd left_seg_weights =
                     left_last_timer->get_cpd()
                         ->get_left_segment_posterior_weights(
-                            shared_from_this(),
                             left_last_timer,
                             true,
-                            central_state,
                             right_state,
-                            time_controlled_node->get_time_step(),
+                            this->get_time_step(),
                             last_time_step,
                             num_jobs);
                 segments_weights = (left_seg_weights.array() + EPSILON).log();
@@ -238,7 +233,6 @@ namespace tomcat {
             // Central segment
             Eigen::MatrixXd central_seg_weights =
                 this->timer->get_cpd()->get_central_segment_posterior_weights(
-                    shared_from_this(),
                     left_state,
                     central_timer,
                     right_state,
@@ -259,8 +253,6 @@ namespace tomcat {
                 Eigen::MatrixXd right_seg_weights =
                     right_first_timer->get_cpd()
                         ->get_right_segment_posterior_weights(
-                            shared_from_this(),
-                            central_state,
                             right_first_timer,
                             last_time_step,
                             num_jobs);

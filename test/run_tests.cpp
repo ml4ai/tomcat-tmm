@@ -1589,6 +1589,9 @@ BOOST_AUTO_TEST_CASE(semi_markov_extended_hmm_particle_filter) {
 
     BOOST_TEST(check_tensor_eq(x_estimates, expected_x_estimates, tolerance));
 
+    cout << x_estimates << endl;
+    cout << expected_x_estimates << endl;
+
     Tensor3 y_estimates(y_estimator->get_estimates().estimates);
 
     vector<Eigen::MatrixXd> expected_y_estimates_matrices(2);

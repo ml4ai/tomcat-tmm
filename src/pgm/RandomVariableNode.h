@@ -450,7 +450,6 @@ namespace tomcat {
              *  p(duration central == 1)p(right seg. value | node value)
              *  p(duration right)
              *
-             * @param time_controlled_node: node controlled by a timer
              * @param num_jobs: number of threads to perform vertical
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
@@ -460,7 +459,6 @@ namespace tomcat {
              * segments combined
              */
             Eigen::MatrixXd get_segments_log_posterior_weights(
-                const std::shared_ptr<RandomVariableNode>& time_controlled_node,
                 int num_jobs);
 
             //------------------------------------------------------------------
