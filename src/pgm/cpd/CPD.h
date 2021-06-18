@@ -350,6 +350,21 @@ namespace tomcat {
                 int last_time_step,
                 int num_jobs) const;
 
+            /**
+             * Computes posterior a distribution for each posterior weight.
+             *
+             * @param posterior_weights: posterior weights given by the product
+             * of p(children(node)|node)
+             * @param cpd_owner: node that owns this CPD
+             * @param num_jobs: number of threads used in the computation
+             *
+             * @return Sample from the node's posterior.
+             */
+            std::vector<DistributionPtr> get_posterior(
+                const Eigen::MatrixXd& posterior_weights,
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                int num_jobs) const;
+
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
@@ -361,7 +376,7 @@ namespace tomcat {
              * index the CPD
              * @param sampled_node: random variable for with the posterior is
              * being computed
-             * @param cpd_owner: Node that owns this CPD
+             * @param cpd_owner: node that owns this CPD
              * @param num_jobs: number of threads to perform vertical
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
@@ -819,6 +834,27 @@ namespace tomcat {
                 Eigen::VectorXd& full_pdfs,
                 const std::pair<int, int>& processing_block,
                 std::mutex& pdf_mutex) const;
+
+            /**
+             * Update list of posterior distributions in a separate thread
+             *
+             * @param posterior_weights: posterior weights given by the product
+             * of p(children(node)|node)
+             * @param distribution_indices: indices of the distributions from
+             * this CPD to be used
+             * @param processing_block: block of data to process in this thread
+             * @param full_distributions: complete list of posteriors to be
+             * partially (or fully if a single thread does all the updates)
+             * updated by this function
+             * @param posterior_mutex: mutex to control modifying the
+             * full_distributions vector
+             */
+            void run_get_posterior_thread(
+                const Eigen::MatrixXd& posterior_weights,
+                const Eigen::VectorXi& distribution_indices,
+                const std::pair<int, int>& processing_block,
+                std::vector<DistributionPtr>& full_distributions,
+                std::mutex& posterior_mutex) const;
 
             //------------------------------------------------------------------
             // Data members

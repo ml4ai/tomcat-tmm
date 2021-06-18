@@ -854,6 +854,8 @@ BOOST_AUTO_TEST_CASE(extended_hmm_particle_filter) {
     data.add_data("Obs1", Tensor3(obs1));
     data.add_data("Obs2", Tensor3(obs2));
 
+//    data.shrink_up_to(4);
+
     // Model
     DBNPtr model = make_shared<DynamicBayesNet>(
         DynamicBayesNet::create_from_json("models/extended_hmm.json"));
@@ -873,7 +875,7 @@ BOOST_AUTO_TEST_CASE(extended_hmm_particle_filter) {
     particle_estimator.prepare();
     particle_estimator.estimate(data);
 
-    double tolerance = 0.1;
+    double tolerance = 0.05;
     Eigen::MatrixXd expected_state_inference1(1, 10);
     expected_state_inference1 << 0.300000000000000, 0.357636333420384,
         0.412468155252510, 0.334197212946051, 0.437342150389305,
@@ -1588,9 +1590,6 @@ BOOST_AUTO_TEST_CASE(semi_markov_extended_hmm_particle_filter) {
     Tensor3 expected_x_estimates(expected_x_estimates_matrices);
 
     BOOST_TEST(check_tensor_eq(x_estimates, expected_x_estimates, tolerance));
-
-    cout << x_estimates << endl;
-    cout << expected_x_estimates << endl;
 
     Tensor3 y_estimates(y_estimator->get_estimates().estimates);
 

@@ -1,5 +1,6 @@
 #include "CPD.h"
 
+#include <algorithm>
 #include <thread>
 
 #include "pgm/RandomVariableNode.h"
@@ -493,7 +494,7 @@ namespace tomcat {
                     if (!timer->get_next(segment_duration + 1)) {
                         // If the timer is the last right segment. We use the
                         // CDF instead.
-                        use_cdf = true;
+                        // use_cdf = true;
                     }
                 }
 
@@ -1131,6 +1132,78 @@ namespace tomcat {
 
             scoped_lock lock(weights_mutex);
             full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
+        }
+
+        vector<DistributionPtr> CPD::get_posterior(
+            const Eigen::MatrixXd& posterior_weights,
+            const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+            int num_jobs) const {
+
+            int num_indices = posterior_weights.rows();
+            Eigen::VectorXi distribution_indices =
+                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
+                                                       num_indices);
+
+            int sample_size = cpd_owner->get_metadata()->get_sample_size();
+            vector<DistributionPtr> posterior_distributions(num_indices);
+            mutex posterior_mutex;
+
+            const auto processing_blocks =
+                get_parallel_processing_blocks(num_jobs, num_indices);
+
+            if (processing_blocks.size() == 1) {
+                // Run in the main thread
+                this->run_get_posterior_thread(posterior_weights,
+                                               distribution_indices,
+                                               make_pair(0, num_indices),
+                                               posterior_distributions,
+                                               posterior_mutex);
+            }
+            else {
+                vector<thread> threads;
+                for (int i = 0; i < processing_blocks.size(); i++) {
+                    thread posterior_thread(&CPD::run_get_posterior_thread,
+                                            this,
+                                            ref(posterior_weights),
+                                            ref(distribution_indices),
+                                            ref(processing_blocks.at(i)),
+                                            ref(posterior_distributions),
+                                            ref(posterior_mutex));
+                    threads.push_back(move(posterior_thread));
+                }
+
+                for (auto& posterior_thread : threads) {
+                    posterior_thread.join();
+                }
+            }
+
+            return posterior_distributions;
+        }
+
+        void CPD::run_get_posterior_thread(
+            const Eigen::MatrixXd& posterior_weights,
+            const Eigen::VectorXi& distribution_indices,
+            const pair<int, int>& processing_block,
+            vector<DistributionPtr>& full_distributions,
+            mutex& posterior_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
+            vector<DistributionPtr> posteriors(num_rows);
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
+                int distribution_idx = distribution_indices[i];
+                const auto& distribution =
+                    this->distributions[distribution_idx];
+
+                posteriors[i] = move(distribution->clone());
+                posteriors[i]->update_from_posterior(posterior_weights.row(i));
+            }
+
+            scoped_lock lock(posterior_mutex);
+            copy(posteriors.begin(),
+                 posteriors.end(),
+                 full_distributions.begin() + initial_row);
         }
 
         int CPD::get_indexed_distribution_idx(

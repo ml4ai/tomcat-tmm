@@ -191,6 +191,9 @@ namespace tomcat {
 
             // Label of the nodes that will be marginalized
             std::unordered_set<std::string> marginal_set;
+
+            // Posterior weights updated per particle of nodes being marginalized
+            std::unordered_map<std::string, Eigen::MatrixXd> marginal_posterior_weights;
         };
 
     } // namespace model

@@ -63,13 +63,14 @@ namespace tomcat {
 
                     RVNodePtr rv_node =
                         dynamic_pointer_cast<RandomVariableNode>(node);
+                    const auto& metadata = node->get_metadata();
 
-                    if (!rv_node->has_child_timer()) {
-                        this->marginal_nodes.push_back(
-                            dynamic_pointer_cast<RandomVariableNode>(node));
-                        this->marginal_set.insert(
-                            node->get_metadata()->get_label());
-                    }
+                    this->marginal_nodes.push_back(
+                        dynamic_pointer_cast<RandomVariableNode>(node));
+                    this->marginal_set.insert(metadata->get_label());
+                    this->marginal_posterior_weights[metadata->get_label()] =
+                        Eigen::MatrixXd::Ones(this->num_particles,
+                                              metadata->get_cardinality());
                 }
             }
         }
@@ -128,6 +129,24 @@ namespace tomcat {
                     }
                 }
                 else {
+//                    if (node_label == "State") {
+//                        Eigen::MatrixXd states(5, 5);
+//                        states << 3, 3, 1, 3, 2, 2, 3, 1, 3, 3, 1, 3, 3, 2, 1,
+//                            3, 3, 2, 3, 1, 3, 1, 2, 2, 1;
+//                        states.transposeInPlace();
+//                        states.array() -= 1;
+//                        node->set_assignment(states.col(time_step));
+//                        continue;
+//                    }
+//                    else if (node_label == "Fixed") {
+//                        Eigen::MatrixXd fixed(1, 5);
+//                        fixed << 1, 3, 3, 3, 2;
+//                        fixed.transposeInPlace();
+//                        fixed.array() -= 1;
+//                        node->set_assignment(fixed);
+//                        continue;
+//                    }
+
                     Eigen::MatrixXd samples = node->sample(
                         this->random_generators_per_job, this->num_particles);
                     node->set_assignment(samples);
@@ -197,6 +216,13 @@ namespace tomcat {
                             .sample_many(this->random_generators_per_job,
                                          this->num_particles,
                                          0);
+
+//                    Eigen::MatrixXd particles(4, 5);
+//                    particles << 1, 1, 4, 3, 5, 4, 1, 2, 1, 1, 3, 3, 4, 5, 5, 5,
+//                        2, 3, 4, 5;
+//                    particles.transposeInPlace();
+//                    particles.array() -= 1;
+//                    sampled_particles = particles.col(time_step - 1);
                 }
             }
 
@@ -243,17 +269,42 @@ namespace tomcat {
                             dynamic_pointer_cast<TimerNode>(node)
                                 ->get_forward_assignment();
                     }
+
+                    // If the node is a timer node, we also need to update its
+                    // forward assignments.
                     Eigen::MatrixXd filtered_forward_assignment(
                         this->num_particles, samples.cols());
 
+                    // We need to update the samples from nodes in the previous
+                    // time step to so that distributions are correctly
+                    // addressed in the marginalization process.
+                    Eigen::MatrixXd filtered_previous_samples;
+                    if (node->get_previous()) {
+                        filtered_previous_samples = Eigen::MatrixXd(
+                            this->num_particles, samples.cols());
+                    }
+
+                    // Rearrange the posterior weights computed for marginal
+                    // nodes per particle.
                     for (int i = 0; i < this->num_particles; i++) {
                         int particle = sampled_particles(i, 0);
                         filtered_samples.row(i) = samples.row(particle);
+
+                        if (node->get_previous()) {
+                            filtered_previous_samples.row(i) =
+                                node->get_previous()->get_assignment().row(
+                                    particle);
+                        }
 
                         if (forward_assignment.size() > 0) {
                             filtered_forward_assignment.row(i) =
                                 forward_assignment.row(particle);
                         }
+                    }
+
+                    if (node->get_previous()) {
+                        node->get_previous()->set_assignment(
+                            filtered_previous_samples);
                     }
 
                     if (node->get_metadata()->is_timer()) {
@@ -263,6 +314,7 @@ namespace tomcat {
                     }
                 }
 
+                // Save particles
                 Tensor3 filtered_samples_tensor(filtered_samples);
                 if (filtered_samples.cols() > 1) {
                     // If the sample has more than one dimension, we
@@ -275,6 +327,22 @@ namespace tomcat {
 
                 particles.add_data(node_label, filtered_samples_tensor);
                 node->set_assignment(filtered_samples);
+            }
+
+            // Rearrange posterior weights
+            if (sampled_particles.size() > 0) {
+                for (auto& [label, posterior_weights] :
+                     this->marginal_posterior_weights) {
+                    Eigen::MatrixXd filtered_weights = posterior_weights;
+
+                    for (int i = 0; i < this->num_particles; i++) {
+                        int particle = sampled_particles(i, 0);
+                        filtered_weights.row(i) =
+                            posterior_weights.row(particle);
+                    }
+
+                    posterior_weights = move(filtered_weights);
+                }
             }
 
             return particles;
@@ -318,36 +386,63 @@ namespace tomcat {
                              child_log_weights.array());
                     }
 
+                    // Update cumulative posterior weight per particle
+                    const string node_label = metadata->get_label();
+                    //                    cout <<
+                    //                    this->marginal_posterior_weights[node_label]
+                    //                         << endl;
+                    //                    Eigen::MatrixXd tmp =
+                    //                        this->marginal_posterior_weights[node_label]
+                    //                            .array()
+                    //                            .log();
+                    log_weights_per_particle.array() +=
+                        this->marginal_posterior_weights[node_label]
+                            .array()
+                            .log();
                     log_weights_per_particle.colwise() -=
                         log_weights_per_particle.rowwise().maxCoeff();
                     log_weights_per_particle =
                         log_weights_per_particle.array().exp();
                     Eigen::VectorXd sum_per_row =
                         log_weights_per_particle.rowwise().sum();
-                    Eigen::MatrixXd posterior_weights_per_particle =
+                    this->marginal_posterior_weights[node_label] =
                         log_weights_per_particle.array().colwise() /
                         sum_per_row.array();
 
-                    // Sample from posterior per particle
-                    Eigen::MatrixXd samples =
-                        node->get_cpd()->sample_from_posterior(
-                            this->random_generators_per_job,
-                            posterior_weights_per_particle,
-                            node);
-                    node->set_assignment(samples);
+                    //                    cout <<
+                    //                    this->marginal_posterior_weights[node_label]
+                    //                         << endl;
 
-                    // Update node's posterior
-                    Eigen::VectorXd cum_posterior_weights =
-                        posterior_weights_per_particle.colwise().sum();
-                    node->get_cpd()
-                        ->get_distributions()[0]
-                        ->update_from_posterior(cum_posterior_weights);
-                    node->get_cpd()->freeze_distributions(0);
-                    marginals.add_data(
-                        metadata->get_label(),
-                        Tensor3(
-                            node->get_cpd()->get_distributions()[0]->get_values(
-                                0)));
+                    // Compute posterior, calculate estimate based on the
+                    // posterior of all the particles and sample a new value
+                    // from that posterior.
+                    auto posteriors = node->get_cpd()->get_posterior(
+                        this->marginal_posterior_weights[node_label],
+                        node,
+                        this->random_generators_per_job.size());
+                    Eigen::VectorXd probabilities =
+                        Eigen::VectorXd::Zero(metadata->get_cardinality());
+                    int i = 0;
+                    for (const auto& posterior : posteriors) {
+                        probabilities.array() +=
+                            posterior->get_values(0).array();
+                        node->set_assignment(
+                            i++,
+                            0,
+                            posterior->sample(
+                                this->random_generators_per_job[0], 0)(0));
+                    }
+                    probabilities.array() /= probabilities.sum();
+                    marginals.add_data(node_label, Tensor3(probabilities));
+
+                    //                    Eigen::MatrixXd fixed(4, 5);
+                    //                    fixed << 3, 3, 3, 3, 3, 3, 3, 1, 3, 3,
+                    //                    2, 3, 2, 3, 3, 1, 1,
+                    //                        1, 1, 1;
+                    //                    fixed.transposeInPlace();
+                    //                    fixed.array() -= 1;
+                    //                    node->set_assignment(fixed.col(time_step
+                    //                    - 1));
                 }
                 else {
                     // Prior

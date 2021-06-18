@@ -604,6 +604,16 @@ namespace tomcat {
             return new_tensor;
         }
 
+        Tensor3 Tensor3::abs() const {
+            Tensor3 new_tensor = *this;
+
+            for (auto& matrix : new_tensor.tensor) {
+                matrix = matrix.array().abs().matrix();
+            }
+
+            return new_tensor;
+        }
+
         Tensor3 Tensor3::coeff_wise_and(int axis) const {
             auto [d1, d2, d3] = this->get_shape();
             Tensor3 new_tensor;
@@ -874,7 +884,7 @@ namespace tomcat {
             for (int i = 0; i < this->get_shape().at(0); i++) {
                 for (int j = 0; j < this->get_shape().at(1); j++) {
                     for (int k = 0; k < this->get_shape().at(2); k++) {
-                        if (abs(this->tensor[i](j, k) - other.at(i, j, k)) >
+                        if (std::abs(this->tensor[i](j, k) - other.at(i, j, k)) >
                             tolerance) {
                             return false;
                         }
