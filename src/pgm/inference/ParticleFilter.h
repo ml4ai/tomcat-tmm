@@ -200,6 +200,14 @@ namespace tomcat {
                                     const Eigen::VectorXi& rows,
                                     std::mutex& shuffled_matrix_mutex) const;
 
+            /**
+             * Update the index of the distributions at the beginning of the
+             * last segment for time controlled nodes.
+             *
+             * @param time_step: time step of the inference
+             */
+            void update_left_segment_distribution_indices(int time_step);
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
@@ -243,6 +251,8 @@ namespace tomcat {
             std::unordered_map<std::string,
                                std::unordered_map<std::string, Eigen::VectorXi>>
                 last_left_segment_marginal_nodes_distribution_indices;
+
+            std::unordered_set<std::string>  time_controlled_node_set;
         };
 
     } // namespace model

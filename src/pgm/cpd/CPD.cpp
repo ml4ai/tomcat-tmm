@@ -854,25 +854,44 @@ namespace tomcat {
                     sub_left_segment_durations.array() +
                     left_joins_central.array() *
                         (1 + central_joins_right.array() *
-                                 (right_segment_durations.array() + 1));
+                                 (sub_right_segment_durations.array() + 1));
 
                 for (int i = initial_row; i < initial_row + num_rows; i++) {
                     int distribution_idx = distribution_indices[i];
                     const auto& timer_distribution =
                         this->distributions[distribution_idx];
 
+                    bool use_cdf = false;
+                    if (left_joins_central(i - initial_row) == 1) {
+                        if (central_joins_right(i - initial_row) == 1) {
+                            if (central_segment_time_step +
+                                    right_segment_durations[i - initial_row] +
+                                    1 >=
+                                last_time_step) {
+                                // There's more different segments to the right
+                                // side.
+                                use_cdf = true;
+                            }
+                        }
+                        else {
+                            if (central_segment_time_step == last_time_step) {
+                                // There's more different segments to the right
+                                // side.
+                                use_cdf = true;
+                            }
+                        }
+                    }
+
                     double d = durations[i - initial_row];
                     double weight;
-                    if (central_segment_time_step +
-                            right_segment_durations[i - initial_row] + 1 <
-                        last_time_step) {
-                        weight = timer_distribution->get_pdf(d);
-                    }
-                    else {
+                    if (use_cdf) {
                         // This deal with the fact that the duration is
                         // truncated at the last time step of the unrolled
                         // DBN. p(x >= d);
                         weight = timer_distribution->get_cdf(d - 1, true);
+                    }
+                    else {
+                        weight = timer_distribution->get_pdf(d);
                     }
 
                     weights(i - initial_row, j) = weight;
@@ -930,17 +949,36 @@ namespace tomcat {
                 const auto& timer_distribution =
                     this->distributions.at(distribution_idx);
 
-                double weight;
-                if (central_segment_time_step + right_segment_duration + 1 <
-                    last_time_step) {
-                    weight = timer_distribution->get_pdf(
-                        Eigen::VectorXd::Constant(1, d));
+                bool use_cdf = false;
+                if (left_joins_central == 1) {
+                    if (central_joins_right == 1) {
+                        if (central_segment_time_step + right_segment_duration +
+                                1 >=
+                            last_time_step) {
+                            // There's more different segments to the right
+                            // side.
+                            use_cdf = true;
+                        }
+                    }
+                    else {
+                        if (central_segment_time_step == last_time_step) {
+                            // There's more different segments to the right
+                            // side.
+                            use_cdf = true;
+                        }
+                    }
                 }
-                else {
+
+                double weight;
+                if (use_cdf) {
                     // This deal with the fact that the duration is truncated
                     // at the last time step of the unrolled DBN.
                     // p(x >= d);
                     weight = timer_distribution->get_cdf(d - 1, true);
+                }
+                else {
+                    weight = timer_distribution->get_pdf(
+                        Eigen::VectorXd::Constant(1, d));
                 }
 
                 weights(i) = weight;

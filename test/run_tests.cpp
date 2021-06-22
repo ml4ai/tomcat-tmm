@@ -854,7 +854,7 @@ BOOST_AUTO_TEST_CASE(extended_hmm_particle_filter) {
     data.add_data("Obs1", Tensor3(obs1));
     data.add_data("Obs2", Tensor3(obs2));
 
-//    data.shrink_up_to(4);
+    //    data.shrink_up_to(4);
 
     // Model
     DBNPtr model = make_shared<DynamicBayesNet>(
