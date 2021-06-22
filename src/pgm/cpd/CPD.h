@@ -249,7 +249,39 @@ namespace tomcat {
              * segment controlled nodes have values 0, 1, 2, the left segment
              * now has duration 5.
              *
-             * @param left_segment_timer: timer os the last segment
+             * @param left_segment_timer: last timer node of the last segment
+             * @param left_segment_distribution_indices: indices of the timer
+             * distributions in the beginning of the left segment
+             * @param right_segment_state: first state of the right segment
+             * @param central_segment_time_step: time step of the central
+             * segment
+             * @param last_time_step: time step of the last timer being
+             * sampled in the unrolled DBN
+             * @param num_jobs: number of threads used in the computation
+             *
+             * @return Posterior weights for the left segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_left_segment_posterior_weights(
+                const std::shared_ptr<TimerNode>& left_segment_timer,
+                const Eigen::VectorXi& left_segment_distribution_indices,
+                const std::shared_ptr<RandomVariableNode>& right_segment_state,
+                int central_segment_time_step,
+                int last_time_step,
+                int num_jobs) const;
+
+            /**
+             * Returns p(sampled node| left segments).
+             * The probabilities change according to the value of the
+             * controlled nodes in the central and right segments. For
+             * instance, suppose the left segment is formed by controlled
+             * nodes with values 0, 0, 0, this means that the duration of the
+             * left segment is 3. If the central controlled node is also 0,
+             * the duration of the left segment is now 4, if the right
+             * segment controlled nodes have values 0, 1, 2, the left segment
+             * now has duration 5.
+             *
+             * @param left_segment_timer: last timer node of the last segment
              * @param left_segment_end: whether the left segment timer is the
              * last timer before the central segment or a timer in the beginning
              * of the last left segment. If it is the former, we need to find
@@ -269,7 +301,6 @@ namespace tomcat {
              */
             Eigen::MatrixXd get_left_segment_posterior_weights(
                 const std::shared_ptr<TimerNode>& left_segment_timer,
-                bool left_segment_end,
                 const std::shared_ptr<RandomVariableNode>& right_segment_state,
                 int central_segment_time_step,
                 int last_time_step,
@@ -389,6 +420,36 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                int num_jobs) const;
+
+            /**
+             * Returns p(timer node | sampled_node) per particle. This function
+             * is similar ot the get_posterior_weight but it's specific for the
+             * case when the CPD owner is a timer node and we already have
+             * precomputed segment durations. Therefore, to determined the
+             * boundary of a segment, we do not need to jump further by the
+             * duration but we just look at the next timer to see if it's
+             * assignment starts a new segment. This function is called by
+             * methods that work with template DBNs opposed to unrolled DBNs.
+             *
+             * @param distribution_indices: indices of the timer distribution at
+             * the beginning of the segment controlled by the timer given the
+             * value of the sampled node is 0.
+             * @param sampled_node: random variable for with the posterior is
+             * being computed
+             * @param segment_timer: node that owns this CPD (a timer node)
+             * @param num_jobs: number of threads to perform vertical
+             * parallelization (split the computation over the
+             * observations/data points provided). If 1, the computations are
+             * performed in the main thread
+             *
+             * @return Posterior weights of the node that owns this CPD for one
+             * of its parent nodes.
+             */
+            virtual Eigen::MatrixXd get_particle_timer_posterior_weights(
+                const Eigen::VectorXi& distribution_indices,
+                const std::shared_ptr<const RandomVariableNode>& sampled_node,
+                const std::shared_ptr<const TimerNode>& segment_timer,
                 int num_jobs) const;
 
             /**
@@ -587,31 +648,6 @@ namespace tomcat {
                 int sample_idx) const;
 
             /**
-             * Computes the posterior weights for a given node that owns this
-             * CPD.
-             *
-             * @param cpd_owner: node that owns the CPD
-             * @param distribution_indices: indices of the distributions
-             * indexed by the parents of the cpd owner
-             * @param cardinality: cardinality of the node to which posterior
-             * weights are being computed
-             * @param distribution_index_offset: how many indices need to be
-             * skipped to reach the next sampled node possible value (the
-             * multiplicative cardinality of the indexing nodes to the right
-             * of the sampled node)
-             * @param num_jobs: number of jobs used to compute the weights
-             * (if > 1, the computation is performed in multiple threads)
-             *
-             * @return Posterior weights.
-             */
-            Eigen::MatrixXd compute_posterior_weights(
-                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
-                const Eigen::VectorXi& distribution_indices,
-                int cardinality,
-                int distribution_index_offset,
-                int num_jobs) const;
-
-            /**
              * Computes a portion of the posterior weights for a given node.
              *
              * @param cpd_owner: node that owns the CPD
@@ -633,6 +669,35 @@ namespace tomcat {
              */
             void run_posterior_weights_thread(
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::VectorXi& distribution_indices,
+                int cardinality,
+                int distribution_index_offset,
+                const std::pair<int, int>& processing_block,
+                Eigen::MatrixXd& full_weights,
+                std::mutex& weights_mutex) const;
+
+            /**
+             * Computes a portion of the posterior weights for a given node.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param distribution_indices: indices of the distributions
+             * indexed by the parents of the cpd owner
+             * @param cardinality: cardinality of the node to which posterior
+             * weights are being computed
+             * @param distribution_index_offset: how many indices need to be
+             * skipped to reach the next sampled node possible value (the
+             * multiplicative cardinality of the indexing nodes to the right
+             * of the sampled node)
+             * @param processing_block: initial row and number of rows from
+             * the node's assignment to consider for computation
+             * @param full_weights: matrix containing the full weights. A
+             * portion of it will be updated by this method
+             * @param weights_mutex: mutex to lock the full weights matrix
+             * when this method writes to it
+             *
+             */
+            void run_particle_timer_posterior_weights_thread(
+                const std::shared_ptr<const TimerNode>& segment_timer,
                 const Eigen::VectorXi& distribution_indices,
                 int cardinality,
                 int distribution_index_offset,

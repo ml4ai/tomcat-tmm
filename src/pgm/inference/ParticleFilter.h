@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -165,6 +166,40 @@ namespace tomcat {
              */
             void update_timer_forward_assignment(const TimerNodePtr& timer);
 
+            /**
+             * Shuffle the rows according to a list of row indices. There can be
+             * duplicate rows.
+             *
+             * @param matrix: matrix to be shuffled
+             * @param rows: list of row indices
+             *
+             * @return New matrix formed by the rows of the original matrix in
+             * the list of row indices
+             */
+            Eigen::MatrixXd shuffle_rows(const Eigen::MatrixXd& matrix,
+                                         const Eigen::VectorXi& rows) const;
+
+            /**
+             * Fills a subset of rows in shuffled matrix in a single thread.
+             *
+             * @param processing_block: subset of rows to be processed by the
+             * thread
+             * @param original_matrix: original matrix
+             * @param shuffled_matrix: matrix of shuffled rows (it will be
+             * completely shuffled after all threads finish their job
+             * @param shuffled_matrix_mutex: mutex to control writing in the
+             * shuffled matrix
+             * @param rows: row indices of the original matrix to be placed in
+             * the shuffled matrix
+             *
+             */
+            void
+            run_shuffle_rows_thread(const std::pair<int, int>& processing_block,
+                                    const Eigen::MatrixXd& original_matrix,
+                                    Eigen::MatrixXd& shuffled_matrix,
+                                    const Eigen::VectorXi& rows,
+                                    std::mutex& shuffled_matrix_mutex) const;
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
@@ -186,14 +221,28 @@ namespace tomcat {
 
             std::unordered_set<std::string> data_node_labels;
 
-            // List of nodes that will be rao-blackwellized in order
+            // List of nodes that will be rao-blackwellized (marginalized) in
+            // order
             RVNodePtrVec marginal_nodes;
 
             // Label of the nodes that will be marginalized
             std::unordered_set<std::string> marginal_set;
 
-            // Posterior weights updated per particle of nodes being marginalized
-            std::unordered_map<std::string, Eigen::MatrixXd> marginal_posterior_weights;
+            // Posterior weights updated per particle of nodes being
+            // marginalized
+            std::unordered_map<std::string, Eigen::MatrixXd>
+                marginal_posterior_weights;
+
+            // Indices of the duration distribution at the beginning of the last
+            // time controlled node's segment
+            std::unordered_map<std::string, Eigen::VectorXi>
+                last_left_segment_distribution_indices;
+
+            // Indices of the duration distribution at the beginning of the last
+            // segment for the first value of a specific marginal node
+            std::unordered_map<std::string,
+                               std::unordered_map<std::string, Eigen::VectorXi>>
+                last_left_segment_marginal_nodes_distribution_indices;
         };
 
     } // namespace model

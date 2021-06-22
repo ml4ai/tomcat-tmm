@@ -222,7 +222,6 @@ namespace tomcat {
                     left_last_timer->get_cpd()
                         ->get_left_segment_posterior_weights(
                             left_last_timer,
-                            true,
                             right_state,
                             this->get_time_step(),
                             last_time_step,
