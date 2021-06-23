@@ -613,7 +613,7 @@ namespace tomcat {
         }
 
         RVNodePtr DynamicBayesNet::get_node(const std::string& label,
-                                            int time_step) {
+                                            int time_step) const {
             RVNodePtr node;
             string name = NodeMetadata::get_timed_name(label, time_step);
             if (EXISTS(name, this->name_to_id)) {

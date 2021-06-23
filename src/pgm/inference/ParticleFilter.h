@@ -76,20 +76,6 @@ namespace tomcat {
             generate_particles(const EvidenceSet& new_data);
 
             /**
-             * Update the particles with samples from single time nodes'
-             * posterior distribution. Also, update that distribution to be used
-             * as a prior in the next time step iteration. This is called
-             * Rao-Blackwellization process, commonly used in SLAM for map
-             * estimation.
-             *
-             * @param particles: particles for non-single time nodes
-             * @param time_step: time step of the inference process
-             *
-             * @return Marginal probabilities
-             */
-            EvidenceSet apply_rao_blackwellization(int time_step);
-
-            /**
              * If the time step is bigger than the number of time steps in the
              * template DBN, we move the particles to the nodes in the before
              * last time step of the template DBN so that in the next time step
@@ -159,25 +145,117 @@ namespace tomcat {
             EvidenceSet resample(const EvidenceSet& new_data, int time_step);
 
             /**
-             * Update the forward assignment of a timer node which accounts for
-             * the length of a current segment from the left to the right.
-             * .
-             * @param timer: timer node that is being sampled
+             * Use observations to weigh most likely particles and sample
+             * particles from a discrete distribution given by the normalized
+             * wrights.
+             *
+             * @param time_step: time step of the particles
+             * @param new_data: observations
+             *
+             * @return Indices of particles sampled
              */
-            void update_timer_forward_assignment(const TimerNodePtr& timer);
+            Eigen::VectorXi
+            weigh_and_sample_particles(int time_step,
+                                       const EvidenceSet& new_data) const;
 
             /**
-             * Shuffle the rows according to a list of row indices. There can be
-             * duplicate rows.
+             * Shuffles posterior weights accumulated for marginal nodes.
+             * Marginal samples do not need to be shuffled because they will be
+             * re-sampled from their posterior in the rao-blackwellization
+             * phase. We need, however, to shuffle posterior weights because
+             * they determine the marginal node's posterior.
+             *
+             * @param node: marginal node
+             * @param sampled_particles: indices of samples to select
+             */
+            void shuffle_marginal_posterior_weights(
+                const RVNodePtr& node,
+                const Eigen::VectorXi& sampled_particles);
+
+            /**
+             * Shuffles node's samples and the samples from its previous copies
+             * as well. Sampling the copy of the node in the previous time step
+             * is necessary for correct execution of the rao-blackwellization
+             * process. Because transition distributions depend on samples from
+             * the previous time step to be correctly addressed.
+             *
+             * @param node: node
+             * @param sampled_particles: indices of samples to select
+             */
+            void
+            shuffle_node_and_previous(const RVNodePtr& node,
+                                      const Eigen::VectorXi& sampled_particles);
+
+            /**
+             * Shuffles posterior weights of the last left segment for a node
+             * that is controlled by a timer.
+             *
+             * @param node: time controlled node
+             * @param sampled_particles: indices of weights to select
+             */
+            void shuffle_timed_node_left_segment_distributions(
+                const RVNodePtr& node,
+                const Eigen::VectorXi& sampled_particles);
+
+            /**
+             * Updates the particles with samples from marginal nodes'
+             * posterior distribution and stores updated posterior weights. This
+             * is called Rao-Blackwellization process, commonly used in SLAM for
+             * map estimation.
+             *
+             * @param time_step: time step of the inference process
+             *
+             * @return Marginal probabilities
+             */
+            EvidenceSet apply_rao_blackwellization(int time_step);
+
+            /**
+             * Gets p (child_timer | parent) in a given time step in log scale.
+             *
+             * @param parent_node: parent of child_timer
+             * @param child_timer: timer node
+             *
+             * @return log(p (child_timer | parent))
+             */
+            Eigen::MatrixXd
+            get_segment_log_weights(const RVNodePtr& parent_node,
+                                    const TimerNodePtr& child_timer) const;
+
+            /**
+             * Updates the indices of the distributions at the beginning of the
+             * last segment for a timer that is child of a marginal node.
+             *
+             * @param parent_node: parent of child_timer
+             * @param child_timer: timer node
+             */
+            void update_marginal_left_segment_distributions(
+                const RVNodePtr& parent_node, const TimerNodePtr& child_timer);
+
+            /**
+             * Shuffle the rows according to a list of row indices. There
+             * can be duplicate rows.
              *
              * @param matrix: matrix to be shuffled
              * @param rows: list of row indices
              *
-             * @return New matrix formed by the rows of the original matrix in
-             * the list of row indices
+             * @return New matrix formed by the rows of the original matrix
+             * in the list of row indices
              */
             Eigen::MatrixXd shuffle_rows(const Eigen::MatrixXd& matrix,
                                          const Eigen::VectorXi& rows) const;
+
+            /**
+             * Shuffle the elements of a vector according to a list of indices.
+             * There can be duplicate indices.
+             *
+             * @param original_vector: vector to be shuffled
+             * @param indices: list of indices
+             *
+             * @return New vector formed by the indices of the original vector
+             * in the list of indices
+             */
+            Eigen::VectorXi shuffle_rows(const Eigen::VectorXi& matrix,
+                                         const Eigen::VectorXi& indices) const;
 
             /**
              * Fills a subset of rows in shuffled matrix in a single thread.
@@ -239,7 +317,7 @@ namespace tomcat {
             // Posterior weights updated per particle of nodes being
             // marginalized
             std::unordered_map<std::string, Eigen::MatrixXd>
-                marginal_posterior_weights;
+                cum_marginal_posterior_log_weights;
 
             // Indices of the duration distribution at the beginning of the last
             // time controlled node's segment
@@ -252,7 +330,7 @@ namespace tomcat {
                                std::unordered_map<std::string, Eigen::VectorXi>>
                 last_left_segment_marginal_nodes_distribution_indices;
 
-            std::unordered_set<std::string>  time_controlled_node_set;
+            std::unordered_set<std::string> time_controlled_node_set;
         };
 
     } // namespace model
