@@ -84,5 +84,14 @@ namespace tomcat {
         Eigen::MatrixXi to_categorical(const Eigen::VectorXi& integers, int
         num_bits);
 
+        /**
+         * Copies the elements of a matrix to a vector in a row wise manner.
+         *
+         * @param matrix: matrix
+         *
+         * @return Flat matrix
+         */
+        Eigen::VectorXd flatten_rowwise(const Eigen::MatrixXd& matrix);
+
     } // namespace model
 } // namespace tomcat

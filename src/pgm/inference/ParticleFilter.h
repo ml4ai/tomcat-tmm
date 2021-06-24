@@ -286,6 +286,18 @@ namespace tomcat {
              */
             void update_left_segment_distribution_indices(int time_step);
 
+            /**
+             * Gets the children of a marginal node at a given time step.
+             *
+             * @param marginal_node: marginal node
+             * @param time_step: time step
+             *
+             * @return
+             */
+            RVNodePtrVec
+            get_marginal_node_children(const RVNodePtr& marginal_node,
+                                       int time_step) const;
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------

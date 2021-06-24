@@ -72,6 +72,19 @@ namespace tomcat {
             SamplerEstimator& operator=(SamplerEstimator&&) = default;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Calculates a node's prior based on the priors of its parents.
+             *
+             * @param node: node
+             *
+             * @return Prior probability
+             */
+            static Eigen::VectorXd get_prior(const RVNodePtr& node);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
             void estimate(const EvidenceSet& new_data) override;

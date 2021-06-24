@@ -6,7 +6,7 @@
     ],
     "data": [
       {
-        "label": "Fixed",
+        "label": "A",
         "first_time_step": 1,
         "in_plate": true,
         "cardinality": 3,
@@ -23,7 +23,24 @@
         ]
       },
       {
-        "label": "State",
+        "label": "B",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.1, 0.9",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "X",
         "first_time_step": 0,
         "in_plate": true,
         "cardinality": 3,
@@ -40,16 +57,17 @@
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "0.5, 0.3, 0.2, 0.1, 0.2, 0.7, 0.3, 0.3, 0.4, 0.3, 0.5, 0.2, 0.1, 0.1, 0.8, 0.4, 0.1, 0.5, 0.2, 0.5, 0.3, 0.2, 0.4, 0.4, 0.2, 0.5, 0.3",
+            "parameters": "0.5,0.3,0.2,0.1,0.1,0.8,0.1,0.2,0.7,0.3,0.3,0.4,0.3,0.3,0.4,0.6,0.1,0.3,0.3,0.5,0.2,0.1,0.4,0.5,0.1,0.1,0.8,0.5,0.4,0.1,0.4,0.1,0.5,0.5,0.3,0.2,0.2,0.5,0.3,0.3,0.3,0.4,0.2,0.4,0.4,0.1,0.6,0.3,0.2,0.5,0.3,0.4,0.2,0.4",
             "index_nodes": [
-              "State",
-              "Fixed"
+              "X",
+              "A",
+              "B"
             ]
           }
         ]
       },
       {
-        "label": "Obs1",
+        "label": "Z1",
         "first_time_step": 1,
         "in_plate": true,
         "cardinality": 2,
@@ -62,13 +80,13 @@
             "constant": true,
             "parameters": "0.2, 0.8, 0.1, 0.9, 0.4, 0.6",
             "index_nodes": [
-              "State"
+              "X"
             ]
           }
         ]
       },
       {
-        "label": "Obs2",
+        "label": "Z2",
         "first_time_step": 1,
         "in_plate": true,
         "cardinality": 2,
@@ -81,7 +99,7 @@
             "constant": true,
             "parameters": "0.7, 0.3, 0.9, 0.1, 0.2, 0.8",
             "index_nodes": [
-              "State"
+              "X"
             ]
           }
         ]
@@ -90,23 +108,28 @@
   },
   "connections": [
     {
-      "parent": "Fixed",
-      "child": "State",
+      "parent": "A",
+      "child": "X",
       "time_crossing": true
     },
     {
-      "parent": "State",
-      "child": "State",
+      "parent": "B",
+      "child": "X",
       "time_crossing": true
     },
     {
-      "parent": "State",
-      "child": "Obs1",
+      "parent": "X",
+      "child": "X",
+      "time_crossing": true
+    },
+    {
+      "parent": "X",
+      "child": "Z1",
       "time_crossing": false
     },
     {
-      "parent": "State",
-      "child": "Obs2",
+      "parent": "X",
+      "child": "Z2",
       "time_crossing": false
     }
   ]

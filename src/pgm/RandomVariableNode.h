@@ -344,6 +344,10 @@ namespace tomcat {
 
             bool has_child_timer() const;
 
+            const RVNodePtrVec& get_single_time_children() const;
+
+            bool has_child_at(int time_step) const;
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -468,6 +472,8 @@ namespace tomcat {
             NodePtrVec children;
 
             std::vector<RVNodePtrVec> children_per_time_step;
+
+            RVNodePtrVec single_time_children;
 
             // If set, the amount of time this node stays in the current
             // state, is defined by the timer's assignment (semi-Markov model).

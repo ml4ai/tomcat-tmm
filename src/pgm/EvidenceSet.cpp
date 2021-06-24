@@ -154,22 +154,24 @@ namespace tomcat {
         }
 
         void EvidenceSet::add_data(const string& node_label,
-                                   const Tensor3& data) {
+                                   const Tensor3& data, bool check_dimensions) {
             if (this->num_data_points == 0 && this->time_steps == 0) {
                 this->num_data_points = data.get_shape()[1];
                 this->time_steps = data.get_shape()[2];
             }
             else {
-                if (data.get_shape()[1] != this->num_data_points) {
-                    throw invalid_argument(
-                        "The number of data points must be the same for "
-                        "all the observable nodes in the folder.");
-                }
+                if (check_dimensions) {
+                    if (data.get_shape()[1] != this->num_data_points) {
+                        throw invalid_argument(
+                            "The number of data points must be the same for "
+                            "all the observable nodes in the folder.");
+                    }
 
-                if (data.get_shape()[2] != this->time_steps) {
-                    throw invalid_argument(
-                        "The number of time steps must be the same for "
-                        "all the observable nodes in the folder.");
+                    if (data.get_shape()[2] != this->time_steps) {
+                        throw invalid_argument(
+                            "The number of time steps must be the same for "
+                            "all the observable nodes in the folder.");
+                    }
                 }
             }
 

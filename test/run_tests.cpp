@@ -704,18 +704,33 @@ BOOST_AUTO_TEST_SUITE(estimation)
 
 BOOST_AUTO_TEST_CASE(hmm_exact) {
     /**
-     * Test exact inference with sum product in an HMM model.
+     * This test case uses a HMM with 2 observed nodes per state. It evaluates
+     * whether the probabilities of X (state variable) and projections over a
+     * horizon of size 3 can be accurately determined at every time step using
+     * sum-product.
      */
 
+    int T = 50;
+    int D = 2;
+    int H = 3;
+
     // Data
-    Eigen::MatrixXd obs1(2, 4);
-    obs1 << NO_OBS, 1, 1, 0, NO_OBS, 0, 0, 1;
-    Eigen::MatrixXd obs2(2, 4);
-    obs2 << NO_OBS, 0, 1, 0, NO_OBS, 0, 1, 1;
+    Eigen::MatrixXd z1(D, T);
+    z1 << NO_OBS, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1,
+        0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0,
+        0, 0, 1, 1, NO_OBS, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1,
+        1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1,
+        0, 0, 1, 1, 1, 0, 1, 0;
+    Eigen::MatrixXd z2(D, T);
+    z2 << NO_OBS, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0,
+        0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0,
+        1, 0, 0, 0, NO_OBS, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
+        0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1,
+        1, 0, 1, 1, 0, 0, 0, 0;
 
     EvidenceSet data;
-    data.add_data("Obs1", Tensor3(obs1));
-    data.add_data("Obs2", Tensor3(obs2));
+    data.add_data("Z1", Tensor3(z1));
+    data.add_data("Z2", Tensor3(z2));
 
     // Model
     DBNPtr model = make_shared<DynamicBayesNet>(
@@ -725,65 +740,120 @@ BOOST_AUTO_TEST_CASE(hmm_exact) {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // Inference
-    SumProductEstimator state_estimator(model, 0, "State");
-    state_estimator.set_subgraph_window_size(1);
-    state_estimator.set_show_progress(false);
-    state_estimator.prepare();
-    state_estimator.estimate(data);
+    SumProductEstimator x_estimator(model, 0, "X");
+    x_estimator.set_subgraph_window_size(1);
+    x_estimator.set_show_progress(false);
+    x_estimator.prepare();
+    x_estimator.estimate(data);
 
-    Eigen::MatrixXd expected_state_inference1(2, 4);
-    expected_state_inference1 << 0.300000000000000, 0.530573248407643,
-        0.371783439490446, 0.350923566878981, 0.300000000000000,
-        0.340000000000000, 0.118493150684932, 0.316095890410959;
-    Eigen::MatrixXd expected_state_inference2(2, 4);
-    expected_state_inference2 << 0.500000000000000, 0.126114649681529,
-        0.393885350318471, 0.425643312101911, 0.500000000000000,
-        0.440000000000000, 0.805479452054795, 0.476301369863014;
-    Eigen::MatrixXd expected_state_inference3(2, 4);
-    expected_state_inference3 << 0.200000000000000, 0.343312101910828,
-        0.234331210191083, 0.223433121019108, 0.200000000000000,
-        0.220000000000000, 0.076027397260274, 0.207602739726027;
-    Tensor3 expected_state_inference({expected_state_inference1,
-                                      expected_state_inference2,
-                                      expected_state_inference3});
-    Tensor3 estimated_state_inference =
-        Tensor3(state_estimator.get_estimates().estimates);
-    BOOST_TEST(
-        check_tensor_eq(estimated_state_inference, expected_state_inference));
+    Eigen::MatrixXd expected_x_inference1(D, T);
+    expected_x_inference1 << 0.3, 0.53057, 0.54798, 0.37506, 0.35156, 0.53596,
+        0.13582, 0.31863, 0.34287, 0.53486, 0.37269, 0.12145, 0.31656, 0.53229,
+        0.37215, 0.53785, 0.13605, 0.31867, 0.34288, 0.34649, 0.34709, 0.53538,
+        0.37281, 0.53797, 0.37336, 0.53807, 0.37339, 0.35126, 0.11956, 0.51733,
+        0.3695, 0.53745, 0.13599, 0.31866, 0.11667, 0.31582, 0.53219, 0.54828,
+        0.37513, 0.35157, 0.11959, 0.1015, 0.31364, 0.34206, 0.34635, 0.34706,
+        0.11916, 0.3162, 0.53224, 0.54829, 0.3, 0.53057, 0.37178, 0.53778,
+        0.54929, 0.37539, 0.12173, 0.10167, 0.51552, 0.36914, 0.53738, 0.13599,
+        0.51896, 0.36983, 0.35057, 0.5358, 0.54894, 0.55074, 0.55114, 0.37584,
+        0.12178, 0.10168, 0.31366, 0.34207, 0.53475, 0.37266, 0.3511, 0.34788,
+        0.34734, 0.34724, 0.34723, 0.11917, 0.10147, 0.5155, 0.36913, 0.53738,
+        0.37322, 0.35122, 0.3479, 0.5355, 0.37284, 0.35114, 0.11954, 0.31627,
+        0.34249, 0.34642, 0.53529, 0.37279, 0.53797, 0.37336;
+    Eigen::MatrixXd expected_x_inference2(D, T);
+    expected_x_inference2 << 0.5, 0.12611, 0.10663, 0.3904, 0.42499, 0.12156,
+        0.77887, 0.47284, 0.43627, 0.12232, 0.39303, 0.80126, 0.47571, 0.12464,
+        0.39354, 0.11978, 0.77859, 0.47279, 0.43627, 0.43142, 0.4307, 0.12195,
+        0.39292, 0.11972, 0.39241, 0.11967, 0.39239, 0.42532, 0.80404, 0.14303,
+        0.39653, 0.12001, 0.77865, 0.4728, 0.80819, 0.47667, 0.12471, 0.1065,
+        0.39034, 0.42497, 0.804, 0.83186, 0.4797, 0.43727, 0.43159, 0.43073,
+        0.80458, 0.47617, 0.12467, 0.1065, 0.5, 0.12611, 0.39389, 0.11981,
+        0.10606, 0.39014, 0.80091, 0.83162, 0.1448, 0.3969, 0.12004, 0.77866,
+        0.14143, 0.39621, 0.42603, 0.12165, 0.10622, 0.10517, 0.10503, 0.38977,
+        0.80085, 0.83161, 0.47966, 0.43727, 0.12239, 0.39305, 0.42547, 0.42978,
+        0.43042, 0.43053, 0.43055, 0.80455, 0.8319, 0.14482, 0.3969, 0.12004,
+        0.39252, 0.42536, 0.42976, 0.12188, 0.3929, 0.42543, 0.80405, 0.47609,
+        0.43675, 0.4315, 0.12201, 0.39294, 0.11972, 0.39241;
+    Eigen::MatrixXd expected_x_inference3(D, T);
+    expected_x_inference3 << 0.2, 0.34331, 0.34539, 0.23454, 0.22345, 0.34247,
+        0.085311, 0.20853, 0.22085, 0.34282, 0.23428, 0.077286, 0.20773,
+        0.34307, 0.23431, 0.34237, 0.085359, 0.20854, 0.22085, 0.22209, 0.22221,
+        0.34267, 0.23427, 0.34231, 0.23423, 0.34226, 0.23423, 0.22342, 0.076406,
+        0.33964, 0.23396, 0.34255, 0.085355, 0.20854, 0.075147, 0.20751, 0.3431,
+        0.34522, 0.23452, 0.22345, 0.076415, 0.066639, 0.20666, 0.22067,
+        0.22207, 0.22221, 0.076267, 0.20763, 0.34309, 0.34521, 0.2, 0.34331,
+        0.23433, 0.34241, 0.34466, 0.23447, 0.077356, 0.06671, 0.33968, 0.23397,
+        0.34258, 0.085354, 0.33961, 0.23396, 0.2234, 0.34255, 0.34484, 0.34409,
+        0.34383, 0.23438, 0.077364, 0.066711, 0.20667, 0.22067, 0.34286,
+        0.23429, 0.22343, 0.22234, 0.22223, 0.22222, 0.22222, 0.076271,
+        0.066626, 0.33968, 0.23397, 0.34258, 0.23426, 0.22343, 0.22234, 0.34262,
+        0.23426, 0.22343, 0.076404, 0.20764, 0.22076, 0.22208, 0.3427, 0.23427,
+        0.34231, 0.23423;
+    Tensor3 expected_x_inference(
+        {expected_x_inference1, expected_x_inference2, expected_x_inference3});
+    Tensor3 estimated_x_inference =
+        Tensor3(x_estimator.get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(estimated_x_inference, expected_x_inference));
 
     // Prediction
-    SumProductEstimator obs_predictor(
-        model, 3, "Obs1", VectorXd::Constant(1, 0));
-    obs_predictor.set_subgraph_window_size(1);
-    obs_predictor.set_show_progress(false);
-    obs_predictor.prepare();
-    obs_predictor.estimate(data);
+    SumProductEstimator z1_predictor(model, H, "Z1", VectorXd::Constant(1, 0));
+    z1_predictor.set_subgraph_window_size(1);
+    z1_predictor.set_show_progress(false);
+    z1_predictor.prepare();
+    z1_predictor.estimate(data);
 
-    Eigen::MatrixXd expected_obs_prediction1(2, 4);
-    expected_obs_prediction1 << 0.848873600000000, 0.842869304458599,
-        0.846963411464968, 0.847514837350319, 0.848873600000000,
-        0.847812640000000, 0.853555808219178, 0.848444902465753;
-    Tensor3 expected_obs_prediction(expected_obs_prediction1);
-    Tensor3 estimated_obs_prediction =
-        Tensor3(obs_predictor.get_estimates().estimates);
+    Eigen::MatrixXd expected_z1_prediction1(D, T);
+    expected_z1_prediction1 << 0.84887, 0.84287, 0.84238, 0.84687, 0.8475,
+        0.84271, 0.8531, 0.84838, 0.84773, 0.84275, 0.84694, 0.85348, 0.84843,
+        0.84282, 0.84695, 0.84266, 0.85309, 0.84838, 0.84773, 0.84764, 0.84762,
+        0.84273, 0.84693, 0.84265, 0.84692, 0.84265, 0.84692, 0.84751, 0.85353,
+        0.84323, 0.84703, 0.84267, 0.85309, 0.84838, 0.8536, 0.84845, 0.84282,
+        0.84237, 0.84687, 0.8475, 0.85353, 0.854, 0.84851, 0.84776, 0.84764,
+        0.84762, 0.85354, 0.84844, 0.84282, 0.84237, 0.84887, 0.84287, 0.84696,
+        0.84266, 0.84234, 0.84686, 0.85347, 0.854, 0.84328, 0.84704, 0.84267,
+        0.85309, 0.84319, 0.84702, 0.84752, 0.84272, 0.84235, 0.8423, 0.84229,
+        0.84685, 0.85347, 0.854, 0.84851, 0.84776, 0.84275, 0.84694, 0.84751,
+        0.8476, 0.84761, 0.84761, 0.84762, 0.85354, 0.854, 0.84328, 0.84704,
+        0.84267, 0.84692, 0.84751, 0.8476, 0.84273, 0.84693, 0.84751, 0.85353,
+        0.84844, 0.84774, 0.84764, 0.84273, 0.84693, 0.84265, 0.84692;
+    Tensor3 expected_z1_prediction(expected_z1_prediction1);
+    Tensor3 estimated_z1_prediction =
+        Tensor3(z1_predictor.get_estimates().estimates);
     BOOST_TEST(
-        check_tensor_eq(estimated_obs_prediction, expected_obs_prediction));
+        check_tensor_eq(estimated_z1_prediction, expected_z1_prediction));
 }
 
 BOOST_AUTO_TEST_CASE(hmm_particle_filter) {
     /**
-     * Test particle filter estimation in an HMM model.
+     * This test case uses a HMM with 2 observed nodes per state. It evaluates
+     * whether the probabilities of X (state variable) and projections over a
+     * horizon of size 3 can be approximated at every time step using particle
+     * filter.
      */
 
+    int T = 50;
+    int D = 2;
+    int H = 3;
+    double tolerance = 0.1;
+    int num_particles = 1000;
+
     // Data
-    Eigen::MatrixXd obs1(2, 4);
-    obs1 << NO_OBS, 1, 1, 0, NO_OBS, 0, 0, 1;
-    Eigen::MatrixXd obs2(2, 4);
-    obs2 << NO_OBS, 0, 1, 0, NO_OBS, 0, 1, 1;
+    Eigen::MatrixXd z1(D, T);
+    z1 << NO_OBS, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1,
+        0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0,
+        0, 0, 1, 1, NO_OBS, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1,
+        1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1,
+        0, 0, 1, 1, 1, 0, 1, 0;
+    Eigen::MatrixXd z2(D, T);
+    z2 << NO_OBS, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0,
+        0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0,
+        1, 0, 0, 0, NO_OBS, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
+        0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1,
+        1, 0, 1, 1, 0, 0, 0, 0;
 
     EvidenceSet data;
-    data.add_data("Obs1", Tensor3(obs1));
-    data.add_data("Obs2", Tensor3(obs2));
+    data.add_data("Z1", Tensor3(z1));
+    data.add_data("Z2", Tensor3(z2));
 
     // Model
     DBNPtr model = make_shared<DynamicBayesNet>(
@@ -793,134 +863,478 @@ BOOST_AUTO_TEST_CASE(hmm_particle_filter) {
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // Inference
-    auto state_estimator = make_shared<SamplerEstimator>(model, 0, "State");
-    auto obs_predictor = make_shared<SamplerEstimator>(
-        model, 3, "Obs1", VectorXd::Constant(1, 0));
+    auto x_estimator = make_shared<SamplerEstimator>(model, 0, "X");
+    auto z1_predictor =
+        make_shared<SamplerEstimator>(model, H, "Z1", VectorXd::Constant(1, 0));
 
-    ParticleFilterEstimator particle_estimator(model, 1000, gen, 1);
-    particle_estimator.add_base_estimator(state_estimator);
-    particle_estimator.add_base_estimator(obs_predictor);
+    ParticleFilterEstimator particle_estimator(model, num_particles, gen, 1);
+    particle_estimator.add_base_estimator(x_estimator);
+    particle_estimator.add_base_estimator(z1_predictor);
     particle_estimator.set_show_progress(false);
 
     particle_estimator.prepare();
     particle_estimator.estimate(data);
 
-    double tolerance = 0.1;
-    Eigen::MatrixXd expected_state_inference1(2, 4);
-    expected_state_inference1 << 0.300000000000000, 0.530573248407643,
-        0.371783439490446, 0.350923566878981, 0.300000000000000,
-        0.340000000000000, 0.118493150684932, 0.316095890410959;
-    Eigen::MatrixXd expected_state_inference2(2, 4);
-    expected_state_inference2 << 0.500000000000000, 0.126114649681529,
-        0.393885350318471, 0.425643312101911, 0.500000000000000,
-        0.440000000000000, 0.805479452054795, 0.476301369863014;
-    Eigen::MatrixXd expected_state_inference3(2, 4);
-    expected_state_inference3 << 0.200000000000000, 0.343312101910828,
-        0.234331210191083, 0.223433121019108, 0.200000000000000,
-        0.220000000000000, 0.076027397260274, 0.207602739726027;
-    Tensor3 expected_state_inference({expected_state_inference1,
-                                      expected_state_inference2,
-                                      expected_state_inference3});
-    Tensor3 estimated_state_inference =
-        Tensor3(state_estimator->get_estimates().estimates);
+    Eigen::MatrixXd expected_x_inference1(D, T);
+    expected_x_inference1 << 0.3, 0.53057, 0.54798, 0.37506, 0.35156, 0.53596,
+        0.13582, 0.31863, 0.34287, 0.53486, 0.37269, 0.12145, 0.31656, 0.53229,
+        0.37215, 0.53785, 0.13605, 0.31867, 0.34288, 0.34649, 0.34709, 0.53538,
+        0.37281, 0.53797, 0.37336, 0.53807, 0.37339, 0.35126, 0.11956, 0.51733,
+        0.3695, 0.53745, 0.13599, 0.31866, 0.11667, 0.31582, 0.53219, 0.54828,
+        0.37513, 0.35157, 0.11959, 0.1015, 0.31364, 0.34206, 0.34635, 0.34706,
+        0.11916, 0.3162, 0.53224, 0.54829, 0.3, 0.53057, 0.37178, 0.53778,
+        0.54929, 0.37539, 0.12173, 0.10167, 0.51552, 0.36914, 0.53738, 0.13599,
+        0.51896, 0.36983, 0.35057, 0.5358, 0.54894, 0.55074, 0.55114, 0.37584,
+        0.12178, 0.10168, 0.31366, 0.34207, 0.53475, 0.37266, 0.3511, 0.34788,
+        0.34734, 0.34724, 0.34723, 0.11917, 0.10147, 0.5155, 0.36913, 0.53738,
+        0.37322, 0.35122, 0.3479, 0.5355, 0.37284, 0.35114, 0.11954, 0.31627,
+        0.34249, 0.34642, 0.53529, 0.37279, 0.53797, 0.37336;
+    Eigen::MatrixXd expected_x_inference2(D, T);
+    expected_x_inference2 << 0.5, 0.12611, 0.10663, 0.3904, 0.42499, 0.12156,
+        0.77887, 0.47284, 0.43627, 0.12232, 0.39303, 0.80126, 0.47571, 0.12464,
+        0.39354, 0.11978, 0.77859, 0.47279, 0.43627, 0.43142, 0.4307, 0.12195,
+        0.39292, 0.11972, 0.39241, 0.11967, 0.39239, 0.42532, 0.80404, 0.14303,
+        0.39653, 0.12001, 0.77865, 0.4728, 0.80819, 0.47667, 0.12471, 0.1065,
+        0.39034, 0.42497, 0.804, 0.83186, 0.4797, 0.43727, 0.43159, 0.43073,
+        0.80458, 0.47617, 0.12467, 0.1065, 0.5, 0.12611, 0.39389, 0.11981,
+        0.10606, 0.39014, 0.80091, 0.83162, 0.1448, 0.3969, 0.12004, 0.77866,
+        0.14143, 0.39621, 0.42603, 0.12165, 0.10622, 0.10517, 0.10503, 0.38977,
+        0.80085, 0.83161, 0.47966, 0.43727, 0.12239, 0.39305, 0.42547, 0.42978,
+        0.43042, 0.43053, 0.43055, 0.80455, 0.8319, 0.14482, 0.3969, 0.12004,
+        0.39252, 0.42536, 0.42976, 0.12188, 0.3929, 0.42543, 0.80405, 0.47609,
+        0.43675, 0.4315, 0.12201, 0.39294, 0.11972, 0.39241;
+    Eigen::MatrixXd expected_x_inference3(D, T);
+    expected_x_inference3 << 0.2, 0.34331, 0.34539, 0.23454, 0.22345, 0.34247,
+        0.085311, 0.20853, 0.22085, 0.34282, 0.23428, 0.077286, 0.20773,
+        0.34307, 0.23431, 0.34237, 0.085359, 0.20854, 0.22085, 0.22209, 0.22221,
+        0.34267, 0.23427, 0.34231, 0.23423, 0.34226, 0.23423, 0.22342, 0.076406,
+        0.33964, 0.23396, 0.34255, 0.085355, 0.20854, 0.075147, 0.20751, 0.3431,
+        0.34522, 0.23452, 0.22345, 0.076415, 0.066639, 0.20666, 0.22067,
+        0.22207, 0.22221, 0.076267, 0.20763, 0.34309, 0.34521, 0.2, 0.34331,
+        0.23433, 0.34241, 0.34466, 0.23447, 0.077356, 0.06671, 0.33968, 0.23397,
+        0.34258, 0.085354, 0.33961, 0.23396, 0.2234, 0.34255, 0.34484, 0.34409,
+        0.34383, 0.23438, 0.077364, 0.066711, 0.20667, 0.22067, 0.34286,
+        0.23429, 0.22343, 0.22234, 0.22223, 0.22222, 0.22222, 0.076271,
+        0.066626, 0.33968, 0.23397, 0.34258, 0.23426, 0.22343, 0.22234, 0.34262,
+        0.23426, 0.22343, 0.076404, 0.20764, 0.22076, 0.22208, 0.3427, 0.23427,
+        0.34231, 0.23423;
+    Tensor3 expected_x_inference(
+        {expected_x_inference1, expected_x_inference2, expected_x_inference3});
+    Tensor3 estimated_x_inference =
+        Tensor3(x_estimator->get_estimates().estimates);
     BOOST_TEST(check_tensor_eq(
-        estimated_state_inference, expected_state_inference, tolerance));
+        estimated_x_inference, expected_x_inference, tolerance));
 
     // Prediction
-    Eigen::MatrixXd expected_obs_prediction1(2, 4);
-    expected_obs_prediction1 << 0.848873600000000, 0.842869304458599,
-        0.846963411464968, 0.847514837350319, 0.848873600000000,
-        0.847812640000000, 0.853555808219178, 0.848444902465753;
-    Tensor3 expected_obs_prediction(expected_obs_prediction1);
-    Tensor3 estimated_obs_prediction =
-        Tensor3(obs_predictor->get_estimates().estimates);
+    Eigen::MatrixXd expected_z1_prediction1(D, T);
+    expected_z1_prediction1 << 0.84887, 0.84287, 0.84238, 0.84687, 0.8475,
+        0.84271, 0.8531, 0.84838, 0.84773, 0.84275, 0.84694, 0.85348, 0.84843,
+        0.84282, 0.84695, 0.84266, 0.85309, 0.84838, 0.84773, 0.84764, 0.84762,
+        0.84273, 0.84693, 0.84265, 0.84692, 0.84265, 0.84692, 0.84751, 0.85353,
+        0.84323, 0.84703, 0.84267, 0.85309, 0.84838, 0.8536, 0.84845, 0.84282,
+        0.84237, 0.84687, 0.8475, 0.85353, 0.854, 0.84851, 0.84776, 0.84764,
+        0.84762, 0.85354, 0.84844, 0.84282, 0.84237, 0.84887, 0.84287, 0.84696,
+        0.84266, 0.84234, 0.84686, 0.85347, 0.854, 0.84328, 0.84704, 0.84267,
+        0.85309, 0.84319, 0.84702, 0.84752, 0.84272, 0.84235, 0.8423, 0.84229,
+        0.84685, 0.85347, 0.854, 0.84851, 0.84776, 0.84275, 0.84694, 0.84751,
+        0.8476, 0.84761, 0.84761, 0.84762, 0.85354, 0.854, 0.84328, 0.84704,
+        0.84267, 0.84692, 0.84751, 0.8476, 0.84273, 0.84693, 0.84751, 0.85353,
+        0.84844, 0.84774, 0.84764, 0.84273, 0.84693, 0.84265, 0.84692;
+    Tensor3 expected_z1_prediction(expected_z1_prediction1);
+    Tensor3 estimated_z1_prediction =
+        Tensor3(z1_predictor->get_estimates().estimates);
     BOOST_TEST(check_tensor_eq(
-        estimated_obs_prediction, expected_obs_prediction, tolerance));
+        estimated_z1_prediction, expected_z1_prediction, tolerance));
 }
 
-BOOST_AUTO_TEST_CASE(extended_hmm_particle_filter) {
+BOOST_AUTO_TEST_CASE(dbn1_particle_filter) {
     /**
-     * Test particle filter estimation in an HMM model with a static dependency
-     * on the state.
+     * This test case uses a DBN comprised of a single time node
+     * that affects state transitions in a hidden markov chain. It
+     * evaluates whether the probabilities of X (state variable) and A (single
+     * time variable) can be approximated at every time step using particle
+     * filter.
      */
 
+    int T = 50;
+    int D = 1;
+    double tolerance = 0.1;
+    int num_particles = 1000;
+
     // Data
-    Eigen::MatrixXd obs1(1, 10);
-    obs1 << NO_OBS, 1, 0, 1, 0, 1, 1, 0, 0, 0;
-    Eigen::MatrixXd obs2(1, 10);
-    obs2 << NO_OBS, 0, 0, 0, 0, 1, 0, 1, 1, 1;
+    Eigen::MatrixXd z1(D, T);
+    z1 << NO_OBS, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1,
+        0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0,
+        0, 0, 1, 1;
+    Eigen::MatrixXd z2(D, T);
+    z2 << NO_OBS, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0,
+        1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1,
+        1, 0, 1, 0;
 
     EvidenceSet data;
-    data.add_data("Obs1", Tensor3(obs1));
-    data.add_data("Obs2", Tensor3(obs2));
-
-    //    data.shrink_up_to(4);
+    data.add_data("Z1", Tensor3(z1));
+    data.add_data("Z2", Tensor3(z2));
 
     // Model
     DBNPtr model = make_shared<DynamicBayesNet>(
-        DynamicBayesNet::create_from_json("models/extended_hmm.json"));
+        DynamicBayesNet::create_from_json("models/dbn1.json"));
 
     model->unroll(3, true);
     shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
 
     // Inference
-    auto state_estimator = make_shared<SamplerEstimator>(model, 0, "State");
-    auto fixed_estimator = make_shared<SamplerEstimator>(model, 0, "Fixed");
+    auto x_estimator = make_shared<SamplerEstimator>(model, 0, "X");
+    auto a_estimator = make_shared<SamplerEstimator>(model, 0, "A");
 
-    ParticleFilterEstimator particle_estimator(model, 1000, gen, 1);
-    particle_estimator.add_base_estimator(state_estimator);
-    particle_estimator.add_base_estimator(fixed_estimator);
+    ParticleFilterEstimator particle_estimator(model, num_particles, gen, 1);
+    particle_estimator.add_base_estimator(x_estimator);
+    particle_estimator.add_base_estimator(a_estimator);
     particle_estimator.set_show_progress(false);
 
     particle_estimator.prepare();
     particle_estimator.estimate(data);
 
-    double tolerance = 0.05;
-    Eigen::MatrixXd expected_state_inference1(1, 10);
-    expected_state_inference1 << 0.300000000000000, 0.357636333420384,
-        0.412468155252510, 0.334197212946051, 0.437342150389305,
-        0.268748130052360, 0.285357670986912, 0.126436541246598,
-        0.108960723306842, 0.102241891847670;
-    Eigen::MatrixXd expected_state_inference2(1, 10);
-    expected_state_inference2 << 0.500000000000000, 0.509603285771943,
-        0.251964020007764, 0.574753353414519, 0.242820207692847,
-        0.118417500986672, 0.636114531917015, 0.017118804061714,
-        0.036680990364526, 0.034704614635386;
-    Eigen::MatrixXd expected_state_inference3(1, 10);
-    expected_state_inference3 << 0.200000000000000, 0.132760380807673,
-        0.335567824739726, 0.091049433639429, 0.319837641917847,
-        0.612834368960968, 0.078527797096073, 0.856444654691688,
-        0.854358286328632, 0.863053493516944;
-    Tensor3 expected_state_inference({expected_state_inference1,
-                                      expected_state_inference2,
-                                      expected_state_inference3});
-    Tensor3 estimated_state_inference =
-        Tensor3(state_estimator->get_estimates().estimates);
+    Eigen::MatrixXd expected_x_inference1(D, T);
+    expected_x_inference1 << 0.3, 0.20686, 0.26081, 0.091587, 0.19559, 0.26166,
+        0.36193, 0.35009, 0.19779, 0.258, 0.18594, 0.31891, 0.18081, 0.25179,
+        0.074907, 0.18759, 0.07951, 0.086416, 0.17332, 0.24435, 0.32286,
+        0.31139, 0.068757, 0.22885, 0.13958, 0.24029, 0.13531, 0.23973, 0.29928,
+        0.27142, 0.063082, 0.2283, 0.30547, 0.078863, 0.086586, 0.083142,
+        0.17114, 0.24167, 0.047666, 0.17586, 0.27465, 0.053374, 0.28866,
+        0.25438, 0.10599, 0.07738, 0.078206, 0.28315, 0.10687, 0.23234;
+    Eigen::MatrixXd expected_x_inference2(D, T);
+    expected_x_inference2 << 0.5, 0.07642, 0.65228, 0.011904, 0.15051, 0.63111,
+        0.1876, 0.30701, 0.087423, 0.64793, 0.052523, 0.37282, 0.07606, 0.65172,
+        0.0094266, 0.14562, 0.022716, 0.029398, 0.13167, 0.6329, 0.44025,
+        0.50717, 0.011232, 0.68078, 0.04122, 0.66067, 0.041901, 0.66023,
+        0.16168, 0.6025, 0.0090601, 0.68072, 0.15611, 0.020166, 0.029589,
+        0.028105, 0.1298, 0.63275, 0.0077845, 0.13425, 0.32285, 0.013389,
+        0.37491, 0.54284, 0.048282, 0.024964, 0.026172, 0.3644, 0.061933,
+        0.65189;
+    Eigen::MatrixXd expected_x_inference3(D, T);
+    expected_x_inference3 << 0.2, 0.71672, 0.086906, 0.89651, 0.6539, 0.10722,
+        0.45046, 0.3429, 0.71479, 0.094072, 0.76154, 0.30827, 0.74313, 0.096488,
+        0.91567, 0.6668, 0.89777, 0.88419, 0.69501, 0.12275, 0.23689, 0.18144,
+        0.92001, 0.090368, 0.8192, 0.099034, 0.82279, 0.10004, 0.53904, 0.12608,
+        0.92786, 0.090979, 0.53842, 0.90097, 0.88382, 0.88875, 0.69906, 0.12558,
+        0.94455, 0.68989, 0.40249, 0.93324, 0.33643, 0.20278, 0.84573, 0.89766,
+        0.89562, 0.35246, 0.8312, 0.11577;
+    Tensor3 expected_x_inference(
+        {expected_x_inference1, expected_x_inference2, expected_x_inference3});
+    Tensor3 estimated_x_inference =
+        Tensor3(x_estimator->get_estimates().estimates);
     BOOST_TEST(check_tensor_eq(
-        estimated_state_inference, expected_state_inference, tolerance));
+        estimated_x_inference, expected_x_inference, tolerance));
 
-    Eigen::MatrixXd expected_fixed_inference1(1, 10);
-    expected_fixed_inference1 << 0.200000000000000, 0.272168277106431,
-        0.286901616692489, 0.335535834113975, 0.350857398408302,
-        0.301271047538667, 0.327408070685641, 0.195082186084380,
-        0.171771886492546, 0.148000113014653;
-    Eigen::MatrixXd expected_fixed_inference2(1, 10);
-    expected_fixed_inference2 << 0.300000000000000, 0.216447852615085,
-        0.192938991422715, 0.157977157062240, 0.137601825773716,
-        0.163105165681335, 0.139745549080894, 0.218395346206434,
-        0.262267794124221, 0.318370195713490;
-    Eigen::MatrixXd expected_fixed_inference3(1, 10);
-    expected_fixed_inference3 << 0.500000000000000, 0.511383870278483,
-        0.520159391884796, 0.506487008823786, 0.511540775817981,
-        0.535623786779997, 0.532846380233465, 0.586522467709186,
-        0.565960319383233, 0.533629691271857;
-    Tensor3 expected_fixed_inference({expected_fixed_inference1,
-                                      expected_fixed_inference2,
-                                      expected_fixed_inference3});
-    Tensor3 estimated_fixed_inference =
-        Tensor3(fixed_estimator->get_estimates().estimates);
+    Eigen::MatrixXd expected_a_inference1(D, T);
+    expected_a_inference1 << 0.2, 0.14534, 0.16197, 0.081908, 0.074817,
+        0.089479, 0.097408, 0.10606, 0.080739, 0.092024, 0.060798, 0.065108,
+        0.047312, 0.054312, 0.025165, 0.022623, 0.015074, 0.011749, 0.010109,
+        0.012671, 0.022735, 0.035409, 0.01669, 0.0185, 0.01132, 0.01309,
+        0.0080522, 0.0093372, 0.010566, 0.013637, 0.00609, 0.0067637, 0.0075936,
+        0.0044672, 0.0034598, 0.0026411, 0.0022588, 0.0028547, 0.0011801,
+        0.0010251, 0.0011114, 0.00055054, 0.00057938, 0.0009271, 0.00057049,
+        0.00038458, 0.00028113, 0.00029329, 0.00019232, 0.00023453;
+    Eigen::MatrixXd expected_a_inference2(D, T);
+    expected_a_inference2 << 0.3, 0.36249, 0.33177, 0.44336, 0.47745, 0.43075,
+        0.39272, 0.37262, 0.42114, 0.38625, 0.44455, 0.43442, 0.48459, 0.45085,
+        0.55042, 0.58342, 0.64943, 0.70245, 0.7333, 0.69908, 0.61362, 0.5375,
+        0.62833, 0.59867, 0.64665, 0.61959, 0.66663, 0.64044, 0.60314, 0.56599,
+        0.65442, 0.6262, 0.58778, 0.64359, 0.69651, 0.74679, 0.77413, 0.74387,
+        0.80557, 0.82559, 0.81686, 0.85769, 0.85502, 0.81914, 0.84604, 0.87115,
+        0.8966, 0.8941, 0.90907, 0.89785;
+    Eigen::MatrixXd expected_a_inference3(D, T);
+    expected_a_inference3 << 0.5, 0.49217, 0.50626, 0.47473, 0.44774, 0.47977,
+        0.50987, 0.52132, 0.49813, 0.52173, 0.49465, 0.50047, 0.4681, 0.49483,
+        0.42441, 0.39396, 0.3355, 0.2858, 0.25659, 0.28824, 0.36365, 0.42709,
+        0.35498, 0.38283, 0.34203, 0.36732, 0.32531, 0.35022, 0.38629, 0.42037,
+        0.33949, 0.36704, 0.40463, 0.35194, 0.30003, 0.25057, 0.22361, 0.25328,
+        0.19325, 0.17339, 0.18203, 0.14176, 0.1444, 0.17994, 0.15339, 0.12847,
+        0.10312, 0.1056, 0.090742, 0.10191;
+    Tensor3 expected_a_inference(
+        {expected_a_inference1, expected_a_inference2, expected_a_inference3});
+    Tensor3 estimated_a_inference =
+        Tensor3(a_estimator->get_estimates().estimates);
     BOOST_TEST(check_tensor_eq(
-        estimated_fixed_inference, expected_fixed_inference, tolerance));
+        estimated_a_inference, expected_a_inference, tolerance));
+}
+
+BOOST_AUTO_TEST_CASE(dbn2_particle_filter) {
+    /**
+     * This test case introduces a new single node in DBN1 that also affects
+     * state transitions. It evaluates whether the probabilities of X (state
+     * variable), A and B (single time variables) can be approximated at every
+     * time step using particle filter.
+     */
+
+    //  This test needs more particles because the model contains a v-structure.
+    //  Estimates degenerate after a couple of time steps due to entanglement
+    //  between variables if not enough particles are used. A solution, besides
+    //  increasing the number of particles, is to remove this kinds of
+    //  structures from the model by merging them into a single node.
+
+    int T = 50;
+    int D = 1;
+    double tolerance = 0.1;
+    int num_particles = 4000;
+
+    // Data
+    Eigen::MatrixXd z1(D, T);
+    z1 << NO_OBS, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1,
+        0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0,
+        0, 0, 1, 1;
+    Eigen::MatrixXd z2(D, T);
+    z2 << NO_OBS, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0,
+        1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1,
+        1, 0, 1, 0;
+
+    EvidenceSet data;
+    data.add_data("Z1", Tensor3(z1));
+    data.add_data("Z2", Tensor3(z2));
+
+    // Model
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn2.json"));
+
+    model->unroll(3, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Inference
+    auto x_estimator = make_shared<SamplerEstimator>(model, 0, "X");
+    auto a_estimator = make_shared<SamplerEstimator>(model, 0, "A");
+    auto b_estimator = make_shared<SamplerEstimator>(model, 0, "B");
+
+    ParticleFilterEstimator particle_estimator(model, num_particles, gen, 1);
+    particle_estimator.add_base_estimator(x_estimator);
+    particle_estimator.add_base_estimator(a_estimator);
+    particle_estimator.add_base_estimator(b_estimator);
+    particle_estimator.set_show_progress(false);
+
+    particle_estimator.prepare();
+    particle_estimator.estimate(data);
+
+    Eigen::MatrixXd expected_x_inference1(D, T);
+    expected_x_inference1 << 0.3, 0.32866, 0.42311, 0.17569, 0.27169, 0.40484,
+        0.49671, 0.51176, 0.31878, 0.43453, 0.3258, 0.48392, 0.30055, 0.43597,
+        0.14911, 0.27025, 0.12418, 0.12714, 0.25439, 0.41052, 0.4201, 0.44018,
+        0.14358, 0.41127, 0.23818, 0.41218, 0.22053, 0.39522, 0.39235, 0.41756,
+        0.11198, 0.36783, 0.37738, 0.11933, 0.11947, 0.11423, 0.23667, 0.37299,
+        0.083375, 0.23944, 0.37545, 0.084059, 0.39555, 0.33502, 0.16771,
+        0.10932, 0.10742, 0.38767, 0.16136, 0.34795;
+    Eigen::MatrixXd expected_x_inference2(D, T);
+    expected_x_inference2 << 0.5, 0.093835, 0.48605, 0.018578, 0.097304, 0.4901,
+        0.21166, 0.21087, 0.072536, 0.46935, 0.073485, 0.23301, 0.068245,
+        0.46528, 0.01513, 0.092493, 0.016736, 0.01914, 0.084627, 0.4701,
+        0.44436, 0.44685, 0.015576, 0.48664, 0.064364, 0.48313, 0.063035,
+        0.49901, 0.20432, 0.46733, 0.013469, 0.53098, 0.20219, 0.016637,
+        0.020555, 0.019524, 0.089562, 0.50093, 0.012427, 0.096591, 0.2463,
+        0.013126, 0.27692, 0.49205, 0.066976, 0.01897, 0.019334, 0.26927,
+        0.062024, 0.53363;
+    Eigen::MatrixXd expected_x_inference3(D, T);
+    expected_x_inference3 << 0.2, 0.5775, 0.090842, 0.80573, 0.631, 0.10506,
+        0.29163, 0.27737, 0.60869, 0.096118, 0.60072, 0.28307, 0.6312, 0.098751,
+        0.83576, 0.63726, 0.85909, 0.85372, 0.66099, 0.11938, 0.13554, 0.11297,
+        0.84085, 0.10209, 0.69746, 0.10469, 0.71644, 0.10576, 0.40333, 0.11511,
+        0.87455, 0.10119, 0.42042, 0.86403, 0.85998, 0.86625, 0.67377, 0.12608,
+        0.9042, 0.66397, 0.37825, 0.90282, 0.32754, 0.17294, 0.76531, 0.87171,
+        0.87325, 0.34305, 0.77662, 0.11841;
+    Tensor3 expected_x_inference(
+        {expected_x_inference1, expected_x_inference2, expected_x_inference3});
+    Tensor3 estimated_x_inference =
+        Tensor3(x_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(
+        estimated_x_inference, expected_x_inference, tolerance));
+
+    Eigen::MatrixXd expected_a_inference1(D, T);
+    expected_a_inference1 << 0.2, 0.23329, 0.21854, 0.30255, 0.31311, 0.28257,
+        0.24645, 0.22324, 0.24688, 0.23044, 0.26215, 0.24902, 0.27876, 0.26318,
+        0.33981, 0.3489, 0.39623, 0.41945, 0.43096, 0.40694, 0.37135, 0.34291,
+        0.41324, 0.40614, 0.43655, 0.4223, 0.44449, 0.42913, 0.39235, 0.36802,
+        0.42013, 0.40757, 0.375, 0.41939, 0.44385, 0.47062, 0.48412, 0.46162,
+        0.49723, 0.50843, 0.49906, 0.53275, 0.53286, 0.51295, 0.51172, 0.53503,
+        0.55393, 0.55307, 0.56395, 0.55052;
+    Eigen::MatrixXd expected_a_inference2(D, T);
+    expected_a_inference2 << 0.3, 0.26901, 0.29987, 0.23976, 0.21334, 0.24359,
+        0.24254, 0.23316, 0.21216, 0.23827, 0.21427, 0.20137, 0.18571, 0.20444,
+        0.19692, 0.18179, 0.17637, 0.16722, 0.15567, 0.16104, 0.13412, 0.12252,
+        0.13644, 0.14824, 0.15901, 0.1668, 0.18478, 0.19237, 0.17823, 0.17638,
+        0.21557, 0.22543, 0.20911, 0.22423, 0.22212, 0.21878, 0.20985, 0.2118,
+        0.26552, 0.25587, 0.24301, 0.27151, 0.25932, 0.23533, 0.26764, 0.26869,
+        0.26495, 0.25339, 0.26733, 0.2742;
+    Eigen::MatrixXd expected_a_inference3(D, T);
+    expected_a_inference3 << 0.5, 0.4977, 0.48158, 0.4577, 0.47355, 0.47385,
+        0.51101, 0.54361, 0.54096, 0.53128, 0.52358, 0.54961, 0.53553, 0.53238,
+        0.46326, 0.46931, 0.4274, 0.41333, 0.41337, 0.43202, 0.49453, 0.53458,
+        0.45033, 0.44562, 0.40444, 0.4109, 0.37073, 0.3785, 0.42942, 0.4556,
+        0.3643, 0.367, 0.41589, 0.35638, 0.33403, 0.31059, 0.30603, 0.32658,
+        0.23726, 0.2357, 0.25793, 0.19573, 0.20782, 0.25173, 0.22064, 0.19628,
+        0.18112, 0.19353, 0.16872, 0.17528;
+    Tensor3 expected_a_inference(
+        {expected_a_inference1, expected_a_inference2, expected_a_inference3});
+    Tensor3 estimated_a_inference =
+        Tensor3(a_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(
+        estimated_a_inference, expected_a_inference, tolerance));
+
+    Eigen::MatrixXd expected_b_inference1(D, T);
+    expected_b_inference1 << 0.1, 0.11283, 0.11946, 0.15812, 0.1449, 0.1492,
+        0.13826, 0.12833, 0.13292, 0.14019, 0.16307, 0.15212, 0.16077, 0.16996,
+        0.22234, 0.2043, 0.20512, 0.19242, 0.17887, 0.18427, 0.14461, 0.12233,
+        0.15644, 0.1708, 0.19657, 0.20938, 0.23749, 0.25193, 0.23877, 0.23905,
+        0.29266, 0.31445, 0.30118, 0.31128, 0.2926, 0.27538, 0.25809, 0.26676,
+        0.32179, 0.30355, 0.29111, 0.31318, 0.30008, 0.28223, 0.31285, 0.30583,
+        0.29368, 0.28169, 0.29293, 0.30399;
+    Eigen::MatrixXd expected_b_inference2(D, T);
+    expected_b_inference2 << 0.9, 0.88717, 0.88054, 0.84188, 0.8551, 0.8508,
+        0.86174, 0.87167, 0.86708, 0.85981, 0.83693, 0.84788, 0.83923, 0.83004,
+        0.77766, 0.7957, 0.79488, 0.80758, 0.82113, 0.81573, 0.85539, 0.87767,
+        0.84356, 0.8292, 0.80343, 0.79062, 0.76251, 0.74807, 0.76123, 0.76095,
+        0.70734, 0.68555, 0.69882, 0.68872, 0.7074, 0.72462, 0.74191, 0.73324,
+        0.67821, 0.69645, 0.70889, 0.68682, 0.69992, 0.71777, 0.68715, 0.69417,
+        0.70632, 0.71831, 0.70707, 0.69601;
+    Tensor3 expected_b_inference((vector<Eigen::MatrixXd>){
+        expected_b_inference1, expected_b_inference2});
+    Tensor3 estimated_b_inference =
+        Tensor3(b_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(
+        estimated_b_inference, expected_b_inference, tolerance));
+}
+
+BOOST_AUTO_TEST_CASE(dbn3_particle_filter) {
+    /**
+     * This test case uses a DBN comprised of 2 single time variables. One
+     * affects the state transition in a hidden markov chain. The other affects
+     * the former single time variable. It evaluates whether the probabilities
+     * of X (state variable), A and B (single time variables) can be
+     * approximated at every time step using particle filter.
+     */
+
+    int T = 50;
+    int D = 1;
+    double tolerance = 0.1;
+    int num_particles = 1000;
+
+    // Data
+    Eigen::MatrixXd z1(D, T);
+    z1 << NO_OBS, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1,
+        0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0,
+        0, 0, 1, 1;
+    Eigen::MatrixXd z2(D, T);
+    z2 << NO_OBS, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0,
+        1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1,
+        1, 0, 1, 0;
+
+    EvidenceSet data;
+    data.add_data("Z1", Tensor3(z1));
+    data.add_data("Z2", Tensor3(z2));
+
+    // Model
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn3.json"));
+
+    model->unroll(3, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Inference
+    auto x_estimator = make_shared<SamplerEstimator>(model, 0, "X");
+    auto a_estimator = make_shared<SamplerEstimator>(model, 0, "A");
+    auto b_estimator = make_shared<SamplerEstimator>(model, 0, "B");
+
+    ParticleFilterEstimator particle_estimator(model, num_particles, gen, 1);
+    particle_estimator.add_base_estimator(x_estimator);
+    particle_estimator.add_base_estimator(a_estimator);
+    particle_estimator.add_base_estimator(b_estimator);
+    particle_estimator.set_show_progress(false);
+
+    particle_estimator.prepare();
+    particle_estimator.estimate(data);
+
+    Eigen::MatrixXd expected_x_inference1(D, T);
+    expected_x_inference1 << 0.3, 0.20451, 0.27264, 0.086607, 0.19531, 0.2527,
+        0.30436, 0.34265, 0.1883, 0.26181, 0.15367, 0.31847, 0.15374, 0.25012,
+        0.054729, 0.17998, 0.068459, 0.080521, 0.16434, 0.23334, 0.25945,
+        0.26208, 0.050818, 0.23203, 0.095906, 0.2357, 0.092796, 0.23465, 0.2212,
+        0.24531, 0.041735, 0.23065, 0.22106, 0.064646, 0.079876, 0.076826,
+        0.16255, 0.23115, 0.033862, 0.17051, 0.26048, 0.044936, 0.28603,
+        0.23034, 0.085056, 0.073442, 0.075472, 0.28045, 0.095693, 0.22971;
+    Eigen::MatrixXd expected_x_inference2(D, T);
+    expected_x_inference2 << 0.5, 0.095408, 0.64228, 0.015878, 0.14129, 0.63363,
+        0.22151, 0.31413, 0.09083, 0.64035, 0.061932, 0.36236, 0.07658, 0.64649,
+        0.0098406, 0.13444, 0.020752, 0.026812, 0.12298, 0.63389, 0.46839,
+        0.53101, 0.010744, 0.66981, 0.040534, 0.65748, 0.040027, 0.65753,
+        0.1654, 0.61515, 0.0081501, 0.67025, 0.16084, 0.018768, 0.02668,
+        0.025579, 0.1217, 0.63342, 0.0071984, 0.12823, 0.31796, 0.012709,
+        0.3677, 0.55228, 0.046029, 0.024046, 0.02506, 0.35886, 0.060557, 0.6514;
+    Eigen::MatrixXd expected_x_inference3(D, T);
+    expected_x_inference3 << 0.2, 0.70008, 0.08508, 0.89751, 0.6634, 0.11367,
+        0.47413, 0.34322, 0.72087, 0.09785, 0.7844, 0.31916, 0.76968, 0.1034,
+        0.93543, 0.68558, 0.91079, 0.89267, 0.71269, 0.13277, 0.27216, 0.20691,
+        0.93844, 0.098168, 0.86356, 0.10682, 0.86718, 0.10782, 0.6134, 0.13954,
+        0.95012, 0.099096, 0.6181, 0.91659, 0.89344, 0.8976, 0.71575, 0.13543,
+        0.95894, 0.70126, 0.42155, 0.94236, 0.34628, 0.21737, 0.86891, 0.90251,
+        0.89947, 0.3607, 0.84375, 0.11889;
+    Tensor3 expected_x_inference(
+        {expected_x_inference1, expected_x_inference2, expected_x_inference3});
+    Tensor3 estimated_x_inference =
+        Tensor3(x_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(
+        estimated_x_inference, expected_x_inference, tolerance));
+
+    Eigen::MatrixXd expected_a_inference1(D, T);
+    expected_a_inference1 << 0.47, 0.3593, 0.39911, 0.21345, 0.19072, 0.23245,
+        0.25947, 0.28335, 0.21642, 0.25016, 0.16627, 0.17835, 0.12747, 0.14975,
+        0.066184, 0.057667, 0.036385, 0.027048, 0.022649, 0.029212, 0.056066,
+        0.092298, 0.041051, 0.046801, 0.027624, 0.032757, 0.019375, 0.023035,
+        0.027074, 0.03619, 0.014906, 0.017041, 0.019933, 0.011101, 0.0081501,
+        0.0059269, 0.004941, 0.0064218, 0.0025117, 0.0021428, 0.0023414,
+        0.0011192, 0.0011805, 0.0019497, 0.0011718, 0.00077286, 0.0005528,
+        0.00057792, 0.00037424, 0.00046072;
+    Eigen::MatrixXd expected_a_inference2(D, T);
+    expected_a_inference2 << 0.39, 0.49573, 0.45225, 0.63915, 0.67329, 0.61904,
+        0.5787, 0.55071, 0.62448, 0.58085, 0.67255, 0.6583, 0.72226, 0.68768,
+        0.80082, 0.82268, 0.86713, 0.89456, 0.90885, 0.89161, 0.83709, 0.77506,
+        0.85492, 0.83781, 0.87293, 0.85772, 0.88736, 0.87402, 0.85498, 0.83089,
+        0.88609, 0.87278, 0.85351, 0.8847, 0.90764, 0.92708, 0.93678, 0.92569,
+        0.94848, 0.95467, 0.95197, 0.96454, 0.96376, 0.95296, 0.96129, 0.96847,
+        0.97529, 0.97463, 0.97859, 0.97569;
+    Eigen::MatrixXd expected_a_inference3(D, T);
+    expected_a_inference3 << 0.14, 0.14497, 0.14864, 0.1474, 0.13599, 0.1485,
+        0.16183, 0.16595, 0.15909, 0.16899, 0.16118, 0.16334, 0.15027, 0.16257,
+        0.133, 0.11965, 0.096485, 0.078391, 0.068497, 0.079181, 0.10685,
+        0.13264, 0.10403, 0.11539, 0.099447, 0.10952, 0.093267, 0.10294,
+        0.11794, 0.13292, 0.099007, 0.11018, 0.12655, 0.1042, 0.084212,
+        0.066997, 0.058281, 0.067886, 0.049006, 0.043185, 0.04569, 0.034337,
+        0.035058, 0.045088, 0.037539, 0.03076, 0.024159, 0.024794, 0.021039,
+        0.023853;
+    Tensor3 expected_a_inference(
+        {expected_a_inference1, expected_a_inference2, expected_a_inference3});
+    Tensor3 estimated_a_inference =
+        Tensor3(a_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(
+        estimated_a_inference, expected_a_inference, tolerance));
+
+    Eigen::MatrixXd expected_b_inference1(D, T);
+    expected_b_inference1 << 0.1, 0.1052, 0.10486, 0.11089, 0.10848, 0.11055,
+        0.11335, 0.11369, 0.11407, 0.11568, 0.11637, 0.11657, 0.11465, 0.11733,
+        0.11192, 0.10847, 0.10271, 0.09796, 0.095339, 0.098107, 0.10494,
+        0.11092, 0.10466, 0.10765, 0.10384, 0.10649, 0.10239, 0.10498, 0.10904,
+        0.11293, 0.10415, 0.10721, 0.1117, 0.10574, 0.10024, 0.095493, 0.093085,
+        0.095725, 0.090569, 0.088951, 0.089646, 0.086507, 0.086706, 0.089491,
+        0.087402, 0.085516, 0.083674, 0.083851, 0.082806, 0.083591;
+    Eigen::MatrixXd expected_b_inference2(D, T);
+    expected_b_inference2 << 0.9, 0.8948, 0.89514, 0.88911, 0.89152, 0.88945,
+        0.88665, 0.88631, 0.88593, 0.88432, 0.88363, 0.88343, 0.88535, 0.88267,
+        0.88808, 0.89153, 0.89729, 0.90204, 0.90466, 0.90189, 0.89506, 0.88908,
+        0.89534, 0.89235, 0.89616, 0.89351, 0.89761, 0.89502, 0.89096, 0.88707,
+        0.89585, 0.89279, 0.8883, 0.89426, 0.89976, 0.90451, 0.90692, 0.90427,
+        0.90943, 0.91105, 0.91035, 0.91349, 0.91329, 0.91051, 0.9126, 0.91448,
+        0.91633, 0.91615, 0.91719, 0.91641;
+    Tensor3 expected_b_inference((vector<Eigen::MatrixXd>){
+        expected_b_inference1, expected_b_inference2});
+    Tensor3 estimated_b_inference =
+        Tensor3(b_estimator->get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(
+        estimated_b_inference, expected_b_inference, tolerance));
 }
 
 BOOST_AUTO_TEST_CASE(segment_extension_factor) {

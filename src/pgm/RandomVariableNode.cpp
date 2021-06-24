@@ -192,8 +192,8 @@ namespace tomcat {
             return (log_weights.array().colwise() / sum_per_row.array());
         }
 
-        Eigen::MatrixXd RandomVariableNode::get_segments_log_posterior_weights(
-            int num_jobs) {
+        Eigen::MatrixXd
+        RandomVariableNode::get_segments_log_posterior_weights(int num_jobs) {
             Eigen::MatrixXd segments_weights(0, 0);
 
             if (!this->has_timer()) {
@@ -252,9 +252,7 @@ namespace tomcat {
                 Eigen::MatrixXd right_seg_weights =
                     right_first_timer->get_cpd()
                         ->get_right_segment_posterior_weights(
-                            right_first_timer,
-                            last_time_step,
-                            num_jobs);
+                            right_first_timer, last_time_step, num_jobs);
 
                 segments_weights =
                     (segments_weights.array() +
@@ -415,6 +413,11 @@ namespace tomcat {
             }
         }
 
+        bool RandomVariableNode::has_child_at(int time_step) const {
+            return this->children_per_time_step.size() > time_step &&
+                   !this->children_per_time_step.at(time_step).empty();
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------
@@ -466,6 +469,10 @@ namespace tomcat {
                 if (child->get_metadata()->is_timer()) {
                     this->child_timer = true;
                 }
+
+                if (!child->get_metadata()->is_replicable()) {
+                    this->single_time_children.push_back(rv_child);
+                }
             }
         }
 
@@ -485,6 +492,11 @@ namespace tomcat {
 
         bool RandomVariableNode::has_child_timer() const {
             return this->child_timer;
+        }
+
+        const RVNodePtrVec&
+        RandomVariableNode::get_single_time_children() const {
+            return single_time_children;
         }
 
     } // namespace model
