@@ -102,10 +102,11 @@ namespace tomcat {
                                            "continuous distribution.");
             }
 
-            if (parent_node->is_multitime() && !time_crossing) {
-                throw TomcatModelException("The parent node is multi-time, "
-                                           "therefore its connections must "
-                                           "cross time.");
+            if (parent_node->is_multitime() && this->is_replicable() &&
+                !time_crossing) {
+                throw TomcatModelException("The parent node is multi-time and "
+                                           "the child is replicable, therefore "
+                                           "its connections must cross time.");
             }
 
             if (parent_node->is_timer()) {
