@@ -7,9 +7,9 @@
 #include "distribution/Categorical.h"
 #include "distribution/Distribution.h"
 #include "pgm/TimerNode.h"
+#include "pipeline/estimation/SamplerEstimator.h"
 #include "utils/EigenExtensions.h"
 #include "utils/Multithreading.h"
-#include "pipeline/estimation/SamplerEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -722,6 +722,8 @@ namespace tomcat {
 
                 RVNodePtrVec nodes =
                     this->template_dbn.get_data_nodes(template_time_step);
+                RVNodePtrVec previous_nodes =
+                    this->template_dbn.get_data_nodes(template_time_step - 1);
                 for (const auto& node :
                      this->template_dbn.get_single_time_nodes()) {
                     if (node->get_metadata()->get_initial_time_step() <
@@ -737,6 +739,20 @@ namespace tomcat {
                     last_particles.add_data(node->get_metadata()->get_label(),
                                             node->get_assignment());
                 }
+                EvidenceSet last_particles_previous_nodes;
+                for (const auto& node : previous_nodes) {
+                    last_particles_previous_nodes.add_data(
+                        node->get_metadata()->get_label(),
+                        node->get_assignment());
+                }
+
+                // Save accumulated weights and posteriors as well
+                auto last_cum_marginal_posterior_log_weights =
+                    this->cum_marginal_posterior_log_weights;
+                auto last_last_left_segment_distribution_indices =
+                    this->last_left_segment_distribution_indices;
+                auto last_last_left_segment_marginal_nodes_distribution_indices =
+                    this->last_left_segment_marginal_nodes_distribution_indices;
 
                 EvidenceSet empty_set;
                 int initial_time_step = this->last_time_step + 1;
@@ -744,6 +760,9 @@ namespace tomcat {
                 for (int t = initial_time_step; t <= final_time_step; t++) {
                     this->elapse(empty_set, t);
                     particles.hstack(this->resample(empty_set, t));
+                    this->apply_rao_blackwellization(t);
+                    this->update_left_segment_distribution_indices(t);
+                    this->move_particles_back_in_time(t);
                 }
 
                 // Restore particles
@@ -752,6 +771,19 @@ namespace tomcat {
                         last_particles[node->get_metadata()->get_label()](0,
                                                                           0));
                 }
+                for (const auto& node : previous_nodes) {
+                    node->set_assignment(
+                        last_particles_previous_nodes[node->get_metadata()
+                                                          ->get_label()](0, 0));
+                }
+
+                // Restore weights and posteriors
+                this->cum_marginal_posterior_log_weights =
+                    last_cum_marginal_posterior_log_weights;
+                this->last_left_segment_distribution_indices =
+                    last_last_left_segment_distribution_indices;
+                this->last_left_segment_marginal_nodes_distribution_indices =
+                    last_last_left_segment_marginal_nodes_distribution_indices;
             }
 
             return particles;

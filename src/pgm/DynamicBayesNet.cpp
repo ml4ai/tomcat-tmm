@@ -705,6 +705,7 @@ namespace tomcat {
         }
 
         RVNodePtrVec DynamicBayesNet::get_data_nodes(int time_step) const {
+            if (time_step < 0 || this->data_nodes_per_time_step.size() <= time_step) return {};
             return this->data_nodes_per_time_step.at(time_step);
         }
 
