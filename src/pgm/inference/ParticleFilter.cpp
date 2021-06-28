@@ -379,13 +379,15 @@ namespace tomcat {
 
         void ParticleFilter::shuffle_timed_node_left_segment_distributions(
             const RVNodePtr& node, const Eigen::VectorXi& sampled_particles) {
-            // Rearrange left segment distribution indices
-            auto& left_segment_distribution_indices =
-                this->last_left_segment_distribution_indices
-                    [node->get_metadata()->get_label()];
+            if (sampled_particles.size() > 0) {
+                // Rearrange left segment distribution indices
+                auto& left_segment_distribution_indices =
+                    this->last_left_segment_distribution_indices
+                        [node->get_metadata()->get_label()];
 
-            left_segment_distribution_indices = move(this->shuffle_rows(
-                left_segment_distribution_indices, sampled_particles));
+                left_segment_distribution_indices = move(this->shuffle_rows(
+                    left_segment_distribution_indices, sampled_particles));
+            }
         }
 
         EvidenceSet ParticleFilter::apply_rao_blackwellization(int time_step) {
@@ -441,8 +443,8 @@ namespace tomcat {
                             const string& child_label =
                                 child->get_metadata()->get_label();
 
-                            segment_log_weights_per_timer[child_label] = move(
-                                get_segment_log_weights(node, child_timer));
+                            segment_log_weights_per_timer[child_label] =
+                                get_segment_log_weights(node, child_timer);
 
                             this->update_marginal_left_segment_distributions(
                                 node, child_timer);
@@ -736,14 +738,31 @@ namespace tomcat {
                 // generate samples forward
                 EvidenceSet last_particles;
                 for (const auto& node : nodes) {
-                    last_particles.add_data(node->get_metadata()->get_label(),
-                                            node->get_assignment());
+                    if (node->get_metadata()->is_timer()) {
+                        last_particles.add_data(
+                            node->get_metadata()->get_label(),
+                            dynamic_pointer_cast<TimerNode>(node)
+                                ->get_forward_assignment());
+                    }
+                    else {
+                        last_particles.add_data(
+                            node->get_metadata()->get_label(),
+                            node->get_assignment());
+                    }
                 }
                 EvidenceSet last_particles_previous_nodes;
                 for (const auto& node : previous_nodes) {
-                    last_particles_previous_nodes.add_data(
-                        node->get_metadata()->get_label(),
-                        node->get_assignment());
+                    if (node->get_metadata()->is_timer()) {
+                        last_particles_previous_nodes.add_data(
+                            node->get_metadata()->get_label(),
+                            dynamic_pointer_cast<TimerNode>(node)
+                                ->get_forward_assignment());
+                    }
+                    else {
+                        last_particles_previous_nodes.add_data(
+                            node->get_metadata()->get_label(),
+                            node->get_assignment());
+                    }
                 }
 
                 // Save accumulated weights and posteriors as well
@@ -767,14 +786,27 @@ namespace tomcat {
 
                 // Restore particles
                 for (const auto& node : nodes) {
-                    node->set_assignment(
-                        last_particles[node->get_metadata()->get_label()](0,
-                                                                          0));
+                    auto samples =
+                        last_particles[node->get_metadata()->get_label()](0, 0);
+                    if (node->get_metadata()->is_timer()) {
+                        dynamic_pointer_cast<TimerNode>(node)
+                            ->set_forward_assignment(move(samples));
+                    }
+                    else {
+                        node->set_assignment(move(samples));
+                    }
                 }
                 for (const auto& node : previous_nodes) {
-                    node->set_assignment(
+                    auto samples =
                         last_particles_previous_nodes[node->get_metadata()
-                                                          ->get_label()](0, 0));
+                                                          ->get_label()](0, 0);
+                    if (node->get_metadata()->is_timer()) {
+                        dynamic_pointer_cast<TimerNode>(node)
+                            ->set_forward_assignment(move(samples));
+                    }
+                    else {
+                        node->set_assignment(move(samples));
+                    }
                 }
 
                 // Restore weights and posteriors

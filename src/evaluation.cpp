@@ -35,10 +35,6 @@ void evaluate(const string& experiment_id,
         DynamicBayesNet ::create_from_json(model_json));
     model->unroll(3, true);
 
-    EvidenceSet small_data = test_data.get_single_point_data(0);
-//    small_data.vstack(test_data.get_single_point_data(1));
-    test_data = small_data;
-
     Experimentation experimentation(random_generator, experiment_id, model);
     experimentation.add_estimators_from_json(inference_json,
                                              burn_in,

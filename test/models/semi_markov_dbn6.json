@@ -1,0 +1,201 @@
+{
+  "nodes": {
+    "timers": [
+      {
+        "label": "YTimer",
+        "cpds": [
+          {
+            "distribution": "poisson",
+            "constant": true,
+            "parameters": "1,3,5,2,4,6",
+            "index_nodes": [
+              "Y",
+              "A"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "XTimer",
+        "cpds": [
+          {
+            "distribution": "poisson",
+            "constant": true,
+            "parameters": "1,2,3,4,5,6",
+            "index_nodes": [
+              "X",
+              "A"
+            ]
+          }
+        ]
+      }
+    ],
+    "parameters": [
+    ],
+    "data": [
+      {
+        "label": "A",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.2, 0.3, 0.5",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "Y",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "YTimer",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.8, 0.2, 0.8, 0.2, 0.8, 0.2",
+            "index_nodes": [
+              "A"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0,1,0,1,0,1,1,0,1,0,1,0",
+            "index_nodes": [
+              "Y",
+              "A"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "X",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "XTimer",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.3,0.7,0.3,0.7,0.3, 0.7",
+            "index_nodes": [
+              "A"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0,1,0,1,0,1,1,0,1,0,1,0",
+            "index_nodes": [
+              "X",
+              "A"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Z1",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.2, 0.8, 0.1, 0.9",
+            "index_nodes": [
+              "Y"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Z2",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.7, 0.3, 0.9, 0.1",
+            "index_nodes": [
+              "X"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "connections": [
+    {
+      "parent": "Y",
+      "child": "Y",
+      "time_crossing": true
+    },
+    {
+      "parent": "X",
+      "child": "X",
+      "time_crossing": true
+    },
+    {
+      "parent": "Y",
+      "child": "Z1",
+      "time_crossing": false
+    },
+    {
+      "parent": "X",
+      "child": "Z2",
+      "time_crossing": false
+    },
+    {
+      "parent": "Y",
+      "child": "YTimer",
+      "time_crossing": false
+    },
+    {
+      "parent": "X",
+      "child": "XTimer",
+      "time_crossing": false
+    },
+    {
+      "parent": "A",
+      "child": "YTimer",
+      "time_crossing": true
+    },
+    {
+      "parent": "A",
+      "child": "Y",
+      "time_crossing": true
+    },
+    {
+      "parent": "A",
+      "child": "XTimer",
+      "time_crossing": true
+    },
+    {
+      "parent": "A",
+      "child": "X",
+      "time_crossing": true
+    }
+  ]
+}
