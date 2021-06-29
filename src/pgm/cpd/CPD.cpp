@@ -1,5 +1,6 @@
 #include "CPD.h"
 
+#include <algorithm>
 #include <thread>
 
 #include "pgm/RandomVariableNode.h"
@@ -378,6 +379,10 @@ namespace tomcat {
 
             if (sampled_node->has_timer() &&
                 cpd_owner->get_previous() == sampled_node) {
+                // This function is reimplemented in the CategoricalCPD. If it
+                // falls here, it's because the state transition CPD does not
+                // have a categorical distribution and this is not supported by
+                // the current implementation.
                 throw TomcatModelException(
                     "This implementation only supports calculating the "
                     "posterior for nodes with categorical distribution, in "
@@ -402,33 +407,14 @@ namespace tomcat {
             // For every possible value of sampled_node, the offset indicates
             // how many distributions ahead we need to advance to get the
             // distribution indexes by the index nodes of this CPD.
-            int offset = this->parent_label_to_indexing.at(sampled_node_label)
-                             .right_cumulative_cardinality;
+            int distribution_index_offset =
+                this->parent_label_to_indexing.at(sampled_node_label)
+                    .right_cumulative_cardinality;
 
-            Eigen::MatrixXd weights =
-                this->compute_posterior_weights(cpd_owner,
-                                                distribution_indices,
-                                                cardinality,
-                                                offset,
-                                                num_jobs);
-            return weights;
-        }
-
-        Eigen::MatrixXd CPD::compute_posterior_weights(
-            const shared_ptr<const RandomVariableNode>& cpd_owner,
-            const Eigen::VectorXi& distribution_indices,
-            int cardinality,
-            int distribution_index_offset,
-            int num_jobs) const {
-
-            int data_size = cpd_owner->get_size();
             Eigen::MatrixXd weights(data_size, cardinality);
             mutex weights_mutex;
 
-            const vector<pair<int, int>> processing_blocks =
-                get_parallel_processing_blocks(num_jobs, data_size);
-
-            if (processing_blocks.size() == 1) {
+            if (num_jobs == 1) {
                 // Run in the main thread
                 this->run_posterior_weights_thread(cpd_owner,
                                                    distribution_indices,
@@ -439,6 +425,9 @@ namespace tomcat {
                                                    weights_mutex);
             }
             else {
+                const vector<pair<int, int>> processing_blocks =
+                    get_parallel_processing_blocks(num_jobs, data_size);
+
                 vector<thread> threads;
                 for (const auto& processing_block : processing_blocks) {
                     thread weights_thread(&CPD::run_posterior_weights_thread,
@@ -522,26 +511,178 @@ namespace tomcat {
             full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
         }
 
-        Eigen::MatrixXd CPD::get_left_segment_posterior_weights(
-            const shared_ptr<const TimerNode>& left_segment_last_timer,
-            const shared_ptr<const RandomVariableNode>& right_segment_state,
-            int last_time_step,
+        Eigen::MatrixXd CPD::get_particle_timer_posterior_weights(
+            const Eigen::VectorXi& distribution_indices,
+            const std::shared_ptr<const RandomVariableNode>& sampled_node,
+            const std::shared_ptr<const TimerNode>& segment_timer,
             int num_jobs) const {
 
-            auto& left_segment_state =
-                left_segment_last_timer->get_controlled_node();
+            int data_size = distribution_indices.size();
+            int cardinality = sampled_node->get_metadata()->get_cardinality();
 
-            int data_size = left_segment_state->get_size();
-            int cardinality =
-                left_segment_state->get_metadata()->get_cardinality();
+            const string& sampled_node_label =
+                sampled_node->get_metadata()->get_label();
+            // For every possible value of sampled_node, the offset indicates
+            // how many distributions ahead we need to advance to get the
+            // distribution indexes by the index nodes of this CPD.
+            int distribution_index_offset =
+                this->parent_label_to_indexing.at(sampled_node_label)
+                    .right_cumulative_cardinality;
+
             Eigen::MatrixXd weights(data_size, cardinality);
             mutex weights_mutex;
 
             if (num_jobs == 1) {
+                // Run in the main thread
+                this->run_particle_timer_posterior_weights_thread(
+                    segment_timer,
+                    distribution_indices,
+                    cardinality,
+                    distribution_index_offset,
+                    make_pair(0, data_size),
+                    weights,
+                    weights_mutex);
+            }
+            else {
+                const vector<pair<int, int>> processing_blocks =
+                    get_parallel_processing_blocks(num_jobs, data_size);
+
+                vector<thread> threads;
+                for (const auto& processing_block : processing_blocks) {
+                    thread weights_thread(
+                        &CPD::run_particle_timer_posterior_weights_thread,
+                        this,
+                        segment_timer,
+                        distribution_indices,
+                        cardinality,
+                        distribution_index_offset,
+                        ref(processing_block),
+                        ref(weights),
+                        ref(weights_mutex));
+                    threads.push_back(move(weights_thread));
+                }
+
+                for (auto& weights_thread : threads) {
+                    weights_thread.join();
+                }
+            }
+
+            return weights;
+        }
+
+        void CPD::run_particle_timer_posterior_weights_thread(
+            const shared_ptr<const TimerNode>& segment_timer,
+            const Eigen::VectorXi& distribution_indices,
+            int cardinality,
+            int distribution_index_offset,
+            const pair<int, int>& processing_block,
+            Eigen::MatrixXd& full_weights,
+            mutex& weights_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
+            Eigen::MatrixXd weights =
+                Eigen::MatrixXd::Ones(num_rows, cardinality);
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
+                int distribution_idx = distribution_indices[i];
+
+                bool use_cdf = false;
+                const auto& next_timer =
+                    dynamic_pointer_cast<TimerNode>(segment_timer->get_next());
+                if (!next_timer ||
+                    next_timer->get_forward_assignment()(i, 0) != 0) {
+                    use_cdf = true;
+                }
+
+                int segment_duration =
+                    segment_timer->get_forward_assignment()(i, 0);
+                if (next_timer && use_cdf) {
+                    // The next timer expands the segment in one more time step.
+                    // Since this function is called by methods that use a
+                    // template DBN, time steps are processed one at a time and,
+                    // therefore, we don't need to look after the next timer as
+                    // that time step was not observed yet.
+                    segment_duration += 1;
+                }
+
+                for (int j = 0; j < cardinality; j++) {
+                    const auto& distribution =
+                        this->distributions[distribution_idx +
+                                            j * distribution_index_offset];
+
+                    if (use_cdf) {
+                        // p(x >= val)
+                        weights(i - initial_row, j) =
+                            distribution->get_cdf(segment_duration - 1, true);
+                    }
+                    else {
+                        weights(i - initial_row, j) =
+                            distribution->get_pdf(segment_duration);
+                    }
+                }
+            }
+
+            scoped_lock lock(weights_mutex);
+            full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
+        }
+
+        Eigen::MatrixXd CPD::get_left_segment_posterior_weights(
+            const shared_ptr<TimerNode>& left_segment_timer,
+            const Eigen::VectorXi& left_segment_distribution_indices,
+            const shared_ptr<RandomVariableNode>& right_segment_state,
+            int central_segment_time_step,
+            int last_time_step,
+            int num_jobs) const {
+
+            int data_size = left_segment_distribution_indices.rows();
+            int cardinality = left_segment_timer->get_controlled_node()
+                                  ->get_metadata()
+                                  ->get_cardinality();
+            Eigen::MatrixXd weights =
+                Eigen::MatrixXd::Ones(data_size, cardinality);
+            mutex weights_mutex;
+
+            Eigen::VectorXi left_segment_values =
+                left_segment_timer->get_controlled_node()
+                    ->get_assignment()
+                    .col(0)
+                    .cast<int>();
+
+            // Assumes left segment durations are filled in the forward
+            // assignment.
+            Eigen::VectorXi left_segment_durations =
+                left_segment_timer->get_forward_assignment().col(0).cast<int>();
+
+            // Right segment value does not matter if there's no right
+            // segment;
+            Eigen::VectorXi right_segment_values;
+            Eigen::VectorXi right_segment_durations;
+            if (right_segment_state) {
+                right_segment_values =
+                    right_segment_state->get_assignment().col(0).cast<int>();
+                right_segment_durations = right_segment_state->get_timer()
+                                              ->get_backward_assignment()
+                                              .col(0)
+                                              .cast<int>();
+            }
+            else {
+                right_segment_values =
+                    Eigen::VectorXi::Constant(data_size, NO_OBS);
+                right_segment_durations = Eigen::VectorXi::Zero(data_size);
+            }
+
+            if (num_jobs == 1) {
+                // Run in the main thread
                 this->run_left_segment_posterior_weights_thread(
-                    left_segment_last_timer,
-                    right_segment_state,
+                    left_segment_timer,
+                    left_segment_values,
+                    left_segment_durations,
+                    right_segment_values,
+                    right_segment_durations,
+                    central_segment_time_step,
                     last_time_step,
+                    left_segment_distribution_indices,
                     make_pair(0, data_size),
                     weights,
                     weights_mutex);
@@ -554,8 +695,64 @@ namespace tomcat {
                     thread weights_thread(
                         &CPD::run_left_segment_posterior_weights_thread,
                         this,
-                        left_segment_last_timer,
-                        right_segment_state,
+                        ref(left_segment_timer),
+                        left_segment_values,
+                        left_segment_durations,
+                        right_segment_values,
+                        right_segment_durations,
+                        central_segment_time_step,
+                        last_time_step,
+                        left_segment_distribution_indices,
+                        ref(processing_block),
+                        ref(weights),
+                        ref(weights_mutex));
+                    threads.push_back(move(weights_thread));
+                }
+
+                for (auto& weights_thread : threads) {
+                    weights_thread.join();
+                }
+            }
+
+            return weights;
+        }
+
+        Eigen::MatrixXd CPD::get_left_segment_posterior_weights(
+            const shared_ptr<TimerNode>& left_segment_timer,
+            const shared_ptr<RandomVariableNode>& right_segment_state,
+            int central_segment_time_step,
+            int last_time_step,
+            int num_jobs) const {
+
+            int data_size = left_segment_timer->get_size();
+            int cardinality = left_segment_timer->get_controlled_node()
+                                  ->get_metadata()
+                                  ->get_cardinality();
+            Eigen::MatrixXd weights =
+                Eigen::MatrixXd::Ones(data_size, cardinality);
+            mutex weights_mutex;
+
+            if (num_jobs == 1) {
+                this->run_single_left_segment_posterior_weights_thread(
+                    left_segment_timer,
+                    right_segment_state,
+                    central_segment_time_step,
+                    last_time_step,
+                    make_pair(0, data_size),
+                    weights,
+                    weights_mutex);
+            }
+            else {
+                vector<thread> threads;
+                const vector<pair<int, int>> processing_blocks =
+                    get_parallel_processing_blocks(num_jobs, data_size);
+                for (const auto& processing_block : processing_blocks) {
+                    thread weights_thread(
+                        &CPD::run_single_left_segment_posterior_weights_thread,
+                        this,
+                        ref(left_segment_timer),
+                        ref(right_segment_state),
+                        central_segment_time_step,
                         last_time_step,
                         ref(processing_block),
                         ref(weights),
@@ -571,9 +768,10 @@ namespace tomcat {
             return weights;
         }
 
-        void CPD::run_left_segment_posterior_weights_thread(
-            const shared_ptr<const TimerNode>& left_segment_last_timer,
-            const shared_ptr<const RandomVariableNode>& right_segment_state,
+        void CPD::run_single_left_segment_posterior_weights_thread(
+            const shared_ptr<TimerNode>& left_segment_last_timer,
+            const shared_ptr<RandomVariableNode>& right_segment_state,
+            int central_segment_time_step,
             int last_time_step,
             const pair<int, int>& processing_block,
             Eigen::MatrixXd& full_weights,
@@ -587,7 +785,7 @@ namespace tomcat {
 
             for (int i = initial_row; i < initial_row + num_rows; i++) {
                 // Get posterior weights for the left segment of a given
-                // timer. This is done by calculating the posterior  weights of
+                // timer. This is done by calculating the posterior weights of
                 // the timer in the beginning of the left segment. As a node can
                 // have multiple assignments at a time, a timer may have several
                 // left segments at a time (one for each observation series),
@@ -605,8 +803,9 @@ namespace tomcat {
                 weights.row(i - initial_row) =
                     left_segment_first_timer
                         ->get_left_segment_posterior_weights(
-                            right_segment_state,
                             left_segment_duration,
+                            right_segment_state,
+                            central_segment_time_step,
                             last_time_step,
                             i);
             }
@@ -615,10 +814,99 @@ namespace tomcat {
             full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
         }
 
+        void CPD::run_left_segment_posterior_weights_thread(
+            const shared_ptr<TimerNode>& left_segment_timer,
+            const Eigen::VectorXi& left_segment_values,
+            const Eigen::VectorXi& left_segment_durations,
+            const Eigen::VectorXi& right_segment_values,
+            const Eigen::VectorXi& right_segment_durations,
+            int central_segment_time_step,
+            int last_time_step,
+            const Eigen::VectorXi& distribution_indices,
+            const pair<int, int>& processing_block,
+            Eigen::MatrixXd& full_weights,
+            mutex& weights_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+            int cardinality = full_weights.cols();
+
+            Eigen::MatrixXd weights =
+                Eigen::MatrixXd::Ones(num_rows, cardinality);
+
+            const Eigen::VectorXi& sub_left_segment_values =
+                left_segment_values.block(initial_row, 0, num_rows, 1);
+            const Eigen::VectorXi& sub_right_segment_values =
+                right_segment_values.block(initial_row, 0, num_rows, 1);
+
+            const Eigen::VectorXi& sub_left_segment_durations =
+                left_segment_durations.block(initial_row, 0, num_rows, 1);
+            const Eigen::VectorXi& sub_right_segment_durations =
+                right_segment_durations.block(initial_row, 0, num_rows, 1);
+
+            for (int j = 0; j < cardinality; j++) {
+                Eigen::VectorXi left_joins_central =
+                    (sub_left_segment_values.array() == j).cast<int>();
+                Eigen::VectorXi central_joins_right =
+                    (j == sub_right_segment_values.array()).cast<int>();
+
+                Eigen::VectorXi durations =
+                    sub_left_segment_durations.array() +
+                    left_joins_central.array() *
+                        (1 + central_joins_right.array() *
+                                 (sub_right_segment_durations.array() + 1));
+
+                for (int i = initial_row; i < initial_row + num_rows; i++) {
+                    int distribution_idx = distribution_indices[i];
+                    const auto& timer_distribution =
+                        this->distributions[distribution_idx];
+
+                    bool use_cdf = false;
+                    if (left_joins_central(i - initial_row) == 1) {
+                        if (central_joins_right(i - initial_row) == 1) {
+                            if (central_segment_time_step +
+                                    right_segment_durations[i - initial_row] +
+                                    1 >=
+                                last_time_step) {
+                                // There's more different segments to the right
+                                // side.
+                                use_cdf = true;
+                            }
+                        }
+                        else {
+                            if (central_segment_time_step == last_time_step) {
+                                // There's more different segments to the right
+                                // side.
+                                use_cdf = true;
+                            }
+                        }
+                    }
+
+                    double d = durations[i - initial_row];
+                    double weight;
+                    if (use_cdf) {
+                        // This deal with the fact that the duration is
+                        // truncated at the last time step of the unrolled
+                        // DBN. p(x >= d);
+                        weight = timer_distribution->get_cdf(d - 1, true);
+                    }
+                    else {
+                        weight = timer_distribution->get_pdf(d);
+                    }
+
+                    weights(i - initial_row, j) = weight;
+                }
+            }
+
+            scoped_lock lock(weights_mutex);
+            full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
+        }
+
         Eigen::VectorXd CPD::get_single_left_segment_posterior_weights(
             const shared_ptr<const TimerNode>& left_segment_first_timer,
-            const shared_ptr<const RandomVariableNode>& right_segment_state,
             int left_segment_duration,
+            const shared_ptr<RandomVariableNode>& right_segment_state,
+            int central_segment_time_step,
             int last_time_step,
             int sample_idx) const {
 
@@ -637,36 +925,60 @@ namespace tomcat {
                         sample_idx, 0);
             }
 
+            int distribution_idx = this->get_indexed_distribution_idx(
+                left_segment_first_timer->get_parents(), sample_idx);
+
             int cardinality = left_segment_first_timer->get_controlled_node()
                                   ->get_metadata()
                                   ->get_cardinality();
             Eigen::VectorXd weights(cardinality);
             for (int i = 0; i < cardinality; i++) {
-                int d = left_segment_duration +
-                        (left_segment_value == i) *
-                            (1 + (i == right_segment_value) *
-                                     (right_segment_duration + 1));
+                int left_joins_central = left_segment_value == i;
+                int central_joins_right = i == right_segment_value;
+
+                int d =
+                    left_segment_duration +
+                    left_joins_central * (1 + central_joins_right *
+                                                  (right_segment_duration + 1));
+
                 // We get the timer's distribution at the beginning of the
                 // segment because timer nodes can have other dependencies.
                 // We need to use these dependencies' assignments to
                 // correctly retrieve the actual distribution that governs
                 // the timer node at its time step.
-                int distribution_idx = this->get_indexed_distribution_idx(
-                    left_segment_first_timer->get_parents(), sample_idx);
                 const auto& timer_distribution =
                     this->distributions.at(distribution_idx);
 
-                double weight;
-                if (left_segment_first_timer->get_time_step() + d <
-                    last_time_step) {
-                    weight = timer_distribution->get_pdf(
-                        Eigen::VectorXd::Constant(1, d));
+                bool use_cdf = false;
+                if (left_joins_central == 1) {
+                    if (central_joins_right == 1) {
+                        if (central_segment_time_step + right_segment_duration +
+                                1 >=
+                            last_time_step) {
+                            // There's more different segments to the right
+                            // side.
+                            use_cdf = true;
+                        }
+                    }
+                    else {
+                        if (central_segment_time_step == last_time_step) {
+                            // There's more different segments to the right
+                            // side.
+                            use_cdf = true;
+                        }
+                    }
                 }
-                else {
+
+                double weight;
+                if (use_cdf) {
                     // This deal with the fact that the duration is truncated
                     // at the last time step of the unrolled DBN.
                     // p(x >= d);
                     weight = timer_distribution->get_cdf(d - 1, true);
+                }
+                else {
+                    weight = timer_distribution->get_pdf(
+                        Eigen::VectorXd::Constant(1, d));
                 }
 
                 weights(i) = weight;
@@ -676,67 +988,41 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd CPD::get_central_segment_posterior_weights(
-            const shared_ptr<const RandomVariableNode>& left_segment_state,
-            const shared_ptr<const TimerNode>& central_segment_timer,
-            const shared_ptr<const RandomVariableNode>& right_segment_state,
+            const shared_ptr<RandomVariableNode>& left_segment_state,
+            const shared_ptr<TimerNode>& central_segment_timer,
+            const shared_ptr<RandomVariableNode>& right_segment_state,
             int last_time_step,
             int num_jobs) const {
 
-            auto& central_segment_state =
-                central_segment_timer->get_controlled_node();
-
             int data_size = central_segment_timer->get_size();
-            int cardinality =
-                central_segment_state->get_metadata()->get_cardinality();
+            int cardinality = central_segment_timer->get_controlled_node()
+                                  ->get_metadata()
+                                  ->get_cardinality();
 
-            // Set sampled controlled node's assignment to zero so we can
+            // Set sampled node's assignment to zero so we can
             // get the index of the first distribution indexed by the this node
             // given that the other index nodes have fixed assignments.
+            const auto& time_controlled_node =
+                central_segment_timer->get_controlled_node();
             Eigen::MatrixXd saved_assignment =
-                central_segment_state->get_assignment();
-            central_segment_state->set_assignment(
+                time_controlled_node->get_assignment();
+            time_controlled_node->set_assignment(
                 Eigen::MatrixXd::Zero(data_size, 1));
             Eigen::VectorXi distribution_indices =
                 this->get_indexed_distribution_indices(
                     central_segment_timer->get_parents(), data_size);
             // Restore the controlled node's assignment to its original state.
-            central_segment_state->set_assignment(saved_assignment);
+            time_controlled_node->set_assignment(saved_assignment);
 
-            const string& controlled_node_label =
-                central_segment_state->get_metadata()->get_label();
+            const string& sampled_node_label =
+                time_controlled_node->get_metadata()->get_label();
             // For every possible value of sampled_node, the offset
             // indicates how many distributions ahead we need to advance to
             // get the distribution indexed by the index nodes of this CPD if
             // we only change the value of the controlled node.
-            int offset =
-                this->parent_label_to_indexing.at(controlled_node_label)
+            int distribution_index_offset =
+                this->parent_label_to_indexing.at(sampled_node_label)
                     .right_cumulative_cardinality;
-
-            Eigen::MatrixXd weights =
-                this->compute_central_segment_posterior_weights(
-                    left_segment_state,
-                    central_segment_timer,
-                    right_segment_state,
-                    last_time_step,
-                    distribution_indices,
-                    cardinality,
-                    offset,
-                    num_jobs);
-
-            return weights;
-        }
-
-        Eigen::MatrixXd CPD::compute_central_segment_posterior_weights(
-            const shared_ptr<const RandomVariableNode>& left_segment_state,
-            const shared_ptr<const TimerNode>& central_segment_timer,
-            const shared_ptr<const RandomVariableNode>& right_segment_state,
-            int last_time_step,
-            const Eigen::VectorXi& distribution_indices,
-            int cardinality,
-            int distribution_index_offset,
-            int num_jobs) const {
-
-            int data_size = central_segment_timer->get_size();
 
             // Get values of the immediate left and right segments
             Eigen::VectorXi left_segment_values;
@@ -748,6 +1034,12 @@ namespace tomcat {
                 left_segment_values =
                     Eigen::VectorXi::Constant(data_size, NO_OBS);
             }
+
+            Eigen::VectorXi central_segment_values =
+                central_segment_timer->get_controlled_node()
+                    ->get_assignment()
+                    .col(0)
+                    .cast<int>();
 
             Eigen::VectorXi right_segment_values;
             Eigen::VectorXi right_segment_durations;
@@ -771,10 +1063,10 @@ namespace tomcat {
             if (num_jobs == 1) {
                 // Run in the main thread
                 this->run_central_segment_posterior_weights_thread(
+                    central_segment_timer,
                     left_segment_values,
                     right_segment_values,
                     right_segment_durations,
-                    central_segment_timer->get_time_step(),
                     last_time_step,
                     distribution_indices,
                     distribution_index_offset,
@@ -790,10 +1082,10 @@ namespace tomcat {
                     thread weights_thread(
                         &CPD::run_central_segment_posterior_weights_thread,
                         this,
-                        ref(left_segment_values),
-                        ref(right_segment_values),
-                        ref(right_segment_durations),
-                        central_segment_timer->get_time_step(),
+                        ref(central_segment_timer),
+                        left_segment_values,
+                        right_segment_values,
+                        right_segment_durations,
                         last_time_step,
                         distribution_indices,
                         distribution_index_offset,
@@ -812,10 +1104,10 @@ namespace tomcat {
         }
 
         void CPD::run_central_segment_posterior_weights_thread(
+            const shared_ptr<TimerNode>& central_segment_timer,
             const Eigen::VectorXi& left_segment_values,
             const Eigen::VectorXi& right_segment_values,
             const Eigen::VectorXi& right_segment_durations,
-            int central_segment_time_step,
             int last_time_step,
             const Eigen::VectorXi& distribution_indices,
             int distribution_index_offset,
@@ -834,37 +1126,41 @@ namespace tomcat {
                 left_segment_values.block(initial_row, 0, num_rows, 1);
             const Eigen::VectorXi& sub_right_segment_values =
                 right_segment_values.block(initial_row, 0, num_rows, 1);
+
             const Eigen::VectorXi& sub_right_segment_durations =
                 right_segment_durations.block(initial_row, 0, num_rows, 1);
 
             for (int j = 0; j < cardinality; j++) {
-                // Logic array (0'' and 1's) to indicate the assignment indices
-                // where the central and right segments have equal value.
+                Eigen::VectorXi left_does_not_join_central =
+                    (sub_left_segment_values.array() != j).cast<int>();
                 Eigen::VectorXi central_joins_right =
                     (j == sub_right_segment_values.array()).cast<int>();
+
+                // Logic array (0'' and 1's) to indicate the assignment indices
+                // where the central and right segments have equal value.
                 Eigen::VectorXi durations =
                     (central_joins_right.array() *
                      (1 + sub_right_segment_durations.array()));
 
                 for (int i = initial_row; i < initial_row + num_rows; i++) {
-                    if (sub_left_segment_values(i - initial_row) != j) {
+                    if (left_does_not_join_central(i - initial_row) == 1) {
                         int distribution_idx = distribution_indices[i] +
                                                j * distribution_index_offset;
                         const auto& timer_distribution =
                             this->distributions[distribution_idx];
-                        const auto& d =
-                            durations.row(i - initial_row).cast<double>();
+                        double d =
+                            durations.row(i - initial_row).cast<double>()(0);
 
                         double weight;
-                        if (central_segment_time_step + d(0) < last_time_step) {
+                        if (central_segment_timer->get_time_step() + d <
+                            last_time_step) {
                             weight = timer_distribution->get_pdf(d);
                         }
                         else {
                             // This deal with the fact that the duration is
                             // truncated at the last time step of the unrolled
                             // DBN. p(x >= d);
-                            weight =
-                                timer_distribution->get_cdf(d(0) - 1, true);
+                            weight = timer_distribution->get_cdf(d - 1, true);
                         }
 
                         weights(i - initial_row, j) = weight;
@@ -877,41 +1173,38 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd CPD::get_right_segment_posterior_weights(
-            const std::shared_ptr<const TimerNode>& right_segment_first_timer,
+            const shared_ptr<TimerNode>& right_segment_first_timer,
             int last_time_step,
             int num_jobs) const {
 
-            // Can improve this by creating a matrix of p(right duration |
-            // lambda(i)) and for each row, set row(value_right_seg) = 1;
-            // Compute for each row. Repeat row to have size cardinality. Set
-            // 1 to the aforementioned index and add to the weight matrix.
-            auto& right_segment_state =
-                right_segment_first_timer->get_controlled_node();
-
-            int data_size = right_segment_state->get_size();
-            int cardinality =
-                right_segment_state->get_metadata()->get_cardinality();
+            int data_size = right_segment_first_timer->get_size();
 
             Eigen::VectorXi distribution_indices =
                 this->get_indexed_distribution_indices(
                     right_segment_first_timer->get_parents(), data_size);
 
             const Eigen::VectorXi& right_segment_values =
-                right_segment_state->get_assignment().col(0).cast<int>();
+                right_segment_first_timer->get_controlled_node()
+                    ->get_assignment()
+                    .col(0)
+                    .cast<int>();
             const Eigen::VectorXi& right_segment_durations =
                 right_segment_first_timer->get_backward_assignment()
                     .col(0)
                     .cast<int>();
 
+            int cardinality = right_segment_first_timer->get_controlled_node()
+                                  ->get_metadata()
+                                  ->get_cardinality();
             Eigen::MatrixXd weights =
                 Eigen::MatrixXd::Ones(data_size, cardinality);
             mutex weights_mutex;
             if (num_jobs == 1) {
                 // Run in the main thread
                 this->run_right_segment_posterior_weights_thread(
+                    right_segment_first_timer,
                     right_segment_values,
                     right_segment_durations,
-                    right_segment_first_timer->get_time_step(),
                     last_time_step,
                     distribution_indices,
                     make_pair(0, data_size),
@@ -926,9 +1219,9 @@ namespace tomcat {
                     thread weights_thread(
                         &CPD::run_right_segment_posterior_weights_thread,
                         this,
+                        ref(right_segment_first_timer),
                         right_segment_values,
                         right_segment_durations,
-                        right_segment_first_timer->get_time_step(),
                         last_time_step,
                         ref(distribution_indices),
                         ref(processing_block),
@@ -946,9 +1239,9 @@ namespace tomcat {
         }
 
         void CPD::run_right_segment_posterior_weights_thread(
+            const shared_ptr<TimerNode>& right_segment_first_timer,
             const Eigen::VectorXi& right_segment_values,
             const Eigen::VectorXi& right_segment_durations,
-            int right_segment_first_time_step,
             int last_time_step,
             const Eigen::VectorXi& distribution_indices,
             const std::pair<int, int>& processing_block,
@@ -961,23 +1254,25 @@ namespace tomcat {
 
             Eigen::MatrixXd weights =
                 Eigen::MatrixXd::Ones(num_rows, cardinality);
+
             for (int i = initial_row; i < initial_row + num_rows; i++) {
                 int distribution_idx = distribution_indices[i];
+
                 const auto& timer_distribution =
                     this->distributions[distribution_idx];
 
-                const auto& d = right_segment_durations.row(i).cast<double>();
+                double d = right_segment_durations.row(i).cast<double>()(0);
 
                 double p_duration_right;
-                if (d(0) + right_segment_first_time_step < last_time_step) {
+                if (d + right_segment_first_timer->get_time_step() <
+                    last_time_step) {
                     p_duration_right = timer_distribution->get_pdf(d);
                 }
                 else {
-                    // This deal with the fact that the duration is truncated
-                    // at the last time step of the unrolled DBN.
-                    // p(x >= d);
-                    p_duration_right =
-                        timer_distribution->get_cdf(d(0) - 1, true);
+                    // This deal with the fact that the duration is
+                    // truncated at the last time step of the unrolled
+                    // DBN. p(x >= d);
+                    p_duration_right = timer_distribution->get_cdf(d - 1, true);
                 }
 
                 weights.row(i - initial_row) =
@@ -992,6 +1287,79 @@ namespace tomcat {
 
             scoped_lock lock(weights_mutex);
             full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
+        }
+
+        vector<DistributionPtr> CPD::get_posterior(
+            const Eigen::MatrixXd& posterior_weights,
+            const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+            int num_jobs) const {
+
+            int num_indices = posterior_weights.rows();
+            Eigen::VectorXi distribution_indices =
+                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
+                                                       num_indices);
+
+            int sample_size = cpd_owner->get_metadata()->get_sample_size();
+            vector<DistributionPtr> posterior_distributions(num_indices);
+            mutex posterior_mutex;
+
+            const auto processing_blocks =
+                get_parallel_processing_blocks(num_jobs, num_indices);
+
+            if (processing_blocks.size() == 1) {
+                // Run in the main thread
+                this->run_get_posterior_thread(posterior_weights,
+                                               distribution_indices,
+                                               make_pair(0, num_indices),
+                                               posterior_distributions,
+                                               posterior_mutex);
+            }
+            else {
+                vector<thread> threads;
+                for (int i = 0; i < processing_blocks.size(); i++) {
+                    thread posterior_thread(&CPD::run_get_posterior_thread,
+                                            this,
+                                            ref(posterior_weights),
+                                            ref(distribution_indices),
+                                            ref(processing_blocks.at(i)),
+                                            ref(posterior_distributions),
+                                            ref(posterior_mutex));
+                    threads.push_back(move(posterior_thread));
+                }
+
+                for (auto& posterior_thread : threads) {
+                    posterior_thread.join();
+                }
+            }
+
+            return posterior_distributions;
+        }
+
+        void CPD::run_get_posterior_thread(
+            const Eigen::MatrixXd& posterior_weights,
+            const Eigen::VectorXi& distribution_indices,
+            const pair<int, int>& processing_block,
+            vector<DistributionPtr>& full_distributions,
+            mutex& posterior_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
+            vector<DistributionPtr> posteriors(num_rows);
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
+                int distribution_idx = distribution_indices[i];
+                const auto& distribution =
+                    this->distributions[distribution_idx];
+
+                posteriors[i - initial_row] = move(distribution->clone());
+                posteriors[i - initial_row]->update_from_posterior(
+                    posterior_weights.row(i));
+            }
+
+            scoped_lock lock(posterior_mutex);
+            copy(posteriors.begin(),
+                 posteriors.end(),
+                 full_distributions.begin() + initial_row);
         }
 
         int CPD::get_indexed_distribution_idx(

@@ -21,9 +21,8 @@ namespace tomcat {
             const std::shared_ptr<gsl_rng>& random_generator,
             int num_jobs,
             int variable_horizon_max_time_step)
-            : Estimator(model),
-              template_filter(
-                  *model, num_particles, random_generator, num_jobs),
+            : Estimator(model), num_particles(num_particles),
+              random_generator(random_generator), num_jobs(num_jobs),
               variable_horizon_max_time_step(variable_horizon_max_time_step) {}
 
         ParticleFilterEstimator::~ParticleFilterEstimator() {}
@@ -32,8 +31,7 @@ namespace tomcat {
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         ParticleFilterEstimator::ParticleFilterEstimator(
-            const ParticleFilterEstimator& estimator)
-            : template_filter(estimator.template_filter) {
+            const ParticleFilterEstimator& estimator) {
             Estimator::copy_estimator(estimator);
             this->copy(estimator);
         }
@@ -50,18 +48,21 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void ParticleFilterEstimator::copy(
             const ParticleFilterEstimator& estimator) {
-            this->filter_per_data_point = estimator.filter_per_data_point;
+            this->num_particles = estimator.num_particles;
+            this->random_generator = estimator.random_generator;
+            this->num_jobs = estimator.num_jobs;
             this->max_inference_horizon = estimator.inference_horizon;
             this->last_time_step = estimator.last_time_step;
+            this->base_estimators = estimator.base_estimators;
+            this->variable_horizon = estimator.variable_horizon;
+            this->variable_horizon_max_time_step =
+                estimator.variable_horizon_max_time_step;
         }
 
         void ParticleFilterEstimator::prepare() {
             for (auto& base_estimator : this->base_estimators) {
                 base_estimator->prepare();
             }
-
-            this->filter_per_data_point.clear();
-
             this->last_time_step = -1;
         }
 
@@ -75,18 +76,26 @@ namespace tomcat {
 
         void ParticleFilterEstimator::estimate(const EvidenceSet& new_data) {
             unique_ptr<boost::progress_display> progress;
+
+            bool show_filter_progress = false;
             if (this->show_progress) {
                 cout << "\nEmpirically computing estimations...\n";
-                progress = make_unique<boost::progress_display>(
-                    new_data.get_num_data_points() * new_data.get_time_steps());
+                if (new_data.get_num_data_points() == 1) {
+                    show_filter_progress = true;
+                    this->show_progress = false;
+                }
+                else {
+                    progress = make_unique<boost::progress_display>(
+                        new_data.get_num_data_points());
+                }
             }
 
             for (int d = 0; d < new_data.get_num_data_points(); d++) {
-                if (this->filter_per_data_point.size() <= d) {
-                    this->filter_per_data_point.push_back(
-                        this->template_filter);
-                }
-                auto& filter = this->filter_per_data_point[d];
+                ParticleFilter filter(*this->model,
+                                      this->num_particles,
+                                      this->random_generator,
+                                      this->num_jobs);
+                filter.set_show_progress(show_filter_progress);
 
                 EvidenceSet single_point_data =
                     new_data.get_single_point_data(d);
@@ -95,13 +104,14 @@ namespace tomcat {
                     !this->variable_horizon) {
                     // Generate particles for all time steps and compute
                     // estimates in the end
-                    EvidenceSet particles =
+                    auto [particles, marginals] =
                         filter.generate_particles(single_point_data);
                     EvidenceSet projected_particles;
 
                     for (const auto& base_estimator : this->base_estimators) {
                         base_estimator->estimate(particles,
                                                  projected_particles,
+                                                 marginals,
                                                  d,
                                                  this->last_time_step + 1);
                     }
@@ -115,7 +125,7 @@ namespace tomcat {
                         EvidenceSet single_time_data =
                             single_point_data.get_single_time_data(t);
 
-                        EvidenceSet particles =
+                        auto [particles, marginals] =
                             filter.generate_particles(single_time_data);
 
                         int time_steps_ahead =
@@ -131,6 +141,7 @@ namespace tomcat {
                              this->base_estimators) {
                             base_estimator->estimate(particles,
                                                      projected_particles,
+                                                     marginals,
                                                      d,
                                                      this->last_time_step + 1 +
                                                          t);

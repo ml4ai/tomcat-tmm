@@ -160,32 +160,29 @@ namespace tomcat {
                         rv_child,
                         num_jobs);
 
-                Eigen::MatrixXd child_log_weights(0, 0);
-                if (this->get_metadata()->is_in_plate()) {
-                    // Multiply weights of each one of the assignments
-                    // separately.
-                    child_log_weights = (child_weights.array() + EPSILON).log();
-                }
-                else {
+                Eigen::MatrixXd child_log_weights =
+                    (child_weights.array() + EPSILON).log();
+
+                if (!this->get_metadata()->is_in_plate()) {
                     // Multiply the weights of each one of the assignments of
                     // the child node. When an off-plate node is
                     // parent of an in-plate node, all of the in-plate
                     // instances of the child node are also considered
                     // children of the off-plate node, and, therefore, their
                     // weights must be multiplied together.
-                    child_log_weights =
-                        (child_weights.array() + EPSILON).log().rowwise().sum();
+                    child_log_weights = child_log_weights.rowwise().sum();
                 }
 
                 log_weights = (log_weights.array() + child_log_weights.array());
             }
 
-            // Include posterior weights of immediate segments for nodes that
-            // are time controlled.
-            Eigen::MatrixXd segments_weights =
+            // Include posterior weights of immediate segments for nodes
+            // that are time controlled.
+            Eigen::MatrixXd segment_log_weights =
                 this->get_segments_log_posterior_weights(num_jobs);
-            if (segments_weights.size() > 0) {
-                log_weights = (log_weights.array() + segments_weights.array());
+            if (segment_log_weights.size() > 0) {
+                log_weights =
+                    (log_weights.array() + segment_log_weights.array());
             }
 
             // Unlog and normalize the weights
@@ -204,7 +201,6 @@ namespace tomcat {
                 return segments_weights;
             }
 
-            const auto& central_state = shared_from_this();
             const auto& left_state = this->get_previous();
             const auto& right_state = this->get_next();
 
@@ -224,10 +220,12 @@ namespace tomcat {
                 // Left segment
                 Eigen::MatrixXd left_seg_weights =
                     left_last_timer->get_cpd()
-                        ->get_left_segment_posterior_weights(left_last_timer,
-                                                             right_state,
-                                                             last_time_step,
-                                                             num_jobs);
+                        ->get_left_segment_posterior_weights(
+                            left_last_timer,
+                            right_state,
+                            this->get_time_step(),
+                            last_time_step,
+                            num_jobs);
                 segments_weights = (left_seg_weights.array() + EPSILON).log();
             }
 
@@ -404,6 +402,22 @@ namespace tomcat {
             return false;
         }
 
+        const RVNodePtrVec&
+        RandomVariableNode::get_children(int time_step) const {
+            return this->children_per_time_step.at(time_step);
+        }
+
+        void RandomVariableNode::set_assignment(int i, int j, double value) {
+            if (!this->frozen) {
+                this->assignment(i, j) = value;
+            }
+        }
+
+        bool RandomVariableNode::has_child_at(int time_step) const {
+            return this->children_per_time_step.size() > time_step &&
+                   !this->children_per_time_step.at(time_step).empty();
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------
@@ -444,9 +458,20 @@ namespace tomcat {
             this->children = children;
 
             for (const auto& child : children) {
+                auto rv_child = dynamic_pointer_cast<RandomVariableNode>(child);
+
+                int new_size = max(rv_child->get_time_step() + 1,
+                                   (int)this->children_per_time_step.size());
+                this->children_per_time_step.resize(new_size);
+                this->children_per_time_step[rv_child->get_time_step()]
+                    .push_back(rv_child);
+
                 if (child->get_metadata()->is_timer()) {
                     this->child_timer = true;
-                    break;
+                }
+
+                if (!child->get_metadata()->is_replicable()) {
+                    this->single_time_children.push_back(rv_child);
                 }
             }
         }
@@ -467,6 +492,11 @@ namespace tomcat {
 
         bool RandomVariableNode::has_child_timer() const {
             return this->child_timer;
+        }
+
+        const RVNodePtrVec&
+        RandomVariableNode::get_single_time_children() const {
+            return single_time_children;
         }
 
     } // namespace model

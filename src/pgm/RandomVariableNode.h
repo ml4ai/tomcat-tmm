@@ -291,6 +291,24 @@ namespace tomcat {
              */
             bool is_segment_dependency() const;
 
+            /**
+             * Gets children at a specific time step.
+             *
+             * @param time_step : time step of the child nodes
+             *
+             * @return List of child nodes
+             */
+            const RVNodePtrVec& get_children(int time_step) const;
+
+            /**
+             * Modify a single assignment value.
+             *
+             * @param i: row
+             * @param j: column
+             * @param value: value
+             */
+            void set_assignment(int i, int j, double value);
+
             // -----------------------------------------------------------------
             // Getters & Setters
             // -----------------------------------------------------------------
@@ -325,6 +343,10 @@ namespace tomcat {
                                  timed_copies);
 
             bool has_child_timer() const;
+
+            const RVNodePtrVec& get_single_time_children() const;
+
+            bool has_child_at(int time_step) const;
 
           protected:
             //------------------------------------------------------------------
@@ -414,7 +436,7 @@ namespace tomcat {
 
             /**
              * Computes posterior weights from the left, central and right
-             * segments from a time controlled node.
+             * segments of a time controlled node.
              *
              *  1. If node == left seg. values and node == right seg. values
              *  p(duration left + 1 + duration right)
@@ -440,14 +462,18 @@ namespace tomcat {
              * @return Posterior weights for the left, central and right
              * segments combined
              */
-            Eigen::MatrixXd
-            get_segments_log_posterior_weights(int num_jobs);
+            Eigen::MatrixXd get_segments_log_posterior_weights(
+                int num_jobs);
 
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
 
             NodePtrVec children;
+
+            std::vector<RVNodePtrVec> children_per_time_step;
+
+            RVNodePtrVec single_time_children;
 
             // If set, the amount of time this node stays in the current
             // state, is defined by the timer's assignment (semi-Markov model).

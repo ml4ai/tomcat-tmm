@@ -85,9 +85,11 @@ namespace tomcat {
              * that this timer node is the timer at the beginning of that
              * segment.
              *
-             * @param right_segment_state: first state of the right segment
              * @param left_segment_duration of the left segment for the
              * sample_idx timer's assignment
+             * @param right_segment_state: first state of the right segment
+             * @param central_segment_time_step: time step at the central
+             * segment
              * @param last_time_step: time step of the last timer being
              * sampled in the unrolled DBN
              * @param sample_idx: row of the assignment to consider when
@@ -96,9 +98,9 @@ namespace tomcat {
              * @return Left segment posterior weights
              */
             Eigen::VectorXd get_left_segment_posterior_weights(
-                const std::shared_ptr<const RandomVariableNode>&
-                    right_segment_state,
                 int left_segment_duration,
+                const std::shared_ptr<RandomVariableNode>& right_segment_state,
+                int central_segment_time_step,
                 int last_time_step,
                 int sample_idx) const;
 

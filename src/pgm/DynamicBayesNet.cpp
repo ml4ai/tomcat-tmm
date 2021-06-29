@@ -145,10 +145,10 @@ namespace tomcat {
             }
             else {
                 this->data_nodes_per_time_step[time_step].push_back(data.node);
-            }
 
-            if (!data.node->get_metadata()->is_replicable()) {
-                this->single_time_nodes.push_back(data.node);
+                if (!data.node->get_metadata()->is_replicable()) {
+                    this->single_time_nodes.push_back(data.node);
+                }
             }
 
             return data;
@@ -613,7 +613,7 @@ namespace tomcat {
         }
 
         RVNodePtr DynamicBayesNet::get_node(const std::string& label,
-                                            int time_step) {
+                                            int time_step) const {
             RVNodePtr node;
             string name = NodeMetadata::get_timed_name(label, time_step);
             if (EXISTS(name, this->name_to_id)) {
@@ -655,6 +655,7 @@ namespace tomcat {
                         dynamic_pointer_cast<RandomVariableNode>(
                             this->parameter_nodes_map.at(parameter_name));
 
+                    original_node->unfreeze();
                     original_node->set_assignment(
                         parameter_node->get_assignment());
                     if (rv_parameter_node->is_frozen()) {
@@ -704,6 +705,7 @@ namespace tomcat {
         }
 
         RVNodePtrVec DynamicBayesNet::get_data_nodes(int time_step) const {
+            if (time_step < 0 || this->data_nodes_per_time_step.size() <= time_step) return {};
             return this->data_nodes_per_time_step.at(time_step);
         }
 

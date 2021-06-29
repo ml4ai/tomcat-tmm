@@ -462,6 +462,15 @@ namespace tomcat {
             Tensor3 sqrt() const;
 
             /**
+             * Returns a tensor formed by the absolute values of the elements of
+             * the original tensor.
+             *
+             * @return Tensor formed by the absolute values of the elements of the
+             * original tensor.
+             */
+            Tensor3 abs() const;
+
+            /**
              * Returns the bitwise-and of all the coefficients in a tensor in a
              * given axis. All numbers greater greater 0 are considered as true
              * for the purpose of this logical operation. Negative numbers are

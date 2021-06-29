@@ -6,10 +6,10 @@
     ],
     "data": [
       {
-        "label": "X",
+        "label": "Y",
         "first_time_step": 0,
         "in_plate": true,
-        "cardinality": 3,
+        "cardinality": 2,
         "sample_size": 1,
         "replicable": true,
         "timer": "",
@@ -17,15 +17,39 @@
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "0.3, 0.5, 0.2",
+            "parameters": "0.8, 0.2",
             "index_nodes": []
           },
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.2, 0.5, 0.3",
+            "parameters": "0.2,0.8,0.3,0.7,0.5,0.5",
+            "index_nodes": ["Y"]
+          }
+        ]
+      },
+      {
+        "label": "X",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.3, 0.7",
+            "index_nodes": []
+          },
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.5,0.5,0.1,0.9,0.7,0.3,0.9,0.1",
             "index_nodes": [
-              "X"
+              "X",
+              "Y"
             ]
           }
         ]
@@ -42,9 +66,9 @@
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "0.3, 0.7, 0.7, 0.3, 0.3, 0.7",
+            "parameters": "0.2, 0.8, 0.1, 0.9",
             "index_nodes": [
-              "X"
+              "Y"
             ]
           }
         ]
@@ -61,7 +85,7 @@
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "0.7, 0.3, 0.3, 0.7, 0.7, 0.3",
+            "parameters": "0.7, 0.3, 0.9, 0.1",
             "index_nodes": [
               "X"
             ]
@@ -72,12 +96,22 @@
   },
   "connections": [
     {
+      "parent": "Y",
+      "child": "X",
+      "time_crossing": true
+    },
+    {
+      "parent": "Y",
+      "child": "Y",
+      "time_crossing": true
+    },
+    {
       "parent": "X",
       "child": "X",
       "time_crossing": true
     },
     {
-      "parent": "X",
+      "parent": "Y",
       "child": "Z1",
       "time_crossing": false
     },

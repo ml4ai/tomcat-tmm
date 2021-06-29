@@ -83,11 +83,12 @@ namespace tomcat {
         }
 
         void matrix_vstack(Eigen::MatrixXd& original_matrix,
-                    const Eigen::MatrixXd& other_matrix) {
+                           const Eigen::MatrixXd& other_matrix) {
 
             if (original_matrix.size() == 0) {
                 original_matrix = other_matrix;
-            } else {
+            }
+            else {
                 int cols = original_matrix.cols();
                 int old_rows = original_matrix.rows();
                 int new_rows = old_rows + other_matrix.rows();
@@ -99,11 +100,12 @@ namespace tomcat {
         }
 
         void matrix_hstack(Eigen::MatrixXd& original_matrix,
-                    const Eigen::MatrixXd& other_matrix) {
+                           const Eigen::MatrixXd& other_matrix) {
 
             if (original_matrix.size() == 0) {
                 original_matrix = other_matrix;
-            } else {
+            }
+            else {
                 int rows = original_matrix.rows();
                 int old_cols = original_matrix.cols();
                 int new_cols = old_cols + other_matrix.cols();
@@ -124,6 +126,11 @@ namespace tomcat {
             }
 
             return cat;
+        }
+
+        Eigen::VectorXd flatten_rowwise(const Eigen::MatrixXd& matrix) {
+            Eigen::MatrixXd copy = matrix;
+            return Eigen::Map<Eigen::VectorXd>(copy.data(), copy.size());
         }
 
     } // namespace model

@@ -124,8 +124,12 @@ namespace tomcat {
              *
              * @param node_label: node's label
              * @param data: values for the node
+             * @param check_dimensions: whether the number of rows and columns
+             * have to be the same for all nodes in the evidence set
              */
-            void add_data(const std::string& node_label, const Tensor3& data);
+            void add_data(const std::string& node_label,
+                          const Tensor3& data,
+                          bool check_dimensions = true);
 
             /**
              * Checks whether this object contains data for a given node.

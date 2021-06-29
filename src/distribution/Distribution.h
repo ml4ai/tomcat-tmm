@@ -1,7 +1,7 @@
 #pragma once
 
-#include <utility>
 #include <mutex>
+#include <utility>
 
 #include <eigen3/Eigen/Dense>
 #include <gsl/gsl_rng.h>
@@ -113,16 +113,16 @@ namespace tomcat {
             void print(std::ostream& os) const;
 
             /**
-            *
-            * @param random_generators_per_job: random number generator to be
-            * used by individual threads
-            * @param num_samples: number of samples to generate
-            * @param parameter_idx: row of the node's assignment that holds the
-            * parameters of the distribution
-            *
-            * @return Matrix of samples generated for the distribution (one
-            * sample per row)
-            */
+             *
+             * @param random_generators_per_job: random number generator to be
+             * used by individual threads
+             * @param num_samples: number of samples to generate
+             * @param parameter_idx: row of the node's assignment that holds the
+             * parameters of the distribution
+             *
+             * @return Matrix of samples generated for the distribution (one
+             * sample per row)
+             */
             Eigen::MatrixXd sample_many(
                 std::vector<std::shared_ptr<gsl_rng>> random_generator_per_job,
                 int num_samples,
@@ -237,6 +237,14 @@ namespace tomcat {
              * @return Sample size.
              */
             virtual int get_sample_size() const = 0;
+
+            /**
+             * Updates a distribution to it's conjugate posterior
+             *
+             * @param weights: posterior weights if applicable
+             */
+            virtual void
+            update_from_posterior(const Eigen::VectorXd& posterior_weights) = 0;
 
           protected:
             //------------------------------------------------------------------

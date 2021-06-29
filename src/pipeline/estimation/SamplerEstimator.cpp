@@ -54,6 +54,42 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+        Eigen::VectorXd SamplerEstimator::get_prior(const RVNodePtr& node) {
+            Eigen::VectorXd prior;
+
+            if (node->get_parents().empty()) {
+                prior = node->get_cpd()->get_distributions()[0]->get_values(0);
+            }
+            else {
+                const auto& indexing__map =
+                    node->get_cpd()->get_parent_label_to_indexing();
+
+                vector<Eigen::VectorXd> parent_priors(indexing__map.size());
+                for (const auto& parent_node : node->get_parents()) {
+                    const string& parent_label =
+                        parent_node->get_metadata()->get_label();
+
+                    parent_priors[indexing__map.at(parent_label).order] =
+                        get_prior(dynamic_pointer_cast<RandomVariableNode>(
+                            parent_node));
+                }
+
+                Eigen::VectorXd cartesian_product = parent_priors[0];
+                for (int i = 1; i < parent_priors.size(); i++) {
+                    cartesian_product = flatten_rowwise(
+                        cartesian_product * parent_priors[i].transpose());
+                }
+
+                prior = cartesian_product.transpose() *
+                        node->get_cpd()->get_table(0);
+            }
+
+            return prior;
+        }
+
+        //----------------------------------------------------------------------
+        // Member functions
+        //----------------------------------------------------------------------
         void SamplerEstimator::copy(const SamplerEstimator& estimator) {
             Estimator::copy_estimator(estimator);
         }
@@ -74,35 +110,47 @@ namespace tomcat {
 
         void SamplerEstimator::estimate(const EvidenceSet& particles,
                                         const EvidenceSet& projected_particles,
+                                        const EvidenceSet& marginals,
                                         int data_point_idx,
                                         int time_step) {
 
             if (this->inference_horizon == 0) {
-                const Tensor3 samples_tensor = particles[this->estimates.label];
-
                 for (int t = 0; t < particles.get_time_steps(); t++) {
                     // Each dimensionality is computed individually
                     const auto& metadata = this->get_model()->get_metadata_of(
                         this->estimates.label);
+                    const auto& node = this->model->get_node(
+                        this->estimates.label,
+                        metadata->get_initial_time_step());
 
                     if (this->estimates.assignment.size() == 0) {
-                        // Compute estimates for each value the node can take
-                        // (assuming the node's distribution is discrete)
-                        Eigen::MatrixXd samples = samples_tensor(0, 0);
-
                         int k = this->get_model()->get_cardinality_of(
                             this->estimates.label);
-                        Eigen::VectorXd probs = Eigen::VectorXd::Zero(k);
+                        Eigen::VectorXd probs =
+                            Eigen::VectorXd::Constant(k, NO_OBS);
 
-                        const auto& metadata =
-                            this->get_model()->get_metadata_of(
-                                this->estimates.label);
-                        if (time_step >= metadata->get_initial_time_step()) {
-                            for (int i = 0; i < samples.rows(); i++) {
-                                probs[samples(i, t)] += 1;
+                        if (marginals.has_data_for(this->estimates.label)) {
+                            probs =
+                                marginals[this->estimates.label](0, 0).col(t);
+                        }
+                        else {
+                            if (time_step < metadata->get_initial_time_step()) {
+                                probs = get_prior(node);
                             }
+                            else {
+                                const Tensor3 samples_tensor =
+                                    particles[this->estimates.label];
+                                // Compute estimates for each value the node can
+                                // take (assuming the node's distribution is
+                                // discrete)
+                                Eigen::MatrixXd samples = samples_tensor(0, 0);
 
-                            probs /= samples.rows();
+                                for (int i = 0; i < samples.rows(); i++) {
+                                    probs[samples(i, t)] += 1;
+                                }
+
+                                probs /= samples.rows();
+                            }
                         }
 
                         for (int i = 0; i < k; i++) {
@@ -111,12 +159,26 @@ namespace tomcat {
                         }
                     }
                     else {
+                        double prob;
                         double low = this->estimates.assignment[0];
                         // TODO - change this when range is implemented
                         double high = low;
 
-                        double prob = this->get_probability_in_range(
-                            samples_tensor.col(t), low, high);
+                        if (marginals.has_data_for(this->estimates.label)) {
+                            prob = marginals[this->estimates.label](0, 0).col(
+                                t)(low);
+                        }
+                        else {
+                            if (time_step <
+                                metadata->get_initial_time_step()) {
+                                prob = get_prior(node)(low);
+                            } else {
+                                const Tensor3 samples_tensor =
+                                    particles[this->estimates.label];
+                                prob = this->get_probability_in_range(
+                                    samples_tensor.col(t), low, high);
+                            }
+                        }
                         this->update_estimates(
                             0, data_point_idx, time_step, prob);
                     }

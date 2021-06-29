@@ -257,7 +257,7 @@ namespace tomcat {
              *
              * @return Pointer to a node
              */
-            RVNodePtr get_node(const std::string& label, int time_step);
+            RVNodePtr get_node(const std::string& label, int time_step) const;
 
             /**
              * Returns the metadata of any node derived from a given label.

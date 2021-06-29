@@ -1,10 +1,41 @@
 {
   "nodes": {
     "timers": [
+      {
+        "label": "XTimer",
+        "cpds": [
+          {
+            "distribution": "poisson",
+            "constant": true,
+            "parameters": "1, 2, 7, 3, 4, 8, 5, 6, 9",
+            "index_nodes": [
+              "X",
+              "A"
+            ]
+          }
+        ]
+      }
     ],
     "parameters": [
     ],
     "data": [
+      {
+        "label": "A",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.2, 0.3, 0.5",
+            "index_nodes": []
+          }
+        ]
+      },
       {
         "label": "X",
         "first_time_step": 0,
@@ -12,20 +43,21 @@
         "cardinality": 3,
         "sample_size": 1,
         "replicable": true,
-        "timer": "",
+        "timer": "XTimer",
         "cpds": [
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "0.3, 0.5, 0.2",
-            "index_nodes": []
+            "parameters": "0.3, 0.5, 0.2, 0.3, 0.5, 0.2, 0.3, 0.5, 0.2",
+            "index_nodes": ["A"]
           },
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "0.5, 0.3, 0.2, 0.3, 0.5, 0.2, 0.2, 0.5, 0.3",
+            "parameters": "0,0.6,0.4,0,0.3,0.7,0,0.3,0.7,0.4,0,0.6,0.2,0,0.8,0.5,0,0.5,0.2,0.8,0,0.6,0.4,0,0.1,0.9,0",
             "index_nodes": [
-              "X"
+              "X",
+              "A"
             ]
           }
         ]
@@ -42,7 +74,7 @@
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "0.3, 0.7, 0.7, 0.3, 0.3, 0.7",
+            "parameters": "0.2, 0.8, 0.1, 0.9, 0.4, 0.6",
             "index_nodes": [
               "X"
             ]
@@ -61,7 +93,7 @@
           {
             "distribution": "categorical",
             "constant": true,
-            "parameters": "0.7, 0.3, 0.3, 0.7, 0.7, 0.3",
+            "parameters": "0.7, 0.3, 0.9, 0.1, 0.2, 0.8",
             "index_nodes": [
               "X"
             ]
@@ -71,6 +103,11 @@
     ]
   },
   "connections": [
+    {
+      "parent": "A",
+      "child": "X",
+      "time_crossing": true
+    },
     {
       "parent": "X",
       "child": "X",
@@ -85,6 +122,16 @@
       "parent": "X",
       "child": "Z2",
       "time_crossing": false
+    },
+    {
+      "parent": "X",
+      "child": "XTimer",
+      "time_crossing": false
+    },
+    {
+      "parent": "A",
+      "child": "XTimer",
+      "time_crossing": true
     }
   ]
 }
