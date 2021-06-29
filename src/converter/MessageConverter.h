@@ -21,6 +21,9 @@ namespace tomcat {
          */
         class MessageConverter {
           public:
+
+            inline static std::string LOG_FILE = "conversion_log.json";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -103,6 +106,13 @@ namespace tomcat {
              */
             virtual bool is_valid_message_file(
                 const boost::filesystem::directory_entry& file) const = 0;
+
+            /**
+             * Gets message topics used to data extraction.
+             *
+             * @return Message topics.
+             */
+            virtual std::unordered_set<std::string> get_used_topics() const = 0;
 
             //------------------------------------------------------------------
             // Getters & Setters

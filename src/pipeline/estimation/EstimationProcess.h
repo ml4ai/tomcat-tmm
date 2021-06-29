@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "pipeline/estimation/Estimator.h"
+#include "pipeline/estimation/Agent.h"
 #include "utils/Definitions.h"
 
 namespace tomcat {
@@ -57,11 +57,11 @@ namespace tomcat {
             void set_training_data(const EvidenceSet& training_data);
 
             /**
-             * Adds a new estimator to the estimation process.
+             * Adds a new agent to the estimation process.
              *
-             * @param estimator: Estimator
+             * @param agent: Agent
              */
-            void add_estimator(const std::shared_ptr<Estimator>& estimator);
+            void add_agent(const AgentPtr& agent);
 
             /**
              * Aks estimators to save the estimates computed. In a cross
@@ -92,17 +92,22 @@ namespace tomcat {
              */
             virtual void get_info(nlohmann::json& json) const;
 
+            /**
+             * Computes estimations for all agents in the estimation process.
+             *
+             * @param observations: new observations
+             */
+            virtual void estimate(const EvidenceSet& test_data);
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
 
             /**
-             * Computes estimations for a model over a test data.
-             *
-             * @param test_data: Test data used to compute the estimations for
-             * the model
+             * Publishes last computed estimates to an external resource that
+             * depends on a concrete estimation process.
              */
-            virtual void estimate(const EvidenceSet& test_data) = 0;
+            virtual void publish_last_estimates() = 0;
 
             //------------------------------------------------------------------
             // Getters & Setters
@@ -110,8 +115,7 @@ namespace tomcat {
 
             void set_display_estimates(bool display_estimates);
 
-            const std::vector<std::shared_ptr<Estimator>>&
-            get_estimators() const;
+            const AgentPtrVec& get_agents() const;
 
           protected:
             //------------------------------------------------------------------
@@ -123,27 +127,17 @@ namespace tomcat {
              */
             void copy_estimation(const EstimationProcess& estimation);
 
-            /**
-             * Computes estimations for a model over a test data using a given
-             * estimator.
-             *
-             * @param estimator: estimator
-             * @param test_data: test data used to compute the estimations for
-             * the model
-             */
-            void estimate(const std::shared_ptr<Estimator>& estimator,
-                          const EvidenceSet& test_data);
-
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-            std::vector<std::shared_ptr<Estimator>> estimators;
+            AgentPtrVec agents;
 
-            // Whether the estimates should be displayed in the evaluation file.
+            // Whether the estimates computed by the agents must be displayed
+            // in the evaluation file.
             bool display_estimates = false;
 
-            // Estimates computed each time the estimation process is executed.
-            std::vector<CumulativeNodeEstimates> cumulative_estimates;
+            // Number of time steps the estimation already processed.
+            int time_step;
         };
 
     } // namespace model

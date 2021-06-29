@@ -261,6 +261,10 @@ namespace tomcat {
 
             int get_time_steps() const;
 
+            void set_metadata(const nlohmann::json& metadata);
+
+            const nlohmann::json& get_metadata() const;
+
           private:
             //------------------------------------------------------------------
             // Member functions
@@ -281,6 +285,10 @@ namespace tomcat {
             int time_steps = 0;
 
             std::unordered_map<std::string, Tensor3> node_label_to_data;
+
+            // Any relevant information regarding the evidence can be added
+            // here
+            nlohmann::json metadata;
         };
 
     } // namespace model

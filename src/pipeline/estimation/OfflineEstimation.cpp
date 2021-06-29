@@ -12,6 +12,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         OfflineEstimation::OfflineEstimation() {}
 
+        OfflineEstimation::OfflineEstimation(std::ostream& output_stream)
+            : output_stream(&output_stream) {}
+
         OfflineEstimation::~OfflineEstimation() {}
 
         //----------------------------------------------------------------------
@@ -31,28 +34,32 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void OfflineEstimation::estimate(const EvidenceSet& test_data) {
-            // Execute each one of the estimators in a single thread.
-            for (auto estimator : this->estimators) {
-                thread estimation_thread(
-                    &OfflineEstimation::run_estimation_thread,
-                    this,
-                    estimator,
-                    test_data);
-                estimation_thread.join();
-            }
-        }
 
-        void OfflineEstimation::run_estimation_thread(
-            const shared_ptr<Estimator>& estimator,
-            const EvidenceSet& test_data) {
-
-            EstimationProcess::estimate(estimator, test_data);
+        void OfflineEstimation::copy_estimation(
+            const OfflineEstimation& estimation) {
+            EstimationProcess::copy_estimation(estimation);
+            this->output_stream = estimation.output_stream;
         }
 
         void OfflineEstimation::get_info(nlohmann::json& json) const {
             EstimationProcess::get_info(json);
             json["process"] = "offline";
+        }
+
+        void OfflineEstimation::publish_last_estimates() {
+            if (this->output_stream) {
+                vector<nlohmann::json> messages;
+                for (auto& agent : this->agents) {
+                    // In the offline estimation, estimates for all time steps
+                    // and data points will be processed at the end of the
+                    // estimation function. Therefore, we need to process time
+                    // by time to publish estimates over time.
+                    for (int t = 0; t < this->time_step; t++) {
+                        (*this->output_stream)
+                            << agent->estimates_to_message(t) << "\n";
+                    }
+                }
+            }
         }
 
     } // namespace model

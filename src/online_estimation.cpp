@@ -10,7 +10,7 @@
 #include "experiments/Experimentation.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
-#include "pipeline/estimation/ASISTAgent.h"
+#include "pipeline/estimation/ASISTStudy2Agent.h"
 
 /**
  * This program is responsible for starting an agent's real-time inference
@@ -77,7 +77,7 @@ void start_agent(const string& agent_id,
         converter = make_shared<ASISTSinglePlayerMessageConverter>(
             num_seconds, time_step_size, map_json);
     }
-    shared_ptr<ASISTAgent> agent = make_shared<ASISTAgent>(
+    shared_ptr<ASISTStudy2Agent> agent = make_shared<ASISTStudy2Agent>(
         agent_id, estimates_topic, log_topic, converter);
 
     Experimentation experimentation(random_generator,

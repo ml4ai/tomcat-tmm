@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "converter/MessageConverter.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/estimation/Estimator.h"
 
@@ -56,40 +57,78 @@ namespace tomcat {
             Agent& operator=(Agent&&) = default;
 
             //------------------------------------------------------------------
-            // Pure virtual functions
+            // Member functions
             //------------------------------------------------------------------
 
             /**
-             * Converts a message to a proper data format.
+             * Assigns training data to the estimators. Some estimators (mainly
+             * the baseline ones) might calculate estimates based on training
+             * data rather than test data.
              *
-             * @param message: message from a message bus
-             *
-             * @return Data.
+             * @param training_data: training data
              */
-            virtual EvidenceSet
-            message_to_data(const nlohmann::json& message) = 0;
+            void set_training_data(const EvidenceSet& training_data);
 
             /**
-             * Builds a message to be published to a message bus containing
-             * well formatted estimates computed for a given time step.
-             *
-             * @param estimators: list of estimators used to compute the
-             * estimates
-             * @param time_step: time step for which estimates were computed
-             *
-             * @return Messages.
+             * Aks estimators to save the estimates computed. In a cross
+             * validation process, this method will be called multiple times. In
+             * the end, we will have a list of estimates calculated in each one
+             * of the cross validation steps.
              */
-            virtual std::vector<nlohmann::json> estimates_to_message(
-                const std::vector<std::shared_ptr<Estimator>>& estimators,
-                int time_step) const = 0;
+            void keep_estimates();
+
+            /**
+             * Clear cumulative estimates computed by the estimators.
+             */
+            void clear_estimates();
+
+            /**
+             * Computes estimates given new observations.
+             *
+             * @param observations: new observations
+             */
+            void estimate(const EvidenceSet& observations);
+
+            /**
+             * Adds a new estimator to the agent.
+             *
+             * @param estimator: Estimator
+             */
+            void add_estimator(const EstimatorPtr& estimator);
 
             /**
              * Gets a list of all topics this agent has to subscribe to.
              *
              * @return Set of relevant message topics.
              */
-            virtual std::unordered_set<std::string>
-            get_topics_to_subscribe() const = 0;
+            std::unordered_set<std::string> get_topics_to_subscribe() const;
+
+            //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
+            /**
+             * Prepares the estimation process to start again.
+             */
+            virtual void prepare();
+
+            /**
+             * Writes information about the estimation in a json object.
+             *
+             * @param json: json object
+             */
+            virtual void get_info(nlohmann::json& json) const;
+
+            /**
+             * Builds a message to be published to a message bus containing
+             * well formatted estimates computed for a given time step.
+             *
+             * @param time_step: time step for which estimates were computed
+             *
+             * @return Messages.
+             */
+            virtual std::vector<nlohmann::json>
+            estimates_to_message(int time_step) const;
 
             /**
              * Builds a log message with a given text.
@@ -97,19 +136,7 @@ namespace tomcat {
              * @return Log message.
              */
             virtual nlohmann::json
-            build_log_message(const std::string& log) const = 0;
-
-            /**
-             * Prepare agent to process a new mission.
-             */
-            virtual void restart() = 0;
-
-            /**
-             * Whether the mission timer has reached zero.
-             *
-             * @return True if mission ended.
-             */
-            virtual bool is_mission_finished() const = 0;
+            build_log_message(const std::string& log) const;
 
             //------------------------------------------------------------------
             // Getters & Setters
@@ -140,6 +167,12 @@ namespace tomcat {
             std::string estimates_topic;
 
             std::string log_topic;
+
+            EstimatorPtrVec estimators;
+
+            std::unordered_set<std::string> ignored_observations;
+
+            nlohmann::json evidence_metadata;
         };
 
     } // namespace model

@@ -23,6 +23,13 @@ namespace tomcat {
              */
             OfflineEstimation();
 
+            /**
+             * Creates an offline estimation process with an output stream to
+             * write estimates to in an agent specific format at specific time
+             * steps.
+             */
+            OfflineEstimation(std::ostream& output_stream);
+
             ~OfflineEstimation();
 
             //------------------------------------------------------------------
@@ -39,9 +46,9 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void estimate(const EvidenceSet& test_data) override;
-
             void get_info(nlohmann::json& json) const override;
+
+            void publish_last_estimates() override;
 
           private:
             //------------------------------------------------------------------
@@ -49,15 +56,12 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Function executed by a thread responsible for calculating the
-             * estimates for a single estimator.
-             *
-             * @param estimator: estimator
-             * @param test_data: data to estimate values over
+             * Copies data members from another offline estimation process.
              */
-            void
-            run_estimation_thread(const std::shared_ptr<Estimator>& estimator,
-                                  const EvidenceSet& test_data);
+            void copy_estimation(const OfflineEstimation& estimation);
+
+
+            std::shared_ptr<std::ostream> output_stream;
         };
 
     } // namespace model

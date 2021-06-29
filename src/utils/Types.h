@@ -47,5 +47,17 @@ namespace tomcat {
         typedef std::shared_ptr<SegmentMarginalizationFactorNode>
             SegMarFactorNodePtr;
         typedef std::vector<SegMarFactorNodePtr> SegMarFactorNodePtrVec;
+
+        // General
+        class Estimator;
+        class MessageConverter;
+        class Agent;
+
+        typedef std::shared_ptr<Estimator> EstimatorPtr;
+        typedef std::vector<EstimatorPtr> EstimatorPtrVec;
+        typedef std::shared_ptr<MessageConverter> MsgConverterPtr;
+        typedef std::vector<MsgConverterPtr> MsgConverterPtrVec;
+        typedef std::shared_ptr<Agent> AgentPtr;
+        typedef std::vector<AgentPtr> AgentPtrVec;
     } // namespace model
 } // namespace tomcat

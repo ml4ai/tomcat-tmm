@@ -51,17 +51,6 @@ namespace tomcat {
             ASISTMessageConverter& operator=(ASISTMessageConverter&&) = default;
 
             //------------------------------------------------------------------
-            // Pure virtual functions
-            //------------------------------------------------------------------
-
-            /**
-             * Gets message topics used to data extraction.
-             *
-             * @return Message topics.
-             */
-            virtual std::unordered_set<std::string> get_used_topics() const = 0;
-
-            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
@@ -153,6 +142,7 @@ namespace tomcat {
             // received. Messages received before the mission starts will be
             // ignored.
             bool mission_started = false;
+
             int elapsed_time = 0;
 
             time_t mission_initial_timestamp;

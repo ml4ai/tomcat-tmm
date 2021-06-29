@@ -242,6 +242,10 @@ namespace tomcat {
                     this->mission_trial_number = this->get_numeric_trial_number(
                         json_message["data"]["trial_number"]);
                     this->experiment_id = json_message["msg"]["experiment_id"];
+                    json_mission_log["trial"] =
+                        json_message["data"]["trial_number"];
+                    json_mission_log["experiment_id"] =
+                        json_message["msg"]["experiment_id"];
 
                     if (EXISTS("client_info", json_message["data"])) {
                         this->fill_client_info_data(

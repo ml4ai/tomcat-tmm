@@ -19,105 +19,55 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void EstimationProcess::set_training_data(
             const tomcat::model::EvidenceSet& training_data) {
-            for (auto& estimator : this->estimators) {
-                estimator->set_training_data(training_data);
+            for (auto& agent : this->agents) {
+                agent->set_training_data(training_data);
             }
         }
 
-        void EstimationProcess::add_estimator(
-            const shared_ptr<Estimator>& estimator) {
-            this->estimators.push_back(estimator);
+        void EstimationProcess::add_agent(const AgentPtr& agent) {
+            this->agents.push_back(agent);
         }
 
         void EstimationProcess::keep_estimates() {
-            for (auto& estimator : this->estimators) {
-                estimator->keep_estimates();
+            for (auto& agent : this->agents) {
+                agent->keep_estimates();
             }
         }
 
         void EstimationProcess::clear_estimates() {
-            for (auto& estimator : this->estimators) {
-                estimator->cleanup();
+            for (auto& agent : this->agents) {
+                agent->clear_estimates();
             }
         }
 
         void EstimationProcess::prepare() {
-            for (auto& estimator : this->estimators) {
-                estimator->prepare();
+            for (auto& agent : this->agents) {
+                agent->prepare();
             }
         }
 
         void EstimationProcess::copy_estimation(
             const EstimationProcess& estimation) {
-            this->estimators = estimation.estimators;
+            this->agents = estimation.agents;
+            this->display_estimates = estimation.display_estimates;
+            this->time_step = estimation.time_step;
         }
 
-        void EstimationProcess::estimate(const shared_ptr<Estimator>& estimator,
-                                         const EvidenceSet& test_data) {
-            EvidenceSet new_test_data = test_data;
-
-            for (const auto& node_label : test_data.get_node_labels()) {
-                if (estimator->get_model()->has_node_with_label(node_label)) {
-                    const auto& metadata =
-                        estimator->get_model()->get_metadata_of(node_label);
-                    if (!metadata->is_replicable() &&
-                        estimator->is_computing_estimates_for(node_label)) {
-                        // Remove data from nodes that only have one instance in
-                        // the unrolled DBN, because the true data don't change
-                        // over time and providing any data for these nodes,
-                        // will make the estimator "cheat" as it will have
-                        // access to the true value. For nodes that have
-                        // multiple copies this is not a problem as the
-                        // estimator only look at past data and, the value of
-                        // that node can change over time.
-                        new_test_data.remove(node_label);
-                    }
-                }
+        void EstimationProcess::estimate(const EvidenceSet& observations) {
+            for (auto& agent : this->agents) {
+                agent->estimate(observations);
             }
-            estimator->estimate(new_test_data);
+            this->time_step += observations.get_time_steps();
+            this->publish_last_estimates();
         }
 
         void EstimationProcess::get_info(nlohmann::json& json) const {
             if (this->display_estimates) {
-                json["estimators"] = nlohmann::json::array();
-                for (const auto& estimator : this->estimators) {
-                    // An estimator can be compound and comprised of multiple
-                    // base estimators, which are the ones that actually
-                    // store the estimates.
-                    for (const auto& base_estimator :
-                         estimator->get_base_estimators()) {
-
-                        nlohmann::json json_estimator;
-                        base_estimator->get_info(json_estimator);
-
-                        CumulativeNodeEstimates cumulative_estimates =
-                            base_estimator->get_cumulative_estimates();
-
-                        json_estimator["node_label"] =
-                            cumulative_estimates.label;
-                        json_estimator["node_assignment"] =
-                            to_string(cumulative_estimates.assignment);
-                        json_estimator["executions"] = nlohmann::json::array();
-
-                        for (const auto& estimates_matrix_per_execution :
-                             cumulative_estimates.estimates) {
-
-                            nlohmann::json json_execution;
-                            json_execution["estimates"] =
-                                nlohmann::json::array();
-
-                            for (const auto& estimates_matrix :
-                                 estimates_matrix_per_execution) {
-                                json_execution["estimates"].push_back(
-                                    to_string(estimates_matrix));
-                            }
-
-                            json_estimator["executions"].push_back(
-                                json_execution);
-                        }
-
-                        json["estimators"].push_back(json_estimator);
-                    }
+                json["agents"] = nlohmann::json::array();
+                for (const auto& agent : this->agents) {
+                    nlohmann::json json_agent;
+                    agent->get_info(json_agent);
+                    json["agents"].push_back(json_agent);
                 }
             }
         }
@@ -130,9 +80,8 @@ namespace tomcat {
             EstimationProcess::display_estimates = display_estimates;
         }
 
-        const vector<std::shared_ptr<Estimator>>&
-        EstimationProcess::get_estimators() const {
-            return estimators;
+        const AgentPtrVec& EstimationProcess::get_agents() const {
+            return agents;
         }
 
     } // namespace model

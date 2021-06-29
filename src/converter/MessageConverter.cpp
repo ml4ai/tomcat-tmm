@@ -90,11 +90,11 @@ namespace tomcat {
 
                     data.vstack(mission_data);
 
-                    json_mission_log["name"] = mission_filename;
+                    json_mission_log["filename"] = mission_filename;
                     json_log["files_converted"].push_back(json_mission_log);
                 }
                 catch (TomcatModelException& exp) {
-                    json_mission_log["name"] = mission_filename;
+                    json_mission_log["filename"] = mission_filename;
                     json_mission_log["error"] = exp.message;
                     json_log["files_not_converted"].push_back(json_mission_log);
                 }
@@ -105,7 +105,7 @@ namespace tomcat {
             boost::filesystem::create_directories(data_dir);
             if (!unprocessed_filenames.empty()) {
                 string log_filepath =
-                    get_filepath(data_dir, "conversion_log.json");
+                    get_filepath(data_dir, LOG_FILE);
                 ofstream log_file;
                 log_file.open(log_filepath);
                 log_file << setw(4) << json_log;
@@ -121,7 +121,7 @@ namespace tomcat {
             unordered_set<string> processed_files;
 
             const string metadata_filepath =
-                get_filepath(data_dir, "conversion_log.json");
+                get_filepath(data_dir, LOG_FILE);
             fstream file;
             file.open(metadata_filepath);
             if (file.is_open()) {
@@ -129,12 +129,12 @@ namespace tomcat {
 
                 // Files successfully converted
                 for (const auto& json_file : json_log["files_converted"]) {
-                    processed_files.insert((string)json_file["name"]);
+                    processed_files.insert((string)json_file["filename"]);
                 }
 
                 // Files unsuccessfully converted
                 for (const auto& json_file : json_log["files_not_converted"]) {
-                    processed_files.insert((string)json_file["name"]);
+                    processed_files.insert((string)json_file["filename"]);
                 }
             }
 

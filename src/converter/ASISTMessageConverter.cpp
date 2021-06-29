@@ -30,6 +30,7 @@ namespace tomcat {
                 this->mission_started = false;
                 this->mission_finished = false;
                 this->prepare_for_new_mission();
+                json_mission_log["step_size"] = this->time_step_size;
             }
 
             EvidenceSet data;
@@ -67,7 +68,7 @@ namespace tomcat {
                         const string& topic = json_message["topic"];
 
                         if (EXISTS(topic, this->get_used_topics())) {
-                            if(topic == "trial") {
+                            if (topic == "trial") {
                                 // There's an issue with the timestamp in the
                                 // msg section of trial messages. The
                                 // timestamp in this section is not being
@@ -75,7 +76,8 @@ namespace tomcat {
                                 const string& timestamp =
                                     json_message["header"]["timestamp"];
                                 messages[timestamp] = json_message;
-                            } else {
+                            }
+                            else {
                                 const string& timestamp =
                                     json_message["msg"]["timestamp"];
                                 messages[timestamp] = json_message;

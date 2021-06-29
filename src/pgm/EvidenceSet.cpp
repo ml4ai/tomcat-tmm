@@ -1,6 +1,7 @@
 #include "EvidenceSet.h"
 
 #include <boost/filesystem.hpp>
+#include <converter/MessageConverter.h>
 
 #include "utils/EigenExtensions.h"
 #include "utils/FileHandler.h"
@@ -139,6 +140,10 @@ namespace tomcat {
                         this->add_data(node_label, data);
                     }
                 }
+                else if (filename == MessageConverter::LOG_FILE) {
+                    this->metadata =
+                        nlohmann::json::parse(file)["files_converted"];
+                }
             }
         }
 
@@ -154,7 +159,8 @@ namespace tomcat {
         }
 
         void EvidenceSet::add_data(const string& node_label,
-                                   const Tensor3& data, bool check_dimensions) {
+                                   const Tensor3& data,
+                                   bool check_dimensions) {
             if (this->num_data_points == 0 && this->time_steps == 0) {
                 this->num_data_points = data.get_shape()[1];
                 this->time_steps = data.get_shape()[2];
@@ -302,6 +308,14 @@ namespace tomcat {
         int EvidenceSet::get_num_data_points() const { return num_data_points; }
 
         int EvidenceSet::get_time_steps() const { return time_steps; }
+
+        void EvidenceSet::set_metadata(const nlohmann::json& metadata) {
+            this->metadata = metadata;
+        }
+
+        const nlohmann::json& EvidenceSet::get_metadata() const {
+            return metadata;
+        }
 
     } // namespace model
 } // namespace tomcat
