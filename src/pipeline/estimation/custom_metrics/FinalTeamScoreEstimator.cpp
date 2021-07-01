@@ -1,4 +1,4 @@
-#include "FinalScore.h"
+#include "FinalTeamScoreEstimator.h"
 
 #include "converter/ASISTMultiPlayerMessageConverter.h"
 #include "utils/EigenExtensions.h"
@@ -11,7 +11,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        FinalScore::FinalScore(const std::shared_ptr<DynamicBayesNet>& model) {
+        FinalTeamScoreEstimator::FinalTeamScoreEstimator(const std::shared_ptr<DynamicBayesNet>& model) {
             this->model = model;
             this->inference_horizon = -1;
             this->estimates.label = "FinalScore";
@@ -19,16 +19,16 @@ namespace tomcat {
                 vector<Eigen::MatrixXd>(2); // avg score and std
         }
 
-        FinalScore::~FinalScore() {}
+        FinalTeamScoreEstimator::~FinalTeamScoreEstimator() {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        FinalScore::FinalScore(const FinalScore& final_score) {
+        FinalTeamScoreEstimator::FinalTeamScoreEstimator(const FinalTeamScoreEstimator& final_score) {
             SamplerEstimator::copy(final_score);
         }
 
-        FinalScore& FinalScore::operator=(const FinalScore& final_score) {
+        FinalTeamScoreEstimator& FinalTeamScoreEstimator::operator=(const FinalTeamScoreEstimator& final_score) {
             SamplerEstimator::copy(final_score);
             return *this;
         }
@@ -37,7 +37,7 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
 
-        void FinalScore::prepare() {
+        void FinalTeamScoreEstimator::prepare() {
             this->estimates.estimates =
                 vector<Eigen::MatrixXd>(2); // avg score and std
             this->current_score = Eigen::VectorXd(0);
@@ -45,9 +45,9 @@ namespace tomcat {
             this->last_critical_samples = Eigen::VectorXi(0);
         }
 
-        string FinalScore::get_name() const { return "final_score"; }
+        string FinalTeamScoreEstimator::get_name() const { return "final_team_score"; }
 
-        void FinalScore::estimate(const EvidenceSet& particles,
+        void FinalTeamScoreEstimator::estimate(const EvidenceSet& particles,
                                   const EvidenceSet& projected_particles,
                                   const EvidenceSet& marginals,
                                   int data_point_idx,
@@ -84,8 +84,7 @@ namespace tomcat {
                 1, data_point_idx, time_step, std_estimated_score);
         }
 
-        Eigen::VectorXd
-        FinalScore::get_current_score(const EvidenceSet& particles) const {
+        Eigen::VectorXd FinalTeamScoreEstimator::get_current_score(const EvidenceSet& particles) const {
             Eigen::VectorXd score =
                 Eigen::VectorXd::Zero(particles.get_num_data_points());
 
@@ -117,7 +116,7 @@ namespace tomcat {
             return score;
         }
 
-        Eigen::VectorXd FinalScore::get_projected_score(
+        Eigen::VectorXd FinalTeamScoreEstimator::get_projected_score(
             const EvidenceSet& projected_particles) const {
 
             Eigen::VectorXd projected_score =

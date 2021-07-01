@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include "utils/Definitions.h"
 
 #include "pipeline/estimation/EstimationProcess.h"
@@ -18,8 +20,10 @@ namespace tomcat {
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            /**
-             * Creates an offline estimation process.
+            /*
+             * Creates an offline estimator with no defined estimate report.
+             * Estimates are still written as raw probabilities in the get_info
+             * function.
              */
             OfflineEstimation();
 
@@ -27,21 +31,30 @@ namespace tomcat {
              * Creates an offline estimation process with an output stream to
              * write estimates to in an agent specific format at specific time
              * steps.
+             *
+             * @param reporter: class responsible for reporting estimates
+             * computed during the process
+             * @param report_filepath: path of the written report file. If the
+             * path is blank, the report will be printed to the terminal.
              */
-            OfflineEstimation(std::ostream& output_stream);
+            OfflineEstimation(const EstimateReporterPtr& reporter,
+                              const std::string& report_filepath);
 
             ~OfflineEstimation();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            OfflineEstimation(const OfflineEstimation& estimation);
 
-            OfflineEstimation& operator=(const OfflineEstimation& estimation);
+            // It cannot be copied because ofstreams cannot be copied.
+            OfflineEstimation(const OfflineEstimation& estimation) = delete;
 
-            OfflineEstimation(OfflineEstimation&&) = default;
+            OfflineEstimation&
+            operator=(const OfflineEstimation& estimation) = delete;
 
-            OfflineEstimation& operator=(OfflineEstimation&&) = default;
+            OfflineEstimation(OfflineEstimation&&) = delete;
+
+            OfflineEstimation& operator=(OfflineEstimation&&) = delete;
 
             //------------------------------------------------------------------
             // Member functions
@@ -52,16 +65,10 @@ namespace tomcat {
 
           private:
             //------------------------------------------------------------------
-            // Member functions
+            // Data member
             //------------------------------------------------------------------
 
-            /**
-             * Copies data members from another offline estimation process.
-             */
-            void copy_estimation(const OfflineEstimation& estimation);
-
-
-            std::shared_ptr<std::ostream> output_stream;
+            std::ofstream report_file;
         };
 
     } // namespace model

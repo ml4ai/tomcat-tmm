@@ -2,7 +2,9 @@
 
 #include <memory>
 
+#include "pgm/EvidenceSet.h"
 #include "pipeline/estimation/Agent.h"
+#include "pipeline/estimation/EstimateReporter.h"
 #include "utils/Definitions.h"
 
 namespace tomcat {
@@ -22,9 +24,13 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Creates an empty estimation process for a model.
+             * Creates a generic estimation process for a model.
+             *
+             * @param reporter: class responsible for reporting estimates
+             * computed during the process
+             *
              */
-            EstimationProcess();
+            EstimationProcess(const EstimateReporterPtr& reporter);
 
             virtual ~EstimationProcess();
 
@@ -137,7 +143,9 @@ namespace tomcat {
             bool display_estimates = false;
 
             // Number of time steps the estimation already processed.
-            int time_step;
+            int last_time_step;
+
+            EstimateReporterPtr reporter;
         };
 
     } // namespace model

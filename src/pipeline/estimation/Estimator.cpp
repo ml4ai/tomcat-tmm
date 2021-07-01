@@ -81,7 +81,7 @@ namespace tomcat {
             this->estimates.estimates.clear();
 
             int k = 1;
-            if(this->estimates.assignment.size() == 0) {
+            if (this->estimates.assignment.size() == 0) {
                 k = this->model->get_cardinality_of(this->estimates.label);
             }
             this->estimates.estimates.resize(k);
@@ -134,9 +134,8 @@ namespace tomcat {
 
         bool Estimator::is_compound() const { return compound; }
 
-        vector<shared_ptr<const Estimator>>
-        Estimator::get_base_estimators() const {
-            vector<shared_ptr<const Estimator>> base_estimators;
+        vector<shared_ptr<Estimator>> Estimator::get_base_estimators() {
+            vector<shared_ptr<Estimator>> base_estimators;
             base_estimators.push_back(shared_from_this());
             return base_estimators;
         }

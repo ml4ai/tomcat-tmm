@@ -19,15 +19,18 @@ namespace tomcat {
         //----------------------------------------------------------------------
         OnlineEstimation::OnlineEstimation(
             const MessageBrokerConfiguration& config,
-            const MsgConverterPtr& message_converter)
-            : config(config), message_converter(message_converter) {}
+            const MsgConverterPtr& message_converter,
+            const EstimateReporterPtr& reporter)
+            : EstimationProcess(reporter), config(config),
+              message_converter(message_converter) {}
 
         OnlineEstimation::~OnlineEstimation() {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        OnlineEstimation::OnlineEstimation(const OnlineEstimation& estimation) {
+        OnlineEstimation::OnlineEstimation(const OnlineEstimation& estimation)
+            : EstimationProcess(estimation.reporter) {
             this->copy_estimation(estimation);
         }
 
@@ -43,7 +46,7 @@ namespace tomcat {
         void OnlineEstimation::prepare() {
             EstimationProcess::prepare();
             this->messages_to_process.clear();
-            this->time_step = 0;
+            this->last_time_step = -1;
             this->evidence_metadata.clear();
         }
 
@@ -83,31 +86,33 @@ namespace tomcat {
                 EvidenceSet new_data =
                     this->get_next_data_from_pending_messages();
                 if (!new_data.empty()) {
-                    for (auto agent : this->agents) {
-                        agent->estimate(new_data);
-                    }
-                    this->publish_last_estimates();
-
-                    if (this->time_step == 0) {
+                    if (this->last_time_step < 0) {
                         cout << "Agents are awake and working..." << endl;
                     }
 
+                    for (auto agent : this->agents) {
+                        agent->estimate(new_data);
+                    }
+                    this->last_time_step++;
+                    this->publish_last_estimates();
+
                     if (this->message_converter->is_mission_finished()) {
-                        stringstream ss;
-                        ss << "The maximum time step defined for the "
-                              "mission has been reached. Waiting for a new "
-                              "mission to start...";
-                        for (auto agent : this->agents) {
-                            string message =
-                                agent->build_log_message(ss.str()).dump();
-                            this->publish(agent->get_log_topic(), message);
+                        if (this->config.log_topic != "" && this->reporter) {
+                            stringstream ss;
+                            ss << "The maximum time step defined for the "
+                                  "mission has been reached. Waiting for a new "
+                                  "mission to start...";
+                            for (auto agent : this->agents) {
+                                string message =
+                                    this->reporter
+                                        ->build_log_message(agent, ss.str())
+                                        .dump();
+                                this->publish(this->config.log_topic, message);
+                            }
                         }
 
                         cout << "Waiting for a new mission to start..." << endl;
                         this->prepare();
-                    }
-                    else {
-                        this->time_step++;
                     }
                 }
             }
@@ -129,9 +134,10 @@ namespace tomcat {
 
         void OnlineEstimation::publish_last_estimates() {
             for (const auto& agent : this->agents) {
-                auto messages = agent->estimates_to_message(this->time_step);
+                auto messages =
+                    this->reporter->estimates_to_message(agent, this->last_time_step);
                 for (const auto& message : messages) {
-                    this->publish(agent->get_estimates_topic(), message.dump());
+                    this->publish(this->config.estimates_topic, message.dump());
                 }
             }
         }
@@ -150,12 +156,13 @@ namespace tomcat {
 
         void OnlineEstimation::on_time_out() {
             for (const auto& agent : this->agents) {
-                const string& topic = agent->get_log_topic();
-                if (topic != "") {
+                if (this->config.log_topic != "" && this->reporter) {
                     stringstream ss;
                     ss << "Connection time out!";
-                    string message = agent->build_log_message(ss.str()).dump();
-                    this->publish(topic, ss.str());
+                    string message =
+                        this->reporter->build_log_message(agent, ss.str())
+                            .dump();
+                    this->publish(this->config.log_topic, ss.str());
                 }
             }
         }

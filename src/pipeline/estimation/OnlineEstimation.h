@@ -37,6 +37,8 @@ namespace tomcat {
                 int port;
                 int num_connection_trials;
                 int milliseconds_before_retrial;
+                std::string estimates_topic;
+                std::string log_topic;
             };
 
             //------------------------------------------------------------------
@@ -49,9 +51,12 @@ namespace tomcat {
              * @param estimator: type of estimation to be performed
              * @param message_converter: classes responsible to translate json
              * messages to observations
+             * @param reporter: class responsible for reporting estimates
+             * computed during the process
              */
             OnlineEstimation(const MessageBrokerConfiguration& config,
-                             const MsgConverterPtr& message_converter);
+                             const MsgConverterPtr& message_converter,
+                             const EstimateReporterPtr& reporter);
 
             ~OnlineEstimation();
 

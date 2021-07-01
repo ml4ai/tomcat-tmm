@@ -3,7 +3,7 @@
 #include <iostream>
 #include <thread>
 
-#include "pipeline/estimation/custom_metrics/FinalScore.h"
+#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -52,7 +52,7 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
-        // Member functions
+        // Static functions
         //----------------------------------------------------------------------
         Eigen::VectorXd SamplerEstimator::get_prior(const RVNodePtr& node) {
             Eigen::VectorXd prior;
@@ -85,6 +85,16 @@ namespace tomcat {
             }
 
             return prior;
+        }
+
+        SamplerEstimatorPtr SamplerEstimator::create_custom_estimator(const std::string& name,
+                                                    const DBNPtr& model) {
+            SamplerEstimatorPtr estimator;
+            if (name == CustomSamplerEstimatorType::FINAL_TEAM_SCORE) {
+                estimator = make_shared<FinalTeamScoreEstimator>(model);
+            }
+
+            return estimator;
         }
 
         //----------------------------------------------------------------------
@@ -169,10 +179,10 @@ namespace tomcat {
                                 t)(low);
                         }
                         else {
-                            if (time_step <
-                                metadata->get_initial_time_step()) {
+                            if (time_step < metadata->get_initial_time_step()) {
                                 prob = get_prior(node)(low);
-                            } else {
+                            }
+                            else {
                                 const Tensor3 samples_tensor =
                                     particles[this->estimates.label];
                                 prob = this->get_probability_in_range(

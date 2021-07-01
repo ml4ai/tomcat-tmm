@@ -35,9 +35,7 @@ namespace tomcat {
              * @param log_topic: message topic where processing log must be
              * published to
              */
-            Agent(const std::string& id,
-                  const std::string& estimates_topic,
-                  const std::string& log_topic);
+            Agent(const std::string& id);
 
             virtual ~Agent();
 
@@ -96,13 +94,6 @@ namespace tomcat {
              */
             void add_estimator(const EstimatorPtr& estimator);
 
-            /**
-             * Gets a list of all topics this agent has to subscribe to.
-             *
-             * @return Set of relevant message topics.
-             */
-            std::unordered_set<std::string> get_topics_to_subscribe() const;
-
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
@@ -119,33 +110,17 @@ namespace tomcat {
              */
             virtual void get_info(nlohmann::json& json) const;
 
-            /**
-             * Builds a message to be published to a message bus containing
-             * well formatted estimates computed for a given time step.
-             *
-             * @param time_step: time step for which estimates were computed
-             *
-             * @return Messages.
-             */
-            virtual std::vector<nlohmann::json>
-            estimates_to_message(int time_step) const;
-
-            /**
-             * Builds a log message with a given text.
-             *
-             * @return Log message.
-             */
-            virtual nlohmann::json
-            build_log_message(const std::string& log) const;
-
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
             const std::string& get_id() const;
 
-            const std::string& get_estimates_topic() const;
+            void set_ignored_observations(
+                const std::unordered_set<std::string>& ignored_observations);
 
-            const std::string& get_log_topic() const;
+            const EstimatorPtrVec& get_estimators() const;
+
+            const nlohmann::json& get_evidence_metadata() const;
 
           protected:
             //------------------------------------------------------------------
@@ -164,15 +139,12 @@ namespace tomcat {
             //------------------------------------------------------------------
             std::string id;
 
-            std::string estimates_topic;
-
-            std::string log_topic;
-
             EstimatorPtrVec estimators;
 
             std::unordered_set<std::string> ignored_observations;
 
             nlohmann::json evidence_metadata;
+
         };
 
     } // namespace model

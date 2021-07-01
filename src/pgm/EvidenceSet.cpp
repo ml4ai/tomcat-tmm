@@ -131,18 +131,23 @@ namespace tomcat {
         void EvidenceSet::init_from_folder(const string& data_folder_path) {
             for (const auto& file : fs::directory_iterator(data_folder_path)) {
                 string filename = file.path().filename().string();
-                if (fs::is_regular_file(file) &&
-                    file.path().extension() == "") {
-
-                    string node_label = remove_extension(filename);
-                    Tensor3 data = read_tensor_from_file(file.path().string());
-                    if (!data.is_empty()) {
-                        this->add_data(node_label, data);
+                if (fs::is_regular_file(file)) {
+                    if (filename == MessageConverter::LOG_FILE) {
+                        fstream log_file;
+                        log_file.open(file.path().string());
+                        if (log_file.is_open()) {
+                            this->metadata = nlohmann::json::parse(
+                                log_file)["files_converted"];
+                        }
                     }
-                }
-                else if (filename == MessageConverter::LOG_FILE) {
-                    this->metadata =
-                        nlohmann::json::parse(file)["files_converted"];
+                    else if (file.path().extension() == "") {
+                        string node_label = remove_extension(filename);
+                        Tensor3 data =
+                            read_tensor_from_file(file.path().string());
+                        if (!data.is_empty()) {
+                            this->add_data(node_label, data);
+                        }
+                    }
                 }
             }
         }

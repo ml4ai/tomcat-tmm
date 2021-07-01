@@ -26,6 +26,13 @@ namespace tomcat {
         class SamplerEstimator : public Estimator {
           public:
             //------------------------------------------------------------------
+            // Structs
+            //------------------------------------------------------------------
+            struct CustomSamplerEstimatorType {
+                inline static std::string FINAL_TEAM_SCORE = "FinalTeamScore";
+            };
+
+            //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
@@ -83,6 +90,19 @@ namespace tomcat {
              * @return Prior probability
              */
             static Eigen::VectorXd get_prior(const RVNodePtr& node);
+
+            /**
+             * factory function to create a new instance of a custom sampler
+             * estimator from its name
+             *
+             * @param name: estimator name
+             * @param model: model used for estimation
+             *
+             * @return Newly created instance of the custom estimator
+             */
+            static SamplerEstimatorPtr
+            create_custom_estimator(const std::string& name,
+                                    const DBNPtr& model);
 
             //------------------------------------------------------------------
             // Member functions

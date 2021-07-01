@@ -172,8 +172,8 @@ namespace tomcat {
              *
              * @return Base estimators
              */
-            virtual std::vector<std::shared_ptr<const Estimator>>
-            get_base_estimators() const;
+            virtual std::vector<std::shared_ptr<Estimator>>
+            get_base_estimators();
 
             //------------------------------------------------------------------
             // Pure virtual functions

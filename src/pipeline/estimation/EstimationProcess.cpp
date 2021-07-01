@@ -10,7 +10,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        EstimationProcess::EstimationProcess() {}
+        EstimationProcess::EstimationProcess(
+            const EstimateReporterPtr& reporter)
+            : reporter(reporter) {}
 
         EstimationProcess::~EstimationProcess() {}
 
@@ -44,20 +46,22 @@ namespace tomcat {
             for (auto& agent : this->agents) {
                 agent->prepare();
             }
+            this->last_time_step = -1;
         }
 
         void EstimationProcess::copy_estimation(
             const EstimationProcess& estimation) {
             this->agents = estimation.agents;
             this->display_estimates = estimation.display_estimates;
-            this->time_step = estimation.time_step;
+            this->last_time_step = estimation.last_time_step;
+            this->reporter = estimation.reporter;
         }
 
         void EstimationProcess::estimate(const EvidenceSet& observations) {
             for (auto& agent : this->agents) {
                 agent->estimate(observations);
             }
-            this->time_step += observations.get_time_steps();
+            this->last_time_step += observations.get_time_steps();
             this->publish_last_estimates();
         }
 

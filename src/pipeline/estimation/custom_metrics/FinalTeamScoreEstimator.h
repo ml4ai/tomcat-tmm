@@ -9,7 +9,7 @@ namespace tomcat {
          * Represents a metric to estimate the mission final score given
          * samples generated until the end of the mission.
          */
-        class FinalScore : public SamplerEstimator {
+        class FinalTeamScoreEstimator : public SamplerEstimator {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -22,21 +22,21 @@ namespace tomcat {
              *
              *
              */
-            FinalScore(const std::shared_ptr<DynamicBayesNet>& model);
+            FinalTeamScoreEstimator(const std::shared_ptr<DynamicBayesNet>& model);
 
-            ~FinalScore();
+            ~FinalTeamScoreEstimator();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
 
-            FinalScore(const FinalScore& final_score);
+            FinalTeamScoreEstimator(const FinalTeamScoreEstimator& final_score);
 
-            FinalScore& operator=(const FinalScore& final_Score);
+            FinalTeamScoreEstimator& operator=(const FinalTeamScoreEstimator& final_Score);
 
-            FinalScore(FinalScore&&) = default;
+            FinalTeamScoreEstimator(FinalTeamScoreEstimator&&) = default;
 
-            FinalScore& operator=(FinalScore&&) = default;
+            FinalTeamScoreEstimator& operator=(FinalTeamScoreEstimator&&) = default;
 
             //------------------------------------------------------------------
             // Member functions

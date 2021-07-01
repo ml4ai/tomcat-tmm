@@ -13,10 +13,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Agent::Agent(const string& id,
-                     const string& estimates_topic,
-                     const string& log_topic)
-            : id(id), estimates_topic(estimates_topic), log_topic(log_topic) {}
+        Agent::Agent(const string& id) : id(id) {}
 
         Agent::~Agent() {}
 
@@ -26,8 +23,6 @@ namespace tomcat {
 
         void Agent::copy(const Agent& agent) {
             this->id = agent.id;
-            this->estimates_topic = agent.estimates_topic;
-            this->log_topic = agent.log_topic;
         }
 
         //----------------------------------------------------------------------
@@ -122,29 +117,22 @@ namespace tomcat {
             }
         }
 
-        vector<nlohmann::json>
-        Agent::estimates_to_message(int time_step) const {
-            // No specific format to be published
-            return {};
-        }
-
-        nlohmann::json Agent::build_log_message(const string& log) const {
-            nlohmann::json message;
-            message["AgentID"] = this->id;
-            message["log"] = log;
-
-            return message;
-        }
-
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
         const string& Agent::get_id() const { return id; }
 
-        const string& Agent::get_estimates_topic() const {
-            return estimates_topic;
+        void Agent::set_ignored_observations(
+            const unordered_set<std::string>& ignored_observations) {
+            this->ignored_observations = ignored_observations;
         }
 
-        const string& Agent::get_log_topic() const { return log_topic; }
+        const EstimatorPtrVec& Agent::get_estimators() const {
+            return estimators;
+        }
+
+        const nlohmann::json& Agent::get_evidence_metadata() const {
+            return evidence_metadata;
+        }
     } // namespace model
 } // namespace tomcat

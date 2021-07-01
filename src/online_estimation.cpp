@@ -10,7 +10,8 @@
 #include "experiments/Experimentation.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
-#include "pipeline/estimation/ASISTStudy2Agent.h"
+#include "pipeline/estimation/ASISTStudy2EstimateReporter.h"
+#include "pipeline/estimation/EstimateReporter.h"
 
 /**
  * This program is responsible for starting an agent's real-time inference
@@ -23,91 +24,77 @@ using namespace tomcat::model;
 using namespace std;
 namespace po = boost::program_options;
 
-void start_agent(const string& agent_id,
-                 const string& model_json,
+struct ConverterTypes {
+    const static int ASIST_SINGLE_PLAYER = 0;
+    const static int ASIST_MULTI_PLAYER = 1;
+};
+
+struct ReporterTypes {
+    const static int NONE = 0;
+    const static int ASIST_STUDY2 = 1;
+};
+
+void start_agent(const string& model_json,
+                 const string& agents_json,
                  const string& params_dir,
                  const string& broker_json,
-                 int num_connection_trials,
-                 int milliseconds_before_retrial,
                  const string& map_json,
+                 int converter_type,
+                 int reporter_type,
                  int num_seconds,
                  int time_step_size,
-                 const string& inference_json,
-                 int burn_in,
-                 int num_samples,
+                 int num_particles,
                  int num_jobs,
-                 bool multiplayer,
-                 int num_players) {
+                 int num_players,
+                 bool exact_inference) {
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
 
     shared_ptr<DynamicBayesNet> model = make_shared<DynamicBayesNet>(
         DynamicBayesNet ::create_from_json(model_json));
-    int num_time_steps = num_seconds / time_step_size;
-    model->unroll(num_time_steps, true);
+    model->unroll(3, true);
 
-    string broker_address = "localhost";
-    int broker_port = 1883;
-    string estimates_topic = "uaz/estimates";
-    string log_topic = "uaz/log";
-    fstream file;
-    file.open(broker_json);
-    if (file.is_open()) {
-        nlohmann::json broker = nlohmann::json::parse(file);
-        if (broker.contains("address")) {
-            broker_address = broker["address"];
-        }
-        if (broker.contains("port")) {
-            broker_port = broker["port"];
-        }
-        if (broker.contains("estimates_topic")) {
-            estimates_topic = broker["estimates_topic"];
-        }
-        if (broker.contains("log_topic")) {
-            log_topic = broker["log_topic"];
-        }
-    }
-
-    shared_ptr<ASISTMessageConverter> converter;
-    if (multiplayer) {
-        converter = make_shared<ASISTMultiPlayerMessageConverter>(
-            num_seconds, time_step_size, map_json, num_players);
-    }
-    else {
+    MsgConverterPtr converter;
+    if (converter_type == ConverterTypes::ASIST_SINGLE_PLAYER) {
         converter = make_shared<ASISTSinglePlayerMessageConverter>(
             num_seconds, time_step_size, map_json);
     }
-    shared_ptr<ASISTStudy2Agent> agent = make_shared<ASISTStudy2Agent>(
-        agent_id, estimates_topic, log_topic, converter);
+    else {
+        converter = make_shared<ASISTMultiPlayerMessageConverter>(
+            num_seconds, time_step_size, map_json, num_players);
+    }
 
-    Experimentation experimentation(random_generator,
-                                    model,
-                                    agent,
-                                    broker_address,
-                                    broker_port,
-                                    num_connection_trials,
-                                    milliseconds_before_retrial);
-    experimentation.add_estimators_from_json(
-        inference_json, burn_in, num_samples, num_jobs, false, true, num_time_steps - 1);
+    EstimateReporterPtr reporter;
+    if (reporter_type == ReporterTypes::ASIST_STUDY2) {
+        reporter = make_shared<ASISTStudy2EstimateReporter>();
+    }
+
+    Experimentation experimentation(
+        random_generator, model, broker_json, converter, reporter);
+    int num_time_steps = num_seconds / time_step_size;
+    experimentation.create_agents(agents_json,
+                                  num_particles,
+                                  num_jobs,
+                                  false,
+                                  exact_inference,
+                                  num_time_steps - 1);
     experimentation.start_real_time_estimation(params_dir);
 }
 
 int main(int argc, char* argv[]) {
-    string agent_id;
     string model_json;
+    string agents_json;
     string params_dir;
     string broker_json;
     string map_json;
-    string inference_json;
-    unsigned int num_connection_trials;
-    unsigned int milliseconds_before_retrial;
     unsigned int num_seconds;
     unsigned int time_step_size;
-    unsigned int burn_in;
-    unsigned int num_samples;
+    unsigned int num_particles;
     unsigned int num_jobs;
     unsigned int num_players;
-    bool multiplayer;
+    unsigned int converter_type;
+    unsigned int reporter_type;
+    bool exact_inference;
 
     po::options_description desc("Allowed options");
     desc.add_options()(
@@ -118,10 +105,13 @@ int main(int argc, char* argv[]) {
         "the model has at least one variable under a semi-Markov assumption "
         "or that follows a continuous distribution), approximate inference "
         "will be used.")(
-        "agent_id", po::value<string>(&agent_id), "Agent identifier.")(
         "model_json",
         po::value<string>(&model_json)->required(),
         "Filepath of the json file containing the model definition.")(
+        "agents_json",
+        po::value<string>(&agents_json)->required(),
+        "Filepath of the json file containing definitions about the agents' "
+        "reasoning.")(
         "params_dir",
         po::value<string>(&params_dir)->required(),
         "Directory where the pre-trained model's parameters are saved.")(
@@ -129,19 +119,6 @@ int main(int argc, char* argv[]) {
         po::value<string>(&broker_json),
         "Json containing the address and port of the message broker to"
         " connect to.\n")(
-        "conn_trials",
-        po::value<unsigned int>(&num_connection_trials)
-            ->default_value(5)
-            ->required(),
-        "Number of trials to establish a connection with the message broker "
-        "before ending the program.")(
-        "conn_wait",
-        po::value<unsigned int>(&milliseconds_before_retrial)
-            ->default_value(3000)
-            ->required(),
-        "Number of milliseconds to wait before reattempting to establish a "
-        "connection with the message broker in case of fail to "
-        "successfully connect previously.")(
         "map_json",
         po::value<string>(&map_json)->required(),
         "Path to the json file containing the map configuration.")(
@@ -153,27 +130,29 @@ int main(int argc, char* argv[]) {
         "step_size",
         po::value<unsigned int>(&time_step_size)->default_value(1)->required(),
         "Size of a time step in seconds.")(
-        "inference_json",
-        po::value<string>(&inference_json)->required(),
-        "Filepath of the json file containing the variables and inference "
-        "horizons to be evaluated by the pre-trained model.")(
-        "burn_in",
-        po::value<unsigned int>(&burn_in)->default_value(100)->required(),
-        "Number of samples to generate until posterior convergence if "
-        "approximate inference is used.")(
-        "samples",
-        po::value<unsigned int>(&num_samples)->default_value(100)->required(),
-        "Number of samples used to estimate the parameters of the model "
-        "after the burn-in period if approximate inference is used.")(
+        "particles",
+        po::value<unsigned int>(&num_particles)
+            ->default_value(1000)
+            ->required(),
+        "Number of particles used to estimate the parameters of the model "
+        "if approximate inference is used.")(
         "jobs",
         po::value<unsigned int>(&num_jobs)->default_value(4),
         "Number of jobs used for multi-thread inference.")(
-        "multiplayer",
-        po::bool_switch(&multiplayer),
-        "Whether the messages come from a multiplayer mission.")(
         "players",
         po::value<unsigned int>(&num_players)->default_value(3),
-        "Number of players in the multiplayer mission.");
+        "Number of players in the multiplayer mission.")(
+        "mission_type",
+        po::value<unsigned int>(&converter_type)->default_value(1)->required(),
+        "0 - ASIST Singleplayer\n."
+        "1 - ASIST Multiplayer")(
+        "reporter",
+        po::value<unsigned int>(&reporter_type)->default_value(1)->required(),
+        "0 - None\n"
+        "1 - ASIST Study 2\n")(
+        "exact",
+        po::bool_switch(&exact_inference)->default_value(false),
+        "Whether to use exact or approximate inference.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -183,19 +162,17 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    start_agent(agent_id,
-                model_json,
+    start_agent(model_json,
+                agents_json,
                 params_dir,
                 broker_json,
-                num_connection_trials,
-                milliseconds_before_retrial,
                 map_json,
+                converter_type,
+                reporter_type,
                 num_seconds,
                 time_step_size,
-                inference_json,
-                burn_in,
-                num_samples,
+                num_particles,
                 num_jobs,
-                multiplayer,
-                num_players);
+                num_players,
+                exact_inference);
 }

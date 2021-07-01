@@ -79,8 +79,8 @@ namespace tomcat {
             bool is_computing_estimates_for(
                 const std::string& node_label) const override;
 
-            std::vector<std::shared_ptr<const Estimator>>
-            get_base_estimators() const override;
+            std::vector<std::shared_ptr<Estimator>>
+            get_base_estimators() override;
 
             /**
              * Adds a sampler estimator to this compound estimator.

@@ -10,53 +10,53 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        OfflineEstimation::OfflineEstimation() {}
+        OfflineEstimation::OfflineEstimation() : EstimationProcess(nullptr) {}
 
-        OfflineEstimation::OfflineEstimation(std::ostream& output_stream)
-            : output_stream(&output_stream) {}
-
-        OfflineEstimation::~OfflineEstimation() {}
-
-        //----------------------------------------------------------------------
-        // Copy & Move constructors/assignments
-        //----------------------------------------------------------------------
         OfflineEstimation::OfflineEstimation(
-            const OfflineEstimation& estimation) {
-            this->copy_estimation(estimation);
+            const EstimateReporterPtr& reporter,
+            const std::string& report_filepath)
+            : EstimationProcess(reporter) {
+
+            if (report_filepath != "") {
+                this->report_file.open(report_filepath);
+            }
         }
 
-        OfflineEstimation&
-        OfflineEstimation::operator=(const OfflineEstimation& estimation) {
-            this->copy_estimation(estimation);
-            return *this;
+        OfflineEstimation::~OfflineEstimation() {
+            if (this->report_file.is_open()) {
+                this->report_file.close();
+            }
         }
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-
-        void OfflineEstimation::copy_estimation(
-            const OfflineEstimation& estimation) {
-            EstimationProcess::copy_estimation(estimation);
-            this->output_stream = estimation.output_stream;
-        }
-
         void OfflineEstimation::get_info(nlohmann::json& json) const {
             EstimationProcess::get_info(json);
             json["process"] = "offline";
         }
 
         void OfflineEstimation::publish_last_estimates() {
-            if (this->output_stream) {
-                vector<nlohmann::json> messages;
+            if (this->reporter) {
                 for (auto& agent : this->agents) {
                     // In the offline estimation, estimates for all time steps
                     // and data points will be processed at the end of the
                     // estimation function. Therefore, we need to process time
                     // by time to publish estimates over time.
-                    for (int t = 0; t < this->time_step; t++) {
-                        (*this->output_stream)
-                            << agent->estimates_to_message(t) << "\n";
+                    for (int t = 0; t <= this->last_time_step; t++) {
+                        auto messages =
+                            this->reporter->estimates_to_message(agent, t);
+
+                        if (this->report_file.is_open()) {
+                            for(const auto& message : messages) {
+                                this->report_file << message << "\n";
+                            }
+                        }
+                        else {
+                            for(const auto& message : messages) {
+                                cout << message << "\n";
+                            }
+                        }
                     }
                 }
             }
