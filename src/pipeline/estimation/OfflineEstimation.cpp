@@ -10,12 +10,14 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        OfflineEstimation::OfflineEstimation() : EstimationProcess(nullptr) {}
+        OfflineEstimation::OfflineEstimation(const AgentPtr& agent)
+            : EstimationProcess(agent, nullptr) {}
 
         OfflineEstimation::OfflineEstimation(
+            const AgentPtr& agent,
             const EstimateReporterPtr& reporter,
             const std::string& report_filepath)
-            : EstimationProcess(reporter) {
+            : EstimationProcess(agent, reporter) {
 
             if (report_filepath != "") {
                 this->report_file.open(report_filepath);
@@ -38,24 +40,22 @@ namespace tomcat {
 
         void OfflineEstimation::publish_last_estimates() {
             if (this->reporter) {
-                for (auto& agent : this->agents) {
-                    // In the offline estimation, estimates for all time steps
-                    // and data points will be processed at the end of the
-                    // estimation function. Therefore, we need to process time
-                    // by time to publish estimates over time.
-                    for (int t = 0; t <= this->last_time_step; t++) {
-                        auto messages =
-                            this->reporter->estimates_to_message(agent, t);
+                // In the offline estimation, estimates for all time steps
+                // and data points will be processed at the end of the
+                // estimation function. Therefore, we need to process time
+                // by time to publish estimates over time.
+                for (int t = 0; t <= this->last_time_step; t++) {
+                    auto messages =
+                        this->reporter->estimates_to_message(this->agent, t);
 
-                        if (this->report_file.is_open()) {
-                            for(const auto& message : messages) {
-                                this->report_file << message << "\n";
-                            }
+                    if (this->report_file.is_open()) {
+                        for (const auto& message : messages) {
+                            this->report_file << message << "\n";
                         }
-                        else {
-                            for(const auto& message : messages) {
-                                cout << message << "\n";
-                            }
+                    }
+                    else {
+                        for (const auto& message : messages) {
+                            cout << message << "\n";
                         }
                     }
                 }

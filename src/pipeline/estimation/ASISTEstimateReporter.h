@@ -62,7 +62,7 @@ namespace tomcat {
             get_header_section(const AgentPtr& agent) const = 0;
 
             /**
-             * Fills the msg section section of a message to be publish.
+             * Returns a pair (state, prediction) msg section section of a message to be publish.
              *
              * @param agent: agent responsible for calculating the estimates
              * @param data_point: index of the data point if estimates were
@@ -70,11 +70,11 @@ namespace tomcat {
              *
              * @return Msg section
              */
-            virtual nlohmann::json get_msg_section(const AgentPtr& agent,
-                                                   int data_point) const = 0;
+            virtual std::pair<nlohmann::json, nlohmann::json>
+            get_msg_section(const AgentPtr& agent, int data_point) const = 0;
 
             /**
-             * Fills the data section of a message to be publish.
+             * Returns a pair (state, prediction) data section of a message to be publish.
              *
              * @param agent: agent responsible for calculating the estimates
              * @param time_step: time step to look for estimates
@@ -83,9 +83,8 @@ namespace tomcat {
              *
              * @return Data section
              */
-            virtual nlohmann::json get_data_section(const AgentPtr& agent,
-                                                    int time_step,
-                                                    int data_point) const = 0;
+            virtual std::pair<nlohmann::json, nlohmann::json> get_data_section(
+                const AgentPtr& agent, int time_step, int data_point) const = 0;
         };
 
     } // namespace model

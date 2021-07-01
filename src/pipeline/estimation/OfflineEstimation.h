@@ -24,20 +24,25 @@ namespace tomcat {
              * Creates an offline estimator with no defined estimate report.
              * Estimates are still written as raw probabilities in the get_info
              * function.
+             *
+             * @param agent: agent used in the estimation
+             *
              */
-            OfflineEstimation();
+            OfflineEstimation(const AgentPtr& agent);
 
             /**
              * Creates an offline estimation process with an output stream to
              * write estimates to in an agent specific format at specific time
              * steps.
              *
+             * @param agent: agent used in the estimation
              * @param reporter: class responsible for reporting estimates
              * computed during the process
              * @param report_filepath: path of the written report file. If the
              * path is blank, the report will be printed to the terminal.
              */
-            OfflineEstimation(const EstimateReporterPtr& reporter,
+            OfflineEstimation(const AgentPtr& agent,
+                              const EstimateReporterPtr& reporter,
                               const std::string& report_filepath);
 
             ~OfflineEstimation();

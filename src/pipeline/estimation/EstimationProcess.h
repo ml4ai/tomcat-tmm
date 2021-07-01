@@ -26,11 +26,13 @@ namespace tomcat {
             /**
              * Creates a generic estimation process for a model.
              *
+             * @param agent: agent used in the estimation
              * @param reporter: class responsible for reporting estimates
              * computed during the process
              *
              */
-            EstimationProcess(const EstimateReporterPtr& reporter);
+            EstimationProcess(const AgentPtr& agent,
+                              const EstimateReporterPtr& reporter);
 
             virtual ~EstimationProcess();
 
@@ -61,13 +63,6 @@ namespace tomcat {
              * @param training_data: training data
              */
             void set_training_data(const EvidenceSet& training_data);
-
-            /**
-             * Adds a new agent to the estimation process.
-             *
-             * @param agent: Agent
-             */
-            void add_agent(const AgentPtr& agent);
 
             /**
              * Aks estimators to save the estimates computed. In a cross
@@ -121,7 +116,7 @@ namespace tomcat {
 
             void set_display_estimates(bool display_estimates);
 
-            const AgentPtrVec& get_agents() const;
+            const AgentPtr& get_agent() const;
 
           protected:
             //------------------------------------------------------------------
@@ -136,7 +131,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-            AgentPtrVec agents;
+            AgentPtr agent;
 
             // Whether the estimates computed by the agents must be displayed
             // in the evaluation file.

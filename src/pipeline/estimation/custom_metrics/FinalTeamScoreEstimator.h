@@ -11,6 +11,8 @@ namespace tomcat {
          */
         class FinalTeamScoreEstimator : public SamplerEstimator {
           public:
+            inline const static std::string LABEL = "FinalTeamScore";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------

@@ -48,13 +48,15 @@ namespace tomcat {
             /**
              * Creates an online estimation process.
              *
-             * @param estimator: type of estimation to be performed
+             * @param agent: agent used in the estimation
+             * @param config: the message broker configuration
              * @param message_converter: classes responsible to translate json
              * messages to observations
              * @param reporter: class responsible for reporting estimates
              * computed during the process
              */
-            OnlineEstimation(const MessageBrokerConfiguration& config,
+            OnlineEstimation(const AgentPtr& agent,
+                             const MessageBrokerConfiguration& config,
                              const MsgConverterPtr& message_converter,
                              const EstimateReporterPtr& reporter);
 

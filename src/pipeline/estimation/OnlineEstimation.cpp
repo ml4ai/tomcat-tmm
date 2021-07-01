@@ -18,10 +18,11 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         OnlineEstimation::OnlineEstimation(
+            const AgentPtr& agent,
             const MessageBrokerConfiguration& config,
             const MsgConverterPtr& message_converter,
             const EstimateReporterPtr& reporter)
-            : EstimationProcess(reporter), config(config),
+            : EstimationProcess(agent, reporter), config(config),
               message_converter(message_converter) {}
 
         OnlineEstimation::~OnlineEstimation() {}
@@ -30,7 +31,7 @@ namespace tomcat {
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         OnlineEstimation::OnlineEstimation(const OnlineEstimation& estimation)
-            : EstimationProcess(estimation.reporter) {
+            : EstimationProcess(estimation.agent, estimation.reporter) {
             this->copy_estimation(estimation);
         }
 
@@ -55,7 +56,6 @@ namespace tomcat {
             EstimationProcess::copy_estimation(estimation);
             Mosquitto::copy_wrapper(estimation);
             this->config = estimation.config;
-            this->agents = estimation.agents;
             this->message_converter = estimation.message_converter;
         }
 
@@ -87,12 +87,11 @@ namespace tomcat {
                     this->get_next_data_from_pending_messages();
                 if (!new_data.empty()) {
                     if (this->last_time_step < 0) {
-                        cout << "Agents are awake and working..." << endl;
+                        cout << "Agent " << this->agent->get_id()
+                             << " is awake and working..." << endl;
                     }
 
-                    for (auto agent : this->agents) {
-                        agent->estimate(new_data);
-                    }
+                    this->agent->estimate(new_data);
                     this->last_time_step++;
                     this->publish_last_estimates();
 
@@ -102,13 +101,11 @@ namespace tomcat {
                             ss << "The maximum time step defined for the "
                                   "mission has been reached. Waiting for a new "
                                   "mission to start...";
-                            for (auto agent : this->agents) {
-                                string message =
-                                    this->reporter
-                                        ->build_log_message(agent, ss.str())
-                                        .dump();
-                                this->publish(this->config.log_topic, message);
-                            }
+                            string message =
+                                this->reporter
+                                    ->build_log_message(this->agent, ss.str())
+                                    .dump();
+                            this->publish(this->config.log_topic, message);
                         }
 
                         cout << "Waiting for a new mission to start..." << endl;
@@ -133,12 +130,10 @@ namespace tomcat {
         }
 
         void OnlineEstimation::publish_last_estimates() {
-            for (const auto& agent : this->agents) {
-                auto messages =
-                    this->reporter->estimates_to_message(agent, this->last_time_step);
-                for (const auto& message : messages) {
-                    this->publish(this->config.estimates_topic, message.dump());
-                }
+            auto messages = this->reporter->estimates_to_message(
+                this->agent, this->last_time_step);
+            for (const auto& message : messages) {
+                this->publish(this->config.estimates_topic, message.dump());
             }
         }
 
@@ -155,15 +150,13 @@ namespace tomcat {
         }
 
         void OnlineEstimation::on_time_out() {
-            for (const auto& agent : this->agents) {
-                if (this->config.log_topic != "" && this->reporter) {
-                    stringstream ss;
-                    ss << "Connection time out!";
-                    string message =
-                        this->reporter->build_log_message(agent, ss.str())
-                            .dump();
-                    this->publish(this->config.log_topic, ss.str());
-                }
+            if (this->config.log_topic != "" && this->reporter) {
+                stringstream ss;
+                ss << "Connection time out!";
+                string message =
+                    this->reporter->build_log_message(this->agent, ss.str())
+                        .dump();
+                this->publish(this->config.log_topic, ss.str());
             }
         }
 

@@ -11,8 +11,8 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         EstimationProcess::EstimationProcess(
-            const EstimateReporterPtr& reporter)
-            : reporter(reporter) {}
+            const AgentPtr& agent, const EstimateReporterPtr& reporter)
+            : agent(agent), reporter(reporter) {}
 
         EstimationProcess::~EstimationProcess() {}
 
@@ -21,58 +21,39 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void EstimationProcess::set_training_data(
             const tomcat::model::EvidenceSet& training_data) {
-            for (auto& agent : this->agents) {
-                agent->set_training_data(training_data);
-            }
-        }
-
-        void EstimationProcess::add_agent(const AgentPtr& agent) {
-            this->agents.push_back(agent);
+            this->agent->set_training_data(training_data);
         }
 
         void EstimationProcess::keep_estimates() {
-            for (auto& agent : this->agents) {
-                agent->keep_estimates();
-            }
+            this->agent->keep_estimates();
         }
 
         void EstimationProcess::clear_estimates() {
-            for (auto& agent : this->agents) {
-                agent->clear_estimates();
-            }
+            this->agent->clear_estimates();
         }
 
         void EstimationProcess::prepare() {
-            for (auto& agent : this->agents) {
-                agent->prepare();
-            }
+            this->agent->prepare();
             this->last_time_step = -1;
         }
 
         void EstimationProcess::copy_estimation(
             const EstimationProcess& estimation) {
-            this->agents = estimation.agents;
+            this->agent = estimation.agent;
             this->display_estimates = estimation.display_estimates;
             this->last_time_step = estimation.last_time_step;
             this->reporter = estimation.reporter;
         }
 
         void EstimationProcess::estimate(const EvidenceSet& observations) {
-            for (auto& agent : this->agents) {
-                agent->estimate(observations);
-            }
+            this->agent->estimate(observations);
             this->last_time_step += observations.get_time_steps();
             this->publish_last_estimates();
         }
 
         void EstimationProcess::get_info(nlohmann::json& json) const {
             if (this->display_estimates) {
-                json["agents"] = nlohmann::json::array();
-                for (const auto& agent : this->agents) {
-                    nlohmann::json json_agent;
-                    agent->get_info(json_agent);
-                    json["agents"].push_back(json_agent);
-                }
+                this->agent->get_info(json["agent"]);
             }
         }
 
@@ -84,9 +65,7 @@ namespace tomcat {
             EstimationProcess::display_estimates = display_estimates;
         }
 
-        const AgentPtrVec& EstimationProcess::get_agents() const {
-            return agents;
-        }
+        const AgentPtr& EstimationProcess::get_agent() const { return agent; }
 
     } // namespace model
 } // namespace tomcat

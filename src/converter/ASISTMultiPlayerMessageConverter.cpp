@@ -341,23 +341,23 @@ namespace tomcat {
             EvidenceSet data;
             for (int player_id = 0; player_id < this->player_name_to_id.size();
                  player_id++) {
-                data.add_data(fmt::format("{}P{}", TASK, player_id + 1),
+                data.add_data(fmt::format("{}#P{}", TASK, player_id + 1),
                               this->task_per_player.at(player_id));
-                data.add_data(fmt::format("{}P{}", ROLE, player_id + 1),
+                data.add_data(fmt::format("{}#P{}", ROLE, player_id + 1),
                               this->role_per_player.at(player_id));
-                data.add_data(fmt::format("{}P{}", AREA, player_id + 1),
+                data.add_data(fmt::format("{}#P{}", AREA, player_id + 1),
                               this->area_per_player.at(player_id));
-                data.add_data(fmt::format("{}P{}", SEEN_MARKER, player_id + 1),
+                data.add_data(fmt::format("{}#P{}", SEEN_MARKER, player_id + 1),
                               this->seen_marker_per_player.at(player_id));
 
                 int section = this->get_building_section(player_id);
-                data.add_data(fmt::format("{}P{}", SECTION, player_id + 1),
+                data.add_data(fmt::format("{}#P{}", SECTION, player_id + 1),
                               section);
 
-                data.add_data(fmt::format("{}P{}", MAP_INFO, player_id + 1),
+                data.add_data(fmt::format("{}#P{}", MAP_INFO, player_id + 1),
                               this->map_info_per_player.at(player_id));
                 data.add_data(
-                    fmt::format("{}P{}", MARKER_LEGEND, player_id + 1),
+                    fmt::format("{}#P{}", MARKER_LEGEND, player_id + 1),
                     this->marker_legend_per_player.at(player_id));
 
                 // Carrying ans saving a victim are tasks that have

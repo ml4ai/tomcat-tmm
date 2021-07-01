@@ -32,6 +32,8 @@ namespace tomcat {
             inline const static std::string SEEN_MARKER = "SeenMarker";
             inline const static std::string MARKER_LEGEND = "MarkerLegend";
             inline const static std::string MAP_INFO = "MapInfo";
+            inline const static std::string MARKER_LEGEND_ASSIGNMENT = "MarkerLegendAssignment";
+            inline const static std::string MAP_INFO_ASSIGNMENT = "MapInfoAssignment";
 
             // Task values
             const static int NO_TASK = 0;
