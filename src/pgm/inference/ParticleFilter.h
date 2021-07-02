@@ -76,17 +76,6 @@ namespace tomcat {
             generate_particles(const EvidenceSet& new_data);
 
             /**
-             * If the time step is bigger than the number of time steps in the
-             * template DBN, we move the particles to the nodes in the before
-             * last time step of the template DBN so that in the next time step
-             * iteration they become parents of the nodes being sampled.
-             *
-             * @param time_step: current time step which particles are being
-             * generated to
-             */
-            void move_particles_back_in_time(int time_step);
-
-            /**
              * Generates particles for a fixed number of time steps in the
              * future. This procedure returns the samples generated but does not
              * store the last samples in the nodes of the template dbn.
@@ -120,6 +109,17 @@ namespace tomcat {
              * Empty constructor to be called by the clone function.
              */
             ParticleFilter();
+
+            /**
+             * If the time step is bigger than the number of time steps in the
+             * template DBN, we move the particles to the nodes in the before
+             * last time step of the template DBN so that in the next time step
+             * iteration they become parents of the nodes being sampled.
+             *
+             * @param time_step: current time step which particles are being
+             * generated to
+             */
+            void move_particles_back_in_time(int time_step);
 
             /**
              * Creates a short DBN formed by nodes until at most time step 2.

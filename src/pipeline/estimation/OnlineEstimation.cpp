@@ -130,7 +130,7 @@ namespace tomcat {
         }
 
         void OnlineEstimation::publish_last_estimates() {
-            auto messages = this->reporter->estimates_to_message(
+            auto messages = this->reporter->translate_estimates_to_messages(
                 this->agent, this->last_time_step);
             for (const auto& message : messages) {
                 this->publish(this->config.estimates_topic, message.dump());

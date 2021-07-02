@@ -55,7 +55,7 @@ namespace tomcat {
              * @return Messages.
              */
             virtual std::vector<nlohmann::json>
-            estimates_to_message(const AgentPtr& agent,
+            translate_estimates_to_messages(const AgentPtr& agent,
                                  int time_step) const = 0;
 
             /**

@@ -46,7 +46,8 @@ namespace tomcat {
                 // by time to publish estimates over time.
                 for (int t = 0; t <= this->last_time_step; t++) {
                     auto messages =
-                        this->reporter->estimates_to_message(this->agent, t);
+                        this->reporter->translate_estimates_to_messages(
+                            this->agent, t);
 
                     if (this->report_file.is_open()) {
                         for (const auto& message : messages) {

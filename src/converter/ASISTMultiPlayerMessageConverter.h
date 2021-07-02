@@ -26,7 +26,7 @@ namespace tomcat {
           public:
             // Observable node names
             inline const static std::string MARKER_LEGEND_ASSIGNMENT =
-                "MarkerLegendAssignment";
+                "MarkerLegendVersionAssignment";
             inline const static std::string PLAYER_MARKER_LEGEND_VERSION =
                 "PlayerMarkerLegendVersion";
             inline const static std::string MARKER_IN_PLAYER_FOV =

@@ -1,8 +1,10 @@
 #include "ASISTStudy2EstimateReporter.h"
 
 #include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <fmt/format.h>
+#include <pipeline/estimation/custom_metrics/MarkerFalseBeliefEstimator.h>
 
 #include "converter/ASISTMultiPlayerMessageConverter.h"
 #include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
@@ -97,7 +99,7 @@ namespace tomcat {
                             data_point);
                     }
                     else if (base_estimator->get_estimates().label ==
-                             FinalTeamScoreEstimator::LABEL) {
+                             MarkerFalseBeliefEstimator::LABEL) {
                         this->add_marker_false_belief_prediction(
                             msg_prediction["predictions"],
                             agent,
@@ -105,20 +107,18 @@ namespace tomcat {
                             time_step,
                             data_point);
                     }
-                    else if (base_estimator->get_estimates().label.rfind(
-                                 ASISTMultiPlayerMessageConverter::
-                                     MAP_VERSION_ASSIGNMENT,
-                                 0)) {
+                    else if (base_estimator->get_estimates().label ==
+                             ASISTMultiPlayerMessageConverter::
+                                 MAP_VERSION_ASSIGNMENT) {
                         this->add_map_info_prediction(msg_state["predictions"],
                                                       agent,
                                                       base_estimator,
                                                       time_step,
                                                       data_point);
                     }
-                    else if (base_estimator->get_estimates().label.rfind(
-                                 ASISTMultiPlayerMessageConverter::
-                                     MARKER_LEGEND_ASSIGNMENT,
-                                 0)) {
+                    else if (base_estimator->get_estimates().label ==
+                             ASISTMultiPlayerMessageConverter::
+                                 MARKER_LEGEND_ASSIGNMENT) {
                         this->add_marker_legend_prediction(
                             msg_state["predictions"],
                             agent,
@@ -128,6 +128,9 @@ namespace tomcat {
                     }
                 }
             }
+
+            if (msg_state["predictions"].empty()) msg_state.clear();
+            if (msg_prediction["predictions"].empty()) msg_prediction.clear();
 
             return {msg_state, msg_prediction};
         }
@@ -143,11 +146,12 @@ namespace tomcat {
                 estimator->get_estimates().estimates[0](data_point, time_step);
 
             nlohmann::json prediction;
+            boost::uuids::uuid u = boost::uuids::random_generator()();
             prediction["unique_id"] =
-                boost::uuids::to_string(boost::uuids::uuid());
+                boost::uuids::to_string(u);
             prediction["subject"] =
                 agent->get_evidence_metadata()[data_point]["team_id"];
-            prediction["predicted_property"] = "Score";
+            prediction["predicted_property"] = "team_performance";
             prediction["prediction"] = score;
             prediction["probability_type"] = "";
             prediction["probability"] = "";
@@ -171,8 +175,9 @@ namespace tomcat {
             int data_point) const {
 
             nlohmann::json prediction;
+            boost::uuids::uuid u = boost::uuids::random_generator()();
             prediction["unique_id"] =
-                boost::uuids::to_string(boost::uuids::uuid());
+                boost::uuids::to_string(u);
 
             double probability = 0;
             int assignment = 0;
@@ -185,7 +190,7 @@ namespace tomcat {
             }
 
             prediction["prediction"] = nlohmann::json::array();
-            prediction["predicted_property"] = "Map Version";
+            prediction["predicted_property"] = "participant_map";
             prediction["probability_type"] = "float";
             prediction["probability"] = probability;
             prediction["confidence_type"] = "";
@@ -243,8 +248,9 @@ namespace tomcat {
             int data_point) const {
 
             nlohmann::json prediction;
+            boost::uuids::uuid u = boost::uuids::random_generator()();
             prediction["unique_id"] =
-                boost::uuids::to_string(boost::uuids::uuid());
+                boost::uuids::to_string(u);
 
             double probability = 0;
             int assignment = 0;
@@ -257,7 +263,7 @@ namespace tomcat {
             }
 
             prediction["prediction"] = nlohmann::json::array();
-            prediction["predicted_property"] = "Marker Legend";
+            prediction["predicted_property"] = "participant_blocks";
             prediction["probability_type"] = "float";
             prediction["probability"] = probability;
             prediction["confidence_type"] = "";
@@ -288,10 +294,10 @@ namespace tomcat {
             int data_point) const {
 
             nlohmann::json prediction;
+            boost::uuids::uuid u = boost::uuids::random_generator()();
             prediction["unique_id"] =
-                boost::uuids::to_string(boost::uuids::uuid());
+                boost::uuids::to_string(u);
 
-            prediction["predicted_property"] = "False Belief";
             prediction["probability_type"] = "float";
             prediction["confidence_type"] = "";
             prediction["confidence"] = "";

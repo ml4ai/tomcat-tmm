@@ -16,7 +16,7 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
         vector<nlohmann::json>
-        ASISTEstimateReporter::estimates_to_message(const AgentPtr& agent,
+        ASISTEstimateReporter::translate_estimates_to_messages(const AgentPtr& agent,
                                                     int time_step) const {
             vector<nlohmann::json> messages;
 
