@@ -38,7 +38,7 @@ namespace tomcat {
             nlohmann::json header;
             header["timestamp"] = this->get_current_timestamp();
             header["message_type"] = "agent";
-            header["version"] = "1.0";
+            header["version"] = agent->get_version();
 
             return header;
         }
@@ -88,7 +88,7 @@ namespace tomcat {
                      estimator->get_base_estimators()) {
 
                     if (base_estimator->get_estimates().label ==
-                            FinalTeamScoreEstimator::LABEL) {
+                        FinalTeamScoreEstimator::LABEL) {
                         this->add_final_team_score_prediction(
                             msg_state["predictions"],
                             agent,
@@ -97,7 +97,7 @@ namespace tomcat {
                             data_point);
                     }
                     else if (base_estimator->get_estimates().label ==
-                                 FinalTeamScoreEstimator::LABEL) {
+                             FinalTeamScoreEstimator::LABEL) {
                         this->add_marker_false_belief_prediction(
                             msg_prediction["predictions"],
                             agent,
@@ -107,7 +107,7 @@ namespace tomcat {
                     }
                     else if (base_estimator->get_estimates().label.rfind(
                                  ASISTMultiPlayerMessageConverter::
-                                     MAP_INFO_ASSIGNMENT,
+                                     MAP_VERSION_ASSIGNMENT,
                                  0)) {
                         this->add_map_info_prediction(msg_state["predictions"],
                                                       agent,
@@ -160,7 +160,7 @@ namespace tomcat {
                 "distribution) given observations up to the current "
                 "time.";
 
-            json_predictions["predictions"].push_back(prediction);
+            json_predictions.push_back(prediction);
         }
 
         void ASISTStudy2EstimateReporter::add_map_info_prediction(
@@ -194,7 +194,7 @@ namespace tomcat {
                 "Assignment of the variable {} (which determines which "
                 "player was assigned to which map) with highest inferred "
                 "probability.",
-                ASISTMultiPlayerMessageConverter::MAP_INFO_ASSIGNMENT);
+                ASISTMultiPlayerMessageConverter::MAP_VERSION_ASSIGNMENT);
 
             vector<string> map_assignment;
             switch (assignment) {
@@ -232,7 +232,7 @@ namespace tomcat {
                 prediction["prediction"].push_back(marker_assignment);
                 i++;
             }
-            json_predictions["predictions"].push_back(prediction);
+            json_predictions.push_back(prediction);
         }
 
         void ASISTStudy2EstimateReporter::add_marker_legend_prediction(
@@ -277,7 +277,7 @@ namespace tomcat {
                 prediction["prediction"].push_back(marker_assignment);
                 i++;
             }
-            json_predictions["predictions"].push_back(prediction);
+            json_predictions.push_back(prediction);
         }
 
         void ASISTStudy2EstimateReporter::add_marker_false_belief_prediction(
@@ -298,7 +298,7 @@ namespace tomcat {
 
             int i = 0;
             for (const auto& json_player :
-                agent->get_evidence_metadata()[data_point]["players"]) {
+                 agent->get_evidence_metadata()[data_point]["players"]) {
 
                 // Get it by player
                 double probability = 0.4;
@@ -351,7 +351,7 @@ namespace tomcat {
                     }
                 }
 
-                json_predictions["predictions"].push_back(prediction);
+                json_predictions.push_back(prediction);
                 i++;
             }
         }

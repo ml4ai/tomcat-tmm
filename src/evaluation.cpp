@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <boost/program_options.hpp>
+#include <fmt/format.h>
 #include <gsl/gsl_rng.h>
 
 #include "experiments/Experimentation.h"
@@ -21,12 +22,12 @@ struct ReporterTypes {
 };
 
 void evaluate(const string& experiment_id,
-              const string& model_json,
+              const string& model_dir,
               const string& params_dir,
               const string& train_dir,
               const string& data_dir,
               const string& eval_dir,
-              const string& agents_json,
+              const string& agent_json,
               int num_folds,
               int num_time_steps,
               int num_particles,
@@ -35,28 +36,42 @@ void evaluate(const string& experiment_id,
               bool only_estimates,
               bool exact_inference,
               int reporter_type,
-              const string& report_dir) {
+              const string& report_filename) {
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
-    EvidenceSet test_data(data_dir);
+
+    string model_name;
+    fstream file;
+    file.open(agent_json);
+    if (file.is_open()) {
+        model_name = nlohmann::json::parse(file)["agent"]["model"];
+    }
+
+    string model_filepath = fmt::format("{}/{}.json", model_dir, model_name);
     shared_ptr<DynamicBayesNet> model = make_shared<DynamicBayesNet>(
-        DynamicBayesNet ::create_from_json(model_json));
+        DynamicBayesNet ::create_from_json(model_filepath));
     model->unroll(3, true);
+
+    Experimentation experimentation(random_generator, experiment_id, model);
 
     EstimateReporterPtr reporter;
     if (reporter_type == ReporterTypes::ASIST_STUDY2) {
         reporter = make_shared<ASISTStudy2EstimateReporter>();
     }
+    string report_filepath;
+    if (report_filename != "") {
+        report_filepath = fmt::format("{}/{}.json", eval_dir, report_filename);
+    }
+    experimentation.set_offline_estimation_process(agent_json,
+                                                   num_particles,
+                                                   num_jobs,
+                                                   baseline,
+                                                   exact_inference,
+                                                   num_time_steps - 1,
+                                                   reporter,
+                                                   report_filepath);
 
-    Experimentation experimentation(
-        random_generator, experiment_id, model, reporter, report_dir);
-    experimentation.create_agents(agents_json,
-                                  num_particles,
-                                  num_jobs,
-                                  baseline,
-                                  exact_inference,
-                                  num_time_steps - 1);
-
+    EvidenceSet test_data(data_dir);
     test_data.shrink_up_to(num_time_steps - 1);
     experimentation.evaluate_and_save(params_dir,
                                       num_folds,
@@ -69,13 +84,13 @@ void evaluate(const string& experiment_id,
 
 int main(int argc, char* argv[]) {
     string experiment_id;
-    string model_json;
+    string model_dir;
     string params_dir;
     string train_dir;
     string data_dir;
     string eval_dir;
-    string agents_json;
-    string report_dir;
+    string agent_json;
+    string report_filename;
     unsigned int num_time_steps;
     unsigned int num_folds;
     unsigned int num_particles;
@@ -95,9 +110,9 @@ int main(int argc, char* argv[]) {
         "follows a continuous distribution), approximate inference will be "
         "used to estimate the probabilities.")(
         "exp_id", po::value<string>(&experiment_id), "Experiment identifier.")(
-        "model_json",
-        po::value<string>(&model_json)->required(),
-        "Filepath of the json file containing the model definition.")(
+        "model_dir",
+        po::value<string>(&model_dir),
+        "Directory where the agent's model definition is saved.")(
         "params_dir",
         po::value<string>(&params_dir)->required(),
         "Directory where the pre-trained model's parameters are saved.")(
@@ -106,9 +121,10 @@ int main(int argc, char* argv[]) {
         "Directory where the data (evidence) is located.")(
         "eval_dir",
         po::value<string>(&eval_dir)->required(),
-        "Directory where the evaluation file must be saved.")(
-        "agents_json",
-        po::value<string>(&agents_json)->required(),
+        "Directory where the evaluation file and estimate report (if "
+        "requested) will be saved.")(
+        "agent_json",
+        po::value<string>(&agent_json)->required(),
         "Filepath of the json file containing definitions about the agents' "
         "reasoning")(
         "K",
@@ -145,10 +161,10 @@ int main(int argc, char* argv[]) {
         "reporter",
         po::value<unsigned int>(&reporter_type)->default_value(0)->required(),
         "0 - None\n"
-        "1 - ASIST Study 2")("report_dir",
-                             po::value<string>(&report_dir),
-                             "Directory where the report (if a reporter is "
-                             "provided) must be saved.");
+        "1 - ASIST Study 2")("report_filename",
+                             po::value<string>(&report_filename),
+                             "Filename of the reporter (if a reporter is "
+                             "provided)..");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -166,12 +182,12 @@ int main(int argc, char* argv[]) {
     }
 
     evaluate(experiment_id,
-             model_json,
+             model_dir,
              params_dir,
              train_dir,
              data_dir,
              eval_dir,
-             agents_json,
+             agent_json,
              num_folds,
              num_time_steps,
              num_particles,
@@ -180,5 +196,5 @@ int main(int argc, char* argv[]) {
              only_estimates,
              exact_inference,
              reporter_type,
-             report_dir);
+             report_filename);
 }

@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <boost/program_options.hpp>
+#include <fmt/format.h>
 #include <gsl/gsl_rng.h>
 
 #include "converter/ASISTMultiPlayerMessageConverter.h"
@@ -34,8 +35,8 @@ struct ReporterTypes {
     const static int ASIST_STUDY2 = 1;
 };
 
-void start_agent(const string& model_json,
-                 const string& agents_json,
+void start_agent(const string& model_dir,
+                 const string& agent_json,
                  const string& params_dir,
                  const string& broker_json,
                  const string& map_json,
@@ -50,8 +51,16 @@ void start_agent(const string& model_json,
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
 
+    string model_name;
+    fstream file;
+    file.open(agent_json);
+    if (file.is_open()) {
+        model_name = nlohmann::json::parse(file)["agent"]["model"];
+    }
+
+    string model_filepath = fmt::format("{}/{}.json", model_dir, model_name);
     shared_ptr<DynamicBayesNet> model = make_shared<DynamicBayesNet>(
-        DynamicBayesNet ::create_from_json(model_json));
+        DynamicBayesNet ::create_from_json(model_filepath));
     model->unroll(3, true);
 
     MsgConverterPtr converter;
@@ -69,20 +78,22 @@ void start_agent(const string& model_json,
         reporter = make_shared<ASISTStudy2EstimateReporter>();
     }
 
-    Experimentation experimentation(
-        random_generator, model, broker_json, converter, reporter);
+    Experimentation experimentation(random_generator, "", model);
     int num_time_steps = num_seconds / time_step_size;
-    experimentation.create_agents(agents_json,
-                                  num_particles,
-                                  num_jobs,
-                                  false,
-                                  exact_inference,
-                                  num_time_steps - 1);
+    experimentation.set_online_estimation_process(agent_json,
+                                                  num_particles,
+                                                  num_jobs,
+                                                  false,
+                                                  exact_inference,
+                                                  num_time_steps - 1,
+                                                  broker_json,
+                                                  converter,
+                                                  reporter);
     experimentation.start_real_time_estimation(params_dir);
 }
 
 int main(int argc, char* argv[]) {
-    string model_json;
+    string model_dir;
     string agents_json;
     string params_dir;
     string broker_json;
@@ -105,9 +116,9 @@ int main(int argc, char* argv[]) {
         "the model has at least one variable under a semi-Markov assumption "
         "or that follows a continuous distribution), approximate inference "
         "will be used.")(
-        "model_json",
-        po::value<string>(&model_json)->required(),
-        "Filepath of the json file containing the model definition.")(
+        "model_dir",
+        po::value<string>(&model_dir)->required(),
+        "Directory where the agent's model definition is saved.")(
         "agents_json",
         po::value<string>(&agents_json)->required(),
         "Filepath of the json file containing definitions about the agents' "
@@ -162,7 +173,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    start_agent(model_json,
+    start_agent(model_dir,
                 agents_json,
                 params_dir,
                 broker_json,

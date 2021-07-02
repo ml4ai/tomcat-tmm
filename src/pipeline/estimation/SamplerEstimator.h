@@ -26,13 +26,6 @@ namespace tomcat {
         class SamplerEstimator : public Estimator {
           public:
             //------------------------------------------------------------------
-            // Structs
-            //------------------------------------------------------------------
-            struct CustomSamplerEstimatorType {
-                inline static std::string FINAL_TEAM_SCORE = "FinalTeamScore";
-            };
-
-            //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 

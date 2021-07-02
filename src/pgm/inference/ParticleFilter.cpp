@@ -403,7 +403,7 @@ namespace tomcat {
                     Eigen::VectorXd probabilities =
                         Eigen::VectorXd::Zero(metadata->get_cardinality());
                     probabilities(node->get_assignment()(0, 0)) = 1;
-                    marginals.add_data(node_label, Tensor3(probabilities));
+                    marginals.add_data(node_label, Tensor3(probabilities), false);
                     continue;
                 }
 

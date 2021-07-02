@@ -36,64 +36,7 @@ namespace tomcat {
             const string& experiment_id,
             const shared_ptr<DynamicBayesNet>& model)
             : random_generator(gen), experiment_id(experiment_id),
-              model(model) {
-
-            this->estimation = make_shared<OfflineEstimation>();
-            // Include the estimates updated at every time step in the final
-            // evaluation document.
-            this->estimation->set_display_estimates(true);
-        }
-
-        Experimentation::Experimentation(
-            const shared_ptr<gsl_rng>& gen,
-            const string& experiment_id,
-            const shared_ptr<DynamicBayesNet>& model,
-            const EstimateReporterPtr& estimate_reporter,
-            const string& report_dir)
-            : random_generator(gen), experiment_id(experiment_id),
-              model(model) {
-
-            string report_filepath;
-            if (estimate_reporter && report_dir != "") {
-                report_filepath = fmt::format("{}/estimate_report_{}.json",
-                                              report_dir,
-                                              this->experiment_id);
-            }
-
-            this->estimation = make_shared<OfflineEstimation>(estimate_reporter,
-                                                              report_filepath);
-
-            // Include the estimates updated at every time step in the final
-            // evaluation document.
-            this->estimation->set_display_estimates(true);
-        }
-
-        Experimentation::Experimentation(
-            const shared_ptr<gsl_rng>& gen,
-            const shared_ptr<DynamicBayesNet>& model,
-            const string& message_broker_config_filepath,
-            const MsgConverterPtr& converter,
-            const EstimateReporterPtr& estimate_reporter)
-            : random_generator(gen), model(model) {
-
-            OnlineEstimation::MessageBrokerConfiguration config;
-            config.timeout = INT32_MAX;
-            fstream file;
-            file.open(message_broker_config_filepath);
-            if (file.is_open()) {
-                nlohmann::json broker = nlohmann::json::parse(file);
-                config.address = broker["address"];
-                config.port = broker["port"];
-                config.estimates_topic = broker["estimates_topic"];
-                config.log_topic = broker["log_topic"];
-                config.num_connection_trials = broker["num_connection_trials"];
-                config.milliseconds_before_retrial =
-                    broker["milliseconds_before_connection_retrial"];
-            }
-
-            this->estimation = make_shared<OnlineEstimation>(
-                config, converter, estimate_reporter);
-        }
+              model(model) {}
 
         Experimentation::~Experimentation() {}
 
@@ -142,22 +85,82 @@ namespace tomcat {
             }
         }
 
-        void
-        Experimentation::create_agents(const string& agents_config_filepath,
-                                       int num_particles,
-                                       int num_jobs,
-                                       bool baseline,
-                                       bool exact_inference,
-                                       int max_time_step) {
-            fstream file;
-            file.open(agents_config_filepath);
-            if (file.is_open()) {
-                nlohmann::json json_agents = nlohmann::json::parse(file);
+        void Experimentation::set_offline_estimation_process(
+            const string& agent_config_filepath,
+            int num_particles,
+            int num_jobs,
+            bool baseline,
+            bool exact_inference,
+            int max_time_step,
+            const EstimateReporterPtr& estimate_reporter,
+            const string& report_filepath) {
 
-                if (json_agents.empty()) {
+            AgentPtr agent = this->create_agent(agent_config_filepath,
+                                                num_particles,
+                                                num_jobs,
+                                                baseline,
+                                                exact_inference,
+                                                max_time_step);
+
+            this->estimation = make_shared<OfflineEstimation>(
+                agent, estimate_reporter, report_filepath);
+        }
+
+        void Experimentation::set_online_estimation_process(
+            const string& agent_config_filepath,
+            int num_particles,
+            int num_jobs,
+            bool baseline,
+            bool exact_inference,
+            int max_time_step,
+            const string& message_broker_config_filepath,
+            const MsgConverterPtr& converter,
+            const EstimateReporterPtr& estimate_reporter) {
+
+            AgentPtr agent = this->create_agent(agent_config_filepath,
+                                                num_particles,
+                                                num_jobs,
+                                                baseline,
+                                                exact_inference,
+                                                max_time_step);
+
+            OnlineEstimation::MessageBrokerConfiguration config;
+            config.timeout = INT32_MAX;
+            fstream file;
+            file.open(message_broker_config_filepath);
+            if (file.is_open()) {
+                nlohmann::json broker = nlohmann::json::parse(file);
+                config.address = broker["address"];
+                config.port = broker["port"];
+                config.estimates_topic = broker["estimates_topic"];
+                config.log_topic = broker["log_topic"];
+                config.num_connection_trials = broker["num_connection_trials"];
+                config.milliseconds_before_retrial =
+                    broker["milliseconds_before_connection_retrial"];
+            }
+
+            this->estimation = make_shared<OnlineEstimation>(
+                agent, config, converter, estimate_reporter);
+        }
+
+        AgentPtr
+        Experimentation::create_agent(const string& agent_config_filepath,
+                                      int num_particles,
+                                      int num_jobs,
+                                      bool baseline,
+                                      bool exact_inference,
+                                      int max_time_step) const {
+            AgentPtr agent;
+            fstream file;
+            file.open(agent_config_filepath);
+            if (file.is_open()) {
+                nlohmann::json json_agent =
+                    nlohmann::json::parse(file)["agent"];
+
+                if (json_agent.empty()) {
                     stringstream ss;
-                    ss << "No agents to experiment with. The file "
-                       << agents_config_filepath << "is empty.";
+                    ss << "No agent to experiment with. The file "
+                       << agent_config_filepath << "is empty.";
                     throw TomcatModelException(ss.str());
                 }
 
@@ -169,33 +172,74 @@ namespace tomcat {
                                                          num_jobs,
                                                          max_time_step);
 
-                for (const auto& json_agent : json_agents["agents"]) {
-                    AgentPtr agent = make_shared<Agent>(json_agent["id"]);
-                    unordered_set<string> ignored_observations;
-                    for (const string& node_label :
-                         json_agent["ignored_observations"]) {
-                        ignored_observations.insert(node_label);
-                    }
-                    agent->set_ignored_observations(ignored_observations);
-                    // Inference report
+                agent =
+                    make_shared<Agent>(json_agent["id"], json_agent["version"]);
+                unordered_set<string> ignored_observations;
+                for (const string& node_label :
+                     json_agent["ignored_observations"]) {
+                    ignored_observations.insert(node_label);
+                }
+                agent->set_ignored_observations(ignored_observations);
 
-                    for (const auto& json_estimator :
-                         json_agent["estimators"]) {
+                for (const auto& json_estimator : json_agent["estimators"]) {
 
-                        if (baseline) {
-                            if (json_estimator["type"] == "custom") {
-                                // Not supported yet.
+                    if (baseline) {
+                        if (json_estimator["type"] == "custom") {
+                            // Not supported yet.
+                        }
+                        else {
+                            if (!this->model->has_node_with_label(
+                                    json_estimator["variable"])) {
+                                stringstream ss;
+                                ss << "The variable "
+                                   << json_estimator["variable"]
+                                   << "does not belong to the model";
+                                throw TomcatModelException(ss.str());
                             }
-                            else {
-                                Eigen::VectorXd value(0);
-                                if (json_estimator["value"] != "") {
-                                    value = Eigen::VectorXd::Constant(
-                                        1,
-                                        stod((string)json_estimator["value"]));
-                                }
 
+                            Eigen::VectorXd value(0);
+                            if (json_estimator["value"] != "") {
+                                value = Eigen::VectorXd::Constant(
+                                    1, stod((string)json_estimator["value"]));
+                            }
+
+                            EstimatorPtr estimator =
+                                make_shared<TrainingFrequencyEstimator>(
+                                    this->model,
+                                    json_estimator["horizon"],
+                                    json_estimator["variable"],
+                                    value);
+
+                            agent->add_estimator(estimator);
+                        }
+                    }
+                    else {
+                        if (json_estimator["type"] == "custom") {
+                            SamplerEstimatorPtr estimator =
+                                SamplerEstimator::create_custom_estimator(
+                                    json_estimator["name"], this->model);
+                            approximate_estimator->add_base_estimator(
+                                estimator);
+                        }
+                        else {
+                            if (!this->model->has_node_with_label(
+                                    json_estimator["variable"])) {
+                                stringstream ss;
+                                ss << "The variable "
+                                   << json_estimator["variable"]
+                                   << "does not belong to the model";
+                                throw TomcatModelException(ss.str());
+                            }
+
+                            Eigen::VectorXd value(0);
+                            if (json_estimator["value"] != "") {
+                                value = Eigen::VectorXd::Constant(
+                                    1, stod((string)json_estimator["value"]));
+                            }
+
+                            if (exact_inference) {
                                 EstimatorPtr estimator =
-                                    make_shared<TrainingFrequencyEstimator>(
+                                    make_shared<SumProductEstimator>(
                                         this->model,
                                         json_estimator["horizon"],
                                         json_estimator["variable"],
@@ -203,61 +247,35 @@ namespace tomcat {
 
                                 agent->add_estimator(estimator);
                             }
-                        }
-                        else {
-                            if (json_estimator["type"] == "custom") {
+                            else {
                                 SamplerEstimatorPtr estimator =
-                                    SamplerEstimator::create_custom_estimator(
-                                        json_estimator["name"], this->model);
+                                    make_shared<SamplerEstimator>(
+                                        this->model,
+                                        json_estimator["horizon"],
+                                        json_estimator["variable"],
+                                        value);
+
                                 approximate_estimator->add_base_estimator(
                                     estimator);
                             }
-                            else {
-                                Eigen::VectorXd value(0);
-                                if (json_estimator["value"] != "") {
-                                    value = Eigen::VectorXd::Constant(
-                                        1,
-                                        stod((string)json_estimator["value"]));
-                                }
-
-                                if (exact_inference) {
-                                    EstimatorPtr estimator =
-                                        make_shared<SumProductEstimator>(
-                                            this->model,
-                                            json_estimator["horizon"],
-                                            json_estimator["variable"],
-                                            value);
-
-                                    agent->add_estimator(estimator);
-                                }
-                                else {
-                                    SamplerEstimatorPtr estimator =
-                                        make_shared<SamplerEstimator>(
-                                            this->model,
-                                            json_estimator["horizon"],
-                                            json_estimator["variable"],
-                                            value);
-
-                                    approximate_estimator->add_base_estimator(
-                                        estimator);
-                                }
-                            }
                         }
                     }
-
-                    if (!approximate_estimator->get_base_estimators().empty()) {
-                        agent->add_estimator(approximate_estimator);
-                    }
-
-                    this->estimation->add_agent(agent);
                 }
+
+                if (!approximate_estimator->get_base_estimators().empty()) {
+                    agent->add_estimator(approximate_estimator);
+                }
+
+                file.close();
             }
             else {
                 stringstream ss;
-                ss << "The file " << agents_config_filepath
+                ss << "The file " << agent_config_filepath
                    << " does not exist.";
                 throw TomcatModelException(ss.str());
             }
+
+            return agent;
         }
 
         void Experimentation::evaluate_and_save(const string& params_dir,
@@ -309,22 +327,21 @@ namespace tomcat {
                 EvaluationAggregatorPtr evaluation =
                     make_shared<EvaluationAggregator>(
                         EvaluationAggregator::METHOD::no_aggregation);
-                for (const auto& agent : this->estimation->get_agents()) {
-                    for (const auto& estimator : agent->get_estimators()) {
-                        for (const auto& base_estimator :
-                             estimator->get_base_estimators()) {
-                            bool eval_last_only =
-                                this->model
-                                    ->get_nodes_by_label(
-                                        base_estimator->get_estimates().label)
-                                    .size() == 1;
-                            evaluation->add_measure(make_shared<Accuracy>(
-                                base_estimator, 0.5, eval_last_only));
-                            if (base_estimator->get_estimates()
-                                    .assignment.size() > 0) {
-                                evaluation->add_measure(
-                                    make_shared<F1Score>(base_estimator, 0.5));
-                            }
+                for (const auto& estimator :
+                     this->estimation->get_agent()->get_estimators()) {
+                    for (const auto& base_estimator :
+                         estimator->get_base_estimators()) {
+                        bool eval_last_only =
+                            this->model
+                                ->get_nodes_by_label(
+                                    base_estimator->get_estimates().label)
+                                .size() == 1;
+                        evaluation->add_measure(make_shared<Accuracy>(
+                            base_estimator, 0.5, eval_last_only));
+                        if (base_estimator->get_estimates().assignment.size() >
+                            0) {
+                            evaluation->add_measure(
+                                make_shared<F1Score>(base_estimator, 0.5));
                         }
                     }
                 }
@@ -345,12 +362,11 @@ namespace tomcat {
                 make_shared<DBNLoader>(this->model, params_dir, true);
             EvidenceSet empty_training;
 
-            for (const auto& agent : this->estimation->get_agents()) {
-                for (const auto& estimator : agent->get_estimators()) {
-                    for (const auto& base_estimator :
-                         estimator->get_base_estimators()) {
-                        estimator->set_show_progress(false);
-                    }
+            for (const auto& estimator :
+                 this->estimation->get_agent()->get_estimators()) {
+                for (const auto& base_estimator :
+                     estimator->get_base_estimators()) {
+                    estimator->set_show_progress(false);
                 }
             }
 

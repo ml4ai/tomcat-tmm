@@ -21,7 +21,6 @@ namespace tomcat {
          */
         class MessageConverter {
           public:
-
             inline static std::string LOG_FILE = "conversion_log.json";
 
             //------------------------------------------------------------------
@@ -60,6 +59,21 @@ namespace tomcat {
             MessageConverter& operator=(MessageConverter&&) = default;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Gets a unique label of a variable for a given player
+             *
+             * @param variable_label: original label
+             * @param player_number: player number
+             * @return
+             */
+            static std::string
+            get_player_variable_label(const std::string& variable_label,
+                                      int player_number);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
@@ -78,6 +92,7 @@ namespace tomcat {
              * Clears cache and prepare to process a new mission.
              */
             void start_new_mission();
+
 
             //------------------------------------------------------------------
             // Pure virtual functions

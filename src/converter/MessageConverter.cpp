@@ -1,5 +1,6 @@
 #include "MessageConverter.h"
 
+#include <fmt/format.h>
 #include <iomanip>
 
 #include <boost/progress.hpp>
@@ -24,6 +25,14 @@ namespace tomcat {
         }
 
         MessageConverter::~MessageConverter() {}
+
+        //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        string MessageConverter::get_player_variable_label(
+            const string& variable_label, int player_number) {
+            return fmt::format("{}P{}", variable_label, player_number);
+        }
 
         //----------------------------------------------------------------------
         // Member functions
@@ -104,8 +113,7 @@ namespace tomcat {
 
             boost::filesystem::create_directories(data_dir);
             if (!unprocessed_filenames.empty()) {
-                string log_filepath =
-                    get_filepath(data_dir, LOG_FILE);
+                string log_filepath = get_filepath(data_dir, LOG_FILE);
                 ofstream log_file;
                 log_file.open(log_filepath);
                 log_file << setw(4) << json_log;
@@ -120,8 +128,7 @@ namespace tomcat {
 
             unordered_set<string> processed_files;
 
-            const string metadata_filepath =
-                get_filepath(data_dir, LOG_FILE);
+            const string metadata_filepath = get_filepath(data_dir, LOG_FILE);
             fstream file;
             file.open(metadata_filepath);
             if (file.is_open()) {

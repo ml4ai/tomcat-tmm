@@ -4,6 +4,7 @@
 #include <thread>
 
 #include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
+#include "pipeline/estimation/custom_metrics/MarkerFalseBeliefEstimator.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -87,11 +88,15 @@ namespace tomcat {
             return prior;
         }
 
-        SamplerEstimatorPtr SamplerEstimator::create_custom_estimator(const std::string& name,
-                                                    const DBNPtr& model) {
+        SamplerEstimatorPtr
+        SamplerEstimator::create_custom_estimator(const std::string& name,
+                                                  const DBNPtr& model) {
             SamplerEstimatorPtr estimator;
-            if (name == CustomSamplerEstimatorType::FINAL_TEAM_SCORE) {
+            if (name == FinalTeamScoreEstimator::LABEL) {
                 estimator = make_shared<FinalTeamScoreEstimator>(model);
+            }
+            else if (name == MarkerFalseBeliefEstimator::LABEL) {
+                estimator = make_shared<MarkerFalseBeliefEstimator>(model);
             }
 
             return estimator;

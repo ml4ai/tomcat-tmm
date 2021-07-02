@@ -13,17 +13,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Agent::Agent(const string& id) : id(id) {}
+        Agent::Agent(const string& id, const string& version) : id(id), version(version) {}
 
         Agent::~Agent() {}
-
-        //----------------------------------------------------------------------
-        // Member functions
-        //----------------------------------------------------------------------
-
-        void Agent::copy(const Agent& agent) {
-            this->id = agent.id;
-        }
 
         //----------------------------------------------------------------------
         // Member functions
@@ -121,6 +113,8 @@ namespace tomcat {
         // Getters & Setters
         //----------------------------------------------------------------------
         const string& Agent::get_id() const { return id; }
+
+        const string& Agent::get_version() const { return version; }
 
         void Agent::set_ignored_observations(
             const unordered_set<std::string>& ignored_observations) {

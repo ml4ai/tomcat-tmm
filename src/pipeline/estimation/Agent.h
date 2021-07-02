@@ -30,12 +30,9 @@ namespace tomcat {
              * Creates an agent with a given ID.
              *
              * @param id: agent's ID
-             * @param estimates_topic: message topic where estimates must be
-             * published to
-             * @param log_topic: message topic where processing log must be
-             * published to
+             * @param version: agent's version
              */
-            Agent(const std::string& id);
+            Agent(const std::string& id, const std::string& version = "");
 
             virtual ~Agent();
 
@@ -43,12 +40,9 @@ namespace tomcat {
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
 
-            // Copy constructor and assignment should be deleted to avoid
-            // implicit slicing and loss of polymorphic behaviour in the
-            // subclasses. To deep copy, the clone method must be used if any.
-            Agent(const Agent&) = delete;
+            Agent(const Agent&) = default;
 
-            Agent& operator=(const Agent&) = delete;
+            Agent& operator=(const Agent&) = default;
 
             Agent(Agent&&) = default;
 
@@ -115,6 +109,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             const std::string& get_id() const;
 
+            const std::string& get_version() const;
+
             void set_ignored_observations(
                 const std::unordered_set<std::string>& ignored_observations);
 
@@ -124,20 +120,11 @@ namespace tomcat {
 
           protected:
             //------------------------------------------------------------------
-            // Member functions
-            //------------------------------------------------------------------
-
-            /**
-             * Copy attributes from another agent.
-             *
-             * @param agent: another agent.
-             */
-            void copy(const Agent& agent);
-
-            //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
             std::string id;
+
+            std::string version;
 
             EstimatorPtrVec estimators;
 
