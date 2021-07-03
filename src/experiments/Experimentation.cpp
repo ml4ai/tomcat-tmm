@@ -318,6 +318,7 @@ namespace tomcat {
             ofstream output_file;
             output_file.open(filepath);
 
+            this->estimation->set_display_estimates(true);
             Pipeline pipeline(this->experiment_id, output_file);
             pipeline.set_data_splitter(data_splitter);
             pipeline.set_model_trainer(loader);

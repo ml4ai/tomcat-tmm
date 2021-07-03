@@ -128,6 +128,20 @@ namespace tomcat {
                                                const EstimatorPtr& estimator,
                                                int time_step,
                                                int data_point) const;
+
+            /**
+             * Calculates the timestamp at a given time step within the mission.
+             *
+             * @param agent: agent responsible for the predictions
+             * @param time_step: time step
+             * @param data_point: mission trial index (if multiple missions are
+             * being processed at the same time)
+             *
+             * @return Initial timestamp + elapsed time
+             */
+            std::string get_timestamp_at(const AgentPtr& agent,
+                                         int time_step,
+                                         int data_point) const;
         };
 
     } // namespace model

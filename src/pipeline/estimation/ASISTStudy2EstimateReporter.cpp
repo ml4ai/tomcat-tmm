@@ -73,15 +73,9 @@ namespace tomcat {
             nlohmann::json msg_state;
             nlohmann::json msg_prediction;
 
-            const string& initial_timestamp =
-                agent->get_evidence_metadata()[data_point]["initial_timestamp"];
-            int elapsed_time =
-                time_step *
-                (int)agent->get_evidence_metadata()[data_point]["step_size"];
-
             // Common fields
             msg_state["created"] =
-                this->get_elapsed_timestamp(initial_timestamp, elapsed_time);
+                this->get_timestamp_at(agent, time_step, data_point);
             msg_state["predictions"] = nlohmann::json::array();
             msg_prediction = msg_state;
 
@@ -129,8 +123,10 @@ namespace tomcat {
                 }
             }
 
-            if (msg_state["predictions"].empty()) msg_state.clear();
-            if (msg_prediction["predictions"].empty()) msg_prediction.clear();
+            if (msg_state["predictions"].empty())
+                msg_state.clear();
+            if (msg_prediction["predictions"].empty())
+                msg_prediction.clear();
 
             return {msg_state, msg_prediction};
         }
@@ -147,8 +143,11 @@ namespace tomcat {
 
             nlohmann::json prediction;
             boost::uuids::uuid u = boost::uuids::random_generator()();
-            prediction["unique_id"] =
-                boost::uuids::to_string(u);
+            prediction["unique_id"] = boost::uuids::to_string(u);
+            prediction["start"] =
+                this->get_timestamp_at(agent, time_step, data_point);
+            prediction["duration"] =
+                agent->get_evidence_metadata()[data_point]["step_size"];
             prediction["subject"] =
                 agent->get_evidence_metadata()[data_point]["team_id"];
             prediction["predicted_property"] = "team_performance";
@@ -176,8 +175,11 @@ namespace tomcat {
 
             nlohmann::json prediction;
             boost::uuids::uuid u = boost::uuids::random_generator()();
-            prediction["unique_id"] =
-                boost::uuids::to_string(u);
+            prediction["unique_id"] = boost::uuids::to_string(u);
+            prediction["start"] =
+                this->get_timestamp_at(agent, time_step, data_point);
+            prediction["duration"] =
+                agent->get_evidence_metadata()[data_point]["step_size"];
 
             double probability = 0;
             int assignment = 0;
@@ -189,7 +191,6 @@ namespace tomcat {
                 }
             }
 
-            prediction["prediction"] = nlohmann::json::array();
             prediction["predicted_property"] = "participant_map";
             prediction["probability_type"] = "float";
             prediction["probability"] = probability;
@@ -228,6 +229,7 @@ namespace tomcat {
                 break;
             }
 
+            prediction["prediction"] = nlohmann::json::array();
             int i = 0;
             for (const auto& json_player :
                  agent->get_evidence_metadata()[data_point]["players"]) {
@@ -249,8 +251,11 @@ namespace tomcat {
 
             nlohmann::json prediction;
             boost::uuids::uuid u = boost::uuids::random_generator()();
-            prediction["unique_id"] =
-                boost::uuids::to_string(u);
+            prediction["unique_id"] = boost::uuids::to_string(u);
+            prediction["start"] =
+                this->get_timestamp_at(agent, time_step, data_point);
+            prediction["duration"] =
+                agent->get_evidence_metadata()[data_point]["step_size"];
 
             double probability = 0;
             int assignment = 0;
@@ -295,9 +300,10 @@ namespace tomcat {
 
             nlohmann::json prediction;
             boost::uuids::uuid u = boost::uuids::random_generator()();
-            prediction["unique_id"] =
-                boost::uuids::to_string(u);
-
+            prediction["unique_id"] = boost::uuids::to_string(u);
+            prediction["start"] = this->get_timestamp_at(agent, time_step, data_point);
+            prediction["duration"] =
+                agent->get_evidence_metadata()[data_point]["step_size"];
             prediction["probability_type"] = "float";
             prediction["confidence_type"] = "";
             prediction["confidence"] = "";
@@ -360,6 +366,17 @@ namespace tomcat {
                 json_predictions.push_back(prediction);
                 i++;
             }
+        }
+
+        string ASISTStudy2EstimateReporter::get_timestamp_at(
+            const AgentPtr& agent, int time_step, int data_point) const {
+            const string& initial_timestamp =
+                agent->get_evidence_metadata()[data_point]["initial_timestamp"];
+            int elapsed_time =
+                time_step *
+                (int)agent->get_evidence_metadata()[data_point]["step_size"];
+
+            return this->get_elapsed_timestamp(initial_timestamp, elapsed_time);
         }
 
     } // namespace model
