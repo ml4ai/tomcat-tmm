@@ -21,6 +21,8 @@ namespace tomcat {
          */
         class MessageConverter {
           public:
+            inline static std::string LOG_FILE = "conversion_log.json";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -57,6 +59,21 @@ namespace tomcat {
             MessageConverter& operator=(MessageConverter&&) = default;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Gets a unique label of a variable for a given player
+             *
+             * @param variable_label: original label
+             * @param player_number: player number
+             * @return
+             */
+            static std::string
+            get_player_variable_label(const std::string& variable_label,
+                                      int player_number);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
@@ -75,6 +92,7 @@ namespace tomcat {
              * Clears cache and prepare to process a new mission.
              */
             void start_new_mission();
+
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -103,6 +121,13 @@ namespace tomcat {
              */
             virtual bool is_valid_message_file(
                 const boost::filesystem::directory_entry& file) const = 0;
+
+            /**
+             * Gets message topics used to data extraction.
+             *
+             * @return Message topics.
+             */
+            virtual std::unordered_set<std::string> get_used_topics() const = 0;
 
             //------------------------------------------------------------------
             // Getters & Setters

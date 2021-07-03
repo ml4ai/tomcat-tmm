@@ -47,5 +47,36 @@ namespace tomcat {
         typedef std::shared_ptr<SegmentMarginalizationFactorNode>
             SegMarFactorNodePtr;
         typedef std::vector<SegMarFactorNodePtr> SegMarFactorNodePtrVec;
+
+        // General
+        class Estimator;
+        class SamplerEstimator;
+        class MessageConverter;
+        class Agent;
+        class EvaluationAggregator;
+        class EstimateReporter;
+        class ASISTEstimateReporter;
+        class ASISTStudy2EstimateReporter;
+
+        typedef std::shared_ptr<Estimator> EstimatorPtr;
+        typedef std::vector<EstimatorPtr> EstimatorPtrVec;
+        typedef std::shared_ptr<SamplerEstimator> SamplerEstimatorPtr;
+        typedef std::vector<SamplerEstimatorPtr> SamplerEstimatorPtrVec;
+        typedef std::shared_ptr<MessageConverter> MsgConverterPtr;
+        typedef std::vector<MsgConverterPtr> MsgConverterPtrVec;
+        typedef std::shared_ptr<Agent> AgentPtr;
+        typedef std::vector<AgentPtr> AgentPtrVec;
+        typedef std::shared_ptr<EvaluationAggregator> EvaluationAggregatorPtr;
+        typedef std::vector<EvaluationAggregatorPtr> EvaluationAggregatorPtrVec;
+        typedef std::shared_ptr<EstimateReporter> EstimateReporterPtr;
+        typedef std::vector<EstimateReporterPtr> EstimateReporterPtrVec;
+        typedef std::shared_ptr<ASISTEstimateReporter> ASISTEstimateReporterPtr;
+        typedef std::vector<ASISTEstimateReporterPtr>
+            ASISTEstimateReporterPtrVec;
+        typedef std::shared_ptr<ASISTStudy2EstimateReporter>
+            ASISTStudy2EstimateReporterPtr;
+        typedef std::vector<ASISTStudy2EstimateReporterPtr>
+            ASISTStudy2EstimateReporterPtrVec;
+
     } // namespace model
 } // namespace tomcat

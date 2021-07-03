@@ -3,47 +3,76 @@
 #include <vector>
 
 #include <boost/program_options.hpp>
+#include <fmt/format.h>
 #include <gsl/gsl_rng.h>
 
 #include "experiments/Experimentation.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/estimation/ASISTStudy2EstimateReporter.h"
+#include "pipeline/estimation/EstimateReporter.h"
 
 using namespace tomcat::model;
 using namespace std;
 namespace po = boost::program_options;
 
+struct ReporterTypes {
+    const static int NONE = 0;
+    const static int ASIST_STUDY2 = 1;
+};
+
 void evaluate(const string& experiment_id,
-              const string& model_json,
+              const string& model_dir,
               const string& params_dir,
               const string& train_dir,
               const string& data_dir,
               const string& eval_dir,
-              const string& inference_json,
+              const string& agent_json,
               int num_folds,
               int num_time_steps,
-              int burn_in,
-              int num_samples,
+              int num_particles,
               int num_jobs,
               bool baseline,
               bool only_estimates,
-              bool exact_inference) {
+              bool exact_inference,
+              int reporter_type,
+              const string& report_filename) {
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
-    EvidenceSet test_data(data_dir);
+
+    string model_name;
+    fstream file;
+    file.open(agent_json);
+    if (file.is_open()) {
+        model_name = nlohmann::json::parse(file)["agent"]["model"];
+    }
+
+    string model_filepath = fmt::format("{}/{}.json", model_dir, model_name);
     shared_ptr<DynamicBayesNet> model = make_shared<DynamicBayesNet>(
-        DynamicBayesNet ::create_from_json(model_json));
+        DynamicBayesNet ::create_from_json(model_filepath));
     model->unroll(3, true);
 
     Experimentation experimentation(random_generator, experiment_id, model);
-    experimentation.add_estimators_from_json(inference_json,
-                                             burn_in,
-                                             num_samples,
-                                             num_jobs,
-                                             baseline,
-                                             exact_inference,
-                                             num_time_steps - 1);
 
+    EstimateReporterPtr reporter;
+    if (reporter_type == ReporterTypes::ASIST_STUDY2) {
+        reporter = make_shared<ASISTStudy2EstimateReporter>();
+    }
+    string report_filepath;
+    if (report_filename != "") {
+        report_filepath = fmt::format("{}/{}.json", eval_dir, report_filename);
+    }
+    experimentation.set_offline_estimation_process(agent_json,
+                                                   num_particles,
+                                                   num_jobs,
+                                                   baseline,
+                                                   exact_inference,
+                                                   num_time_steps - 1,
+                                                   reporter,
+                                                   report_filepath);
+
+    EvidenceSet test_data(data_dir);
+    test_data.shrink_up_to(num_time_steps - 1);
     experimentation.evaluate_and_save(params_dir,
                                       num_folds,
                                       eval_dir,
@@ -55,17 +84,18 @@ void evaluate(const string& experiment_id,
 
 int main(int argc, char* argv[]) {
     string experiment_id;
-    string model_json;
+    string model_dir;
     string params_dir;
     string train_dir;
     string data_dir;
     string eval_dir;
-    string inference_json;
-    int num_time_steps;
-    int num_folds;
-    int burn_in;
-    int num_samples;
-    int num_jobs;
+    string agent_json;
+    string report_filename;
+    unsigned int num_time_steps;
+    unsigned int num_folds;
+    unsigned int num_particles;
+    unsigned int num_jobs;
+    unsigned int reporter_type;
     bool baseline;
     bool only_estimates;
     bool exact_inference;
@@ -80,9 +110,9 @@ int main(int argc, char* argv[]) {
         "follows a continuous distribution), approximate inference will be "
         "used to estimate the probabilities.")(
         "exp_id", po::value<string>(&experiment_id), "Experiment identifier.")(
-        "model_json",
-        po::value<string>(&model_json)->required(),
-        "Filepath of the json file containing the model definition.")(
+        "model_dir",
+        po::value<string>(&model_dir),
+        "Directory where the agent's model definition is saved.")(
         "params_dir",
         po::value<string>(&params_dir)->required(),
         "Directory where the pre-trained model's parameters are saved.")(
@@ -91,29 +121,27 @@ int main(int argc, char* argv[]) {
         "Directory where the data (evidence) is located.")(
         "eval_dir",
         po::value<string>(&eval_dir)->required(),
-        "Directory where the evaluation file must be saved.")(
-        "inference_json",
-        po::value<string>(&inference_json)->required(),
-        "Filepath of the json file containing the variables and inference "
-        "horizons to be evaluated by the pre-trained model.")(
+        "Directory where the evaluation file and estimate report (if "
+        "requested) will be saved.")(
+        "agent_json",
+        po::value<string>(&agent_json)->required(),
+        "Filepath of the json file containing definitions about the agents' "
+        "reasoning")(
         "K",
-        po::value<int>(&num_folds)->default_value(1)->required(),
+        po::value<unsigned int>(&num_folds)->default_value(1)->required(),
         "Number of folds for evaluation using cross-validation. This assumes "
         "the model was pre-trained using the same number of folds here "
-        "defined.")(
-        "T",
-        po::value<int>(&num_time_steps)->default_value(600)->required(),
-        "Number of time steps to unroll the model into.")(
-        "burn_in",
-        po::value<int>(&burn_in)->default_value(100)->required(),
-        "Number of samples to generate until posterior convergence if "
-        "approximate inference is used for evaluation.")(
-        "samples",
-        po::value<int>(&num_samples)->default_value(100)->required(),
+        "defined.")("T",
+                    po::value<unsigned int>(&num_time_steps)
+                        ->default_value(600)
+                        ->required(),
+                    "Number of time steps to unroll the model into.")(
+        "particles",
+        po::value<unsigned int>(&num_particles)->default_value(100)->required(),
         "Number of samples used to estimate the parameters of the model "
         "after the burn-in period if approximate inference is used for "
         "evaluation.")("jobs",
-                       po::value<int>(&num_jobs)->default_value(4),
+                       po::value<unsigned int>(&num_jobs)->default_value(4),
                        "Number of jobs used for multi-thread inference.")(
         "baseline",
         po::bool_switch(&baseline)->default_value(false),
@@ -129,7 +157,14 @@ int main(int argc, char* argv[]) {
         "estimates over time.")(
         "exact",
         po::bool_switch(&exact_inference)->default_value(false),
-        "Whether to use exact or approximate inference.");
+        "Whether to use exact or approximate inference.")(
+        "reporter",
+        po::value<unsigned int>(&reporter_type)->default_value(0)->required(),
+        "0 - None\n"
+        "1 - ASIST Study 2")("report_filename",
+                             po::value<string>(&report_filename),
+                             "Filename of the reporter (if a reporter is "
+                             "provided)..");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -147,18 +182,19 @@ int main(int argc, char* argv[]) {
     }
 
     evaluate(experiment_id,
-             model_json,
+             model_dir,
              params_dir,
              train_dir,
              data_dir,
              eval_dir,
-             inference_json,
+             agent_json,
              num_folds,
              num_time_steps,
-             burn_in,
-             num_samples,
+             num_particles,
              num_jobs,
              baseline,
              only_estimates,
-             exact_inference);
+             exact_inference,
+             reporter_type,
+             report_filename);
 }

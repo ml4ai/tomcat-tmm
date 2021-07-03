@@ -24,7 +24,7 @@
 #include "pipeline/estimation/ParticleFilterEstimator.h"
 #include "pipeline/estimation/SamplerEstimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
-#include "pipeline/estimation/custom_metrics/FinalScore.h"
+#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
 #include "pipeline/training/DBNSamplingTrainer.h"
 #include "sampling/AncestralSampler.h"
 #include "sampling/GibbsSampler.h"

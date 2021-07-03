@@ -42,37 +42,45 @@ namespace tomcat {
             NodeEvaluation evaluation;
             evaluation.label = estimates.label;
             evaluation.assignment = estimates.assignment;
+            evaluation.evaluation =
+                Eigen::MatrixXd::Constant(1, 1, NO_OBS);
 
-            // Get matrix of true observations.
-            Tensor3 real_data_3d = test_data[evaluation.label];
-            Eigen::MatrixXd true_values = real_data_3d(0, 0);
+            if (test_data.has_data_for(evaluation.label)) {
 
-            ConfusionMatrix confusion_matrix = this->get_confusion_matrix(
-                estimates.estimates[0], true_values, estimates.assignment[0]);
-            double precision = 0;
-            if (confusion_matrix.true_positives +
-                    confusion_matrix.false_positives >
-                0) {
-                precision = (double)confusion_matrix.true_positives /
-                            (confusion_matrix.true_positives +
-                             confusion_matrix.false_positives);
+                // Get matrix of true observations.
+                Tensor3 real_data_3d = test_data[evaluation.label];
+                Eigen::MatrixXd true_values = real_data_3d(0, 0);
+
+                ConfusionMatrix confusion_matrix =
+                    this->get_confusion_matrix(estimates.estimates[0],
+                                               true_values,
+                                               estimates.assignment[0]);
+                double precision = 0;
+                if (confusion_matrix.true_positives +
+                        confusion_matrix.false_positives >
+                    0) {
+                    precision = (double)confusion_matrix.true_positives /
+                                (confusion_matrix.true_positives +
+                                 confusion_matrix.false_positives);
+                }
+
+                double recall = 0;
+                if (confusion_matrix.true_positives +
+                        confusion_matrix.false_negatives >
+                    0) {
+                    recall = (double)confusion_matrix.true_positives /
+                             (confusion_matrix.true_positives +
+                              confusion_matrix.false_negatives);
+                }
+
+                double f1_score = 0;
+                if (precision > 0 and recall > 0) {
+                    f1_score = (2 * precision * recall) / (precision + recall);
+                }
+
+                evaluation.evaluation =
+                    Eigen::MatrixXd::Constant(1, 1, f1_score);
             }
-
-            double recall = 0;
-            if (confusion_matrix.true_positives +
-                    confusion_matrix.false_negatives >
-                0) {
-                recall = (double)confusion_matrix.true_positives /
-                         (confusion_matrix.true_positives +
-                          confusion_matrix.false_negatives);
-            }
-
-            double f1_score = 0;
-            if (precision > 0 and recall > 0) {
-                f1_score = (2 * precision * recall) / (precision + recall);
-            }
-
-            evaluation.evaluation = Eigen::MatrixXd::Constant(1, 1, f1_score);
 
             return evaluation;
         }

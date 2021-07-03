@@ -179,9 +179,9 @@ namespace tomcat {
             return is_estimating;
         }
 
-        vector<shared_ptr<const Estimator>>
-        ParticleFilterEstimator::get_base_estimators() const {
-            vector<shared_ptr<const Estimator>> base_estimators;
+        vector<shared_ptr<Estimator>>
+        ParticleFilterEstimator::get_base_estimators() {
+            vector<shared_ptr<Estimator>> base_estimators;
             for (const auto& base_estimator : this->base_estimators) {
                 base_estimators.push_back(base_estimator);
             }

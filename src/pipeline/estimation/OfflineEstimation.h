@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include "utils/Definitions.h"
 
 #include "pipeline/estimation/EstimationProcess.h"
@@ -18,46 +20,60 @@ namespace tomcat {
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            /**
-             * Creates an offline estimation process.
+            /*
+             * Creates an offline estimator with no defined estimate report.
+             * Estimates are still written as raw probabilities in the get_info
+             * function.
+             *
+             * @param agent: agent used in the estimation
+             *
              */
-            OfflineEstimation();
+            OfflineEstimation(const AgentPtr& agent);
+
+            /**
+             * Creates an offline estimation process with an output stream to
+             * write estimates to in an agent specific format at specific time
+             * steps.
+             *
+             * @param agent: agent used in the estimation
+             * @param reporter: class responsible for reporting estimates
+             * computed during the process
+             * @param report_filepath: path of the written report file. If the
+             * path is blank, the report will be printed to the terminal.
+             */
+            OfflineEstimation(const AgentPtr& agent,
+                              const EstimateReporterPtr& reporter,
+                              const std::string& report_filepath);
 
             ~OfflineEstimation();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            OfflineEstimation(const OfflineEstimation& estimation);
 
-            OfflineEstimation& operator=(const OfflineEstimation& estimation);
+            // It cannot be copied because ofstreams cannot be copied.
+            OfflineEstimation(const OfflineEstimation& estimation) = delete;
 
-            OfflineEstimation(OfflineEstimation&&) = default;
+            OfflineEstimation&
+            operator=(const OfflineEstimation& estimation) = delete;
 
-            OfflineEstimation& operator=(OfflineEstimation&&) = default;
+            OfflineEstimation(OfflineEstimation&&) = delete;
+
+            OfflineEstimation& operator=(OfflineEstimation&&) = delete;
 
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            void estimate(const EvidenceSet& test_data) override;
-
             void get_info(nlohmann::json& json) const override;
+
+            void publish_last_estimates() override;
 
           private:
             //------------------------------------------------------------------
-            // Member functions
+            // Data member
             //------------------------------------------------------------------
 
-            /**
-             * Function executed by a thread responsible for calculating the
-             * estimates for a single estimator.
-             *
-             * @param estimator: estimator
-             * @param test_data: data to estimate values over
-             */
-            void
-            run_estimation_thread(const std::shared_ptr<Estimator>& estimator,
-                                  const EvidenceSet& test_data);
+            std::ofstream report_file;
         };
 
     } // namespace model

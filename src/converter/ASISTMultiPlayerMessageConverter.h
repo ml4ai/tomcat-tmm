@@ -25,13 +25,20 @@ namespace tomcat {
         class ASISTMultiPlayerMessageConverter : public ASISTMessageConverter {
           public:
             // Observable node names
-            inline const static std::string ROLE = "Role";
-            inline const static std::string TASK = "Task";
-            inline const static std::string AREA = "Area";
-            inline const static std::string SECTION = "Section";
-            inline const static std::string SEEN_MARKER = "SeenMarker";
-            inline const static std::string MARKER_LEGEND = "MarkerLegend";
-            inline const static std::string MAP_INFO = "MapInfo";
+            inline const static std::string MARKER_LEGEND_ASSIGNMENT =
+                "MarkerLegendVersionAssignment";
+            inline const static std::string PLAYER_MARKER_LEGEND_VERSION =
+                "PlayerMarkerLegendVersion";
+            inline const static std::string MARKER_IN_PLAYER_FOV =
+                "MarkerInPlayerFoV";
+            inline const static std::string PLAYER_ROLE = "PlayerRole";
+            inline const static std::string PLAYER_TASK = "PlayerTask";
+            inline const static std::string PLAYER_AREA = "PlayerArea";
+
+            inline const static std::string MAP_VERSION_ASSIGNMENT =
+                "MapVersionAssignment";
+            inline const static std::string OBS_PLAYER_BUILDING_SECTION =
+                "ObservedPlayerBuildingSection";
 
             // Task values
             const static int NO_TASK = 0;

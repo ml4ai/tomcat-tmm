@@ -2,15 +2,16 @@
 
 #include <memory>
 #include <thread>
+#include <unordered_set>
 
 #include <nlohmann/json.hpp>
 
 #include "EstimationProcess.h"
 
+#include "pipeline/estimation/Agent.h"
 #include "utils/Definitions.h"
 #include "utils/Mosquitto.h"
 #include "utils/SynchronizedQueue.h"
-#include "pipeline/estimation/Agent.h"
 
 namespace tomcat {
     namespace model {
@@ -31,12 +32,13 @@ namespace tomcat {
              * broker to either subscribe or publish to a topic.
              */
             struct MessageBrokerConfiguration {
-               int timeout = 9999;
-
+                int timeout = 9999;
                 std::string address;
                 int port;
                 int num_connection_trials;
                 int milliseconds_before_retrial;
+                std::string estimates_topic;
+                std::string log_topic;
             };
 
             //------------------------------------------------------------------
@@ -46,12 +48,17 @@ namespace tomcat {
             /**
              * Creates an online estimation process.
              *
-             * @param estimator: type of estimation to be performed
-             * @param agent: agent who talks to the message bus
+             * @param agent: agent used in the estimation
+             * @param config: the message broker configuration
+             * @param message_converter: classes responsible to translate json
+             * messages to observations
+             * @param reporter: class responsible for reporting estimates
+             * computed during the process
              */
-            OnlineEstimation(
-                const MessageBrokerConfiguration& config,
-                const std::shared_ptr<Agent>& agent);
+            OnlineEstimation(const AgentPtr& agent,
+                             const MessageBrokerConfiguration& config,
+                             const MsgConverterPtr& message_converter,
+                             const EstimateReporterPtr& reporter);
 
             ~OnlineEstimation();
 
@@ -85,6 +92,11 @@ namespace tomcat {
 
             void get_info(nlohmann::json& json) const override;
 
+            /**
+             * Publishes last computed estimates to the message bus.
+             */
+            void publish_last_estimates() override;
+
           private:
             //------------------------------------------------------------------
             // Member functions
@@ -112,24 +124,19 @@ namespace tomcat {
              */
             EvidenceSet get_next_data_from_pending_messages();
 
-            /**
-             * Publishes last computed estimates to the message bus.
-             */
-            void publish_last_estimates();
-
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
             MessageBrokerConfiguration config;
 
-            std::shared_ptr<Agent> agent;
-
-            // Number of time steps the estimation already processed.
-            int time_step;
-
             // Messages received from the message bus and stored to be processed
             // by the estimation threads.
             SynchronizedQueue<nlohmann::json> messages_to_process;
+
+            MsgConverterPtr message_converter;
+
+            // Information about the trial being processed
+            nlohmann::json evidence_metadata;
         };
 
     } // namespace model

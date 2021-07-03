@@ -120,6 +120,8 @@ namespace tomcat {
 
             int template_time_step = min(time_step, LAST_TEMPLATE_TIME_STEP);
 
+            unordered_set<string> elapse_from_posterior;
+
             // Fill nodes with data
             for (const string& node_label : new_data.get_node_labels()) {
                 if (RVNodePtr node = this->template_dbn.get_node(
@@ -136,6 +138,11 @@ namespace tomcat {
                         // Freeze node to skip resampling its assignments as
                         // they are all the same and do not change over time.
                         node->freeze();
+                    }
+
+                    for (const auto& parent : node->get_parents()) {
+                        elapse_from_posterior.insert(
+                            parent->get_metadata()->get_label());
                     }
                 }
             }
@@ -193,6 +200,15 @@ namespace tomcat {
                     node->set_assignment(samples);
                 }
             }
+
+            // Parents of nodes with data will be sampled again but from their
+            // posterior to avoid creating spurious particles.
+//            for (const auto& node_label : elapse_from_posterior) {
+//                auto node = this->template_dbn.get_node(node_label, time_step);
+//                Eigen::MatrixXd samples = node->sample_from_posterior(
+//                    this->random_generators_per_job);
+//                node->set_assignment(samples);
+//            }
         }
 
         EvidenceSet ParticleFilter::resample(const EvidenceSet& new_data,
@@ -403,7 +419,8 @@ namespace tomcat {
                     Eigen::VectorXd probabilities =
                         Eigen::VectorXd::Zero(metadata->get_cardinality());
                     probabilities(node->get_assignment()(0, 0)) = 1;
-                    marginals.add_data(node_label, Tensor3(probabilities));
+                    marginals.add_data(
+                        node_label, Tensor3(probabilities), false);
                     continue;
                 }
 

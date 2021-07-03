@@ -10,49 +10,57 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        OfflineEstimation::OfflineEstimation() {}
+        OfflineEstimation::OfflineEstimation(const AgentPtr& agent)
+            : EstimationProcess(agent, nullptr) {}
 
-        OfflineEstimation::~OfflineEstimation() {}
-
-        //----------------------------------------------------------------------
-        // Copy & Move constructors/assignments
-        //----------------------------------------------------------------------
         OfflineEstimation::OfflineEstimation(
-            const OfflineEstimation& estimation) {
-            this->copy_estimation(estimation);
+            const AgentPtr& agent,
+            const EstimateReporterPtr& reporter,
+            const std::string& report_filepath)
+            : EstimationProcess(agent, reporter) {
+
+            if (report_filepath != "") {
+                this->report_file.open(report_filepath);
+            }
         }
 
-        OfflineEstimation&
-        OfflineEstimation::operator=(const OfflineEstimation& estimation) {
-            this->copy_estimation(estimation);
-            return *this;
+        OfflineEstimation::~OfflineEstimation() {
+            if (this->report_file.is_open()) {
+                this->report_file.close();
+            }
         }
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void OfflineEstimation::estimate(const EvidenceSet& test_data) {
-            // Execute each one of the estimators in a single thread.
-            for (auto estimator : this->estimators) {
-                thread estimation_thread(
-                    &OfflineEstimation::run_estimation_thread,
-                    this,
-                    estimator,
-                    test_data);
-                estimation_thread.join();
-            }
-        }
-
-        void OfflineEstimation::run_estimation_thread(
-            const shared_ptr<Estimator>& estimator,
-            const EvidenceSet& test_data) {
-
-            EstimationProcess::estimate(estimator, test_data);
-        }
-
         void OfflineEstimation::get_info(nlohmann::json& json) const {
             EstimationProcess::get_info(json);
             json["process"] = "offline";
+        }
+
+        void OfflineEstimation::publish_last_estimates() {
+            if (this->reporter) {
+                // In the offline estimation, estimates for all time steps
+                // and data points will be processed at the end of the
+                // estimation function. Therefore, we need to process time
+                // by time to publish estimates over time.
+                for (int t = 0; t <= this->last_time_step; t++) {
+                    auto messages =
+                        this->reporter->translate_estimates_to_messages(
+                            this->agent, t);
+
+                    if (this->report_file.is_open()) {
+                        for (const auto& message : messages) {
+                            this->report_file << message << "\n";
+                        }
+                    }
+                    else {
+                        for (const auto& message : messages) {
+                            cout << message << "\n";
+                        }
+                    }
+                }
+            }
         }
 
     } // namespace model

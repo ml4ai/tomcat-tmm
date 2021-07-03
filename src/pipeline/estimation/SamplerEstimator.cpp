@@ -3,7 +3,8 @@
 #include <iostream>
 #include <thread>
 
-#include "pipeline/estimation/custom_metrics/FinalScore.h"
+#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
+#include "pipeline/estimation/custom_metrics/MarkerFalseBeliefEstimator.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -52,7 +53,7 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
-        // Member functions
+        // Static functions
         //----------------------------------------------------------------------
         Eigen::VectorXd SamplerEstimator::get_prior(const RVNodePtr& node) {
             Eigen::VectorXd prior;
@@ -85,6 +86,20 @@ namespace tomcat {
             }
 
             return prior;
+        }
+
+        SamplerEstimatorPtr
+        SamplerEstimator::create_custom_estimator(const std::string& name,
+                                                  const DBNPtr& model) {
+            SamplerEstimatorPtr estimator;
+            if (name == FinalTeamScoreEstimator::LABEL) {
+                estimator = make_shared<FinalTeamScoreEstimator>(model);
+            }
+            else if (name == MarkerFalseBeliefEstimator::LABEL) {
+                estimator = make_shared<MarkerFalseBeliefEstimator>(model);
+            }
+
+            return estimator;
         }
 
         //----------------------------------------------------------------------
@@ -169,10 +184,10 @@ namespace tomcat {
                                 t)(low);
                         }
                         else {
-                            if (time_step <
-                                metadata->get_initial_time_step()) {
+                            if (time_step < metadata->get_initial_time_step()) {
                                 prob = get_prior(node)(low);
-                            } else {
+                            }
+                            else {
                                 const Tensor3 samples_tensor =
                                     particles[this->estimates.label];
                                 prob = this->get_probability_in_range(

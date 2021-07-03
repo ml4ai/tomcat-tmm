@@ -28,39 +28,16 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Initializes an experiment for offline estimation.
+             * Initializes an experiment for offline estimation without an
+             * estimate report.
              *
              * @param gen: random number generator
              * @param experiment_id: id of the experiment
              * @param model: model to experiment on
-             * @param real_time_estimation: whether estimates are computed on
-             * the fly
              */
             Experimentation(const std::shared_ptr<gsl_rng>& gen,
                             const std::string& experiment_id,
                             const std::shared_ptr<DynamicBayesNet>& model);
-
-            /**
-             * Initializes an agent for online estimation.
-             *
-             * @param gen: random number generator
-             * @param model: model to compute estimates from
-             * @param agent: agent who talks to the message bus
-             * @param broker_address: address of the message broker
-             * @param broker_port: port of the message broker
-             * @param num_connection_trials: number of attempts to connect
-             * with the message broker
-             * @param milliseconds_before_retrial: milliseconds to wait
-             * before retrying to connect with the message broker in case of
-             * fail to connect previously
-             */
-            Experimentation(const std::shared_ptr<gsl_rng>& gen,
-                            const std::shared_ptr<DynamicBayesNet>& model,
-                            const std::shared_ptr<Agent>& agent,
-                            const std::string& broker_address,
-                            int broker_port,
-                            int num_connection_trials,
-                            int milliseconds_before_retrial);
 
             ~Experimentation();
 
@@ -104,28 +81,62 @@ namespace tomcat {
                                 const EvidenceSet& data);
 
             /**
-             * Adds a series of estimators to evaluate inferences in a
-             * pre-trained model.
+             * Configures an offline estimation process.
              *
-             * @param filepath: filepath to a json file containing the
-             * specifications of each estimation needed
-             * @param burn_in: burn in period if approximate inference is
-             * necessary
-             * @param num_samples: number of samples after burn in
+             * @param agents_config_filepath: filepath to a json file containing
+             * the specifications of each estimation needed
+             * @param num_particles: number of particles used for approximate
+             * inference
              * @param num_jobs: number of jobs used to perform the computations
              * @param baseline: whether to use the baseline estimator based
              * on frequencies of values of training samples
              * @param exact_inference: whether exact inference should be used
              * @param max_time_step: maximum time step to project estimates in
              * case of variable horizon
+             * @param estimate_reporter: produces json messages with estimates
+             * in a specific format
+             * @param report_filepath: filepath of the estimate report
              */
-            void add_estimators_from_json(const std::string& filepath,
-                                          int burn_in,
-                                          int num_samples,
-                                          int num_jobs,
-                                          bool baseline,
-                                          bool exact_inference,
-                                          int max_time_step);
+            void set_offline_estimation_process(
+                const std::string& agent_config_filepath,
+                int num_particles,
+                int num_jobs,
+                bool baseline,
+                bool exact_inference,
+                int max_time_step,
+                const EstimateReporterPtr& estimate_reporter,
+                const std::string& report_filepath);
+
+            /**
+             * Configures an online estimation process.
+             *
+             * @param agents_config_filepath: filepath to a json file containing
+             * the specifications of each estimation needed
+             * @param num_particles: number of particles used for approximate
+             * inference
+             * @param num_jobs: number of jobs used to perform the computations
+             * @param baseline: whether to use the baseline estimator based
+             * on frequencies of values of training samples
+             * @param exact_inference: whether exact inference should be used
+             * @param max_time_step: maximum time step to project estimates in
+             * case of variable horizon
+             * @param message_broker_config_filepath: filepath of the json file
+             * containing details of the message broker for online estimation
+             * @param converter: responsible for translating messages from the
+             * message broker to model readable data
+             * @param estimate_reporter: produces json messages with estimates
+             * in a specific format
+             */
+            void set_online_estimation_process(
+                const std::string& agent_config_filepath,
+                int num_particles,
+                int num_jobs,
+                bool baseline,
+                bool exact_inference,
+                int max_time_step,
+                const std::string& message_broker_config_filepath,
+                const MsgConverterPtr& converter,
+                const EstimateReporterPtr& estimate_reporter);
 
             /**
              * Evaluates a pre-trained model and save the evaluations to a
@@ -214,6 +225,16 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
+            AgentPtr create_agent(const std::string& agent_config_filepath,
+                                  int num_particles,
+                                  int num_jobs,
+                                  bool baseline,
+                                  bool exact_inference,
+                                  int max_time_step) const;
+
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
             std::shared_ptr<gsl_rng> random_generator;
 
             std::shared_ptr<DynamicBayesNet> model;
@@ -221,8 +242,6 @@ namespace tomcat {
             std::shared_ptr<DBNTrainer> trainer;
 
             std::shared_ptr<EstimationProcess> estimation;
-
-            std::shared_ptr<EvaluationAggregator> evaluation;
 
             std::string experiment_id;
         };
