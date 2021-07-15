@@ -12,6 +12,9 @@ namespace tomcat {
          */
         class Accuracy : public Measure {
           public:
+
+            inline static const std::string NAME = "accuracy";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------

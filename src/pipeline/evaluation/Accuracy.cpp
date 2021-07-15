@@ -115,7 +115,7 @@ namespace tomcat {
         }
 
         void Accuracy::get_info(nlohmann::json& json) const {
-            json["name"] = "accuracy";
+            json["name"] = NAME;
             json["threshold"] = this->threshold;
             this->estimator->get_info(json["estimator"]);
         }

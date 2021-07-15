@@ -170,7 +170,7 @@ namespace tomcat {
              * @return Map between a timestamp and the message associated
              */
             virtual std::map<std::string, nlohmann::json>
-            filter(const std::string& messages_filepath) const = 0;
+            filter(const std::string& messages_filepath) = 0;
 
             //------------------------------------------------------------------
             // Data members

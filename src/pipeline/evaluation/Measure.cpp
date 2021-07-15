@@ -1,5 +1,8 @@
 #include "Measure.h"
 
+#include "pipeline/evaluation/Accuracy.h"
+#include "pipeline/evaluation/F1Score.h"
+
 namespace tomcat {
     namespace model {
 

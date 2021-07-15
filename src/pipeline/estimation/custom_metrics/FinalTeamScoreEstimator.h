@@ -11,7 +11,7 @@ namespace tomcat {
          */
         class FinalTeamScoreEstimator : public SamplerEstimator {
           public:
-            inline const static std::string LABEL = "FinalTeamScore";
+            inline const static std::string NAME = "FinalTeamScore";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -69,10 +69,6 @@ namespace tomcat {
                           const EvidenceSet& marginals,
                           int data_point_idx,
                           int time_step) override;
-
-            //------------------------------------------------------------------
-            // Getters & Setters
-            //------------------------------------------------------------------
 
           private:
             inline const static int REGULAR_SCORE = 10;

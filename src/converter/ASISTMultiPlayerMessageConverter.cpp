@@ -46,6 +46,33 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        bool ASISTMultiPlayerMessageConverter::
+            are_within_marker_block_detection_radius(const Position& pos1,
+                                                     const Position& pos2) {
+
+            auto square_around =
+                BoundingBox(pos1.x - 1, pos1.x + 1, pos1.z - 1, pos1.z + 1);
+            if (pos2.is_inside(square_around)) {
+                return true;
+            }
+            else {
+                // Tips of the star
+                if ((pos1.x - 2 == pos2.x || pos1.x + 2 == pos2.x) &&
+                    pos1.z == pos2.z) {
+                    return true;
+                }
+                else if ((pos1.z - 2 == pos2.z || pos1.z + 2 == pos2.z) &&
+                         pos1.x == pos2.x) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
         void ASISTMultiPlayerMessageConverter::copy_converter(
@@ -54,87 +81,73 @@ namespace tomcat {
             this->mission_started = converter.mission_started;
             this->elapsed_time = converter.elapsed_time;
             this->num_players = converter.num_players;
-            this->player_name_to_id = converter.player_name_to_id;
+            this->player_id_to_number = converter.player_id_to_number;
+            this->player_name_to_number = converter.player_name_to_number;
+            this->players = converter.players;
             this->task_per_player = converter.task_per_player;
             this->role_per_player = converter.role_per_player;
+            this->area_per_player = converter.area_per_player;
+            this->section_per_player = converter.section_per_player;
+            this->marker_legend_per_player = converter.marker_legend_per_player;
+            this->map_info_per_player = converter.map_info_per_player;
+            this->final_score = converter.final_score;
+            this->map_version_assignment = converter.map_version_assignment;
+            this->marker_legend_version_assignment =
+                converter.marker_legend_version_assignment;
+            this->player_position = converter.player_position;
+            this->placed_marker_blocks = converter.placed_marker_blocks;
+            this->nearby_markers_info = converter.nearby_markers_info;
         }
 
         void ASISTMultiPlayerMessageConverter::load_map_area_configuration(
             const string& map_filepath) {
+
+            this->map_area_configuration.clear();
+            this->building_sections.clear();
+            this->doors.clear();
 
             fstream map_file;
             map_file.open(map_filepath);
             if (map_file.is_open()) {
                 nlohmann::json json_map = nlohmann::json::parse(map_file);
 
-                // Bounding box of the map
-                int min_x = INT32_MAX;
-                int max_x = INT32_MIN;
-                int min_z = INT32_MAX;
-                int max_z = INT32_MIN;
-
                 for (const auto& location : json_map["locations"]) {
                     const string& area_type = location["type"];
                     const string& area_id = location["id"];
 
-                    if (area_id.find("sga") == string::npos) {
-                        this->map_area_configuration[area_id] =
-                            area_type.find("room") != string::npos;
-                    }
-                    else {
-                        // Staging area is reported as a room. Here I
-                        // overwrite because I want to report as a room, only
-                        // areas where there can be a victim in it.
-                        this->map_area_configuration[area_id] = false;
-                    }
-
-                    if (EXISTS("bounds", location)) {
-                        for (const auto& coordinate :
-                             location["bounds"]["coordinates"]) {
-                            if (coordinate["x"] < min_x) {
-                                min_x = coordinate["x"];
-                            }
-                            if (coordinate["x"] > max_x) {
-                                max_x = coordinate["x"];
-                            }
-                            if (coordinate["z"] < min_z) {
-                                min_z = coordinate["z"];
-                            }
-                            if (coordinate["z"] > max_x) {
-                                max_z = coordinate["z"];
-                            }
-                        }
-                    }
+                    this->map_area_configuration[area_id] =
+                        area_type.find("room") != string::npos;
                 }
 
                 // Split the map into 6 non-overlapping sections
-                int section_width = (max_x - min_x) / 3;
-                int section_height = (max_z - min_z) / 2;
+                int section_width = (MAP_SECTION_MAX_X - MAP_SECTION_MIN_X) / 3;
+                int section_height =
+                    (MAP_SECTION_MAX_Z - MAP_SECTION_MIN_Z) / 2;
 
-                BoundingBox section1(min_x,
-                                     min_x + section_width,
-                                     min_z,
-                                     min_z + section_height);
-                BoundingBox section2(min_x,
-                                     min_x + section_width,
-                                     min_z + section_height,
-                                     max_z);
-                BoundingBox section3(min_x + section_width,
-                                     min_x + 2 * section_width,
-                                     min_z,
-                                     min_z + section_height);
-                BoundingBox section4(min_x + section_width,
-                                     min_x + 2 * section_width,
-                                     min_z + section_height,
-                                     max_z);
-                BoundingBox section5(min_x + 2 * section_width,
-                                     max_x,
-                                     min_z,
-                                     min_z + section_height);
-                BoundingBox section6(min_x + 2 * section_width,
-                                     max_x,
-                                     min_z + section_height,
-                                     max_z);
+                BoundingBox section1(MAP_SECTION_MIN_X,
+                                     MAP_SECTION_MIN_X + section_width,
+                                     MAP_SECTION_MIN_Z,
+                                     MAP_SECTION_MIN_Z + section_height);
+                BoundingBox section2(MAP_SECTION_MIN_X,
+                                     MAP_SECTION_MIN_X + section_width,
+                                     MAP_SECTION_MIN_Z + section_height,
+                                     MAP_SECTION_MAX_Z);
+                BoundingBox section3(MAP_SECTION_MIN_X + section_width,
+                                     MAP_SECTION_MIN_X + 2 * section_width,
+                                     MAP_SECTION_MIN_Z,
+                                     MAP_SECTION_MIN_Z + section_height);
+                BoundingBox section4(MAP_SECTION_MIN_X + section_width,
+                                     MAP_SECTION_MIN_X + 2 * section_width,
+                                     MAP_SECTION_MIN_Z + section_height,
+                                     MAP_SECTION_MAX_Z);
+                BoundingBox section5(MAP_SECTION_MIN_X + 2 * section_width,
+                                     MAP_SECTION_MAX_X,
+                                     MAP_SECTION_MIN_Z,
+                                     MAP_SECTION_MIN_Z + section_height);
+                BoundingBox section6(MAP_SECTION_MIN_X + 2 * section_width,
+                                     MAP_SECTION_MAX_X,
+                                     MAP_SECTION_MIN_Z + section_height,
+                                     MAP_SECTION_MAX_Z);
 
                 this->building_sections.push_back(section1);
                 this->building_sections.push_back(section2);
@@ -142,6 +155,29 @@ namespace tomcat {
                 this->building_sections.push_back(section4);
                 this->building_sections.push_back(section5);
                 this->building_sections.push_back(section6);
+
+                // Doors
+                for (const auto& location : json_map["connections"]) {
+                    const string& area_type = location["type"];
+                    const string& area_id = location["id"];
+
+                    if (area_type == "door") {
+                        // Include each block that comprises a door as a
+                        // door object in the list because the position to a
+                        // doorway (in terms of blocks) will affect how
+                        // marker blocks are detected.
+                        int x = location["bounds"]["coordinates"][0]["x"];
+                        int z = location["bounds"]["coordinates"][0]["z"];
+                        Door door({x, z});
+                        door.id = area_id;
+                        this->doors.push_back(door);
+
+                        x = location["bounds"]["coordinates"][1]["x"];
+                        z = location["bounds"]["coordinates"][1]["z"];
+                        door.position = Position(x, z);
+                        this->doors.push_back(door);
+                    }
+                }
             }
             else {
                 stringstream ss;
@@ -165,6 +201,9 @@ namespace tomcat {
             topics.insert("observations/events/player/triage");
             topics.insert("observations/events/scoreboard");
             topics.insert("observations/events/player/location");
+            topics.insert("agent/pygl_fov/player/3d/summary");
+            topics.insert("agent/measures");
+            topics.insert("observations/events/player/marker_placed");
 
             return topics;
         }
@@ -175,40 +214,14 @@ namespace tomcat {
             nlohmann::json& json_mission_log) {
 
             EvidenceSet data;
-            if (json_message["header"]["message_type"] == "observation" &&
-                json_message["msg"]["sub_type"] == "state") {
-                const string& player_name = json_message["data"]["playername"];
-
-                // Detect new players and add to the list
-                if (player_name != "ASU_MC") {
-                    if (!EXISTS(player_name, this->player_name_to_id) &&
-                        this->player_name_to_id.size() < this->num_players) {
-                        this->add_player(player_name);
-                    }
-                }
-            }
-            else if (json_message["header"]["message_type"] == "event" &&
-                     json_message["msg"]["sub_type"] == "Event:MissionState") {
+            if (json_message["header"]["message_type"] == "event" &&
+                json_message["msg"]["sub_type"] == "Event:MissionState") {
                 string mission_state = json_message["data"]["mission_state"];
                 alg::to_lower(mission_state);
 
                 if (mission_state == "start") {
                     this->mission_started = true;
                     this->elapsed_time = this->time_step_size;
-
-                    // Add list of players to the log
-                    if (!json_mission_log.contains("players")) {
-                        json_mission_log["players"] = nlohmann::json::array();
-                        for (int i = 0; i < this->player_name_to_id.size();
-                             i++) {
-                            json_mission_log["players"].push_back("");
-                        }
-                    }
-
-                    for (const auto& [player_name, player_id] :
-                         this->player_name_to_id) {
-                        json_mission_log["players"][player_id] = player_name;
-                    }
 
                     // Store initial timestamp
                     const string& timestamp =
@@ -241,15 +254,29 @@ namespace tomcat {
                     this->mission_trial_number = this->get_numeric_trial_number(
                         json_message["data"]["trial_number"]);
                     this->experiment_id = json_message["msg"]["experiment_id"];
-                    json_mission_log["trial"] =
+
+                    const string& team_n_trial =
                         json_message["data"]["trial_number"];
+                    string team_id =
+                        team_n_trial.substr(0, team_n_trial.find("_"));
+                    string trial_id =
+                        team_n_trial.substr(team_n_trial.find("_") + 1);
+
+                    json_mission_log["trial_id"] = trial_id;
+                    json_mission_log["team_id"] = team_id;
                     json_mission_log["experiment_id"] =
                         json_message["msg"]["experiment_id"];
 
-                    if (EXISTS("client_info", json_message["data"])) {
-                        this->fill_client_info_data(
-                            json_message["data"]["client_info"]);
+                    this->experiment_id = json_mission_log["experiment_id"];
+
+                    if (!EXISTS("client_info", json_message["data"])) {
+                        throw TomcatModelException(
+                            "No information about players.");
                     }
+
+                    this->fill_players(json_message["data"]["client_info"],
+                                       json_mission_log);
+                    this->fill_fixed_measures();
                 }
                 else if (sub_type == "stop") {
                     this->mission_finished = true;
@@ -263,21 +290,26 @@ namespace tomcat {
             return data;
         }
 
-        void ASISTMultiPlayerMessageConverter::add_player(
-            const string& player_name) {
-
-            int id = this->player_name_to_id.size();
-            this->player_name_to_id[player_name] = id;
+        void
+        ASISTMultiPlayerMessageConverter::add_player(const Player& player) {
+            int player_number = this->player_id_to_number.size();
+            this->player_id_to_number[player.id] = player_number;
+            if (player.name != "") {
+                // Some messages are in a different format and we need to use
+                // the player name to retrieve some measurements.
+                this->player_name_to_number[player.name] = player_number;
+            }
+            this->players.push_back(player);
 
             this->task_per_player.push_back(Tensor3(NO_TASK));
-            this->role_per_player.push_back(Tensor3(NO_ROLE));
+            this->role_per_player.push_back(Tensor3(SEARCH));
             this->area_per_player.push_back(Tensor3(HALLWAY));
             this->section_per_player.push_back(Tensor3(OUT_OF_BUILDING));
             this->marker_legend_per_player.push_back(Tensor3(NO_OBS));
             this->map_info_per_player.push_back(Tensor3(NO_OBS));
-            this->seen_marker_per_player.push_back(Tensor3(NO_OBS));
-
             this->player_position.push_back({0, 0});
+            this->nearby_markers_info.resize(this->nearby_markers_info.size() +
+                                             1);
         }
 
         int ASISTMultiPlayerMessageConverter::get_numeric_trial_number(
@@ -293,43 +325,170 @@ namespace tomcat {
             return trial_number;
         }
 
-        void ASISTMultiPlayerMessageConverter::fill_client_info_data(
-            const nlohmann::json& json_client_info) {
+        void ASISTMultiPlayerMessageConverter::fill_players(
+            const nlohmann::json& json_client_info, nlohmann::json& json_log) {
+
+            json_log["players"] = nlohmann::json::array();
 
             for (const auto& info_per_player : json_client_info) {
-                const string& player_name = info_per_player["playername"];
-                if (!EXISTS(player_name, this->player_name_to_id) &&
-                    this->player_name_to_id.size() < this->num_players) {
-                    this->add_player(player_name);
-                }
+                Player player;
+                player.id = info_per_player["participant_id"];
+                player.callsign = info_per_player["callsign"];
+                player.unique_id = info_per_player["uniqueid"];
 
-                int player_id = this->player_name_to_id.at(player_name);
+                if (EXISTS("playername", info_per_player)) {
+                    player.name = info_per_player["playername"];
+                }
+                this->add_player(player);
 
-                // Map info
-                const string& map_version = info_per_player["staticmapversion"];
-                if (map_version.find("24") != string::npos) {
-                    this->map_info_per_player[player_id] =
-                        Tensor3(SECTIONS_2N4);
-                }
-                else if (map_version.find("34") != string::npos) {
-                    this->map_info_per_player[player_id] =
-                        Tensor3(SECTIONS_3N4);
-                }
-                else if (map_version.find("64") != string::npos) {
-                    this->map_info_per_player[player_id] =
-                        Tensor3(SECTIONS_6N4);
-                }
+                nlohmann::json json_player;
+                json_player["id"] = player.id;
+                json_player["callsign"] = player.callsign;
+                json_player["uniqueid"] = player.unique_id;
+                json_player["name"] = player.name;
+                json_log["players"].push_back(json_player);
+            }
+        }
 
-                // Marker legend
-                const string& marker_legend =
-                    info_per_player["markerblocklegend"];
-                if (marker_legend.at(0) == 'A') {
-                    this->marker_legend_per_player[player_id] =
-                        Tensor3(MARKER_LEGEND_A);
+        void ASISTMultiPlayerMessageConverter::fill_fixed_measures() {
+            if (!this->json_measures.empty()) {
+                // M1: Team score
+                this->final_score = json_measures["data"]["M1"]["final_score"];
+
+                // M3: Map
+                /*
+                 * The assignments of maps per player are:
+                 * Player 1 | Player 2 | Player 3 | Value
+                 * 24	  34	     64	        0
+                 * 24	  64	     34	        1
+                 * 34	  24	     64	        2
+                 * 34	  64	     24	        3
+                 * 64	  24	     34	        4
+                 * 64	  34	     24	        5
+                 */
+                unordered_set<int> map_assignment = {0, 1, 2, 3, 4, 5};
+                for (const nlohmann::json& json_map :
+                     json_measures["data"]["M3"]) {
+
+                    int player_number;
+                    if (EXISTS("participant_id", json_map)) {
+                        player_number = this->player_id_to_number
+                                            [json_map["participant_id"]];
+                    }
+                    else {
+                        if (player_name_to_number.empty()) {
+                            throw TomcatModelException(
+                                "The measures agent requires the player name "
+                                "but that was not provided by the trial.");
+                        }
+                        player_number = this->player_name_to_number
+                                            [json_map["player_name"]];
+                    }
+
+                    const string& static_map = json_map["map_name"];
+                    string version = static_map.substr(static_map.length() - 2);
+                    if (version == "24") {
+                        this->map_info_per_player[player_number] =
+                            Tensor3(SECTIONS_2N4);
+
+                        if (player_number == 0) {
+                            map_assignment.erase(2);
+                            map_assignment.erase(3);
+                            map_assignment.erase(4);
+                            map_assignment.erase(5);
+                        }
+                        else if (player_number == 1) {
+                            map_assignment.erase(0);
+                            map_assignment.erase(1);
+                            map_assignment.erase(3);
+                            map_assignment.erase(5);
+                        }
+                        else if (player_number == 2) {
+                            map_assignment.erase(0);
+                            map_assignment.erase(1);
+                            map_assignment.erase(2);
+                            map_assignment.erase(4);
+                        }
+                    }
+                    else if (version == "34") {
+                        this->map_info_per_player[player_number] =
+                            Tensor3(SECTIONS_3N4);
+
+                        if (player_number == 0) {
+                            map_assignment.erase(0);
+                            map_assignment.erase(1);
+                            map_assignment.erase(4);
+                            map_assignment.erase(5);
+                        }
+                        else if (player_number == 1) {
+                            map_assignment.erase(1);
+                            map_assignment.erase(2);
+                            map_assignment.erase(3);
+                            map_assignment.erase(4);
+                        }
+                        else if (player_number == 2) {
+                            map_assignment.erase(0);
+                            map_assignment.erase(2);
+                            map_assignment.erase(3);
+                            map_assignment.erase(5);
+                        }
+                    }
+                    else if (version == "64") {
+                        this->map_info_per_player[player_number] =
+                            Tensor3(SECTIONS_6N4);
+
+                        if (player_number == 0) {
+                            map_assignment.erase(0);
+                            map_assignment.erase(1);
+                            map_assignment.erase(2);
+                            map_assignment.erase(3);
+                        }
+                        else if (player_number == 1) {
+                            map_assignment.erase(0);
+                            map_assignment.erase(2);
+                            map_assignment.erase(4);
+                            map_assignment.erase(5);
+                        }
+                        else if (player_number == 2) {
+                            map_assignment.erase(1);
+                            map_assignment.erase(3);
+                            map_assignment.erase(4);
+                            map_assignment.erase(5);
+                        }
+                    }
                 }
-                else if (marker_legend.at(0) == 'B') {
-                    this->marker_legend_per_player[player_id] =
-                        Tensor3(MARKER_LEGEND_B);
+                this->map_version_assignment = *map_assignment.begin();
+
+                // M6: Marker block legend
+                for (const nlohmann::json& json_marker :
+                     json_measures["data"]["M6"]) {
+
+                    int player_number;
+                    if (EXISTS("participant_id", json_marker)) {
+                        player_number = this->player_id_to_number
+                                            [json_marker["participant_id"]];
+                    }
+                    else {
+                        if (player_name_to_number.empty()) {
+                            throw TomcatModelException(
+                                "The measures agent requires the player name "
+                                "but that was not provided by the trial.");
+                        }
+                        player_number = this->player_name_to_number
+                                            [json_marker["player_name"]];
+                    }
+
+                    const string& marker_legend =
+                        json_marker["marker_block_legend"];
+                    if (marker_legend[0] == 'A') {
+                        this->marker_legend_per_player[player_number] =
+                            Tensor3(MARKER_LEGEND_A);
+                    }
+                    else if (marker_legend[0] == 'B') {
+                        this->marker_legend_per_player[player_number] =
+                            Tensor3(MARKER_LEGEND_B);
+                        this->marker_legend_version_assignment = player_number;
+                    }
                 }
             }
         }
@@ -338,40 +497,95 @@ namespace tomcat {
             build_evidence_set_from_observations() {
 
             EvidenceSet data;
-            for (int player_id = 0; player_id < this->player_name_to_id.size();
-                 player_id++) {
-                data.add_data(get_player_variable_label(PLAYER_TASK, player_id + 1),
-                              this->task_per_player.at(player_id));
-                data.add_data(get_player_variable_label(PLAYER_ROLE, player_id + 1),
-                              this->role_per_player.at(player_id));
-                data.add_data(get_player_variable_label(PLAYER_AREA, player_id + 1),
-                              this->area_per_player.at(player_id));
-                data.add_data(
-                    get_player_variable_label(MARKER_IN_PLAYER_FOV, player_id + 1),
-                    this->seen_marker_per_player.at(player_id));
-
-                int section = this->get_building_section(player_id);
-                data.add_data(get_player_variable_label(
-                                  OBS_PLAYER_BUILDING_SECTION, player_id + 1),
-                              section);
-
-                data.add_data(
-                    get_player_variable_label(MAP_VERSION_ASSIGNMENT, player_id + 1),
-                    this->map_info_per_player.at(player_id));
+            for (int player_number = 0;
+                 player_number < this->player_id_to_number.size();
+                 player_number++) {
+                data.add_data(get_player_variable_label(PLAYER_TASK_LABEL,
+                                                        player_number + 1),
+                              this->task_per_player.at(player_number));
+                data.add_data(get_player_variable_label(PLAYER_ROLE_LABEL,
+                                                        player_number + 1),
+                              this->role_per_player.at(player_number));
+                data.add_data(get_player_variable_label(PLAYER_AREA_LABEL,
+                                                        player_number + 1),
+                              this->area_per_player.at(player_number));
                 data.add_data(
                     get_player_variable_label(
-                                  PLAYER_MARKER_LEGEND_VERSION, player_id + 1),
-                    this->marker_legend_per_player.at(player_id));
+                        PLAYER_MARKER_LEGEND_VERSION_LABEL, player_number + 1),
+                    this->marker_legend_per_player.at(player_number));
+                data.add_data(
+                    MARKER_LEGEND_ASSIGNMENT_LABEL,
+                    Tensor3::constant(
+                        1, 1, 1, this->marker_legend_version_assignment));
+
+                // The player detects a block if it's close enough to a block
+                // and this block is close enough to a door.
+                int nearby_marker = 0;
+                for (const auto& block : this->placed_marker_blocks) {
+                    if (are_within_marker_block_detection_radius(
+                            this->player_position[player_number],
+                            block.position) &&
+                        block.player_id != this->players[player_number].id) {
+
+                        Door door = this->get_closest_door(block.position);
+                        if (are_within_marker_block_detection_radius(
+                                block.position, door.position)) {
+                            nearby_marker = block.number;
+
+                            if (!EXISTS(
+                                    this->next_time_step,
+                                    this->nearby_markers_info[player_number])) {
+                                this->nearby_markers_info
+                                    [player_number][this->next_time_step] =
+                                    vector<MarkerBlockAndDoor>();
+                            }
+
+                            MarkerBlockAndDoor block_and_door(block, door);
+                            this
+                                ->nearby_markers_info[player_number]
+                                                     [this->next_time_step]
+                                .push_back(block_and_door);
+                        }
+                    }
+                }
+                data.add_data(
+                    get_player_variable_label(OTHER_PLAYER_NEARBY_MARKER,
+                                              player_number + 1),
+                    nearby_marker);
+
+                // Map model
+                int section = this->get_building_section(player_number);
+                data.add_data(
+                    get_player_variable_label(OBS_PLAYER_BUILDING_SECTION_LABEL,
+                                              player_number + 1),
+                    section);
+                data.add_data(get_player_variable_label(
+                                  PLAYER_MAP_VERSION_LABEL, player_number + 1),
+                              this->map_info_per_player.at(player_number));
+                data.add_data(
+                    MAP_VERSION_ASSIGNMENT_LABEL,
+                    Tensor3::constant(1, 1, 1, this->map_version_assignment));
+
+                // Observations from measures
+                if (!json_measures.empty()) {
+                    // Final score
+                    data.add_data(
+                        FINAL_SCORE_LABEL,
+                        Tensor3::constant(1, 1, 1, this->final_score));
+                }
 
                 // Carrying ans saving a victim are tasks that have
                 // an explicit end event. We don't reset the last
                 // observation for this task then. It's going to be
                 // reset when its ending is detected.
-                int last_task = this->task_per_player.at(player_id)(0, 0)(0, 0);
+                int last_task =
+                    this->task_per_player.at(player_number)(0, 0)(0, 0);
                 if (last_task == CLEARING_RUBBLE) {
-                    this->task_per_player[player_id] = Tensor3(NO_TASK);
+                    this->task_per_player[player_number] = Tensor3(NO_TASK);
                 }
             }
+
+            this->next_time_step += 1;
 
             return data;
         }
@@ -395,12 +609,16 @@ namespace tomcat {
                     this->elapsed_time += this->time_step_size;
                     if (this->elapsed_time >=
                         this->time_steps * this->time_step_size) {
+                        this->write_to_log_on_mission_finished(
+                            json_mission_log);
                         this->mission_finished = true;
                     }
                 }
             }
-            else if (json_message["header"]["message_type"] == "trial" &&
-                     json_message["msg"]["sub_type"] == "stop") {
+            else if (json_message["header"]["message_type"] == "event" &&
+                     json_message["msg"]["sub_type"] == "Event:MissionState" &&
+                     json_message["data"]["mission_state"] == "Stop") {
+                this->write_to_log_on_mission_finished(json_mission_log);
                 this->mission_finished = true;
             }
 
@@ -414,20 +632,26 @@ namespace tomcat {
         void ASISTMultiPlayerMessageConverter::fill_observation(
             const nlohmann::json& json_message) {
 
-            if (!EXISTS("playername", json_message["data"])) {
+            string player_id;
+            int player_number;
+            if (EXISTS("participant_id", json_message["data"])) {
+                player_id = json_message["data"]["participant_id"];
+                player_number =
+                    this->player_id_to_number[json_message["data"]
+                                                          ["participant_id"]];
+            }
+            else if (EXISTS("playername", json_message["data"])) {
+                player_id = json_message["data"]["playername"];
+                player_number =
+                    this->player_name_to_number[json_message["data"]
+                                                            ["playername"]];
+            }
+            else {
                 return;
             }
-
-            const string& player_name = json_message["data"]["playername"];
-
-            if (!EXISTS(player_name, this->player_name_to_id)) {
-                return;
-            }
-
-            int player_id = this->player_name_to_id.at(player_name);
 
             if (json_message["header"]["message_type"] == "event" &&
-                json_message["msg"]["sub_type"] == "event:ToolUsed") {
+                json_message["msg"]["sub_type"] == "Event:ToolUsed") {
 
                 string block_type = json_message["data"]["target_block_type"];
                 alg::to_lower(block_type);
@@ -436,7 +660,8 @@ namespace tomcat {
 
                 if (block_type.find("gravel") != string::npos &&
                     tool_type == "hammer") {
-                    this->task_per_player[player_id] = Tensor3(CLEARING_RUBBLE);
+                    this->task_per_player[player_number] =
+                        Tensor3(CLEARING_RUBBLE);
                 }
             }
             else if (json_message["header"]["message_type"] == "event" &&
@@ -447,11 +672,11 @@ namespace tomcat {
                         alg::to_lower(victim_type);
 
                         if (victim_type == "regular") {
-                            this->task_per_player[player_id] =
+                            this->task_per_player[player_number] =
                                 Tensor3(SAVING_REGULAR);
                         }
                         else if (victim_type == "critical") {
-                            this->task_per_player[player_id] =
+                            this->task_per_player[player_number] =
                                 Tensor3(SAVING_CRITICAL);
                         }
                     }
@@ -461,50 +686,48 @@ namespace tomcat {
                         alg::to_lower(victim_color);
 
                         if (victim_color == "green") {
-                            this->task_per_player[player_id] =
+                            this->task_per_player[player_number] =
                                 Tensor3(SAVING_REGULAR);
                         }
                         else if (victim_color == "yellow") {
-                            this->task_per_player[player_id] =
+                            this->task_per_player[player_number] =
                                 Tensor3(SAVING_CRITICAL);
                         }
                     }
                 }
                 else {
-                    this->task_per_player[player_id] = Tensor3(NO_TASK);
+                    this->task_per_player[player_number] = Tensor3(NO_TASK);
                 }
             }
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] ==
                          "Event:VictimPickedUp") {
-                this->task_per_player[player_id] = Tensor3(CARRYING_VICTIM);
+                this->task_per_player[player_number] = Tensor3(CARRYING_VICTIM);
             }
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] == "Event:VictimPlaced") {
-                this->task_per_player[player_id] = Tensor3(NO_TASK);
+                this->task_per_player[player_number] = Tensor3(NO_TASK);
             }
             else if (json_message["header"]["message_type"] == "event" &&
                      json_message["msg"]["sub_type"] == "Event:RoleSelected") {
                 string role = json_message["data"]["new_role"];
                 alg::to_lower(role);
 
-                if (role == "search_specialist" || role == "search") {
-                    this->role_per_player[player_id] = Tensor3(SEARCH);
+                if (role == "search_specialist" || role == "search" ||
+                    role == "none") {
+                    this->role_per_player[player_number] = Tensor3(SEARCH);
                 }
                 else if (role == "hazardous_material_specialist" ||
                          role == "hammer") {
-                    this->role_per_player[player_id] = Tensor3(HAMMER);
+                    this->role_per_player[player_number] = Tensor3(HAMMER);
                 }
                 else if (role == "medical_specialist" || role == "medical") {
-                    this->role_per_player[player_id] = Tensor3(MEDICAL);
-                }
-                else if (role == "none") {
-                    this->role_per_player[player_id] = Tensor3(NO_ROLE);
+                    this->role_per_player[player_number] = Tensor3(MEDICAL);
                 }
                 else {
                     stringstream ss;
                     ss << "Invalid role (" << role << ") chosen by player "
-                       << player_name;
+                       << player_id;
                     throw TomcatModelException(ss.str());
                 }
             }
@@ -535,20 +758,43 @@ namespace tomcat {
                         }
                     }
 
-                    this->area_per_player[player_id] = Tensor3((int)area);
+                    this->area_per_player[player_number] = Tensor3((int)area);
                 }
             }
             else if (json_message["header"]["message_type"] == "observation" &&
                      json_message["msg"]["sub_type"] == "state") {
                 int x = json_message["data"]["x"];
                 int z = json_message["data"]["z"];
-                this->player_position[player_id] = Position(x, z);
+                this->player_position[player_number] = Position(x, z);
+            }
+            else if (json_message["header"]["message_type"] == "event" &&
+                     json_message["msg"]["sub_type"] == "Event:MarkerPlaced") {
+
+                int x = json_message["data"]["marker_x"];
+                int z = json_message["data"]["marker_z"];
+                MarkerBlock marker_block({x, z});
+                marker_block.player_id = player_id;
+                const string& type = json_message["data"]["type"];
+                marker_block.number = stoi(type.substr(type.length() - 1));
+
+                // If block was placed on top of other, replace the old one
+                bool placed_on_top = false;
+                for (int i = 0; i < this->placed_marker_blocks.size(); i++) {
+                    if (marker_block.overwrites(
+                            this->placed_marker_blocks[i])) {
+                        this->placed_marker_blocks[i] = marker_block;
+                        placed_on_top = true;
+                        break;
+                    }
+                }
+                if (!placed_on_top)
+                    this->placed_marker_blocks.push_back(marker_block);
             }
         }
 
         int ASISTMultiPlayerMessageConverter::get_building_section(
-            int player_id) const {
-            const auto& position = this->player_position.at(player_id);
+            int player_number) const {
+            const auto& position = this->player_position.at(player_number);
 
             for (int section_num = 0;
                  section_num < this->building_sections.size();
@@ -563,15 +809,44 @@ namespace tomcat {
             return OUT_OF_BUILDING;
         }
 
+        ASISTMultiPlayerMessageConverter::Door
+        ASISTMultiPlayerMessageConverter::get_closest_door(
+            const Position& position) const {
+
+            double min_dist = INT_MAX;
+            Door closest_door({0, 0});
+            for (const auto& door : this->doors) {
+                double dist = door.position.get_distance(position);
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    closest_door = door;
+                }
+            }
+
+            return closest_door;
+        }
+
         void ASISTMultiPlayerMessageConverter::prepare_for_new_mission() {
-            this->player_name_to_id.clear();
+            this->player_name_to_number.clear();
+            this->player_id_to_number.clear();
+            this->players.clear();
+
             this->task_per_player.clear();
             this->role_per_player.clear();
             this->area_per_player.clear();
             this->section_per_player.clear();
             this->marker_legend_per_player.clear();
             this->map_info_per_player.clear();
-            this->seen_marker_per_player.clear();
+
+            this->final_score = NO_OBS;
+            this->map_version_assignment = NO_OBS;
+            this->marker_legend_version_assignment = NO_OBS;
+
+            this->player_position.clear();
+            this->placed_marker_blocks.clear();
+
+            nearby_markers_info.clear();
+            this->next_time_step = 0;
         }
 
         bool ASISTMultiPlayerMessageConverter::is_valid_message_file(
@@ -586,11 +861,54 @@ namespace tomcat {
         void ASISTMultiPlayerMessageConverter::
             do_offline_conversion_extra_validations() const {
             if (this->mission_started &&
-                this->player_name_to_id.size() < this->num_players) {
+                this->player_id_to_number.size() < this->num_players) {
                 stringstream ss;
-                ss << "Only " << this->player_name_to_id.size() << " out of "
+                ss << "Only " << this->player_id_to_number.size() << " out of "
                    << this->num_players << " players joined the mission.";
                 throw TomcatModelException(ss.str());
+            }
+        }
+
+        void ASISTMultiPlayerMessageConverter::parse_individual_message(
+            const nlohmann::json& json_message) {
+            if (json_message["header"]["message_type"] == "groundtruth" &&
+                json_message["msg"]["sub_type"] == "measures") {
+                this->json_measures = json_message;
+            }
+        }
+
+        void ASISTMultiPlayerMessageConverter::write_to_log_on_mission_finished(
+            nlohmann::json& json_log) const {
+            json_log["nearby_markers_per_player"] = nlohmann::json::array();
+
+            for (int player_number = 0; player_number < this->players.size();
+                 player_number++) {
+
+                nlohmann::json nearby_markers_json;
+                for (const auto& [time_step, nearby_markers] :
+                     this->nearby_markers_info[player_number]) {
+
+                    nearby_markers_json[to_string(time_step)] =
+                        nlohmann::json::array();
+
+                    for (const auto& nearby_marker : nearby_markers) {
+                        nlohmann::json nearby_marker_json;
+                        nearby_marker_json["location"]["x"] =
+                            nearby_marker.block.position.x;
+                        nearby_marker_json["location"]["z"] =
+                            nearby_marker.block.position.z;
+                        nearby_marker_json["number"] =
+                            nearby_marker.block.number;
+                        nearby_marker_json["owner_player_id"] =
+                            nearby_marker.block.player_id;
+                        nearby_marker_json["door_id"] = nearby_marker.door.id;
+
+                        nearby_markers_json[to_string(time_step)].push_back(
+                            nearby_marker_json);
+                    }
+                }
+                json_log["nearby_markers_per_player"].push_back(
+                    nearby_markers_json);
             }
         }
 

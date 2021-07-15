@@ -155,16 +155,13 @@ namespace tomcat {
              * on frequencies of values of training samples
              * @param train_dir: directory where data used for training the
              * model is. This is only required for baseline evaluation.
-             * @param only_estimates: whether performance should not be
-             * computed. Only probability estimates over time.
              */
             void evaluate_and_save(const std::string& params_dir,
                                    int num_folds,
                                    const std::string& eval_dir,
                                    const EvidenceSet& data,
                                    bool baseline,
-                                   const std::string& train_dir,
-                                   bool only_estimates);
+                                   const std::string& train_dir);
 
             /**
              * Evaluates a pre-trained model and save the evaluations to a
@@ -230,7 +227,7 @@ namespace tomcat {
                                   int num_jobs,
                                   bool baseline,
                                   bool exact_inference,
-                                  int max_time_step) const;
+                                  int max_time_step);
 
             //------------------------------------------------------------------
             // Data members
@@ -242,6 +239,8 @@ namespace tomcat {
             std::shared_ptr<DBNTrainer> trainer;
 
             std::shared_ptr<EstimationProcess> estimation;
+
+            std::shared_ptr<EvaluationAggregator> evaluation;
 
             std::string experiment_id;
         };

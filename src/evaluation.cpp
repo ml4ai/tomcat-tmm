@@ -33,7 +33,6 @@ void evaluate(const string& experiment_id,
               int num_particles,
               int num_jobs,
               bool baseline,
-              bool only_estimates,
               bool exact_inference,
               int reporter_type,
               const string& report_filename) {
@@ -73,13 +72,8 @@ void evaluate(const string& experiment_id,
 
     EvidenceSet test_data(data_dir);
     test_data.shrink_up_to(num_time_steps - 1);
-    experimentation.evaluate_and_save(params_dir,
-                                      num_folds,
-                                      eval_dir,
-                                      test_data,
-                                      baseline,
-                                      train_dir,
-                                      only_estimates);
+    experimentation.evaluate_and_save(
+        params_dir, num_folds, eval_dir, test_data, baseline, train_dir);
 }
 
 int main(int argc, char* argv[]) {
@@ -97,7 +91,6 @@ int main(int argc, char* argv[]) {
     unsigned int num_jobs;
     unsigned int reporter_type;
     bool baseline;
-    bool only_estimates;
     bool exact_inference;
 
     po::options_description desc("Allowed options");
@@ -151,10 +144,6 @@ int main(int argc, char* argv[]) {
         po::value<string>(&train_dir),
         "Directory where data used for training is. This is only required for"
         " the baseline evaluation.")(
-        "only_estimates",
-        po::bool_switch(&only_estimates)->default_value(false),
-        "If active, performance is not computed. Only the probability "
-        "estimates over time.")(
         "exact",
         po::bool_switch(&exact_inference)->default_value(false),
         "Whether to use exact or approximate inference.")(
@@ -193,7 +182,6 @@ int main(int argc, char* argv[]) {
              num_particles,
              num_jobs,
              baseline,
-             only_estimates,
              exact_inference,
              reporter_type,
              report_filename);

@@ -111,11 +111,23 @@ namespace tomcat {
             virtual void prepare_for_new_mission() = 0;
 
             //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
+            /**
+             * As messages are filtered and ordered by timestamp, this function
+             * can be implemented by any subclass to perform additional
+             * processing.
+             */
+            virtual void
+            parse_individual_message(const nlohmann::json& json_message);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
             std::map<std::string, nlohmann::json>
-            filter(const std::string& messages_filepath) const override;
+            filter(const std::string& messages_filepath) override;
 
             /**
              * Copies attributes from another converter.
@@ -150,6 +162,7 @@ namespace tomcat {
             int mission_trial_number = -1;
 
             std::string experiment_id;
+
         };
 
     } // namespace model

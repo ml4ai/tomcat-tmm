@@ -86,7 +86,7 @@ namespace tomcat {
         }
 
         void F1Score::get_info(nlohmann::json& json) const {
-            json["name"] = "f1 score";
+            json["name"] = NAME;
             json["threshold"] = this->threshold;
             this->estimator->get_info(json["estimator"]);
         }

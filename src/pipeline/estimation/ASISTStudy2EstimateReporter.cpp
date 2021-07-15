@@ -84,7 +84,7 @@ namespace tomcat {
                      estimator->get_base_estimators()) {
 
                     if (base_estimator->get_estimates().label ==
-                        FinalTeamScoreEstimator::LABEL) {
+                        FinalTeamScoreEstimator::NAME) {
                         this->add_final_team_score_prediction(
                             msg_state["predictions"],
                             agent,
@@ -103,7 +103,7 @@ namespace tomcat {
                     }
                     else if (base_estimator->get_estimates().label ==
                              ASISTMultiPlayerMessageConverter::
-                                 MAP_VERSION_ASSIGNMENT) {
+                                 MAP_VERSION_ASSIGNMENT_LABEL) {
                         this->add_map_info_prediction(msg_state["predictions"],
                                                       agent,
                                                       base_estimator,
@@ -112,7 +112,7 @@ namespace tomcat {
                     }
                     else if (base_estimator->get_estimates().label ==
                              ASISTMultiPlayerMessageConverter::
-                                 MARKER_LEGEND_ASSIGNMENT) {
+                                 MARKER_LEGEND_ASSIGNMENT_LABEL) {
                         this->add_marker_legend_prediction(
                             msg_state["predictions"],
                             agent,
@@ -200,7 +200,7 @@ namespace tomcat {
                 "Assignment of the variable {} (which determines which "
                 "player was assigned to which map) with highest inferred "
                 "probability.",
-                ASISTMultiPlayerMessageConverter::MAP_VERSION_ASSIGNMENT);
+                ASISTMultiPlayerMessageConverter::MAP_VERSION_ASSIGNMENT_LABEL);
 
             vector<string> map_assignment;
             switch (assignment) {
@@ -277,7 +277,8 @@ namespace tomcat {
                 "Assignment of the variable {} "
                 "(which determines which player was assigned to which marker "
                 "legend version) with highest inferred probability.",
-                ASISTMultiPlayerMessageConverter::MARKER_LEGEND_ASSIGNMENT);
+                ASISTMultiPlayerMessageConverter::
+                    MARKER_LEGEND_ASSIGNMENT_LABEL);
 
             int i = 0;
             for (const auto& json_player :

@@ -146,5 +146,13 @@ namespace tomcat {
             return method_name;
         }
 
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------\
+
+        bool EvaluationAggregator::has_measures() const {
+            return !this->measures.empty();
+        }
+
     } // namespace model
 } // namespace tomcat

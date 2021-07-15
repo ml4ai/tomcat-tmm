@@ -149,7 +149,8 @@ namespace tomcat {
                                       int num_jobs,
                                       bool baseline,
                                       bool exact_inference,
-                                      int max_time_step) const {
+                                      int max_time_step) {
+
             AgentPtr agent;
             fstream file;
             file.open(agent_config_filepath);
@@ -163,6 +164,10 @@ namespace tomcat {
                        << agent_config_filepath << "is empty.";
                     throw TomcatModelException(ss.str());
                 }
+
+                this->evaluation =
+                    make_shared<EvaluationAggregator>(
+                        EvaluationAggregator::METHOD::no_aggregation);
 
                 shared_ptr<ParticleFilterEstimator> approximate_estimator;
                 approximate_estimator =
@@ -183,6 +188,7 @@ namespace tomcat {
 
                 for (const auto& json_estimator : json_agent["estimators"]) {
 
+                    EstimatorPtr base_estimator;
                     if (baseline) {
                         if (json_estimator["type"] == "custom") {
                             // Not supported yet.
@@ -220,6 +226,7 @@ namespace tomcat {
                                     json_estimator["name"], this->model);
                             approximate_estimator->add_base_estimator(
                                 estimator);
+                            base_estimator = estimator;
                         }
                         else {
                             if (!this->model->has_node_with_label(
@@ -238,14 +245,14 @@ namespace tomcat {
                             }
 
                             if (exact_inference) {
-                                EstimatorPtr estimator =
+                                base_estimator =
                                     make_shared<SumProductEstimator>(
                                         this->model,
                                         json_estimator["horizon"],
                                         json_estimator["variable"],
                                         value);
 
-                                agent->add_estimator(estimator);
+                                agent->add_estimator(base_estimator);
                             }
                             else {
                                 SamplerEstimatorPtr estimator =
@@ -257,6 +264,27 @@ namespace tomcat {
 
                                 approximate_estimator->add_base_estimator(
                                     estimator);
+                                base_estimator = estimator;
+                            }
+                        }
+                    }
+
+                    // Evaluation for the estimator
+                    if (EXISTS("evaluation", json_estimator)) {
+                        for (const auto& measure_name : unordered_set<string>(
+                                 json_estimator["evaluation"]["measures"])) {
+
+                            bool eval_last_only =
+                                json_estimator["evaluation"]["frequency"] ==
+                                "final_step";
+
+                            if (measure_name == Accuracy::NAME) {
+                                this->evaluation->add_measure(make_shared<Accuracy>(
+                                    base_estimator, 0.5, eval_last_only));
+                            }
+                            else if (measure_name == F1Score::NAME) {
+                                this->evaluation->add_measure(
+                                    make_shared<F1Score>(base_estimator, 0.5));
                             }
                         }
                     }
@@ -283,8 +311,7 @@ namespace tomcat {
                                                 const string& eval_dir,
                                                 const EvidenceSet& data,
                                                 bool baseline,
-                                                const string& train_dir,
-                                                bool only_estimates) {
+                                                const string& train_dir) {
             shared_ptr<DataSplitter> data_splitter;
             string final_params_dir;
             if (num_folds > 1) {
@@ -323,30 +350,8 @@ namespace tomcat {
             pipeline.set_data_splitter(data_splitter);
             pipeline.set_model_trainer(loader);
             pipeline.set_estimation_process(this->estimation);
-            if (!only_estimates) {
-                // Evaluation metrics
-                EvaluationAggregatorPtr evaluation =
-                    make_shared<EvaluationAggregator>(
-                        EvaluationAggregator::METHOD::no_aggregation);
-                for (const auto& estimator :
-                     this->estimation->get_agent()->get_estimators()) {
-                    for (const auto& base_estimator :
-                         estimator->get_base_estimators()) {
-                        bool eval_last_only =
-                            this->model
-                                ->get_nodes_by_label(
-                                    base_estimator->get_estimates().label)
-                                .size() == 1;
-                        evaluation->add_measure(make_shared<Accuracy>(
-                            base_estimator, 0.5, eval_last_only));
-                        if (base_estimator->get_estimates().assignment.size() >
-                            0) {
-                            evaluation->add_measure(
-                                make_shared<F1Score>(base_estimator, 0.5));
-                        }
-                    }
-                }
-                pipeline.set_aggregator(evaluation);
+            if (this->evaluation->has_measures()) {
+                pipeline.set_aggregator(this->evaluation);
             }
             pipeline.execute();
             output_file.close();

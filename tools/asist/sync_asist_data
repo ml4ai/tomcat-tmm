@@ -6,7 +6,7 @@ set -euo pipefail
 # Note: gsutil does not work with Python 3.8 on macOS (as of 2020-10-01), but
 # it does work with Python 3.7.
 
-EXCLUSIONS=".*\.wav$|.*\.mkv$|.*\.flv$|.*\.sav$|.*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*.png$|.*.PNG$|.*\.csv$|.*Competency.*|.*Condition.*$|Materials/.*$|TrialMessages.*$|Analyses/.*$|.*Posttrial.*$|.*Pretrial.*$|.*EyeTracking.*$|.*Training.*$|.*PlanningASR.*$"
+EXCLUSIONS=".*\.txt$|.*\.wav$|.*\.mkv$|.*\.flv$|.*\.sav$|.*\.m4a$|.*\.mp4$|.*\.vtt$|.*\.tsv$|.*\.gstmp$|.*.png$|.*.PNG$|.*\.csv$|.*Competency.*|.*Condition.*$|Materials/.*$|TrialMessages.*$|Analyses/.*$|.*Posttrial.*$|.*Pretrial.*$|.*EyeTracking.*$|.*Training.*$|.*PlanningASR.*$|.*TrialPlanning.*$"
 
 mkdir -p $DATA_DIR
 

@@ -16,13 +16,13 @@ namespace tomcat {
 
             this->model = model;
             this->inference_horizon = -1;
-            this->estimates.label = LABEL;
+            this->estimates.label = NAME;
             this->prepare();
 
             // Determine the number of players in the model
             while (model->has_node_with_label(
                 MessageConverter::get_player_variable_label(
-                    ASISTMultiPlayerMessageConverter::PLAYER_ROLE,
+                    ASISTMultiPlayerMessageConverter::PLAYER_ROLE_LABEL,
                     this->num_players + 1))) {
                 this->num_players++;
             }
@@ -77,7 +77,7 @@ namespace tomcat {
             for (int i = 0; i < this->num_players; i++) {
                 string task_node_label =
                     MessageConverter::get_player_variable_label(
-                        ASISTMultiPlayerMessageConverter::PLAYER_TASK, i + 1);
+                        ASISTMultiPlayerMessageConverter::PLAYER_TASK_LABEL, i + 1);
 
                 Eigen::VectorXd task_samples =
                     particles[task_node_label](0, 0).col(0);
@@ -130,7 +130,7 @@ namespace tomcat {
             for (int i = 0; i < this->num_players; i++) {
                 string task_node_label =
                     MessageConverter::get_player_variable_label(
-                        ASISTMultiPlayerMessageConverter::PLAYER_TASK, i + 1);
+                        ASISTMultiPlayerMessageConverter::PLAYER_TASK_LABEL, i + 1);
 
                 Eigen::VectorXd task_samples =
                     particles[task_node_label](0, 0).col(0);
@@ -168,7 +168,7 @@ namespace tomcat {
                 for (int i = 0; i < this->num_players; i++) {
                     string task_node_label =
                         MessageConverter::get_player_variable_label(
-                            ASISTMultiPlayerMessageConverter::PLAYER_TASK,
+                            ASISTMultiPlayerMessageConverter::PLAYER_TASK_LABEL,
                             i + 1);
 
                     Eigen::MatrixXd task_samples =
@@ -235,10 +235,6 @@ namespace tomcat {
 
             return projected_score;
         }
-
-        //----------------------------------------------------------------------
-        // Getters & Setters
-        //----------------------------------------------------------------------
 
     } // namespace model
 } // namespace tomcat

@@ -16,7 +16,7 @@ if [ -f $TRIALS_FILE ]; then
   ABS_ORIGINAL_MSG_DIR="$(cd $ORIGINAL_MSG_DIR >/dev/null 2>&1 && pwd)"
 
   while IFS= read -r trial; do
-    for file in $(ls "$ABS_ORIGINAL_MSG_DIR" | egrep -i "trial-[T0]*"$trial"_Team");
+    for file in $(ls "$ABS_ORIGINAL_MSG_DIR" | egrep -i "Trial-[T0]*"$trial"_Team");
     do
       ln -s "$ABS_ORIGINAL_MSG_DIR/$file" $TARGET_MSG_DIR
     done

@@ -12,6 +12,9 @@ namespace tomcat {
          */
         class F1Score : public Measure {
           public:
+
+            inline static const std::string NAME = "f1";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------

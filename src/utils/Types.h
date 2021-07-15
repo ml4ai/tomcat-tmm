@@ -57,6 +57,7 @@ namespace tomcat {
         class EstimateReporter;
         class ASISTEstimateReporter;
         class ASISTStudy2EstimateReporter;
+        class Measure;
 
         typedef std::shared_ptr<Estimator> EstimatorPtr;
         typedef std::vector<EstimatorPtr> EstimatorPtrVec;
@@ -77,6 +78,8 @@ namespace tomcat {
             ASISTStudy2EstimateReporterPtr;
         typedef std::vector<ASISTStudy2EstimateReporterPtr>
             ASISTStudy2EstimateReporterPtrVec;
+        typedef std::shared_ptr<Measure> MeasurePtr;
+        typedef std::vector<MeasurePtr> MeasurePtrVec;
 
     } // namespace model
 } // namespace tomcat

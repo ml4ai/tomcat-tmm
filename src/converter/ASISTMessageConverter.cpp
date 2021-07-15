@@ -15,7 +15,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         ASISTMessageConverter::ASISTMessageConverter(int num_seconds,
                                                      int time_step_size)
-            : MessageConverter(num_seconds, time_step_size) {}
+            : MessageConverter(num_seconds, time_step_size) {
+        }
 
         ASISTMessageConverter::~ASISTMessageConverter() {}
 
@@ -46,8 +47,11 @@ namespace tomcat {
             return data;
         }
 
+        void ASISTMessageConverter::parse_individual_message(
+            const nlohmann::json& json_message) {}
+
         map<string, nlohmann::json>
-        ASISTMessageConverter::filter(const string& messages_filepath) const {
+        ASISTMessageConverter::filter(const string& messages_filepath) {
             map<string, nlohmann::json> messages;
 
             ifstream file_reader(messages_filepath);
@@ -82,6 +86,8 @@ namespace tomcat {
                                     json_message["msg"]["timestamp"];
                                 messages[timestamp] = json_message;
                             }
+
+                            this->parse_individual_message(json_message);
                         }
                     }
                 }
