@@ -109,7 +109,8 @@ namespace tomcat {
                     EvidenceSet projected_particles;
 
                     for (const auto& base_estimator : this->base_estimators) {
-                        base_estimator->estimate(particles,
+                        base_estimator->estimate(new_data,
+                                                 particles,
                                                  projected_particles,
                                                  marginals,
                                                  d,
@@ -128,23 +129,44 @@ namespace tomcat {
                         auto [particles, marginals] =
                             filter.generate_particles(single_time_data);
 
-                        int time_steps_ahead =
-                            this->variable_horizon
-                                ? this->variable_horizon_max_time_step -
-                                      (this->last_time_step + t + 1)
-                                : this->max_inference_horizon;
+                        int time_steps_ahead = 0;
+                        for (const auto& base_estimator :
+                             this->base_estimators) {
 
-                        EvidenceSet projected_particles =
-                            filter.forward_particles(time_steps_ahead);
+                            if (base_estimator->does_estimation_at(t)) {
+                                if (base_estimator->get_inference_horizon() <
+                                    0) {
+                                    time_steps_ahead =
+                                        this->variable_horizon_max_time_step -
+                                        (this->last_time_step + t + 1);
+                                    break;
+                                }
+                                else {
+                                    time_steps_ahead =
+                                        max(time_steps_ahead,
+                                            base_estimator
+                                                ->get_inference_horizon());
+                                }
+                            }
+                        }
+
+                        EvidenceSet projected_particles;
+                        if (time_steps_ahead > 0) {
+                            projected_particles =
+                                filter.forward_particles(time_steps_ahead);
+                        }
 
                         for (const auto& base_estimator :
                              this->base_estimators) {
-                            base_estimator->estimate(particles,
-                                                     projected_particles,
-                                                     marginals,
-                                                     d,
-                                                     this->last_time_step + 1 +
-                                                         t);
+                            if (base_estimator->does_estimation_at(t)) {
+                                base_estimator->estimate(new_data,
+                                                         particles,
+                                                         projected_particles,
+                                                         marginals,
+                                                         d,
+                                                         this->last_time_step +
+                                                             1 + t);
+                            }
                         }
                     }
                 }

@@ -35,7 +35,11 @@ namespace tomcat {
                 "ObservedPlayerRole";
             inline const static std::string PLAYER_TASK_LABEL = "PlayerTask";
             inline const static std::string PLAYER_AREA_LABEL = "PlayerArea";
-            inline const static std::string FINAL_SCORE_LABEL = "FinalScore";
+            inline const static std::string PLAYER_PLACED_MARKER_LABEL =
+                "PlayerPlacedMarker";
+            inline const static std::string FINAL_TEAM_SCORE_LABEL =
+                "FinalTeamScore";
+            inline const static std::string TEAM_SCORE_LABEL = "TeamScore";
             inline const static std::string MAP_VERSION_ASSIGNMENT_LABEL =
                 "MapVersionAssignment";
             inline const static std::string PLAYER_MAP_VERSION_LABEL =
@@ -67,9 +71,11 @@ namespace tomcat {
             const static int SECTIONS_3N4 = 1;
             const static int SECTIONS_6N4 = 2;
 
-            // Marker legend
+            // Markers
             const static int MARKER_LEGEND_A = 0;
             const static int MARKER_LEGEND_B = 1;
+
+            const static int NO_MARKER_PLACED = 0;
 
             // Bounding box of the main part of the map. Used to split the map
             // into 6 sections. Staging area is not included.
@@ -358,9 +364,11 @@ namespace tomcat {
             std::vector<Tensor3> section_per_player;
             std::vector<Tensor3> marker_legend_per_player;
             std::vector<Tensor3> map_info_per_player;
+            std::vector<Tensor3> player_placed_marker;
             int final_score;
             int map_version_assignment;
             int marker_legend_version_assignment;
+            int current_team_score;
 
             // Auxiliary variables that change over the course of the game
             std::vector<Position> player_position;

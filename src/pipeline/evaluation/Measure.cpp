@@ -15,9 +15,9 @@ namespace tomcat {
 
         Measure::Measure(const shared_ptr<Estimator>& estimator,
                          double threshold,
-                         bool use_last_estimate)
+                         FREQUENCY_TYPE frequency_type)
             : estimator(estimator), threshold(threshold),
-              use_last_estimate(use_last_estimate) {}
+              frequency_type(frequency_type) {}
 
         Measure::~Measure() {}
 
@@ -27,7 +27,6 @@ namespace tomcat {
         void Measure::copy_measure(const Measure& measure) {
             this->estimator = measure.estimator;
             this->threshold = measure.threshold;
-            this->use_last_estimate = measure.use_last_estimate;
         }
 
         ConfusionMatrix
@@ -92,6 +91,14 @@ namespace tomcat {
             }
 
             return confusion_matrix;
+        }
+
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        void Measure::set_fixed_steps(const unordered_set<int>& fixed_steps) {
+            Measure::fixed_steps = fixed_steps;
         }
 
     } // namespace model

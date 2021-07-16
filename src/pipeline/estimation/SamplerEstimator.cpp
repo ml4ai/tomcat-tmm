@@ -5,7 +5,6 @@
 
 #include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
 #include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/MarkerFalseBeliefEstimator.h"
 #include "pipeline/estimation/custom_metrics/MarkerLegendVersionAssignmentEstimator.h"
 #include "utils/EigenExtensions.h"
 
@@ -24,8 +23,10 @@ namespace tomcat {
             int inference_horizon,
             const std::string& node_label,
             const Eigen::VectorXd& low,
-            const Eigen::VectorXd& high)
-            : Estimator(model, inference_horizon, node_label, low) {
+            const Eigen::VectorXd& high,
+            FREQUENCY_TYPE frequency_type)
+            : Estimator(model, inference_horizon, node_label, low),
+              frequency_type(frequency_type) {
 
             if (low.size() == 0) {
                 int cardinality = model->get_cardinality_of(node_label);
@@ -90,22 +91,22 @@ namespace tomcat {
             return prior;
         }
 
-        SamplerEstimatorPtr
-        SamplerEstimator::create_custom_estimator(const std::string& name,
-                                                  const DBNPtr& model) {
+        SamplerEstimatorPtr SamplerEstimator::create_custom_estimator(
+            const std::string& name,
+            const DBNPtr& model,
+            FREQUENCY_TYPE frequency_type) {
             SamplerEstimatorPtr estimator;
             if (name == FinalTeamScoreEstimator::NAME) {
-                estimator = make_shared<FinalTeamScoreEstimator>(model);
-            }
-            else if (name == MarkerFalseBeliefEstimator::LABEL) {
-                estimator = make_shared<MarkerFalseBeliefEstimator>(model);
+                estimator =
+                    make_shared<FinalTeamScoreEstimator>(model, frequency_type);
             }
             else if (name == MapVersionAssignmentEstimator::NAME) {
-                estimator = make_shared<MapVersionAssignmentEstimator>(model);
+                estimator = make_shared<MapVersionAssignmentEstimator>(
+                    model, frequency_type);
             }
             else if (name == MarkerLegendVersionAssignmentEstimator::NAME) {
-                estimator =
-                    make_shared<MarkerLegendVersionAssignmentEstimator>(model);
+                estimator = make_shared<MarkerLegendVersionAssignmentEstimator>(
+                    model, frequency_type);
             }
 
             return estimator;
@@ -132,11 +133,21 @@ namespace tomcat {
 
         string SamplerEstimator::get_name() const { return "sampler"; }
 
-        void SamplerEstimator::estimate(const EvidenceSet& particles,
+        bool SamplerEstimator::does_estimation_at(int time_step) const {
+            return this->frequency_type == all ||
+                   EXISTS(time_step, this->fixed_steps);
+        }
+
+        void SamplerEstimator::estimate(const EvidenceSet& new_data,
+                                        const EvidenceSet& particles,
                                         const EvidenceSet& projected_particles,
                                         const EvidenceSet& marginals,
                                         int data_point_idx,
                                         int time_step) {
+
+            if (this->frequency_type == fixed &&
+                !EXISTS(time_step, this->fixed_steps))
+                return;
 
             if (this->inference_horizon == 0) {
                 for (int t = 0; t < particles.get_time_steps(); t++) {
@@ -289,6 +300,15 @@ namespace tomcat {
             int new_cols = max(time_step + 1, (int)estimates_matrix.cols());
             estimates_matrix.conservativeResize(new_rows, new_cols);
             estimates_matrix(data_point_idx, time_step) = probability;
+        }
+
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        void SamplerEstimator::set_fixed_steps(
+            const unordered_set<int>& fixed_steps) {
+            SamplerEstimator::fixed_steps = fixed_steps;
         }
 
     } // namespace model

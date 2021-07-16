@@ -25,10 +25,12 @@ namespace tomcat {
              * @param estimator: estimator used to compute the estimates
              * @param threshold: Probability threshold for predicting or
              * inferring the occurrence of an assignment as true
+             * @param frequency_type: frequency at which estimates must be
+             * computed
              */
             Accuracy(const std::shared_ptr<Estimator>& estimator,
                      double threshold = 0.5,
-                     bool use_last_estimate = false);
+                     FREQUENCY_TYPE frequency_type = all);
 
             ~Accuracy();
 
@@ -50,6 +52,20 @@ namespace tomcat {
             evaluate(const EvidenceSet& test_data) const override;
 
             void get_info(nlohmann::json& json) const override;
+
+          private:
+
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            /**
+             * Computes accuracy from a confusion matrix;
+             *
+             * @param confusion_matrix: confusion matrix
+             * @return
+             */
+            double get_score(const ConfusionMatrix& confusion_matrix) const;
         };
 
     } // namespace model

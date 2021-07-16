@@ -12,11 +12,13 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         MapVersionAssignmentEstimator::MapVersionAssignmentEstimator(
-            const std::shared_ptr<DynamicBayesNet>& model) {
+            const std::shared_ptr<DynamicBayesNet>& model,
+            FREQUENCY_TYPE frequency_type) {
 
             this->model = model;
             this->inference_horizon = 0;
             this->estimates.label = NAME;
+            this->frequency_type = frequency_type;
             this->prepare();
         }
 
@@ -45,18 +47,21 @@ namespace tomcat {
                 vector<Eigen::MatrixXd>(6); // Possible assignments
         }
 
-        string MapVersionAssignmentEstimator::get_name() const {
-            return NAME;
-        }
+        string MapVersionAssignmentEstimator::get_name() const { return NAME; }
 
         void MapVersionAssignmentEstimator::estimate(
+            const EvidenceSet& new_data,
             const EvidenceSet& particles,
             const EvidenceSet& projected_particles,
             const EvidenceSet& marginals,
             int data_point_idx,
             int time_step) {
 
-            for(int t = 0; t < marginals.get_time_steps(); t++) {
+            if (this->frequency_type == fixed &&
+                !EXISTS(time_step, this->fixed_steps))
+                return;
+
+            for (int t = 0; t < marginals.get_time_steps(); t++) {
                 vector<Eigen::VectorXd> map_version_samples(3);
 
                 for (int player_number = 0; player_number < 3;
@@ -67,7 +72,7 @@ namespace tomcat {
                                 PLAYER_MAP_VERSION_LABEL,
                             player_number + 1);
                     map_version_samples[player_number] =
-                        marginals[map_version_node_label](0, 0).col(time_step);
+                        marginals[map_version_node_label](0, 0).col(t);
                 }
 
                 Eigen::VectorXd valid_assignments(6);

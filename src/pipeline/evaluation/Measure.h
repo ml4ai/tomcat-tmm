@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 
 #include <nlohmann/json.hpp>
 
@@ -58,6 +59,13 @@ namespace tomcat {
         class Measure {
           public:
             //------------------------------------------------------------------
+            // Types, Enums & Constants
+            //------------------------------------------------------------------
+
+            enum FREQUENCY_TYPE { all, last, fixed };
+
+
+            //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
@@ -75,13 +83,12 @@ namespace tomcat {
              * @param estimator: estimator used to compute the estimates
              * @param threshold: Probability threshold for predicting or
              * inferring the occurrence of an assignment as true
-             * @param use_last_estimates: whether only the estimate in the last
-             * time step should be used if the inference horizon of the
-             * estimator is 0
+             * @param frequency_type: frequency at which estimates must be
+             * computed
              */
             Measure(const std::shared_ptr<Estimator>& estimator,
                     double threshold = 0.5,
-                    bool use_last_estimate = false);
+                    FREQUENCY_TYPE frequency_type = all);
 
             virtual ~Measure();
 
@@ -117,6 +124,12 @@ namespace tomcat {
              * @param json: json object
              */
             virtual void get_info(nlohmann::json& json) const = 0;
+
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
+
+            void set_fixed_steps(const std::unordered_set<int>& fixed_steps);
 
           protected:
             //------------------------------------------------------------------
@@ -168,10 +181,8 @@ namespace tomcat {
             // of an assignment as true
             double threshold = 0.5;
 
-            // Whenever the inference horizon is 0 and this variable is true,
-            // the evaluation will be performed by using the last estimated
-            // probabilities.
-            bool use_last_estimate = false;
+            FREQUENCY_TYPE frequency_type;
+            std::unordered_set<int> fixed_steps;
         };
 
     } // namespace model

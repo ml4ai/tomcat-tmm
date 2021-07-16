@@ -16,6 +16,7 @@
 #include "pipeline/estimation/TrainingFrequencyEstimator.h"
 #include "pipeline/evaluation/Accuracy.h"
 #include "pipeline/evaluation/F1Score.h"
+#include "pipeline/evaluation/RMSE.h"
 #include "pipeline/training/DBNLoader.h"
 #include "pipeline/training/DBNSamplingTrainer.h"
 #include "sampling/GibbsSampler.h"
@@ -165,9 +166,8 @@ namespace tomcat {
                     throw TomcatModelException(ss.str());
                 }
 
-                this->evaluation =
-                    make_shared<EvaluationAggregator>(
-                        EvaluationAggregator::METHOD::no_aggregation);
+                this->evaluation = make_shared<EvaluationAggregator>(
+                    EvaluationAggregator::METHOD::no_aggregation);
 
                 shared_ptr<ParticleFilterEstimator> approximate_estimator;
                 approximate_estimator =
@@ -187,6 +187,22 @@ namespace tomcat {
                 agent->set_ignored_observations(ignored_observations);
 
                 for (const auto& json_estimator : json_agent["estimators"]) {
+
+                    SamplerEstimator::FREQUENCY_TYPE estimation_frequency_type;
+                    unordered_set<int> fixed_time_steps;
+                    if (EXISTS("frequency", json_estimator)) {
+                        if (json_estimator["frequency"]["type"] == "fixed") {
+                            estimation_frequency_type = SamplerEstimator::fixed;
+                            fixed_time_steps = unordered_set<int>(
+                                json_estimator["frequency"]["time_steps"]);
+                        }
+                        else {
+                            estimation_frequency_type = SamplerEstimator::all;
+                        }
+                    }
+                    else {
+                        estimation_frequency_type = SamplerEstimator::all;
+                    }
 
                     EstimatorPtr base_estimator;
                     if (baseline) {
@@ -223,7 +239,11 @@ namespace tomcat {
                         if (json_estimator["type"] == "custom") {
                             SamplerEstimatorPtr estimator =
                                 SamplerEstimator::create_custom_estimator(
-                                    json_estimator["name"], this->model);
+                                    json_estimator["name"],
+                                    this->model,
+                                    estimation_frequency_type);
+
+                            estimator->set_fixed_steps(fixed_time_steps);
                             approximate_estimator->add_base_estimator(
                                 estimator);
                             base_estimator = estimator;
@@ -260,8 +280,11 @@ namespace tomcat {
                                         this->model,
                                         json_estimator["horizon"],
                                         json_estimator["variable"],
-                                        value);
+                                        value,
+                                        value,
+                                        estimation_frequency_type);
 
+                                estimator->set_fixed_steps(fixed_time_steps);
                                 approximate_estimator->add_base_estimator(
                                     estimator);
                                 base_estimator = estimator;
@@ -274,18 +297,39 @@ namespace tomcat {
                         for (const auto& measure_name : unordered_set<string>(
                                  json_estimator["evaluation"]["measures"])) {
 
-                            bool eval_last_only =
-                                json_estimator["evaluation"]["frequency"] ==
-                                "final_step";
+                            Measure::FREQUENCY_TYPE eval_frequency_type;
+                            unordered_set<int> fixed_time_steps;
+                            if (json_estimator["evaluation"]["frequency"]
+                                              ["type"] == "fixed") {
+                                eval_frequency_type = Measure::fixed;
+                                fixed_time_steps = unordered_set<int>(
+                                    json_estimator["evaluation"]["frequency"]
+                                                  ["time_steps"]);
+                            }
+                            else if (json_estimator["evaluation"]["frequency"]
+                                                   ["type"] == "last") {
+                                eval_frequency_type = Measure::last;
+                            }
+                            else {
+                                eval_frequency_type = Measure::all;
+                            }
 
+                            MeasurePtr measure;
                             if (measure_name == Accuracy::NAME) {
-                                this->evaluation->add_measure(make_shared<Accuracy>(
-                                    base_estimator, 0.5, eval_last_only));
+                                measure = make_shared<Accuracy>(
+                                    base_estimator, 0.5, eval_frequency_type);
                             }
                             else if (measure_name == F1Score::NAME) {
-                                this->evaluation->add_measure(
-                                    make_shared<F1Score>(base_estimator, 0.5));
+                                measure =
+                                    make_shared<F1Score>(base_estimator, 0.5);
                             }
+                            else if (measure_name == RMSE::NAME) {
+                                measure = make_shared<RMSE>(
+                                    base_estimator, eval_frequency_type);
+                            }
+
+                            measure->set_fixed_steps(fixed_time_steps);
+                            this->evaluation->add_measure(measure);
                         }
                     }
                 }

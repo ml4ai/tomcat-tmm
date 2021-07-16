@@ -12,11 +12,13 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         FinalTeamScoreEstimator::FinalTeamScoreEstimator(
-            const std::shared_ptr<DynamicBayesNet>& model) {
+            const std::shared_ptr<DynamicBayesNet>& model,
+            FREQUENCY_TYPE frequency_type) {
 
             this->model = model;
             this->inference_horizon = -1;
             this->estimates.label = NAME;
+            this->frequency_type = frequency_type;
             this->prepare();
 
             // Determine the number of players in the model
@@ -49,120 +51,84 @@ namespace tomcat {
         //----------------------------------------------------------------------
 
         void FinalTeamScoreEstimator::prepare() {
-            this->estimates.estimates =
-                vector<Eigen::MatrixXd>(2); // avg score and std
-            this->current_score = Eigen::VectorXd(0);
-
-            this->last_regular_samples =
-                vector<Eigen::VectorXi>(this->num_players);
-            this->last_critical_samples =
-                vector<Eigen::VectorXi>(this->num_players);
-            for (int i = 0; i < this->num_players; i++) {
-                this->last_regular_samples[i] = Eigen::VectorXi(0);
-                this->last_critical_samples[i] = Eigen::VectorXi(0);
-            }
+            this->estimates.estimates = vector<Eigen::MatrixXd>(
+                5); // Estimated final score and other measures
         }
 
-        string FinalTeamScoreEstimator::get_name() const {
-            return "final_team_score";
-        }
+        string FinalTeamScoreEstimator::get_name() const { return NAME; }
 
         void FinalTeamScoreEstimator::estimate(
+            const EvidenceSet& new_data,
             const EvidenceSet& particles,
             const EvidenceSet& projected_particles,
             const EvidenceSet& marginals,
             int data_point_idx,
             int time_step) {
 
-            for (int i = 0; i < this->num_players; i++) {
-                string task_node_label =
-                    MessageConverter::get_player_variable_label(
-                        ASISTMultiPlayerMessageConverter::PLAYER_TASK_LABEL, i + 1);
-
-                Eigen::VectorXd task_samples =
-                    particles[task_node_label](0, 0).col(0);
-
-                this->last_regular_samples[i] =
-                    (task_samples.array() ==
-                     ASISTMultiPlayerMessageConverter::SAVING_REGULAR)
-                        .cast<int>();
-                this->last_critical_samples[i] =
-                    (task_samples.array() ==
-                     ASISTMultiPlayerMessageConverter::SAVING_CRITICAL)
-                        .cast<int>();
-            }
-
-            Eigen::VectorXd score =
-                Eigen::VectorXd::Zero(particles.get_num_data_points());
+            if (this->frequency_type == fixed &&
+                !EXISTS(time_step, this->fixed_steps))
+                return;
 
             int avg_estimated_score = 0;
             double std_estimated_score = 0;
-            if (time_step == 0) {
-                this->current_score =
-                    Eigen::VectorXd::Zero(particles.get_num_data_points());
-            }
-            else {
-                this->current_score = this->get_current_score(particles);
-                Eigen::VectorXd projected_score =
-                    this->get_projected_score(projected_particles);
-                Eigen::VectorXd estimated_score =
-                    this->current_score.array() + projected_score.array();
+            int current_score =
+                new_data[ASISTMultiPlayerMessageConverter::TEAM_SCORE_LABEL](
+                    0, 0)(data_point_idx, time_step);
+            Eigen::MatrixXi projected_rescues =
+                this->get_projected_rescues(particles, projected_particles);
 
-                avg_estimated_score = estimated_score.mean();
-                std_estimated_score =
-                    sqrt((estimated_score.array() - avg_estimated_score)
-                             .square()
-                             .sum() /
-                         (estimated_score.size() - 1));
+            // Cap values larger than the maximum amount of victims in the game
+            int n = projected_rescues.rows();
+            for (int i = 0; i < n; i++) {
+                projected_rescues(i, 0) =
+                    min(projected_rescues(i, 0), MAX_REGULAR);
+                projected_rescues(i, 1) =
+                    min(projected_rescues(i, 1), MAX_CRITICAL);
             }
+
+            Eigen::VectorXd avg_rescues =
+                projected_rescues.cast<double>().colwise().mean();
+
+            double std_regular_rescues =
+                sqrt((projected_rescues.cast<double>().col(0).array() -
+                      avg_rescues[0])
+                         .array()
+                         .square()
+                         .sum() /
+                     (n - 1));
+
+            double std_critical_rescues =
+                sqrt((projected_rescues.cast<double>().col(1).array() -
+                      avg_rescues[1])
+                         .array()
+                         .square()
+                         .sum() /
+                     (n - 1));
+
+            int projected_regular_score = ((int)avg_rescues[0]) * REGULAR_SCORE;
+            int projected_critical_score =
+                ((int)avg_rescues[1]) * CRITICAL_SCORE;
+            int projected_score =
+                projected_regular_score + projected_critical_score;
+            int estimated_final_score = current_score + projected_score;
 
             this->update_estimates(
-                0, data_point_idx, time_step, avg_estimated_score);
+                0, data_point_idx, time_step, estimated_final_score);
             this->update_estimates(
-                1, data_point_idx, time_step, std_estimated_score);
+                1, data_point_idx, time_step, (int)avg_rescues[0]);
+            this->update_estimates(
+                2, data_point_idx, time_step, std_regular_rescues);
+            this->update_estimates(
+                3, data_point_idx, time_step, (int)avg_rescues[1]);
+            this->update_estimates(
+                4, data_point_idx, time_step, std_critical_rescues);
         }
 
-        Eigen::VectorXd FinalTeamScoreEstimator::get_current_score(
-            const EvidenceSet& particles) const {
-            Eigen::VectorXd score =
-                Eigen::VectorXd::Zero(particles.get_num_data_points());
-
-            for (int i = 0; i < this->num_players; i++) {
-                string task_node_label =
-                    MessageConverter::get_player_variable_label(
-                        ASISTMultiPlayerMessageConverter::PLAYER_TASK_LABEL, i + 1);
-
-                Eigen::VectorXd task_samples =
-                    particles[task_node_label](0, 0).col(0);
-
-                Eigen::VectorXi finished_regular_rescues =
-                    this->last_regular_samples[i].array() *
-                    (task_samples.array() !=
-                     ASISTMultiPlayerMessageConverter::SAVING_REGULAR)
-                        .cast<int>();
-
-                score = score.array() + this->current_score.array() +
-                        (REGULAR_SCORE * finished_regular_rescues.array())
-                            .cast<double>();
-
-                Eigen::VectorXi finished_critical_rescues =
-                    this->last_critical_samples[i].array() *
-                    (task_samples.array() !=
-                     ASISTMultiPlayerMessageConverter::SAVING_CRITICAL)
-                        .cast<int>();
-                score = score.array() +
-                        (CRITICAL_SCORE * finished_critical_rescues.array())
-                            .cast<double>();
-            }
-
-            return score;
-        }
-
-        Eigen::VectorXd FinalTeamScoreEstimator::get_projected_score(
+        Eigen::MatrixXi FinalTeamScoreEstimator::get_projected_rescues(
+            const EvidenceSet& particles,
             const EvidenceSet& projected_particles) const {
 
-            Eigen::VectorXd projected_score =
-                Eigen::VectorXd::Zero(this->last_regular_samples[0].size());
+            Eigen::MatrixXi rescues(particles.get_num_data_points(), 2);
 
             if (!projected_particles.empty()) {
                 for (int i = 0; i < this->num_players; i++) {
@@ -171,6 +137,20 @@ namespace tomcat {
                             ASISTMultiPlayerMessageConverter::PLAYER_TASK_LABEL,
                             i + 1);
 
+                    // Last sampled state
+                    Eigen::VectorXd last_task_samples =
+                        particles[task_node_label](0, 0).col(0);
+
+                    Eigen::VectorXi last_regular_samples =
+                        (last_task_samples.array() ==
+                         ASISTMultiPlayerMessageConverter::SAVING_REGULAR)
+                            .cast<int>();
+                    Eigen::VectorXi last_critical_samples =
+                        (last_task_samples.array() ==
+                         ASISTMultiPlayerMessageConverter::SAVING_CRITICAL)
+                            .cast<int>();
+
+                    // Projection
                     Eigen::MatrixXd task_samples =
                         projected_particles[task_node_label](0, 0);
 
@@ -185,8 +165,7 @@ namespace tomcat {
                             .cast<int>();
 
                     Eigen::MatrixXi regular_rescue_samples(rows, cols);
-                    regular_rescue_samples.col(0) =
-                        this->last_regular_samples[i];
+                    regular_rescue_samples.col(0) = last_regular_samples;
                     regular_rescue_samples.block(0, 1, rows, cols - 1) = tmp;
 
                     Eigen::MatrixXi not_regular_rescue_next_samples =
@@ -198,12 +177,6 @@ namespace tomcat {
                         (regular_rescue_samples.array() *
                          not_regular_rescue_next_samples.array());
 
-                    projected_score.array() +=
-                        (REGULAR_SCORE * finished_regular_rescues.array())
-                            .rowwise()
-                            .sum()
-                            .cast<double>();
-
                     // Critical
                     tmp = (task_samples.array() ==
                            ASISTMultiPlayerMessageConverter::SAVING_CRITICAL)
@@ -212,8 +185,7 @@ namespace tomcat {
                               .cast<int>();
 
                     Eigen::MatrixXi critical_rescue_samples(rows, cols);
-                    critical_rescue_samples.col(0) =
-                        this->last_critical_samples[i];
+                    critical_rescue_samples.col(0) = last_critical_samples;
                     critical_rescue_samples.block(0, 1, rows, cols - 1) = tmp;
 
                     Eigen::MatrixXi not_critical_rescue_next_samples =
@@ -225,15 +197,12 @@ namespace tomcat {
                         (critical_rescue_samples.array() *
                          not_critical_rescue_next_samples.array());
 
-                    projected_score.array() +=
-                        (CRITICAL_SCORE * finished_critical_rescues.array())
-                            .rowwise()
-                            .sum()
-                            .cast<double>();
+                    rescues.col(0) = finished_regular_rescues.rowwise().sum();
+                    rescues.col(1) = finished_critical_rescues.rowwise().sum();
                 }
             }
 
-            return projected_score;
+            return rescues;
         }
 
     } // namespace model

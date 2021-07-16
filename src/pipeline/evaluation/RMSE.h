@@ -7,42 +7,41 @@ namespace tomcat {
     namespace model {
 
         /**
-         * Class responsible for computing the F1 Score of the estimates
+         * Class responsible for computing the RMSE of the estimates
          * calculated for a given model by some estimator.
          */
-        class F1Score : public Measure {
+        class RMSE : public Measure {
           public:
-
-            inline static const std::string NAME = "f1";
+            inline static const std::string NAME = "RMSE";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Creates an F1 Score measure.
+             * Creates a RMSE measure.
              *
              * @param estimator: estimator used to compute the estimates
-             * @param threshold: Probability threshold for predicting or
-             * inferring the occurrence of an assignment as true
+             * @param use_last_estimate: whether only the estimates in the last
+             * time step must be taken into consideration
              * @param frequency_type: frequency at which estimates must be
              * computed
              */
-            F1Score(const std::shared_ptr<Estimator>& estimator,
-                    double threshold = 0.5);
+            RMSE(const std::shared_ptr<Estimator>& estimator,
+                 FREQUENCY_TYPE frequency_type = all);
 
-            ~F1Score();
+            ~RMSE();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            F1Score(const F1Score& f1_score);
+            RMSE(const RMSE& rmse);
 
-            F1Score& operator=(const F1Score& f1_score);
+            RMSE& operator=(const RMSE& rmse);
 
-            F1Score(F1Score&&) = default;
+            RMSE(RMSE&&) = default;
 
-            F1Score& operator=(F1Score&&) = default;
+            RMSE& operator=(RMSE&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -53,18 +52,19 @@ namespace tomcat {
             void get_info(nlohmann::json& json) const override;
 
           private:
-
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
             /**
-             * Computes F1 score from a confusion matrix;
+             * Computes RMSE score
              *
-             * @param confusion_matrix: confusion matrix
+             * @param true_values: ground truth
+             * @param true_values: estimates
              * @return
              */
-            double get_score(const ConfusionMatrix& confusion_matrix) const;
+            double get_score(const Eigen::MatrixXd& true_values,
+                             const Eigen::MatrixXd& estimated_values) const;
         };
 
     } // namespace model

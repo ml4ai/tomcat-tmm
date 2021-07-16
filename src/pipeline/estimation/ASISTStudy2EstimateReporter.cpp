@@ -4,7 +4,6 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <fmt/format.h>
-#include <pipeline/estimation/custom_metrics/MarkerFalseBeliefEstimator.h>
 
 #include "converter/ASISTMultiPlayerMessageConverter.h"
 #include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
@@ -92,8 +91,7 @@ namespace tomcat {
                             time_step,
                             data_point);
                     }
-                    else if (base_estimator->get_estimates().label ==
-                             MarkerFalseBeliefEstimator::LABEL) {
+                    else if (base_estimator->get_estimates().label == "PlayerIntent") {
                         this->add_marker_false_belief_prediction(
                             msg_prediction["predictions"],
                             agent,

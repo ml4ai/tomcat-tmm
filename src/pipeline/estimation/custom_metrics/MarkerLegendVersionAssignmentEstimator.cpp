@@ -13,11 +13,12 @@ namespace tomcat {
         //----------------------------------------------------------------------
         MarkerLegendVersionAssignmentEstimator::
             MarkerLegendVersionAssignmentEstimator(
-                const std::shared_ptr<DynamicBayesNet>& model) {
-
+                const std::shared_ptr<DynamicBayesNet>& model,
+                FREQUENCY_TYPE frequency_type) {
             this->model = model;
             this->inference_horizon = 0;
             this->estimates.label = NAME;
+            this->frequency_type = frequency_type;
             this->prepare();
         }
 
@@ -54,11 +55,16 @@ namespace tomcat {
         }
 
         void MarkerLegendVersionAssignmentEstimator::estimate(
+            const EvidenceSet& new_data,
             const EvidenceSet& particles,
             const EvidenceSet& projected_particles,
             const EvidenceSet& marginals,
             int data_point_idx,
             int time_step) {
+
+            if (this->frequency_type == fixed &&
+                !EXISTS(time_step, this->fixed_steps))
+                return;
 
             for (int t = 0; t < marginals.get_time_steps(); t++) {
                 vector<Eigen::VectorXd> marker_version_samples(3);
@@ -71,8 +77,7 @@ namespace tomcat {
                                 PLAYER_MARKER_LEGEND_VERSION_LABEL,
                             player_number + 1);
                     marker_version_samples[player_number] =
-                        marginals[marker_version_node_label](0, 0).col(
-                            time_step);
+                        marginals[marker_version_node_label](0, 0).col(t);
                 }
 
                 Eigen::VectorXd valid_assignments(3);

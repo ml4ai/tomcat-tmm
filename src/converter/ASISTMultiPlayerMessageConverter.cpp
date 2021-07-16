@@ -97,6 +97,7 @@ namespace tomcat {
             this->player_position = converter.player_position;
             this->placed_marker_blocks = converter.placed_marker_blocks;
             this->nearby_markers_info = converter.nearby_markers_info;
+            this->player_placed_marker = converter.player_placed_marker;
         }
 
         void ASISTMultiPlayerMessageConverter::load_map_area_configuration(
@@ -310,6 +311,7 @@ namespace tomcat {
             this->player_position.push_back({0, 0});
             this->nearby_markers_info.resize(this->nearby_markers_info.size() +
                                              1);
+            this->player_placed_marker.push_back(Tensor3(NO_MARKER_PLACED));
         }
 
         int ASISTMultiPlayerMessageConverter::get_numeric_trial_number(
@@ -517,6 +519,13 @@ namespace tomcat {
                     MARKER_LEGEND_ASSIGNMENT_LABEL,
                     Tensor3::constant(
                         1, 1, 1, this->marker_legend_version_assignment));
+                data.add_data(
+                    TEAM_SCORE_LABEL,
+                    Tensor3::constant(1, 1, 1, this->current_team_score));
+                data.add_data(
+                    get_player_variable_label(PLAYER_PLACED_MARKER_LABEL,
+                                              player_number + 1),
+                    this->player_placed_marker.at(player_number));
 
                 // The player detects a block if it's close enough to a block
                 // and this block is close enough to a door.
@@ -570,7 +579,7 @@ namespace tomcat {
                 if (!json_measures.empty()) {
                     // Final score
                     data.add_data(
-                        FINAL_SCORE_LABEL,
+                        FINAL_TEAM_SCORE_LABEL,
                         Tensor3::constant(1, 1, 1, this->final_score));
                 }
 
@@ -583,6 +592,9 @@ namespace tomcat {
                 if (last_task == CLEARING_RUBBLE) {
                     this->task_per_player[player_number] = Tensor3(NO_TASK);
                 }
+
+                this->player_placed_marker[player_number] =
+                    Tensor3(NO_MARKER_PLACED);
             }
 
             this->next_time_step += 1;
@@ -646,149 +658,169 @@ namespace tomcat {
                     this->player_name_to_number[json_message["data"]
                                                             ["playername"]];
             }
-            else {
-                return;
-            }
 
-            if (json_message["header"]["message_type"] == "event" &&
-                json_message["msg"]["sub_type"] == "Event:ToolUsed") {
+            if (player_id == "") {
+                if (json_message["header"]["message_type"] == "observation" &&
+                    json_message["msg"]["sub_type"] == "Event:Scoreboard") {
 
-                string block_type = json_message["data"]["target_block_type"];
-                alg::to_lower(block_type);
-                string tool_type = json_message["data"]["tool_type"];
-                alg::to_lower(tool_type);
-
-                if (block_type.find("gravel") != string::npos &&
-                    tool_type == "hammer") {
-                    this->task_per_player[player_number] =
-                        Tensor3(CLEARING_RUBBLE);
+                    this->current_team_score =
+                        json_message["data"]["scoreboard"]["TeamScore"];
                 }
             }
-            else if (json_message["header"]["message_type"] == "event" &&
-                     json_message["msg"]["sub_type"] == "Event:Triage") {
-                if (json_message["data"]["triage_state"] == "IN_PROGRESS") {
-                    if (EXISTS("type", json_message["data"])) {
-                        string victim_type = json_message["data"]["type"];
-                        alg::to_lower(victim_type);
+            else {
+                // Observations that are individual for each player
+                if (json_message["header"]["message_type"] == "event" &&
+                    json_message["msg"]["sub_type"] == "Event:ToolUsed") {
 
-                        if (victim_type == "regular") {
-                            this->task_per_player[player_number] =
-                                Tensor3(SAVING_REGULAR);
+                    string block_type =
+                        json_message["data"]["target_block_type"];
+                    alg::to_lower(block_type);
+                    string tool_type = json_message["data"]["tool_type"];
+                    alg::to_lower(tool_type);
+
+                    if (block_type.find("gravel") != string::npos &&
+                        tool_type == "hammer") {
+                        this->task_per_player[player_number] =
+                            Tensor3(CLEARING_RUBBLE);
+                    }
+                }
+                else if (json_message["header"]["message_type"] == "event" &&
+                         json_message["msg"]["sub_type"] == "Event:Triage") {
+                    if (json_message["data"]["triage_state"] == "IN_PROGRESS") {
+                        if (EXISTS("type", json_message["data"])) {
+                            string victim_type = json_message["data"]["type"];
+                            alg::to_lower(victim_type);
+
+                            if (victim_type == "regular") {
+                                this->task_per_player[player_number] =
+                                    Tensor3(SAVING_REGULAR);
+                            }
+                            else if (victim_type == "critical") {
+                                this->task_per_player[player_number] =
+                                    Tensor3(SAVING_CRITICAL);
+                            }
                         }
-                        else if (victim_type == "critical") {
-                            this->task_per_player[player_number] =
-                                Tensor3(SAVING_CRITICAL);
+                        else {
+                            // Old format
+                            string victim_color = json_message["data"]["color"];
+                            alg::to_lower(victim_color);
+
+                            if (victim_color == "green") {
+                                this->task_per_player[player_number] =
+                                    Tensor3(SAVING_REGULAR);
+                            }
+                            else if (victim_color == "yellow") {
+                                this->task_per_player[player_number] =
+                                    Tensor3(SAVING_CRITICAL);
+                            }
                         }
                     }
                     else {
-                        // Old format
-                        string victim_color = json_message["data"]["color"];
-                        alg::to_lower(victim_color);
-
-                        if (victim_color == "green") {
-                            this->task_per_player[player_number] =
-                                Tensor3(SAVING_REGULAR);
-                        }
-                        else if (victim_color == "yellow") {
-                            this->task_per_player[player_number] =
-                                Tensor3(SAVING_CRITICAL);
-                        }
+                        this->task_per_player[player_number] = Tensor3(NO_TASK);
                     }
                 }
-                else {
+                else if (json_message["header"]["message_type"] == "event" &&
+                         json_message["msg"]["sub_type"] ==
+                             "Event:VictimPickedUp") {
+                    this->task_per_player[player_number] =
+                        Tensor3(CARRYING_VICTIM);
+                }
+                else if (json_message["header"]["message_type"] == "event" &&
+                         json_message["msg"]["sub_type"] ==
+                             "Event:VictimPlaced") {
                     this->task_per_player[player_number] = Tensor3(NO_TASK);
                 }
-            }
-            else if (json_message["header"]["message_type"] == "event" &&
-                     json_message["msg"]["sub_type"] ==
-                         "Event:VictimPickedUp") {
-                this->task_per_player[player_number] = Tensor3(CARRYING_VICTIM);
-            }
-            else if (json_message["header"]["message_type"] == "event" &&
-                     json_message["msg"]["sub_type"] == "Event:VictimPlaced") {
-                this->task_per_player[player_number] = Tensor3(NO_TASK);
-            }
-            else if (json_message["header"]["message_type"] == "event" &&
-                     json_message["msg"]["sub_type"] == "Event:RoleSelected") {
-                string role = json_message["data"]["new_role"];
-                alg::to_lower(role);
+                else if (json_message["header"]["message_type"] == "event" &&
+                         json_message["msg"]["sub_type"] ==
+                             "Event:RoleSelected") {
+                    string role = json_message["data"]["new_role"];
+                    alg::to_lower(role);
 
-                if (role == "search_specialist" || role == "search" ||
-                    role == "none") {
-                    this->role_per_player[player_number] = Tensor3(SEARCH);
+                    if (role == "search_specialist" || role == "search" ||
+                        role == "none") {
+                        this->role_per_player[player_number] = Tensor3(SEARCH);
+                    }
+                    else if (role == "hazardous_material_specialist" ||
+                             role == "hammer") {
+                        this->role_per_player[player_number] = Tensor3(HAMMER);
+                    }
+                    else if (role == "medical_specialist" ||
+                             role == "medical") {
+                        this->role_per_player[player_number] = Tensor3(MEDICAL);
+                    }
+                    else {
+                        stringstream ss;
+                        ss << "Invalid role (" << role << ") chosen by player "
+                           << player_id;
+                        throw TomcatModelException(ss.str());
+                    }
                 }
-                else if (role == "hazardous_material_specialist" ||
-                         role == "hammer") {
-                    this->role_per_player[player_number] = Tensor3(HAMMER);
-                }
-                else if (role == "medical_specialist" || role == "medical") {
-                    this->role_per_player[player_number] = Tensor3(MEDICAL);
-                }
-                else {
-                    stringstream ss;
-                    ss << "Invalid role (" << role << ") chosen by player "
-                       << player_id;
-                    throw TomcatModelException(ss.str());
-                }
-            }
-            else if (json_message["header"]["message_type"] == "event" &&
-                     json_message["msg"]["sub_type"] == "Event:location") {
+                else if (json_message["header"]["message_type"] == "event" &&
+                         json_message["msg"]["sub_type"] == "Event:location") {
 
-                if (EXISTS("locations", json_message["data"])) {
-                    bool area = false;
-                    for (const auto& location :
-                         json_message["data"]["locations"]) {
+                    if (EXISTS("locations", json_message["data"])) {
+                        bool area = false;
+                        for (const auto& location :
+                             json_message["data"]["locations"]) {
 
-                        const string& location_id = location["id"];
-                        if (location_id == "UNKNOWN") {
-                            continue;
+                            const string& location_id = location["id"];
+                            if (location_id == "UNKNOWN") {
+                                continue;
+                            }
+
+                            if (!EXISTS(location_id,
+                                        this->map_area_configuration)) {
+                                stringstream ss;
+                                ss << "Location id " << location_id
+                                   << " does not exist in the map.";
+                                throw TomcatModelException(ss.str());
+                            }
+
+                            area = this->map_area_configuration.at(location_id);
+                            if (area) {
+                                break;
+                            }
                         }
 
-                        if (!EXISTS(location_id,
-                                    this->map_area_configuration)) {
-                            stringstream ss;
-                            ss << "Location id " << location_id
-                               << " does not exist in the map.";
-                            throw TomcatModelException(ss.str());
-                        }
+                        this->area_per_player[player_number] =
+                            Tensor3((int)area);
+                    }
+                }
+                else if (json_message["header"]["message_type"] ==
+                             "observation" &&
+                         json_message["msg"]["sub_type"] == "state") {
+                    int x = json_message["data"]["x"];
+                    int z = json_message["data"]["z"];
+                    this->player_position[player_number] = Position(x, z);
+                }
+                else if (json_message["header"]["message_type"] == "event" &&
+                         json_message["msg"]["sub_type"] ==
+                             "Event:MarkerPlaced") {
 
-                        area = this->map_area_configuration.at(location_id);
-                        if (area) {
+                    int x = json_message["data"]["marker_x"];
+                    int z = json_message["data"]["marker_z"];
+                    MarkerBlock marker_block({x, z});
+                    marker_block.player_id = player_id;
+                    const string& type = json_message["data"]["type"];
+                    marker_block.number = stoi(type.substr(type.length() - 1));
+
+                    // If block was placed on top of other, replace the old one
+                    bool placed_on_top = false;
+                    for (int i = 0; i < this->placed_marker_blocks.size();
+                         i++) {
+                        if (marker_block.overwrites(
+                                this->placed_marker_blocks[i])) {
+                            this->placed_marker_blocks[i] = marker_block;
+                            placed_on_top = true;
                             break;
                         }
                     }
+                    if (!placed_on_top)
+                        this->placed_marker_blocks.push_back(marker_block);
 
-                    this->area_per_player[player_number] = Tensor3((int)area);
+                    this->player_placed_marker[player_number] =
+                        Tensor3(marker_block.number);
                 }
-            }
-            else if (json_message["header"]["message_type"] == "observation" &&
-                     json_message["msg"]["sub_type"] == "state") {
-                int x = json_message["data"]["x"];
-                int z = json_message["data"]["z"];
-                this->player_position[player_number] = Position(x, z);
-            }
-            else if (json_message["header"]["message_type"] == "event" &&
-                     json_message["msg"]["sub_type"] == "Event:MarkerPlaced") {
-
-                int x = json_message["data"]["marker_x"];
-                int z = json_message["data"]["marker_z"];
-                MarkerBlock marker_block({x, z});
-                marker_block.player_id = player_id;
-                const string& type = json_message["data"]["type"];
-                marker_block.number = stoi(type.substr(type.length() - 1));
-
-                // If block was placed on top of other, replace the old one
-                bool placed_on_top = false;
-                for (int i = 0; i < this->placed_marker_blocks.size(); i++) {
-                    if (marker_block.overwrites(
-                            this->placed_marker_blocks[i])) {
-                        this->placed_marker_blocks[i] = marker_block;
-                        placed_on_top = true;
-                        break;
-                    }
-                }
-                if (!placed_on_top)
-                    this->placed_marker_blocks.push_back(marker_block);
             }
         }
 
@@ -837,10 +869,12 @@ namespace tomcat {
             this->section_per_player.clear();
             this->marker_legend_per_player.clear();
             this->map_info_per_player.clear();
+            this->player_placed_marker.clear();
 
             this->final_score = NO_OBS;
             this->map_version_assignment = NO_OBS;
             this->marker_legend_version_assignment = NO_OBS;
+            this->current_team_score = 0;
 
             this->player_position.clear();
             this->placed_marker_blocks.clear();
