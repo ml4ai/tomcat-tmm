@@ -53,9 +53,9 @@ namespace tomcat {
                 int cols = estimates.estimates[0].cols();
                 int first_valid_time_step =
                     EvidenceSet::get_first_time_with_observation(real_data_3d);
-                unordered_set<int> time_steps;
+                vector<int> time_steps;
                 if (this->frequency_type == last) {
-                    time_steps.insert(cols - 1);
+                    time_steps.push_back(cols - 1);
                 }
                 else {
                     time_steps = this->fixed_steps;

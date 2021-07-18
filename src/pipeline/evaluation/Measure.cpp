@@ -97,7 +97,7 @@ namespace tomcat {
         // Getters & Setters
         //----------------------------------------------------------------------
 
-        void Measure::set_fixed_steps(const unordered_set<int>& fixed_steps) {
+        void Measure::set_fixed_steps(const vector<int>& fixed_steps) {
             Measure::fixed_steps = fixed_steps;
         }
 

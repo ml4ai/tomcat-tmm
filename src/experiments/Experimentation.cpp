@@ -298,11 +298,11 @@ namespace tomcat {
                                  json_estimator["evaluation"]["measures"])) {
 
                             Measure::FREQUENCY_TYPE eval_frequency_type;
-                            unordered_set<int> fixed_time_steps;
+                            vector<int> fixed_time_steps;
                             if (json_estimator["evaluation"]["frequency"]
                                               ["type"] == "fixed") {
                                 eval_frequency_type = Measure::fixed;
-                                fixed_time_steps = unordered_set<int>(
+                                fixed_time_steps = vector<int>(
                                     json_estimator["evaluation"]["frequency"]
                                                   ["time_steps"]);
                             }

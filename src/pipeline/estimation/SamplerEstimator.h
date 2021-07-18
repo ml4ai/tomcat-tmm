@@ -161,13 +161,6 @@ namespace tomcat {
                                   int data_point_idx,
                                   int time_step);
 
-            //------------------------------------------------------------------
-            // Data members
-            //------------------------------------------------------------------
-
-            FREQUENCY_TYPE frequency_type;
-            std::unordered_set<int> fixed_steps;
-
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -192,6 +185,13 @@ namespace tomcat {
                                   int data_point_idx,
                                   int time_step,
                                   double probability);
+
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+
+            FREQUENCY_TYPE frequency_type;
+            std::unordered_set<int> fixed_steps;
 
           private:
             //------------------------------------------------------------------

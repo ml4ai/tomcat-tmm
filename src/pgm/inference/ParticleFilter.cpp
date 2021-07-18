@@ -100,8 +100,10 @@ namespace tomcat {
                 this->last_time_step + new_data.get_time_steps();
             for (int t = initial_time_step; t <= final_time_step; t++) {
                 this->elapse(new_data, t);
-                particles.hstack(this->resample(new_data, t));
-                marginals.hstack(this->apply_rao_blackwellization(t));
+                EvidenceSet resampled_particles = this->resample(new_data, t);
+                marginals.hstack(
+                    this->apply_rao_blackwellization(t, resampled_particles));
+                particles.hstack(resampled_particles);
                 this->update_left_segment_distribution_indices(t);
                 this->move_particles_back_in_time(t);
 
@@ -398,7 +400,9 @@ namespace tomcat {
             }
         }
 
-        EvidenceSet ParticleFilter::apply_rao_blackwellization(int time_step) {
+        EvidenceSet
+        ParticleFilter::apply_rao_blackwellization(int time_step,
+                                                   EvidenceSet& particles) {
             EvidenceSet marginals;
             for (const auto& node : this->marginal_nodes) {
 
@@ -419,6 +423,13 @@ namespace tomcat {
                 if (time_step < metadata->get_initial_time_step()) {
                     Tensor3 prior(SamplerEstimator::get_prior(node));
                     marginals.add_data(metadata->get_label(), prior, false);
+
+                    Tensor3 no_obs =
+                        Tensor3::constant(this->num_particles,
+                                          metadata->get_sample_size(),
+                                          1,
+                                          NO_OBS);
+                    particles.add_data(node_label, no_obs);
                 }
                 else {
                     int children_template_time_step =
@@ -603,6 +614,21 @@ namespace tomcat {
                     probabilities.array() /= probabilities.sum();
                     marginals.add_data(
                         node_label, Tensor3(probabilities), false);
+
+                    // We also include the particles in case it's necessary
+                    // Save particles
+                    Tensor3 filtered_samples_tensor(node->get_assignment());
+                    if (node->get_assignment().cols() > 1) {
+                        // If the sample has more than one dimension, we
+                        // move the dimension to the depth axis of the
+                        // tensor because the column is reserved for the
+                        // time dimension.
+                        filtered_samples_tensor.reshape(
+                            node->get_assignment().cols(),
+                            this->num_particles,
+                            1);
+                    }
+                    particles.add_data(node_label, filtered_samples_tensor);
                 }
             }
 
@@ -788,7 +814,7 @@ namespace tomcat {
                 for (int t = initial_time_step; t <= final_time_step; t++) {
                     this->elapse(empty_set, t);
                     particles.hstack(this->resample(empty_set, t));
-                    this->apply_rao_blackwellization(t);
+                    this->apply_rao_blackwellization(t, particles);
                     this->update_left_segment_distribution_indices(t);
                     this->move_particles_back_in_time(t);
                 }

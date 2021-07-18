@@ -45,9 +45,9 @@ namespace tomcat {
                 int first_valid_time_step =
                     EvidenceSet::get_first_time_with_observation(
                         test_data[evaluation.label]);
-                unordered_set<int> time_steps;
+                vector<int> time_steps;
                 if (this->frequency_type == last) {
-                    time_steps.insert(cols - 1);
+                    time_steps.push_back(cols - 1);
                 }
                 else if (this->frequency_type == fixed) {
                     time_steps = this->fixed_steps;

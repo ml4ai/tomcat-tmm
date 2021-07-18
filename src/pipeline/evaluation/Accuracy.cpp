@@ -48,14 +48,14 @@ namespace tomcat {
                 int cols = estimates.estimates[0].cols();
                 int first_valid_time_step =
                     EvidenceSet::get_first_time_with_observation(real_data_3d);
-                unordered_set<int> time_steps;
+                vector<int> time_steps;
                 if (this->frequency_type == all) {
                     for (int t = first_valid_time_step; t < cols; t++) {
-                        time_steps.insert(t);
+                        time_steps.push_back(t);
                     }
                 }
                 else if (this->frequency_type == last) {
-                    time_steps.insert(cols - 1);
+                    time_steps.push_back(cols - 1);
                 }
                 else {
                     time_steps = this->fixed_steps;
@@ -70,7 +70,7 @@ namespace tomcat {
                 int num_accuracies =
                     this->frequency_type == fixed && time_steps.size() > 1
                         ? time_steps.size() + 1
-                        : 1;
+                        : time_steps.size();
                 if (estimates.assignment.size() == 0) {
                     Eigen::MatrixXd accuracies =
                         Eigen::MatrixXd::Zero(1, num_accuracies);
@@ -80,8 +80,6 @@ namespace tomcat {
                     // So we need to get the highest probability to decide
                     // the estimated assignment and then compare it against
                     // the true assignment.
-                    int num_right_inferences = 0;
-                    int total_inferences = 0;
                     int acc = 0;
                     for (int t : time_steps) {
                         for (int d = 0; d < test_data.get_num_data_points();
@@ -110,20 +108,26 @@ namespace tomcat {
 
                             int true_assignment = true_values(d, t);
                             if (inferred_assignment == true_assignment) {
-                                num_right_inferences++;
                                 accuracies(0, acc) = accuracies(0, acc) + 1;
                             }
                         }
                         accuracies(0, acc) = accuracies(0, acc) /
                                              test_data.get_num_data_points();
+
                         acc++;
                     }
 
-                    if (num_accuracies > 1) {
-                        accuracies(0, num_accuracies - 1) =
-                            accuracies.sum() / (num_accuracies - 1);
+                    if (this->frequency_type == all) {
+                        double accuracy = accuracies.sum() / num_accuracies;
+                        evaluation.evaluation = Eigen::MatrixXd::Constant(1, 1, accuracy);
+                    } else {
+                        if (num_accuracies > 1) {
+                            // Add the aggregated accuracy in the last position
+                            accuracies(0, num_accuracies - 1) =
+                                accuracies.sum() / (num_accuracies - 1);
+                        }
+                        evaluation.evaluation = accuracies;
                     }
-                    evaluation.evaluation = accuracies;
                 }
                 else {
                     if (frequency_type == all) {

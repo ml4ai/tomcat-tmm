@@ -262,6 +262,9 @@ namespace tomcat {
                         team_n_trial.substr(0, team_n_trial.find("_"));
                     string trial_id =
                         team_n_trial.substr(team_n_trial.find("_") + 1);
+                    // Team planning or no planning
+                    this->planning_condition =
+                        stoi((string)json_message["data"]["condition"]) - 1;
 
                     json_mission_log["trial_id"] = trial_id;
                     json_mission_log["team_id"] = team_id;
@@ -499,6 +502,12 @@ namespace tomcat {
             build_evidence_set_from_observations() {
 
             EvidenceSet data;
+
+            // Per team
+            data.add_data(PLANNING_CONDITION_LABEL,
+                          Tensor3(this->planning_condition));
+
+            // Per player
             for (int player_number = 0;
                  player_number < this->player_id_to_number.size();
                  player_number++) {

@@ -129,7 +129,7 @@ namespace tomcat {
             // Getters & Setters
             //------------------------------------------------------------------
 
-            void set_fixed_steps(const std::unordered_set<int>& fixed_steps);
+            void set_fixed_steps(const std::vector<int>& fixed_steps);
 
           protected:
             //------------------------------------------------------------------
@@ -182,7 +182,7 @@ namespace tomcat {
             double threshold = 0.5;
 
             FREQUENCY_TYPE frequency_type;
-            std::unordered_set<int> fixed_steps;
+            std::vector<int> fixed_steps;
         };
 
     } // namespace model

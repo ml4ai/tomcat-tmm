@@ -72,57 +72,60 @@ namespace tomcat {
                                 PLAYER_MAP_VERSION_LABEL,
                             player_number + 1);
                     map_version_samples[player_number] =
-                        marginals[map_version_node_label](0, 0).col(t);
+                        particles[map_version_node_label](0, 0).col(t);
                 }
 
-                Eigen::VectorXd valid_assignments(6);
-                valid_assignments[0] =
-                    map_version_samples
-                        [0][ASISTMultiPlayerMessageConverter::SECTIONS_2N4] *
-                    map_version_samples
-                        [1][ASISTMultiPlayerMessageConverter::SECTIONS_3N4] *
-                    map_version_samples
-                        [2][ASISTMultiPlayerMessageConverter::SECTIONS_6N4];
+                Eigen::VectorXd valid_assignments = Eigen::VectorXd::Zero(6);
+                for (int i = 0; i < map_version_samples[0].rows(); i++) {
+                    if (map_version_samples[0][i] ==
+                        ASISTMultiPlayerMessageConverter::SECTIONS_2N4) {
+                        if (map_version_samples[1][i] ==
+                            ASISTMultiPlayerMessageConverter::SECTIONS_3N4) {
+                            if (map_version_samples[2][i] ==
+                                ASISTMultiPlayerMessageConverter::SECTIONS_6N4) {
+                                valid_assignments[0] += 1;
+                            }
+                        } else if (map_version_samples[1][i] ==
+                                   ASISTMultiPlayerMessageConverter::SECTIONS_6N4) {
+                            if (map_version_samples[2][i] ==
+                                ASISTMultiPlayerMessageConverter::SECTIONS_3N4) {
+                                valid_assignments[1] += 1;
+                            }
+                        }
+                    }
+                    else if (map_version_samples[0][i] ==
+                             ASISTMultiPlayerMessageConverter::SECTIONS_3N4) {
+                        if (map_version_samples[1][i] ==
+                            ASISTMultiPlayerMessageConverter::SECTIONS_2N4) {
+                            if (map_version_samples[2][i] ==
+                                ASISTMultiPlayerMessageConverter::SECTIONS_6N4) {
+                                valid_assignments[2] += 1;
+                            }
 
-                valid_assignments[1] =
-                    map_version_samples
-                        [0][ASISTMultiPlayerMessageConverter::SECTIONS_2N4] *
-                    map_version_samples
-                        [1][ASISTMultiPlayerMessageConverter::SECTIONS_6N4] *
-                    map_version_samples
-                        [2][ASISTMultiPlayerMessageConverter::SECTIONS_3N4];
+                        } else if (map_version_samples[1][i] ==
+                                   ASISTMultiPlayerMessageConverter::SECTIONS_6N4) {
+                            if (map_version_samples[2][i] ==
+                                ASISTMultiPlayerMessageConverter::SECTIONS_2N4) {
+                                valid_assignments[3] += 1;
+                            }
+                        }
+                    } else {
+                        if (map_version_samples[1][i] ==
+                            ASISTMultiPlayerMessageConverter::SECTIONS_2N4) {
+                            if (map_version_samples[2][i] ==
+                                ASISTMultiPlayerMessageConverter::SECTIONS_3N4) {
+                                valid_assignments[4] += 1;
+                            }
 
-                valid_assignments[2] =
-                    map_version_samples
-                        [0][ASISTMultiPlayerMessageConverter::SECTIONS_3N4] *
-                    map_version_samples
-                        [1][ASISTMultiPlayerMessageConverter::SECTIONS_2N4] *
-                    map_version_samples
-                        [2][ASISTMultiPlayerMessageConverter::SECTIONS_6N4];
-
-                valid_assignments[3] =
-                    map_version_samples
-                        [0][ASISTMultiPlayerMessageConverter::SECTIONS_3N4] *
-                    map_version_samples
-                        [1][ASISTMultiPlayerMessageConverter::SECTIONS_6N4] *
-                    map_version_samples
-                        [2][ASISTMultiPlayerMessageConverter::SECTIONS_2N4];
-
-                valid_assignments[4] =
-                    map_version_samples
-                        [0][ASISTMultiPlayerMessageConverter::SECTIONS_6N4] *
-                    map_version_samples
-                        [1][ASISTMultiPlayerMessageConverter::SECTIONS_2N4] *
-                    map_version_samples
-                        [2][ASISTMultiPlayerMessageConverter::SECTIONS_3N4];
-
-                valid_assignments[5] =
-                    map_version_samples
-                        [0][ASISTMultiPlayerMessageConverter::SECTIONS_6N4] *
-                    map_version_samples
-                        [1][ASISTMultiPlayerMessageConverter::SECTIONS_3N4] *
-                    map_version_samples
-                        [2][ASISTMultiPlayerMessageConverter::SECTIONS_2N4];
+                        } else if (map_version_samples[1][i] ==
+                                   ASISTMultiPlayerMessageConverter::SECTIONS_3N4) {
+                            if (map_version_samples[2][i] ==
+                                ASISTMultiPlayerMessageConverter::SECTIONS_2N4) {
+                                valid_assignments[5] += 1;
+                            }
+                        }
+                    }
+                }
 
                 valid_assignments.array() /= valid_assignments.sum();
 

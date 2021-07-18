@@ -46,6 +46,12 @@ namespace tomcat {
                 "PlayerMapVersion";
             inline const static std::string OBS_PLAYER_BUILDING_SECTION_LABEL =
                 "ObservedPlayerBuildingSection";
+            inline const static std::string PLANNING_CONDITION_LABEL =
+                "PlanningCondition";
+
+            // Condition
+            const static int TEAM_PLANNING_CONDITION = 0;
+            const static int NO_PLANNING_CONDITION = 1;
 
             // Task values
             const static int NO_TASK = 0;
@@ -340,6 +346,8 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             int num_players;
+
+            int planning_condition;
 
             // Stores the id of all possible areas in the map along with a flag
             // indicating whether the area is a room or not (e.g, yard, hallway

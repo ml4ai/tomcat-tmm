@@ -204,10 +204,12 @@ namespace tomcat {
              * map estimation.
              *
              * @param time_step: time step of the inference process
+             * @param particles: resampled particles
              *
              * @return Marginal probabilities
              */
-            EvidenceSet apply_rao_blackwellization(int time_step);
+            EvidenceSet apply_rao_blackwellization(int time_step,
+                                                   EvidenceSet& particles);
 
             /**
              * Gets p (child_timer | parent) in a given time step in log scale.
