@@ -48,42 +48,80 @@ namespace tomcat {
                 int cols = estimates.estimates[0].cols();
                 int first_valid_time_step =
                     EvidenceSet::get_first_time_with_observation(real_data_3d);
-                vector<int> time_steps;
+                vector<vector<int>> time_steps_per_point(
+                    test_data.get_num_data_points());
+                int num_accuracies = 1;
                 if (this->frequency_type == all) {
-                    for (int t = first_valid_time_step; t < cols; t++) {
-                        time_steps.push_back(t);
+                    if (test_data.is_event_based()) {
+                        for (int d = 0; d < test_data.get_num_data_points();
+                             d++) {
+                            for (int t = 0; t < test_data.get_num_events_for(d);
+                                 t++) {
+                                time_steps_per_point[d].push_back(t);
+                            }
+                        }
+                    }
+                    else {
+                        vector<int> time_steps;
+                        for (int t = first_valid_time_step; t < cols; t++) {
+                            time_steps.push_back(t);
+                        }
+                        for (int d = 0; d < test_data.get_num_data_points();
+                             d++) {
+                            time_steps_per_point[d] = time_steps;
+                        }
                     }
                 }
                 else if (this->frequency_type == last) {
-                    time_steps.push_back(cols - 1);
-                }
-                else {
-                    time_steps = this->fixed_steps;
-                }
-
-                if (time_steps.empty()) {
-                    return evaluation;
-                }
-
-                // If the frequency is fixed, we compute accuracies per time
-                // step in the fixed list and a final total one
-                int num_accuracies =
-                    this->frequency_type == fixed && time_steps.size() > 1
-                        ? time_steps.size() + 1
-                        : time_steps.size();
-                if (estimates.assignment.size() == 0) {
-                    Eigen::MatrixXd accuracies =
-                        Eigen::MatrixXd::Zero(1, num_accuracies);
-
-                    // In this case, the estimates are probabilities for
-                    // each one of the possible assignments a node can take.
-                    // So we need to get the highest probability to decide
-                    // the estimated assignment and then compare it against
-                    // the true assignment.
-                    int acc = 0;
-                    for (int t : time_steps) {
+                    if (test_data.is_event_based()) {
                         for (int d = 0; d < test_data.get_num_data_points();
                              d++) {
+                            int max_event_idx = cols - 1;
+                            int last_event_idx = test_data.get_column_index_for(
+                                d, max_event_idx);
+                            time_steps_per_point[d].push_back(last_event_idx);
+                        }
+                    }
+                    else {
+                        vector<int> time_steps(1, cols - 1);
+                        for (int d = 0; d < test_data.get_num_data_points();
+                             d++) {
+                            time_steps_per_point[d] = time_steps;
+                        }
+                    }
+                }
+                else {
+                    num_accuracies = this->fixed_steps.size() > 1
+                                         ? this->fixed_steps.size() + 1
+                                         : this->fixed_steps.size();
+                    if (test_data.is_event_based()) {
+                        for (int d = 0; d < test_data.get_num_data_points();
+                             d++) {
+                            for (int t : this->fixed_steps) {
+                                time_steps_per_point[d].push_back(
+                                    test_data.get_column_index_for(d, t));
+                            }
+                        }
+                    }
+                    else {
+                        for (int d = 0; d < test_data.get_num_data_points();
+                             d++) {
+                            time_steps_per_point[d] = this->fixed_steps;
+                        }
+                    }
+                }
+
+                if (estimates.assignment.size() == 0 ||
+                    test_data.is_event_based()) {
+
+                    Eigen::MatrixXd accuracies =
+                        Eigen::MatrixXd::Zero(1, num_accuracies);
+                    int total_cases = 0;
+
+                    for (int d = 0; d < test_data.get_num_data_points(); d++) {
+                        int acc = 0;
+                        int last_col = -1;
+                        for (int t : time_steps_per_point[d]) {
                             // Each element of the vector estimates.estimates
                             // represents a possible assignment a node can have
                             // (0, 1, ..., cardinality - 1), and it contains a
@@ -108,19 +146,25 @@ namespace tomcat {
 
                             int true_assignment = true_values(d, t);
                             if (inferred_assignment == true_assignment) {
-                                accuracies(0, acc) = accuracies(0, acc) + 1;
+                                if (num_accuracies == 1) {
+                                    accuracies(0, 0) = accuracies(0, 0) + 1;
+                                }
+                                else {
+                                    accuracies(0, acc) = accuracies(0, acc) + 1;
+                                }
                             }
+                            acc++;
+                            total_cases++;
                         }
-                        accuracies(0, acc) = accuracies(0, acc) /
-                                             test_data.get_num_data_points();
-
-                        acc++;
                     }
 
                     if (this->frequency_type == all) {
-                        double accuracy = accuracies.sum() / num_accuracies;
-                        evaluation.evaluation = Eigen::MatrixXd::Constant(1, 1, accuracy);
-                    } else {
+                        double accuracy = accuracies(0, 0) / total_cases;
+                        evaluation.evaluation =
+                            Eigen::MatrixXd::Constant(1, 1, accuracy);
+                    }
+                    else {
+                        accuracies.array() /= test_data.get_num_data_points();
                         if (num_accuracies > 1) {
                             // Add the aggregated accuracy in the last position
                             accuracies(0, num_accuracies - 1) =
@@ -130,6 +174,7 @@ namespace tomcat {
                     }
                 }
                 else {
+                    vector<int> time_steps = time_steps_per_point[0];
                     if (frequency_type == all) {
                         ConfusionMatrix confusion_matrix =
                             this->get_confusion_matrix(estimates.estimates[0],

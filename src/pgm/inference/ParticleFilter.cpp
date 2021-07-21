@@ -813,8 +813,9 @@ namespace tomcat {
                 int final_time_step = this->last_time_step + num_time_steps;
                 for (int t = initial_time_step; t <= final_time_step; t++) {
                     this->elapse(empty_set, t);
-                    particles.hstack(this->resample(empty_set, t));
-                    this->apply_rao_blackwellization(t, particles);
+                    EvidenceSet resampled_particles = this->resample(empty_set, t);
+                    this->apply_rao_blackwellization(t, resampled_particles);
+                    particles.hstack(resampled_particles);
                     this->update_left_segment_distribution_indices(t);
                     this->move_particles_back_in_time(t);
                 }

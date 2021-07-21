@@ -46,6 +46,9 @@ namespace tomcat {
                 "PlayerMapVersion";
             inline const static std::string OBS_PLAYER_BUILDING_SECTION_LABEL =
                 "ObservedPlayerBuildingSection";
+            inline const static std::string
+                OBS_PLAYER_EXPANDED_BUILDING_SECTION_LABEL =
+                    "ObservedPlayerExpandedBuildingSection";
             inline const static std::string PLANNING_CONDITION_LABEL =
                 "PlanningCondition";
 
@@ -175,6 +178,20 @@ namespace tomcat {
 
                 BoundingBox(int x1, int x2, int z1, int z2)
                     : x1(x1), x2(x2), z1(z1), z2(z2) {}
+
+                std::pair<BoundingBox, BoundingBox> get_horizontal_split() {
+                    BoundingBox b1(x1, x2, z1, z1 + (z2-z1)/2);
+                    BoundingBox b2(x1, x2, b1.z2 + 1, z2);
+
+                    return {b1, b2};
+                }
+
+                std::pair<BoundingBox, BoundingBox> get_vertical_split() {
+                    BoundingBox b1(x1, x1 + (x2-x1)/2, z1, z2);
+                    BoundingBox b2(b1.x2 + 1, x2, z1, z2);
+
+                    return {b1, b2};
+                }
             };
 
             struct Position {
@@ -269,6 +286,11 @@ namespace tomcat {
             void load_map_area_configuration(const std::string& map_filepath);
 
             /**
+             * Split the building into 6 sections and 10 expanded sections
+             */
+            void fill_building_sections();
+
+            /**
              * Adds a player to the list of players in the mission.
              *
              * @param player: player
@@ -323,6 +345,18 @@ namespace tomcat {
             int get_building_section(int player_id) const;
 
             /**
+             * Find the section of the building the player is in. Sections 2, 3,
+             * 4 and 6 are split horizontally, vertically, vertically and
+             * vertically respectively to separate high dense areas from low
+             * dense ones.
+             *
+             * @param player_id: player id
+             *
+             * @return Number of the expanded section
+             */
+            int get_expanded_building_section(int player_id) const;
+
+            /**
              * Get the closest door to a certain position.
              *
              * @param position: position to be compared to the door position
@@ -354,6 +388,7 @@ namespace tomcat {
             // etc.).
             std::unordered_map<std::string, bool> map_area_configuration;
             std::vector<BoundingBox> building_sections;
+            std::vector<BoundingBox> expanded_building_sections;
             std::vector<Door> doors;
 
             // Numbers are sequential numbers starting from zero and indicate
@@ -370,6 +405,7 @@ namespace tomcat {
             std::vector<Tensor3> role_per_player;
             std::vector<Tensor3> area_per_player;
             std::vector<Tensor3> section_per_player;
+            std::vector<Tensor3> expanded_section_per_player;
             std::vector<Tensor3> marker_legend_per_player;
             std::vector<Tensor3> map_info_per_player;
             std::vector<Tensor3> player_placed_marker;

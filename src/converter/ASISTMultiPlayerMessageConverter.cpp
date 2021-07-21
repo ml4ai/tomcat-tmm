@@ -52,24 +52,26 @@ namespace tomcat {
             are_within_marker_block_detection_radius(const Position& pos1,
                                                      const Position& pos2) {
 
-            auto square_around =
-                BoundingBox(pos1.x - 1, pos1.x + 1, pos1.z - 1, pos1.z + 1);
-            if (pos2.is_inside(square_around)) {
-                return true;
-            }
-            else {
-                // Tips of the star
-                if ((pos1.x - 2 == pos2.x || pos1.x + 2 == pos2.x) &&
-                    pos1.z == pos2.z) {
-                    return true;
-                }
-                else if ((pos1.z - 2 == pos2.z || pos1.z + 2 == pos2.z) &&
-                         pos1.x == pos2.x) {
-                    return true;
-                }
-            }
+            return pos1.get_distance(pos2) <= 2;
 
-            return false;
+//            auto square_around =
+//                BoundingBox(pos1.x - 1, pos1.x + 1, pos1.z - 1, pos1.z + 1);
+//            if (pos2.is_inside(square_around)) {
+//                return true;
+//            }
+//            else {
+//                // Tips of the star
+//                if ((pos1.x - 2 == pos2.x || pos1.x + 2 == pos2.x) &&
+//                    pos1.z == pos2.z) {
+//                    return true;
+//                }
+//                else if ((pos1.z - 2 == pos2.z || pos1.z + 2 == pos2.z) &&
+//                         pos1.x == pos2.x) {
+//                    return true;
+//                }
+//            }
+//
+//            return false;
         }
 
         //----------------------------------------------------------------------
@@ -104,7 +106,6 @@ namespace tomcat {
             const string& map_filepath) {
 
             this->map_area_configuration.clear();
-            this->building_sections.clear();
             this->doors.clear();
 
             fstream map_file;
@@ -112,6 +113,9 @@ namespace tomcat {
             if (map_file.is_open()) {
                 nlohmann::json json_map = nlohmann::json::parse(map_file);
 
+                this->fill_building_sections();
+
+                // Hallway or Room
                 for (const auto& location : json_map["locations"]) {
                     const string& area_type = location["type"];
                     const string& area_id = location["id"];
@@ -119,43 +123,6 @@ namespace tomcat {
                     this->map_area_configuration[area_id] =
                         area_type.find("room") != string::npos;
                 }
-
-                // Split the map into 6 non-overlapping sections
-                int section_width = (MAP_SECTION_MAX_X - MAP_SECTION_MIN_X) / 3;
-                int section_height =
-                    (MAP_SECTION_MAX_Z - MAP_SECTION_MIN_Z) / 2;
-
-                BoundingBox section1(MAP_SECTION_MIN_X,
-                                     MAP_SECTION_MIN_X + section_width,
-                                     MAP_SECTION_MIN_Z,
-                                     MAP_SECTION_MIN_Z + section_height);
-                BoundingBox section2(MAP_SECTION_MIN_X,
-                                     MAP_SECTION_MIN_X + section_width,
-                                     MAP_SECTION_MIN_Z + section_height,
-                                     MAP_SECTION_MAX_Z);
-                BoundingBox section3(MAP_SECTION_MIN_X + section_width,
-                                     MAP_SECTION_MIN_X + 2 * section_width,
-                                     MAP_SECTION_MIN_Z,
-                                     MAP_SECTION_MIN_Z + section_height);
-                BoundingBox section4(MAP_SECTION_MIN_X + section_width,
-                                     MAP_SECTION_MIN_X + 2 * section_width,
-                                     MAP_SECTION_MIN_Z + section_height,
-                                     MAP_SECTION_MAX_Z);
-                BoundingBox section5(MAP_SECTION_MIN_X + 2 * section_width,
-                                     MAP_SECTION_MAX_X,
-                                     MAP_SECTION_MIN_Z,
-                                     MAP_SECTION_MIN_Z + section_height);
-                BoundingBox section6(MAP_SECTION_MIN_X + 2 * section_width,
-                                     MAP_SECTION_MAX_X,
-                                     MAP_SECTION_MIN_Z + section_height,
-                                     MAP_SECTION_MAX_Z);
-
-                this->building_sections.push_back(section1);
-                this->building_sections.push_back(section2);
-                this->building_sections.push_back(section3);
-                this->building_sections.push_back(section4);
-                this->building_sections.push_back(section5);
-                this->building_sections.push_back(section6);
 
                 // Doors
                 for (const auto& location : json_map["connections"]) {
@@ -186,6 +153,63 @@ namespace tomcat {
                    << " does not exist.";
                 throw TomcatModelException(ss.str());
             }
+        }
+
+        void ASISTMultiPlayerMessageConverter::fill_building_sections() {
+            this->building_sections.clear();
+            this->expanded_building_sections.clear();
+
+            // Split the map into 6 non-overlapping sections
+            int section_width = (MAP_SECTION_MAX_X - MAP_SECTION_MIN_X) / 3;
+            int section_height = (MAP_SECTION_MAX_Z - MAP_SECTION_MIN_Z) / 2;
+
+            BoundingBox section1(MAP_SECTION_MIN_X,
+                                 MAP_SECTION_MIN_X + section_width,
+                                 MAP_SECTION_MIN_Z,
+                                 MAP_SECTION_MIN_Z + section_height);
+            BoundingBox section2(MAP_SECTION_MIN_X,
+                                 MAP_SECTION_MIN_X + section_width,
+                                 MAP_SECTION_MIN_Z + section_height,
+                                 MAP_SECTION_MAX_Z);
+            BoundingBox section3(MAP_SECTION_MIN_X + section_width,
+                                 MAP_SECTION_MIN_X + 2 * section_width,
+                                 MAP_SECTION_MIN_Z,
+                                 MAP_SECTION_MIN_Z + section_height);
+            BoundingBox section4(MAP_SECTION_MIN_X + section_width,
+                                 MAP_SECTION_MIN_X + 2 * section_width,
+                                 MAP_SECTION_MIN_Z + section_height,
+                                 MAP_SECTION_MAX_Z);
+            BoundingBox section5(MAP_SECTION_MIN_X + 2 * section_width,
+                                 MAP_SECTION_MAX_X,
+                                 MAP_SECTION_MIN_Z,
+                                 MAP_SECTION_MIN_Z + section_height);
+            BoundingBox section6(MAP_SECTION_MIN_X + 2 * section_width,
+                                 MAP_SECTION_MAX_X,
+                                 MAP_SECTION_MIN_Z + section_height,
+                                 MAP_SECTION_MAX_Z);
+
+            this->building_sections.push_back(section1);
+            this->building_sections.push_back(section2);
+            this->building_sections.push_back(section3);
+            this->building_sections.push_back(section4);
+            this->building_sections.push_back(section5);
+            this->building_sections.push_back(section6);
+
+            auto [upper_section2, section7] = section2.get_horizontal_split();
+            auto [left_section3, section8] = section3.get_vertical_split();
+            auto [left_section4, section9] = section4.get_vertical_split();
+            auto [left_section6, section10] = section6.get_vertical_split();
+
+            this->expanded_building_sections.push_back(section1);
+            this->expanded_building_sections.push_back(upper_section2);
+            this->expanded_building_sections.push_back(left_section3);
+            this->expanded_building_sections.push_back(left_section4);
+            this->expanded_building_sections.push_back(left_section6);
+            this->expanded_building_sections.push_back(section6);
+            this->expanded_building_sections.push_back(section7);
+            this->expanded_building_sections.push_back(section8);
+            this->expanded_building_sections.push_back(section9);
+            this->expanded_building_sections.push_back(section10);
         }
 
         unordered_set<string>
@@ -309,6 +333,8 @@ namespace tomcat {
             this->role_per_player.push_back(Tensor3(SEARCH));
             this->area_per_player.push_back(Tensor3(HALLWAY));
             this->section_per_player.push_back(Tensor3(OUT_OF_BUILDING));
+            this->expanded_section_per_player.push_back(
+                Tensor3(OUT_OF_BUILDING));
             this->marker_legend_per_player.push_back(Tensor3(NO_OBS));
             this->map_info_per_player.push_back(Tensor3(NO_OBS));
             this->player_position.push_back({0, 0});
@@ -543,7 +569,8 @@ namespace tomcat {
                     if (are_within_marker_block_detection_radius(
                             this->player_position[player_number],
                             block.position) &&
-                        block.player_id != this->players[player_number].id) {
+                        block.player_id != this->players[player_number].id &&
+                        block.player_id != this->players[player_number].name) {
 
                         Door door = this->get_closest_door(block.position);
                         if (are_within_marker_block_detection_radius(
@@ -577,6 +604,11 @@ namespace tomcat {
                     get_player_variable_label(OBS_PLAYER_BUILDING_SECTION_LABEL,
                                               player_number + 1),
                     section);
+                section = this->get_expanded_building_section(player_number);
+                data.add_data(get_player_variable_label(
+                                  OBS_PLAYER_EXPANDED_BUILDING_SECTION_LABEL,
+                                  player_number + 1),
+                              section);
                 data.add_data(get_player_variable_label(
                                   PLAYER_MAP_VERSION_LABEL, player_number + 1),
                               this->map_info_per_player.at(player_number));
@@ -842,6 +874,24 @@ namespace tomcat {
                  section_num++) {
 
                 const auto& section = this->building_sections.at(section_num);
+                if (position.is_inside(section)) {
+                    return section_num + 1;
+                }
+            }
+
+            return OUT_OF_BUILDING;
+        }
+
+        int ASISTMultiPlayerMessageConverter::get_expanded_building_section(
+            int player_number) const {
+            const auto& position = this->player_position.at(player_number);
+
+            for (int section_num = 0;
+                 section_num < this->expanded_building_sections.size();
+                 section_num++) {
+
+                const auto& section =
+                    this->expanded_building_sections.at(section_num);
                 if (position.is_inside(section)) {
                     return section_num + 1;
                 }

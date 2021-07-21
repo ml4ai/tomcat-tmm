@@ -450,6 +450,7 @@ namespace tomcat {
 
         void RandomVariableNode::set_parents(
             const vector<shared_ptr<Node>>& parents) {
+
             this->parents = parents;
         }
 

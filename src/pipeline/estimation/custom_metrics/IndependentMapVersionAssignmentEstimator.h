@@ -6,14 +6,13 @@ namespace tomcat {
     namespace model {
 
         /**
-         * Represents a metric to estimate the distribution of the possible
-         * marker legend version assignments given samples of individual player
-         * marker legend versions.
+         * Represents a metric to estimate the distribution of the possible map
+         * version assignments given marginals of individual player map versions
+         * generated.
          */
-        class MarkerLegendVersionAssignmentEstimator : public SamplerEstimator {
+        class IndependentMapVersionAssignmentEstimator : public SamplerEstimator {
           public:
-            inline const static std::string NAME =
-                "MarkerLegendVersionAssignment";
+            inline const static std::string NAME = "IndependentMapVersionAssignment";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -27,27 +26,27 @@ namespace tomcat {
              * computed
              *
              */
-            MarkerLegendVersionAssignmentEstimator(
+            IndependentMapVersionAssignmentEstimator(
                 const std::shared_ptr<DynamicBayesNet>& model,
                 FREQUENCY_TYPE frequency_type = all);
 
-            ~MarkerLegendVersionAssignmentEstimator();
+            ~IndependentMapVersionAssignmentEstimator();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
 
-            MarkerLegendVersionAssignmentEstimator(
-                const MarkerLegendVersionAssignmentEstimator& estimator);
+            IndependentMapVersionAssignmentEstimator(
+                const IndependentMapVersionAssignmentEstimator& estimator);
 
-            MarkerLegendVersionAssignmentEstimator&
-            operator=(const MarkerLegendVersionAssignmentEstimator& estimator);
+            IndependentMapVersionAssignmentEstimator&
+            operator=(const IndependentMapVersionAssignmentEstimator& estimator);
 
-            MarkerLegendVersionAssignmentEstimator(
-                MarkerLegendVersionAssignmentEstimator&&) = default;
+            IndependentMapVersionAssignmentEstimator(IndependentMapVersionAssignmentEstimator&&) =
+                default;
 
-            MarkerLegendVersionAssignmentEstimator&
-            operator=(MarkerLegendVersionAssignmentEstimator&&) = default;
+            IndependentMapVersionAssignmentEstimator&
+            operator=(IndependentMapVersionAssignmentEstimator&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -58,9 +57,9 @@ namespace tomcat {
             std::string get_name() const override;
 
             /**
-             * Estimate the marker version assignment distribution based on the
+             * Estimate the map version assignment distribution based on the
              * particles generated until the end of the mission related to
-             * individual player marker legend version.
+             * individual player map version.
              *
              * @param new_data: observations
              * @param particles: particles for the last time step processed

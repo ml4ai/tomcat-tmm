@@ -7,13 +7,13 @@ namespace tomcat {
 
         /**
          * Represents a metric to estimate the distribution of the possible
-         * marker legend version assignments given samples of individual player
+         * marker legend version assignments given marginals of individual player
          * marker legend versions.
          */
-        class MarkerLegendVersionAssignmentEstimator : public SamplerEstimator {
+        class IndependentMarkerLegendVersionAssignmentEstimator : public SamplerEstimator {
           public:
             inline const static std::string NAME =
-                "MarkerLegendVersionAssignment";
+                "IndependentMarkerLegendVersionAssignment";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -27,27 +27,27 @@ namespace tomcat {
              * computed
              *
              */
-            MarkerLegendVersionAssignmentEstimator(
+            IndependentMarkerLegendVersionAssignmentEstimator(
                 const std::shared_ptr<DynamicBayesNet>& model,
                 FREQUENCY_TYPE frequency_type = all);
 
-            ~MarkerLegendVersionAssignmentEstimator();
+            ~IndependentMarkerLegendVersionAssignmentEstimator();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
 
-            MarkerLegendVersionAssignmentEstimator(
-                const MarkerLegendVersionAssignmentEstimator& estimator);
+            IndependentMarkerLegendVersionAssignmentEstimator(
+                const IndependentMarkerLegendVersionAssignmentEstimator& estimator);
 
-            MarkerLegendVersionAssignmentEstimator&
-            operator=(const MarkerLegendVersionAssignmentEstimator& estimator);
+            IndependentMarkerLegendVersionAssignmentEstimator&
+            operator=(const IndependentMarkerLegendVersionAssignmentEstimator& estimator);
 
-            MarkerLegendVersionAssignmentEstimator(
-                MarkerLegendVersionAssignmentEstimator&&) = default;
+            IndependentMarkerLegendVersionAssignmentEstimator(
+                IndependentMarkerLegendVersionAssignmentEstimator&&) = default;
 
-            MarkerLegendVersionAssignmentEstimator&
-            operator=(MarkerLegendVersionAssignmentEstimator&&) = default;
+            IndependentMarkerLegendVersionAssignmentEstimator&
+            operator=(IndependentMarkerLegendVersionAssignmentEstimator&&) = default;
 
             //------------------------------------------------------------------
             // Member functions

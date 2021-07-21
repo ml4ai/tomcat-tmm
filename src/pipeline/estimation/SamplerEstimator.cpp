@@ -4,6 +4,8 @@
 #include <thread>
 
 #include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
+#include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/IndependentMarkerLegendVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/MarkerLegendVersionAssignmentEstimator.h"
 #include "utils/EigenExtensions.h"
@@ -104,8 +106,19 @@ namespace tomcat {
                 estimator = make_shared<MapVersionAssignmentEstimator>(
                     model, frequency_type);
             }
+            else if (name == IndependentMapVersionAssignmentEstimator::NAME) {
+                estimator =
+                    make_shared<IndependentMapVersionAssignmentEstimator>(
+                        model, frequency_type);
+            }
             else if (name == MarkerLegendVersionAssignmentEstimator::NAME) {
                 estimator = make_shared<MarkerLegendVersionAssignmentEstimator>(
+                    model, frequency_type);
+            }
+            else if (name ==
+                     IndependentMarkerLegendVersionAssignmentEstimator::NAME) {
+                estimator = make_shared<
+                    IndependentMarkerLegendVersionAssignmentEstimator>(
                     model, frequency_type);
             }
 
@@ -145,9 +158,19 @@ namespace tomcat {
                                         int data_point_idx,
                                         int time_step) {
 
-            if (this->frequency_type == fixed &&
-                !EXISTS(time_step, this->fixed_steps))
-                return;
+//            // Event based data with no transition to a new event. Just repeat
+//            // previous estimates.
+//            int col_idx =
+//                new_data.get_column_index_for(data_point_idx, time_step);
+//            if (col_idx < time_step) {
+//                for (int i = 0; i < this->estimates.estimates.size(); i++) {
+//                    double estimate =
+//                        this->estimates.estimates[i](data_point_idx, col_idx);
+//                    this->update_estimates(
+//                        i, data_point_idx, time_step, estimate);
+//                }
+//                return;
+//            }
 
             if (this->inference_horizon == 0) {
                 for (int t = 0; t < particles.get_time_steps(); t++) {

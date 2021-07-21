@@ -34,6 +34,10 @@ add_executable(view model_visulization.cpp)
 target_include_directories(view PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(view PRIVATE ${ALL_LIBS})
 
+add_executable(convert_2_marker_events marker_event_based_conversion.cpp)
+target_include_directories(convert_2_marker_events PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(convert_2_marker_events PRIVATE ${ALL_LIBS})
+
 option(CODE_COVERAGE "Enable coverage reporting" OFF)
 
 # Todo make code coverage work on Linux as well.

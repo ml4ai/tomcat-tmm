@@ -62,48 +62,51 @@ namespace tomcat {
             int data_point_idx,
             int time_step) {
 
-            if (this->frequency_type == fixed &&
-                !EXISTS(time_step, this->fixed_steps))
-                return;
-
             for (int t = 0; t < marginals.get_time_steps(); t++) {
-                vector<Eigen::VectorXd> marker_version_samples(3);
+                vector<Eigen::VectorXd> legend_version_samples(3);
 
                 for (int player_number = 0; player_number < 3;
                      player_number++) {
-                    string marker_version_node_label =
+                    string legend_version_node_label =
                         MessageConverter::get_player_variable_label(
                             ASISTMultiPlayerMessageConverter::
-                                PLAYER_MARKER_LEGEND_VERSION_LABEL,
+                            PLAYER_MARKER_LEGEND_VERSION_LABEL,
                             player_number + 1);
-                    marker_version_samples[player_number] =
-                        marginals[marker_version_node_label](0, 0).col(t);
+                    legend_version_samples[player_number] =
+                        particles[legend_version_node_label](0, 0).col(t);
                 }
 
-                Eigen::VectorXd valid_assignments(3);
-                valid_assignments[0] =
-                    marker_version_samples
-                        [0][ASISTMultiPlayerMessageConverter::MARKER_LEGEND_B] *
-                    marker_version_samples
-                        [1][ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A] *
-                    marker_version_samples
-                        [2][ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A];
+                Eigen::VectorXd valid_assignments = Eigen::VectorXd::Zero(3);
+                for (int i = 0; i < legend_version_samples[0].rows(); i++) {
+                    if (legend_version_samples[0][i] ==
+                        ASISTMultiPlayerMessageConverter::MARKER_LEGEND_B) {
+                        if (legend_version_samples[1][i] ==
+                            ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A) {
+                            if (legend_version_samples[2][i] ==
+                                ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A) {
+                                // P1 gets B, P2 gets A, P3 gets A
+                                valid_assignments[0] += 1;
+                            }
+                        }
+                    }
+                    else {
+                        if (legend_version_samples[1][i] ==
+                            ASISTMultiPlayerMessageConverter::MARKER_LEGEND_B) {
+                            if (legend_version_samples[2][i] ==
+                                ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A) {
+                                // P1 gets A, P2 gets B, P3 gets A
+                                valid_assignments[1] += 1;
+                            }
 
-                valid_assignments[1] =
-                    marker_version_samples
-                        [0][ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A] *
-                    marker_version_samples
-                        [1][ASISTMultiPlayerMessageConverter::MARKER_LEGEND_B] *
-                    marker_version_samples
-                        [2][ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A];
-
-                valid_assignments[2] =
-                    marker_version_samples
-                        [0][ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A] *
-                    marker_version_samples
-                        [1][ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A] *
-                    marker_version_samples
-                        [2][ASISTMultiPlayerMessageConverter::MARKER_LEGEND_B];
+                        } else {
+                            if (legend_version_samples[2][i] ==
+                                ASISTMultiPlayerMessageConverter::MARKER_LEGEND_B) {
+                                // P1 gets A, P2 gets A, P3 gets B
+                                valid_assignments[2] += 1;
+                            }
+                        }
+                    }
+                }
 
                 valid_assignments.array() /= valid_assignments.sum();
 

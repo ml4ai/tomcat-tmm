@@ -65,10 +65,6 @@ namespace tomcat {
             int data_point_idx,
             int time_step) {
 
-            if (this->frequency_type == fixed &&
-                !EXISTS(time_step, this->fixed_steps))
-                return;
-
             int avg_estimated_score = 0;
             double std_estimated_score = 0;
             int current_score =

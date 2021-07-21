@@ -57,10 +57,6 @@ namespace tomcat {
             int data_point_idx,
             int time_step) {
 
-            if (this->frequency_type == fixed &&
-                !EXISTS(time_step, this->fixed_steps))
-                return;
-
             for (int t = 0; t < marginals.get_time_steps(); t++) {
                 vector<Eigen::VectorXd> map_version_samples(3);
 

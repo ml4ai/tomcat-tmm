@@ -8,7 +8,7 @@ namespace tomcat {
         /**
          * Represents a metric to estimate the distribution of the possible map
          * version assignments given samples of individual player map versions
-         * generated until the end of the mission.
+         * generated.
          */
         class MapVersionAssignmentEstimator : public SamplerEstimator {
           public:
