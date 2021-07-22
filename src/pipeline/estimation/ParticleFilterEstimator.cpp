@@ -118,10 +118,20 @@ namespace tomcat {
                     }
                 }
                 else {
+                    // Generate particles and projections for each time
+                    // step.
                     for (int t = 0; t < single_point_data.get_time_steps();
                          t++) {
-                        // Generate particles and projections for each time
-                        // step.
+
+                        int real_time_step = this->last_time_step + t + 1;
+
+                        if (single_point_data.is_event_based()) {
+                            // No more events for this data point
+                            if (real_time_step >
+                                single_point_data.get_num_events_for(0) - 1) {
+                                break;
+                            }
+                        }
 
                         EvidenceSet single_time_data =
                             single_point_data.get_single_time_data(t);
@@ -138,7 +148,7 @@ namespace tomcat {
                                     0) {
                                     time_steps_ahead =
                                         this->variable_horizon_max_time_step -
-                                        (this->last_time_step + t + 1);
+                                        real_time_step;
                                     break;
                                 }
                                 else {
@@ -164,8 +174,7 @@ namespace tomcat {
                                                          projected_particles,
                                                          marginals,
                                                          d,
-                                                         this->last_time_step +
-                                                             1 + t);
+                                                         real_time_step);
                             }
                         }
                     }

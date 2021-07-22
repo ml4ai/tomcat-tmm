@@ -101,12 +101,20 @@ namespace tomcat {
              * @param random_generator_per_job: random number generator per
              * thread
              * @param num_samples: number of samples to generate
+             * @param time_steps_per_sample: number of events per sample
+             * It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point/sample. If empty, nodes in all
+             * the time steps in the enrolled DBN will have all of its
+             * assignment rows processed.
              *
              * @return Samples from the node's CPD.
              */
-            Eigen::MatrixXd sample(const std::vector<std::shared_ptr<gsl_rng>>&
-                                       random_generator_per_job,
-                                   int num_samples) const;
+            Eigen::MatrixXd
+            sample(const std::vector<std::shared_ptr<gsl_rng>>&
+                       random_generator_per_job,
+                   int num_samples,
+                   const std::vector<int>& time_steps_per_sample = {}) const;
 
             /**
              * Returns p(children(node)|node). The posterior of a node is
@@ -121,10 +129,18 @@ namespace tomcat {
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
              * performed in the main thread
+             * @param time_steps_per_sample: number of events per sample
+             * It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point/sample. If empty, nodes in all
+             * the time steps in the enrolled DBN will have all of its
+             * assignment rows processed.
              *
              * @return Posterior weights
              */
-            Eigen::MatrixXd get_posterior_weights(int num_jobs);
+            Eigen::MatrixXd get_posterior_weights(
+                int num_jobs,
+                const std::vector<int>& time_steps_per_sample = {});
 
             /**
              * Samples a node using conjugacy properties and sufficient
@@ -276,12 +292,19 @@ namespace tomcat {
              *
              * @param random_generator_per_job: random number generator per
              * thread
+             * @param time_steps_per_sample: number of events per sample
+             * It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point/sample. If empty, nodes in all
+             * the time steps in the enrolled DBN will have all of its
+             * assignment rows processed.
              *
              * @return Sample for the node from its posterior
              */
-            virtual Eigen::MatrixXd
-            sample_from_posterior(const std::vector<std::shared_ptr<gsl_rng>>&
-                                      random_generator_per_job);
+            virtual Eigen::MatrixXd sample_from_posterior(
+                const std::vector<std::shared_ptr<gsl_rng>>&
+                    random_generator_per_job,
+                const std::vector<int>& time_steps_per_sample = {});
 
             /**
              * Checks whether the node is a parent of a timer node or a
@@ -462,8 +485,7 @@ namespace tomcat {
              * @return Posterior weights for the left, central and right
              * segments combined
              */
-            Eigen::MatrixXd get_segments_log_posterior_weights(
-                int num_jobs);
+            Eigen::MatrixXd get_segments_log_posterior_weights(int num_jobs);
 
             //------------------------------------------------------------------
             // Data members

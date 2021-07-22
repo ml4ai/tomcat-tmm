@@ -1,8 +1,10 @@
 #include "EvidenceSet.h"
 
-#include <boost/filesystem.hpp>
-#include <converter/MessageConverter.h>
+#include <iomanip>
 
+#include <boost/filesystem.hpp>
+
+#include "converter/MessageConverter.h"
 #include "utils/EigenExtensions.h"
 #include "utils/FileHandler.h"
 #include "utils/Tensor3.h"
@@ -343,6 +345,12 @@ namespace tomcat {
                 new_set.add_data(node_label, data.row(data_point_idx));
             }
 
+            new_set.event_based = this->event_based;
+            if (!this->time_2_event_per_data_point.empty()) {
+                new_set.time_2_event_per_data_point =
+                    vector<set<pair<int, int>>>(
+                        1, this->time_2_event_per_data_point[data_point_idx]);
+            }
             return new_set;
         }
 
@@ -377,7 +385,8 @@ namespace tomcat {
         int EvidenceSet::get_num_events_for(int data_point) const {
             int num_events = this->get_time_steps();
             if (this->event_based) {
-                num_events = this->time_2_event_per_data_point[data_point].size();
+                num_events =
+                    this->time_2_event_per_data_point[data_point].size();
             }
 
             return num_events;

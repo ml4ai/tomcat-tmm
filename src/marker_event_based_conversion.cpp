@@ -15,16 +15,25 @@ namespace po = boost::program_options;
 #define add_player_suffix(label, player_num)                                   \
     ASISTMultiPlayerMessageConverter::get_player_variable_label(label,         \
                                                                 player_num)
+enum Event { within_range, out_of_range };
 
-EvidenceSet convert_including_players(const EvidenceSet& time_data) {
-    vector<EvidenceSet> event_data_per_trial(time_data.get_num_data_points());
-    enum Event { within_range, out_of_range };
+EvidenceSet convert_including_players(const EvidenceSet& time_data,
+                                      bool keep_all) {
+    // Maintains data for the players in distinct variables and emits an event
+    // (keeps a snapshot of the data at that time) if any of the players
+    // entered/left the range of a marker block.
+
+    vector<EvidenceSet> event_data_per_trial;
+    vector<vector<pair<int, int>>> time_2_event_per_trial;
     int max_events = 0;
-    vector<vector<pair<int, int>>> time_2_event_per_trial(
-        time_data.get_num_data_points());
+
     for (int d = 0; d < time_data.get_num_data_points(); d++) {
-        vector<Event> event = {out_of_range, out_of_range, out_of_range};
+        vector<Event> event = {
+            Event::out_of_range, Event::out_of_range, Event::out_of_range};
         EvidenceSet single_point_time_data = time_data.get_single_point_data(d);
+
+        EvidenceSet trial_event_data(true);
+        vector<pair<int, int>> trial_time_2_event;
 
         for (int t = 0; t < time_data.get_time_steps(); t++) {
             bool event_detected = false;
@@ -37,16 +46,16 @@ EvidenceSet convert_including_players(const EvidenceSet& time_data) {
                                      OTHER_PLAYER_NEARBY_MARKER,
                                  player_num)]
                             .at(0, 0, t);
-                if ((event[player_num - 1] == out_of_range &&
+                if ((event[player_num - 1] == Event::out_of_range &&
                      observed_marker > 0) ||
-                    (event[player_num - 1] == within_range &&
+                    (event[player_num - 1] == Event::within_range &&
                      observed_marker == 0)) {
 
-                    if (event[player_num - 1] == out_of_range) {
-                        event[player_num - 1] = within_range;
+                    if (event[player_num - 1] == Event::out_of_range) {
+                        event[player_num - 1] = Event::within_range;
                     }
                     else {
-                        event[player_num - 1] = out_of_range;
+                        event[player_num - 1] = Event::out_of_range;
                     }
 
                     event_detected = true;
@@ -54,14 +63,18 @@ EvidenceSet convert_including_players(const EvidenceSet& time_data) {
             }
 
             if (event_detected) {
-                time_2_event_per_trial[d].push_back(
-                    {t, event_data_per_trial[d].get_time_steps()});
-                event_data_per_trial[d].hstack(
+                trial_time_2_event.push_back(
+                    {t, trial_event_data.get_time_steps()});
+                trial_event_data.hstack(
                     single_point_time_data.get_single_time_data(t));
             }
         }
 
-        max_events = max(max_events, event_data_per_trial[d].get_time_steps());
+        if (!trial_event_data.empty() || keep_all) {
+            event_data_per_trial.push_back(trial_event_data);
+            time_2_event_per_trial.push_back(trial_time_2_event);
+            max_events = max(max_events, trial_event_data.get_time_steps());
+        }
     }
 
     // Complete trials with dummy values so that all trials have the same number
@@ -74,14 +87,17 @@ EvidenceSet convert_including_players(const EvidenceSet& time_data) {
 
         if (events_to_add > 0) {
             EvidenceSet complement;
-
             complement.add_data(ASISTMultiPlayerMessageConverter::
                                     MARKER_LEGEND_ASSIGNMENT_LABEL,
-                                Tensor3::constant(1, 1, events_to_add, 3));
+                                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             complement.add_data(
                 ASISTMultiPlayerMessageConverter::PLANNING_CONDITION_LABEL,
-                Tensor3::constant(1, 1, events_to_add, 2));
+                Tensor3::constant(1, 1, events_to_add, NO_OBS));
+
+            complement.add_data(
+                "TrialPeriod",
+                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             for (int player_num = 1; player_num <= 3; player_num++) {
 
@@ -89,27 +105,27 @@ EvidenceSet convert_including_players(const EvidenceSet& time_data) {
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         ASISTMultiPlayerMessageConverter::PLAYER_ROLE_LABEL,
                         player_num),
-                    Tensor3::constant(1, 1, events_to_add, 3));
+                    Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
                 complement.add_data(
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         ASISTMultiPlayerMessageConverter::
                             OTHER_PLAYER_NEARBY_MARKER,
                         player_num),
-                    Tensor3::constant(1, 1, events_to_add, 4));
+                    Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
                 complement.add_data(
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
                         player_num),
-                    Tensor3::constant(1, 1, events_to_add, 2));
+                    Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
                 complement.add_data(
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         ASISTMultiPlayerMessageConverter::
                             PLAYER_MARKER_LEGEND_VERSION_LABEL,
                         player_num),
-                    Tensor3::constant(1, 1, events_to_add, 2));
+                    Tensor3::constant(1, 1, events_to_add, NO_OBS));
             }
 
             event_trial.hstack(complement);
@@ -121,16 +137,18 @@ EvidenceSet convert_including_players(const EvidenceSet& time_data) {
     return event_data;
 }
 
-EvidenceSet convert_merging_players(const EvidenceSet& time_data, unsigned int player_num) {
+EvidenceSet convert_merging_players(const EvidenceSet& time_data,
+                                    unsigned int player_num,
+                                    bool keep_all) {
     vector<EvidenceSet> event_data_per_trial;
     vector<vector<pair<int, int>>> time_2_event_per_trial;
-    enum Event { within_range, out_of_range };
     int max_events = 0;
 
     vector<int> player_nums;
     if (player_num == 0) {
         player_nums = {1, 2, 3};
-    } else {
+    }
+    else {
         player_nums.push_back(player_num);
     }
 
@@ -139,8 +157,8 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data, unsigned int p
 
         for (int player_num : player_nums) {
             EvidenceSet event_data_per_player(true);
-            Event event = out_of_range;
             vector<pair<int, int>> time_2_event_per_player;
+            Event event = Event::out_of_range;
 
             for (int t = 0; t < time_data.get_time_steps(); t++) {
                 int observed_marker =
@@ -151,14 +169,14 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data, unsigned int p
                                      OTHER_PLAYER_NEARBY_MARKER,
                                  player_num)]
                             .at(0, 0, t);
-                if ((event == out_of_range && observed_marker > 0) ||
-                    (event == within_range && observed_marker == 0)) {
+                if ((event == Event::out_of_range && observed_marker > 0) ||
+                    (event == Event::within_range && observed_marker == 0)) {
 
-                    if (event == out_of_range) {
-                        event = within_range;
+                    if (event == Event::out_of_range) {
+                        event = Event::within_range;
                     }
                     else {
-                        event = out_of_range;
+                        event = Event::out_of_range;
                     }
 
                     EvidenceSet single_time_data =
@@ -177,6 +195,9 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data, unsigned int p
                         single_time_data[marker_legend_label]);
                     single_event_data.add_data(
                         planning_condition_label,
+                        single_time_data[planning_condition_label]);
+                    single_event_data.add_data(
+                        "TrialPeriod",
                         single_time_data[planning_condition_label]);
 
                     string player_role_label = add_player_suffix(
@@ -218,10 +239,12 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data, unsigned int p
                 }
             }
 
-            event_data_per_trial.push_back(event_data_per_player);
-            time_2_event_per_trial.push_back(time_2_event_per_player);
-            max_events =
-                max(max_events, event_data_per_player.get_time_steps());
+            if (!event_data_per_player.empty() || keep_all) {
+                event_data_per_trial.push_back(event_data_per_player);
+                time_2_event_per_trial.push_back(time_2_event_per_player);
+                max_events =
+                    max(max_events, event_data_per_player.get_time_steps());
+            }
         }
     }
 
@@ -238,27 +261,31 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data, unsigned int p
 
             complement.add_data(ASISTMultiPlayerMessageConverter::
                                     MARKER_LEGEND_ASSIGNMENT_LABEL,
-                                Tensor3::constant(1, 1, events_to_add, 3));
+                                Tensor3::constant(1, 1, events_to_add, NO_OBS));
+
+            complement.add_data(
+                "TrialPeriod",
+                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             complement.add_data(
                 ASISTMultiPlayerMessageConverter::PLANNING_CONDITION_LABEL,
-                Tensor3::constant(1, 1, events_to_add, 2));
+                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             complement.add_data(
                 ASISTMultiPlayerMessageConverter::PLAYER_ROLE_LABEL,
-                Tensor3::constant(1, 1, events_to_add, 3));
+                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             complement.add_data(
                 ASISTMultiPlayerMessageConverter::OTHER_PLAYER_NEARBY_MARKER,
-                Tensor3::constant(1, 1, events_to_add, 4));
+                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             complement.add_data(
                 ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
-                Tensor3::constant(1, 1, events_to_add, 2));
+                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             complement.add_data(ASISTMultiPlayerMessageConverter::
                                     PLAYER_MARKER_LEGEND_VERSION_LABEL,
-                                Tensor3::constant(1, 1, events_to_add, 2));
+                                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             event_trial.hstack(complement);
         }
@@ -272,7 +299,8 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data, unsigned int p
 void convert(const string& input_dir,
              const string& output_dir,
              unsigned int player_option,
-             unsigned int player_num) {
+             unsigned int player_num,
+             bool keep_all) {
     EvidenceSet time_data(input_dir);
 
     // Remove variables that are not relevant for the event based model
@@ -308,12 +336,13 @@ void convert(const string& input_dir,
     EvidenceSet event_data;
 
     if (player_option == 0) {
-        event_data = convert_including_players(time_data);
+        event_data = convert_including_players(time_data, keep_all);
     }
     else if (player_option == 1) {
-        event_data = convert_merging_players(time_data, 0);
-    } else {
-        event_data = convert_merging_players(time_data, player_num);
+        event_data = convert_merging_players(time_data, 0, keep_all);
+    }
+    else {
+        event_data = convert_merging_players(time_data, player_num, keep_all);
     }
     event_data.save(output_dir);
 }
@@ -323,6 +352,7 @@ int main(int argc, char* argv[]) {
     string output_dir;
     unsigned int player_option;
     unsigned int player_num;
+    bool keep_all;
 
     po::options_description desc("Allowed options");
     desc.add_options()(
@@ -342,7 +372,10 @@ int main(int argc, char* argv[]) {
         "2 - Include a specific player")(
         "player_num",
         po::value<unsigned int>(&player_num),
-        "Player to include if option 2 was selected");
+        "Player to include if option 2 was selected.")(
+        "keep_all",
+        po::bool_switch(&keep_all),
+        "Whether trials with no event must be kept or not.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -352,5 +385,5 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    convert(input_dir, output_dir, player_option, player_num);
+    convert(input_dir, output_dir, player_option, player_num, keep_all);
 }

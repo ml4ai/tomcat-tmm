@@ -50,6 +50,7 @@ namespace tomcat {
                     EvidenceSet::get_first_time_with_observation(real_data_3d);
                 vector<vector<int>> time_steps_per_point(
                     test_data.get_num_data_points());
+
                 int num_accuracies = 1;
                 if (this->frequency_type == all) {
                     if (test_data.is_event_based()) {

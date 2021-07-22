@@ -221,6 +221,8 @@ namespace tomcat {
             // Observable nodes are already frozen by the Gibbs sampler thus
             // there's no need to add them as data in the ancestral sampler.
             AncestralSampler initial_sampler(this->model);
+            initial_sampler.set_time_steps_per_sample(
+                this->time_steps_per_sample);
             initial_sampler.set_num_in_plate_samples(
                 this->num_in_plate_samples);
             initial_sampler.sample(random_generator, 1);
@@ -302,8 +304,8 @@ namespace tomcat {
                 dynamic_pointer_cast<RandomVariableNode>(node);
 
             if (!rv_node->is_frozen()) {
-                Eigen::MatrixXd sample =
-                    rv_node->sample_from_posterior(random_generator_per_job);
+                Eigen::MatrixXd sample = rv_node->sample_from_posterior(
+                    random_generator_per_job, this->time_steps_per_sample);
 
                 if (rv_node->get_metadata()->is_timer()) {
                     dynamic_pointer_cast<TimerNode>(rv_node)

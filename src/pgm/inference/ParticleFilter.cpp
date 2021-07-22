@@ -99,6 +99,13 @@ namespace tomcat {
             int final_time_step =
                 this->last_time_step + new_data.get_time_steps();
             for (int t = initial_time_step; t <= final_time_step; t++) {
+                if (new_data.is_event_based()) {
+                    // No more events to process
+                    if (t > new_data.get_num_events_for(0) - 1) {
+                        break;
+                    }
+                }
+
                 this->elapse(new_data, t);
                 EvidenceSet resampled_particles = this->resample(new_data, t);
                 marginals.hstack(
@@ -813,7 +820,8 @@ namespace tomcat {
                 int final_time_step = this->last_time_step + num_time_steps;
                 for (int t = initial_time_step; t <= final_time_step; t++) {
                     this->elapse(empty_set, t);
-                    EvidenceSet resampled_particles = this->resample(empty_set, t);
+                    EvidenceSet resampled_particles =
+                        this->resample(empty_set, t);
                     this->apply_rao_blackwellization(t, resampled_particles);
                     particles.hstack(resampled_particles);
                     this->update_left_segment_distribution_indices(t);

@@ -47,7 +47,8 @@ namespace tomcat {
         }
 
         Eigen::MatrixXd TimerNode::sample_from_posterior(
-            const vector<shared_ptr<gsl_rng>>& random_generator_per_job) {
+            const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
+            const std::vector<int>& time_steps_per_sample) {
             // Timer is not sampled in parallel since it only requires
             // straight forward matrix operations.
 

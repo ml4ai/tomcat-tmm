@@ -321,7 +321,7 @@ namespace tomcat {
             int new_rows =
                 max(data_point_idx + 1, (int)estimates_matrix.rows());
             int new_cols = max(time_step + 1, (int)estimates_matrix.cols());
-            estimates_matrix.conservativeResize(new_rows, new_cols);
+            estimates_matrix.conservativeResizeLike(Eigen::MatrixXd::Constant(new_rows, new_cols, NO_OBS));
             estimates_matrix(data_point_idx, time_step) = probability;
         }
 

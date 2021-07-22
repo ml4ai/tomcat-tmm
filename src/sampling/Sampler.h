@@ -158,6 +158,9 @@ namespace tomcat {
 
             void set_show_progress(bool show_progress);
 
+            void
+            set_time_steps_per_sample(std::vector<int>& time_steps_per_sample);
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -192,6 +195,12 @@ namespace tomcat {
             int num_samples = 0;
 
             bool show_progress = true;
+
+            // Used to allow nodes to have different number of time steps per
+            // sample (event based learning). Nodes with time step higher than
+            // the maximum time step for a specific assignment row, will have
+            // value equals to NO_OBS in such a row.
+            std::vector<int> time_steps_per_sample;
 
           private:
             //------------------------------------------------------------------

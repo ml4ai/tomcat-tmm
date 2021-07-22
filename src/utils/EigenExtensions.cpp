@@ -122,7 +122,9 @@ namespace tomcat {
             Eigen::MatrixXi cat = Eigen::MatrixXi::Zero(rows, num_bits);
 
             for (int i = 0; i < rows; i++) {
-                cat(i, integers(i)) = 1;
+                if (integers(i) >= 0) {
+                    cat(i, integers(i)) = 1;
+                }
             }
 
             return cat;

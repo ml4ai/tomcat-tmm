@@ -66,12 +66,15 @@ namespace tomcat {
                     // values, we generate a single sample following the
                     // ancestral sampling procedure and replicate it.
 
-                    sample = rv_node->sample(random_generators_per_job, 1);
+                    sample = rv_node->sample(random_generators_per_job,
+                                             1,
+                                             this->time_steps_per_sample);
                     sample = sample.replicate(max_num_samples, 1);
                 }
                 else {
                     sample = rv_node->sample(random_generators_per_job,
-                                             max_num_samples);
+                                             max_num_samples,
+                                             this->time_steps_per_sample);
                 }
 
                 // A sample is stored as an assignment of the node.
@@ -88,13 +91,13 @@ namespace tomcat {
             // of the nodes is used here.
             for (int t = 0; t < this->model->get_time_steps(); t++) {
                 for (auto& node :
-                    this->model->get_nodes_in_topological_order_at(t)) {
+                     this->model->get_nodes_in_topological_order_at(t)) {
 
                     shared_ptr<RandomVariableNode> rv_node =
                         dynamic_pointer_cast<RandomVariableNode>(node);
 
-                    // If a node is frozen, we don't generate samples for it as it
-                    // already contains pre-defined samples.
+                    // If a node is frozen, we don't generate samples for it as
+                    // it already contains pre-defined samples.
                     if (rv_node->is_frozen()) {
                         continue;
                     }
@@ -120,7 +123,8 @@ namespace tomcat {
             return new_sampler;
         }
 
-        unordered_set<string> AncestralSampler::get_sampled_node_labels() const {
+        unordered_set<string>
+        AncestralSampler::get_sampled_node_labels() const {
             unordered_set<string> labels;
 
             for (auto node : this->get_node_set().nodes_to_sample) {
@@ -129,7 +133,6 @@ namespace tomcat {
 
             return labels;
         }
-
 
         //----------------------------------------------------------------------
         // Getters & Setters

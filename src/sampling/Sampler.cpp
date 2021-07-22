@@ -174,5 +174,10 @@ namespace tomcat {
             this->show_progress = show_progress;
         }
 
+        void
+        Sampler::set_time_steps_per_sample(vector<int>& time_steps_per_sample) {
+            Sampler::time_steps_per_sample = time_steps_per_sample;
+        }
+
     } // namespace model
 } // namespace tomcat

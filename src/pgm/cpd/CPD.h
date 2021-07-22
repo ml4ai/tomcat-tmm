@@ -166,6 +166,12 @@ namespace tomcat {
              * @param num_samples: number of samples to generate.
              * @param cpd_owner: node to which sample is being generated,
              * which is also the owner of this CPD.
+             * @param time_steps_per_sample: number of events per data
+             * point. It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point. If empty, nodes in all the time
+             * steps in the enrolled DBN will have all of its assignment rows
+             * processed.
              *
              * @return A sample from one of the distributions in the CPD.
              */
@@ -173,8 +179,8 @@ namespace tomcat {
             sample(const std::vector<std::shared_ptr<gsl_rng>>&
                        random_generator_per_job,
                    int num_samples,
-                   const std::shared_ptr<const RandomVariableNode>& cpd_owner)
-                const;
+                   const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                   const std::vector<int>& time_steps_per_sample = {}) const;
 
             /**
              * Generates a sample for the node that owns this CPD from its
@@ -185,6 +191,12 @@ namespace tomcat {
              * @param posterior_weights: posterior weights given by the product
              * of p(children(node)|node)
              * @param num_jobs: number of threads used in the computation
+             * @param time_steps_per_sample: number of events per data
+             * point. It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point. If empty, nodes in all the time
+             * steps in the enrolled DBN will have all of its assignment rows
+             * processed.
              *
              * @return Sample from the node's posterior.
              */
@@ -192,8 +204,8 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<gsl_rng>>&
                     random_generator_per_job,
                 const Eigen::MatrixXd& posterior_weights,
-                const std::shared_ptr<const RandomVariableNode>& cpd_owner)
-                const;
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const std::vector<int>& time_steps_per_sample = {}) const;
 
             /**
              * Returns the indices of the distributions indexed by the current
@@ -412,6 +424,12 @@ namespace tomcat {
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
              * performed in the main thread
+             * @param time_steps_per_sample: number of events per sample
+             * It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point/sample. If empty, nodes in all
+             * the time steps in the enrolled DBN will have all of its
+             * assignment rows processed.
              *
              * @return Posterior weights of the node that owns this CPD for one
              * of its parent nodes.
@@ -420,7 +438,8 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
-                int num_jobs) const;
+                int num_jobs,
+                const std::vector<int>& time_steps_per_sample = {}) const;
 
             /**
              * Returns p(timer node | sampled_node) per particle. This function
