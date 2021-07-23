@@ -12,8 +12,8 @@ namespace tomcat {
          */
         class F1Score : public Measure {
           public:
-
-            inline static const std::string NAME = "f1";
+            inline static const std::string MACRO_NAME = "f1_macro";
+            inline static const std::string MICRO_NAME = "f1_micro";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -27,9 +27,13 @@ namespace tomcat {
              * inferring the occurrence of an assignment as true
              * @param frequency_type: frequency at which estimates must be
              * computed
+             * @param macro: whether macro or micro computation must be used for
+             * the multi-class scenario.
              */
             F1Score(const std::shared_ptr<Estimator>& estimator,
-                    double threshold = 0.5);
+                    double threshold = 0.5,
+                    FREQUENCY_TYPE frequency_type = all,
+                    bool macro = true);
 
             ~F1Score();
 
@@ -53,18 +57,20 @@ namespace tomcat {
             void get_info(nlohmann::json& json) const override;
 
           private:
-
             //------------------------------------------------------------------
-            // Member functions
+            // Data members
             //------------------------------------------------------------------
 
             /**
-             * Computes F1 score from a confusion matrix;
+             * Computes F1 score for a given confusion matrix.
              *
              * @param confusion_matrix: confusion matrix
-             * @return
+             *
+             * @return F1 score
              */
-            double get_score(const ConfusionMatrix& confusion_matrix) const;
+            double get_score(const Eigen::MatrixXi& confusion_matrix) const;
+
+            bool macro;
         };
 
     } // namespace model

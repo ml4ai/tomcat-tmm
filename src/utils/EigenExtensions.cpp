@@ -82,6 +82,12 @@ namespace tomcat {
             return ss.str();
         }
 
+        string to_string(const Eigen::MatrixXi& matrix) {
+            stringstream ss;
+            ss << matrix;
+            return ss.str();
+        }
+
         void matrix_vstack(Eigen::MatrixXd& original_matrix,
                            const Eigen::MatrixXd& other_matrix) {
 

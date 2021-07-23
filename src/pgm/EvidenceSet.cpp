@@ -254,6 +254,9 @@ namespace tomcat {
         }
 
         void EvidenceSet::shrink_up_to(int time_step) {
+            if (this->get_time_steps() <= time_step + 1)
+                return;
+
             for (auto& [node_label, data] : this->node_label_to_data) {
                 data = data.slice(0, time_step + 1, 2);
             }

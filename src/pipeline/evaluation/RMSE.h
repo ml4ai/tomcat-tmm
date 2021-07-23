@@ -50,21 +50,6 @@ namespace tomcat {
             evaluate(const EvidenceSet& test_data) const override;
 
             void get_info(nlohmann::json& json) const override;
-
-          private:
-            //------------------------------------------------------------------
-            // Member functions
-            //------------------------------------------------------------------
-
-            /**
-             * Computes RMSE score
-             *
-             * @param true_values: ground truth
-             * @param true_values: estimates
-             * @return
-             */
-            double get_score(const Eigen::MatrixXd& true_values,
-                             const Eigen::MatrixXd& estimated_values) const;
         };
 
     } // namespace model

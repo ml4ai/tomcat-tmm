@@ -98,14 +98,11 @@ namespace tomcat {
             int initial_time_step = this->last_time_step + 1;
             int final_time_step =
                 this->last_time_step + new_data.get_time_steps();
+            if (new_data.is_event_based()) {
+                final_time_step =
+                    min(final_time_step, new_data.get_num_events_for(0) - 1);
+            }
             for (int t = initial_time_step; t <= final_time_step; t++) {
-                if (new_data.is_event_based()) {
-                    // No more events to process
-                    if (t > new_data.get_num_events_for(0) - 1) {
-                        break;
-                    }
-                }
-
                 this->elapse(new_data, t);
                 EvidenceSet resampled_particles = this->resample(new_data, t);
                 marginals.hstack(
@@ -432,9 +429,9 @@ namespace tomcat {
                     marginals.add_data(metadata->get_label(), prior, false);
 
                     Tensor3 no_obs =
-                        Tensor3::constant(this->num_particles,
+                        Tensor3::constant(1,
+                                          this->num_particles,
                                           metadata->get_sample_size(),
-                                          1,
                                           NO_OBS);
                     particles.add_data(node_label, no_obs);
                 }
@@ -562,6 +559,9 @@ namespace tomcat {
                         this->random_generators_per_job.size());
                     Eigen::VectorXd probabilities =
                         Eigen::VectorXd::Zero(metadata->get_cardinality());
+                    bool process_left_segment = EXISTS(
+                        node_label,
+                        this->last_left_segment_marginal_nodes_distribution_indices);
 
                     int i = 0;
                     for (const auto& posterior : posteriors) {
@@ -581,10 +581,7 @@ namespace tomcat {
                             // node value. A marginal node has only a single
                             // time instance and, therefore, its current value
                             // must influence currently open segments.
-                            if (time_step > 0 &&
-                                EXISTS(
-                                    node_label,
-                                    this->last_left_segment_marginal_nodes_distribution_indices)) {
+                            if (time_step > 0 && process_left_segment) {
                                 for (
                                     const auto& [timer_label, log_weights] :
                                     this->last_left_segment_marginal_nodes_distribution_indices

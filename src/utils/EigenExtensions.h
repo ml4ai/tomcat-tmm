@@ -56,6 +56,17 @@ namespace tomcat {
          */
         std::string to_string(const Eigen::MatrixXd& matrix);
 
+
+        /**
+         * Returns a string representation of the matrix.
+         *
+         * @param matrix: matrix
+         *
+         * @return String representation of the matrix.
+         */
+        std::string to_string(const Eigen::MatrixXi& matrix);
+
+
         /**
          * Appends a matrix in the original one row wise.
          *

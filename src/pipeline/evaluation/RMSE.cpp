@@ -38,71 +38,93 @@ namespace tomcat {
             evaluation.evaluation = Eigen::MatrixXd::Constant(1, 1, NO_OBS);
 
             if (test_data.has_data_for(evaluation.label)) {
-                // Get matrix of true observations.
-                Eigen::MatrixXd true_values = test_data[evaluation.label](0, 0);
-
+                int rows = estimates.estimates[0].rows();
                 int cols = estimates.estimates[0].cols();
-                int first_valid_time_step =
-                    EvidenceSet::get_first_time_with_observation(
-                        test_data[evaluation.label]);
-                vector<int> time_steps;
-                if (this->frequency_type == last) {
-                    time_steps.push_back(cols - 1);
-                }
-                else if (this->frequency_type == fixed) {
-                    time_steps = this->fixed_steps;
+                int horizon = this->estimator->get_inference_horizon();
+                int num_measures = this->frequency_type == fixed
+                                       ? this->fixed_steps.size()
+                                       : 1;
+
+                // Per fixed time
+                vector<double> square_diffs(num_measures, 0);
+                vector<double> num_cases(num_measures, 0);
+                for (int i = 0; i < rows; i++) {
+                    // Convert time step to column index
+                    vector<int> valid_cols;
+                    if (this->frequency_type == fixed) {
+                        for (int t : this->fixed_steps) {
+                            valid_cols.push_back(
+                                test_data.get_column_index_for(i, t));
+                        }
+                        sort(valid_cols.begin(), valid_cols.end());
+                    }
+                    else if (this->frequency_type == last) {
+                        valid_cols = vector<int>(1);
+                        for (valid_cols[0] = cols - 1; valid_cols[0] >= 0;
+                             valid_cols[0]--) {
+                            if (estimates.estimates[0](i, valid_cols[0]) !=
+                                NO_OBS) {
+                                break;
+                            }
+                        }
+                        valid_cols[0] -= horizon;
+                    }
+                    else {
+                        valid_cols = vector<int>(cols);
+                        for (int j = 0;
+                             j < test_data.get_num_events_for(i) - horizon;
+                             j++) {
+                            valid_cols[j] = j;
+                        }
+                    }
+
+                    int fixed_time_step_idx = 0;
+                    for (int j : valid_cols) {
+                        if (estimates.estimates[0](i, j) == NO_OBS ||
+                            test_data[evaluation.label](0, 0)(i, j + horizon) ==
+                                NO_OBS)
+                            continue;
+
+                        square_diffs[fixed_time_step_idx] +=
+                            pow(estimates.estimates[0](i, j) -
+                                    test_data[evaluation.label](0, 0)(i, j),
+                                2);
+                        num_cases[fixed_time_step_idx] += 1;
+
+                        if (this->frequency_type == fixed) {
+                            fixed_time_step_idx++;
+                        }
+                    }
                 }
 
-                if (this->frequency_type == all) {
-                    double rmse =
-                        this->get_score(true_values, estimates.estimates[0]);
+                if (num_measures > 1) {
+                    // We compute RMSE for each fixed time step and add
+                    // one more with the total
                     evaluation.evaluation =
-                        Eigen::MatrixXd::Constant(1, 1, rmse);
+                        Eigen::MatrixXd::Constant(1, num_measures + 1, NO_OBS);
                 }
                 else {
-                    if (time_steps.empty())
-                        return evaluation;
+                    evaluation.evaluation =
+                        Eigen::MatrixXd::Constant(1, num_measures, NO_OBS);
+                }
 
-                    int num_rmses =
-                        this->frequency_type == fixed && time_steps.size() > 1
-                            ? time_steps.size() + 1
-                            : 1;
-                    Eigen::MatrixXd rmses = Eigen::MatrixXd(1, num_rmses);
+                double total_square_diff = 0;
+                double total_cases = 0;
+                for (int i = 0; i < num_measures; i++) {
+                    double rmse = sqrt(square_diffs[i] / num_cases[i]);
+                    evaluation.evaluation(0, i) = rmse;
 
-                    Eigen::MatrixXd sliced_estimates(
-                        estimates.estimates[0].rows(), time_steps.size());
-                    Eigen::MatrixXd sliced_true_values(
-                        estimates.estimates[0].rows(), time_steps.size());
+                    total_square_diff += square_diffs[i];
+                    total_cases += num_cases[i];
+                }
 
-                    int i = 0;
-                    for (int t : time_steps) {
-                        sliced_estimates.col(i) = estimates.estimates[0].col(t);
-                        sliced_true_values.col(i) = true_values.col(t);
-
-                        rmses(0, i) = this->get_score(sliced_true_values.col(i),
-                                                      sliced_estimates.col(i));
-                        i++;
-                    }
-
-                    if (num_rmses > 1) {
-                        rmses(0, num_rmses - 1) = this->get_score(
-                            sliced_true_values, sliced_estimates);
-                    }
-
-                    evaluation.evaluation = rmses;
+                if (num_measures > 1) {
+                    double total_rmse = sqrt(total_square_diff / total_cases);
+                    evaluation.evaluation(0, num_measures) = total_rmse;
                 }
             }
 
             return evaluation;
-        }
-
-        double RMSE::get_score(const Eigen::MatrixXd& true_values,
-                               const Eigen::MatrixXd& estimated_values) const {
-            double rmse = sqrt(
-                (estimated_values.array() - true_values.array()).pow(2).sum() /
-                true_values.size());
-
-            return rmse;
         }
 
         void RMSE::get_info(nlohmann::json& json) const {

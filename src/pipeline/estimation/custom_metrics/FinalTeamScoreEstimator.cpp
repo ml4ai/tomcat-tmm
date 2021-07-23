@@ -51,8 +51,12 @@ namespace tomcat {
         //----------------------------------------------------------------------
 
         void FinalTeamScoreEstimator::prepare() {
-            this->estimates.estimates = vector<Eigen::MatrixXd>(
-                5); // Estimated final score and other measures
+            // Estimated final score
+            // Average number of regular rescues
+            // Std of regular rescues
+            // Average number of critical rescues
+            // Std of critical rescues
+            this->estimates.estimates = vector<Eigen::MatrixXd>(5);
         }
 
         string FinalTeamScoreEstimator::get_name() const { return NAME; }

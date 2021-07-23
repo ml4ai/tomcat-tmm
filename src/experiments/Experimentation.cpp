@@ -298,11 +298,11 @@ namespace tomcat {
                                  json_estimator["evaluation"]["measures"])) {
 
                             Measure::FREQUENCY_TYPE eval_frequency_type;
-                            vector<int> fixed_time_steps;
+                            unordered_set<int> fixed_time_steps;
                             if (json_estimator["evaluation"]["frequency"]
                                               ["type"] == "fixed") {
                                 eval_frequency_type = Measure::fixed;
-                                fixed_time_steps = vector<int>(
+                                fixed_time_steps = unordered_set<int>(
                                     json_estimator["evaluation"]["frequency"]
                                                   ["time_steps"]);
                             }
@@ -319,9 +319,19 @@ namespace tomcat {
                                 measure = make_shared<Accuracy>(
                                     base_estimator, 0.5, eval_frequency_type);
                             }
-                            else if (measure_name == F1Score::NAME) {
+                            else if (measure_name == F1Score::MACRO_NAME) {
                                 measure =
-                                    make_shared<F1Score>(base_estimator, 0.5);
+                                    make_shared<F1Score>(base_estimator,
+                                                         0.5,
+                                                         eval_frequency_type,
+                                                         true);
+                            }
+                            else if (measure_name == F1Score::MICRO_NAME) {
+                                measure =
+                                    make_shared<F1Score>(base_estimator,
+                                                         0.5,
+                                                         eval_frequency_type,
+                                                         false);
                             }
                             else if (measure_name == RMSE::NAME) {
                                 measure = make_shared<RMSE>(

@@ -9,15 +9,10 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         F1Score::F1Score(const shared_ptr<Estimator>& estimator,
-                         double threshold)
-            : Measure(estimator, threshold, last) {
-
-            if (estimator->get_inference_horizon() == 0 and
-                estimator->get_estimates().assignment.size() == 0) {
-                throw TomcatModelException(
-                    "F1 Score cannot be used for multiclass inference.");
-            }
-        }
+                         double threshold,
+                         FREQUENCY_TYPE frequency_type,
+                         bool macro)
+            : Measure(estimator, threshold, frequency_type), macro(macro) {}
 
         F1Score::~F1Score() {}
 
@@ -45,71 +40,25 @@ namespace tomcat {
             evaluation.evaluation = Eigen::MatrixXd::Constant(1, 1, NO_OBS);
 
             if (test_data.has_data_for(evaluation.label)) {
+                vector<Eigen::MatrixXi> confusion_matrices =
+                    this->get_confusion_matrices(test_data);
 
-                // Get matrix of true observations.
-                Tensor3 real_data_3d = test_data[evaluation.label];
-                Eigen::MatrixXd true_values = real_data_3d(0, 0);
+                evaluation.evaluation = Eigen::MatrixXd::Constant(
+                    1, confusion_matrices.size(), NO_OBS);
+                // Side by side matrices
+                evaluation.confusion_matrix = Eigen::MatrixXi::Constant(
+                    confusion_matrices[0].rows(),
+                    confusion_matrices.size() * confusion_matrices[0].cols(),
+                    NO_OBS);
 
-                int cols = estimates.estimates[0].cols();
-                int first_valid_time_step =
-                    EvidenceSet::get_first_time_with_observation(real_data_3d);
-                vector<int> time_steps;
-                if (this->frequency_type == last) {
-                    time_steps.push_back(cols - 1);
-                }
-                else {
-                    time_steps = this->fixed_steps;
-                }
-
-                if (frequency_type == all) {
-                    ConfusionMatrix confusion_matrix =
-                        this->get_confusion_matrix(estimates.estimates[0],
-                                                   true_values,
-                                                   estimates.assignment[0]);
-                    double f1 = this->get_score(confusion_matrix);
-                    evaluation.evaluation = Eigen::MatrixXd::Constant(1, 1, f1);
-                }
-                else {
-                    if (time_steps.empty())
-                        return evaluation;
-
-                    // If the frequency is fixed, we compute accuracies per time
-                    // step in the fixed list and a final total one
-                    int num_f1s =
-                        this->frequency_type == fixed && time_steps.size() > 1
-                        ? time_steps.size() + 1
-                        : 1;
-                    Eigen::MatrixXd f1s = Eigen::MatrixXd::Zero(1, num_f1s);
-
-                    Eigen::MatrixXd sliced_estimates(
-                        estimates.estimates[0].rows(), time_steps.size());
-                    Eigen::MatrixXd sliced_true_values(
-                        estimates.estimates[0].rows(), time_steps.size());
-
-                    int i = 0;
-                    for (int t : time_steps) {
-                        sliced_estimates.col(i) = estimates.estimates[0].col(t);
-                        sliced_true_values.col(i) = true_values.col(t);
-
-                        ConfusionMatrix confusion_matrix =
-                            this->get_confusion_matrix(
-                                sliced_estimates.col(i),
-                                sliced_true_values.col(i),
-                                estimates.assignment[0]);
-
-                        f1s(0, i) = this->get_score(confusion_matrix);
-                        i++;
-                    }
-
-                    if (num_f1s > 1) {
-                        ConfusionMatrix confusion_matrix =
-                            this->get_confusion_matrix(sliced_estimates,
-                                                       sliced_true_values,
-                                                       estimates.assignment[0]);
-                        f1s(0, num_f1s - 1) = this->get_score(confusion_matrix);
-                    }
-
-                    evaluation.evaluation = f1s;
+                for (int i = 0; i < confusion_matrices.size(); i++) {
+                    double f1 = this->get_score(confusion_matrices[i]);
+                    evaluation.evaluation(0, i) = f1;
+                    evaluation.confusion_matrix.block(
+                        0,
+                        i * confusion_matrices[i].cols(),
+                        confusion_matrices[i].rows(),
+                        confusion_matrices[i].cols()) = confusion_matrices[i];
                 }
             }
 
@@ -117,35 +66,54 @@ namespace tomcat {
         }
 
         double
-        F1Score::get_score(const ConfusionMatrix& confusion_matrix) const {
-            double precision = 0;
-            if (confusion_matrix.true_positives +
-                confusion_matrix.false_positives >
-                0) {
-                precision = (double)confusion_matrix.true_positives /
-                            (confusion_matrix.true_positives +
-                             confusion_matrix.false_positives);
+        F1Score::get_score(const Eigen::MatrixXi& confusion_matrix) const {
+            double f1;
+
+            int num_classes = confusion_matrix.rows();
+            if (num_classes == 2) {
+                double tp = confusion_matrix(1, 1);
+                double fp = confusion_matrix(1, 0);
+                double fn = confusion_matrix(0, 1);
+
+                double precision = 0 ? tp + fp == 0 : tp / (tp + fp);
+                double recall = 0 ? tp + fn == 0 : tp / (tp + fn);
+                f1 = (2 * precision * recall) / (precision + recall);
+            }
+            else {
+                if (macro) {
+                    // Per class
+                    Eigen::VectorXd f1_per_class(num_classes);
+                    for (int k = 0; k < num_classes; k++) {
+                        double tp = confusion_matrix(k, k);
+                        double fp = confusion_matrix.row(k).sum() -
+                                    confusion_matrix(k, k);
+                        double fn = confusion_matrix.col(k).sum() -
+                                    confusion_matrix(k, k);
+
+                        double precision = 0 ? tp + fp == 0 : tp / (tp + fp);
+                        double recall = 0 ? tp + fn == 0 : tp / (tp + fn);
+                        f1_per_class[k] =
+                            (2 * precision * recall) / (precision + recall);
+                    }
+
+                    f1 = f1_per_class.mean();
+                }
+                else {
+                    double tp = confusion_matrix.diagonal().sum();
+                    double fp = confusion_matrix.sum() - tp;
+                    double fn = fp;
+
+                    double precision = 0 ? tp + fp == 0 : tp / (tp + fp);
+                    double recall = 0 ? tp + fn == 0 : tp / (tp + fn);
+                    f1 = (2 * precision * recall) / (precision + recall);
+                }
             }
 
-            double recall = 0;
-            if (confusion_matrix.true_positives +
-                confusion_matrix.false_negatives >
-                0) {
-                recall = (double)confusion_matrix.true_positives /
-                         (confusion_matrix.true_positives +
-                          confusion_matrix.false_negatives);
-            }
-
-            double f1_score = 0;
-            if (precision > 0 and recall > 0) {
-                f1_score = (2 * precision * recall) / (precision + recall);
-            }
-
-            return f1_score;
+            return f1;
         }
 
         void F1Score::get_info(nlohmann::json& json) const {
-            json["name"] = NAME;
+            json["name"] = this->macro ? MACRO_NAME : MICRO_NAME;
             json["threshold"] = this->threshold;
             this->estimator->get_info(json["estimator"]);
         }

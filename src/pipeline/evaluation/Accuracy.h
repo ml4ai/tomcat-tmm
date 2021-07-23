@@ -53,19 +53,6 @@ namespace tomcat {
 
             void get_info(nlohmann::json& json) const override;
 
-          private:
-
-            //------------------------------------------------------------------
-            // Member functions
-            //------------------------------------------------------------------
-
-            /**
-             * Computes accuracy from a confusion matrix;
-             *
-             * @param confusion_matrix: confusion matrix
-             * @return
-             */
-            double get_score(const ConfusionMatrix& confusion_matrix) const;
         };
 
     } // namespace model
