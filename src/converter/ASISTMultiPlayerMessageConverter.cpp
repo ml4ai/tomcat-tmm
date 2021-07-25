@@ -54,24 +54,27 @@ namespace tomcat {
 
             return pos1.get_distance(pos2) <= 2;
 
-//            auto square_around =
-//                BoundingBox(pos1.x - 1, pos1.x + 1, pos1.z - 1, pos1.z + 1);
-//            if (pos2.is_inside(square_around)) {
-//                return true;
-//            }
-//            else {
-//                // Tips of the star
-//                if ((pos1.x - 2 == pos2.x || pos1.x + 2 == pos2.x) &&
-//                    pos1.z == pos2.z) {
-//                    return true;
-//                }
-//                else if ((pos1.z - 2 == pos2.z || pos1.z + 2 == pos2.z) &&
-//                         pos1.x == pos2.x) {
-//                    return true;
-//                }
-//            }
-//
-//            return false;
+            //            auto square_around =
+            //                BoundingBox(pos1.x - 1, pos1.x + 1, pos1.z - 1,
+            //                pos1.z + 1);
+            //            if (pos2.is_inside(square_around)) {
+            //                return true;
+            //            }
+            //            else {
+            //                // Tips of the star
+            //                if ((pos1.x - 2 == pos2.x || pos1.x + 2 == pos2.x)
+            //                &&
+            //                    pos1.z == pos2.z) {
+            //                    return true;
+            //                }
+            //                else if ((pos1.z - 2 == pos2.z || pos1.z + 2 ==
+            //                pos2.z) &&
+            //                         pos1.x == pos2.x) {
+            //                    return true;
+            //                }
+            //            }
+            //
+            //            return false;
         }
 
         //----------------------------------------------------------------------
@@ -229,6 +232,7 @@ namespace tomcat {
             topics.insert("agent/pygl_fov/player/3d/summary");
             topics.insert("agent/measures");
             topics.insert("observations/events/player/marker_placed");
+            topics.insert("agent/dialog");
 
             return topics;
         }
@@ -341,6 +345,8 @@ namespace tomcat {
             this->nearby_markers_info.resize(this->nearby_markers_info.size() +
                                              1);
             this->player_placed_marker.push_back(Tensor3(NO_MARKER_PLACED));
+            this->player_agreement.push_back(Tensor3(NO_COMMUNICATION));
+            this->player_victim_in_fov.push_back(Tensor3(NO_VICTIM_IN_FOV));
         }
 
         int ASISTMultiPlayerMessageConverter::get_numeric_trial_number(
@@ -534,8 +540,7 @@ namespace tomcat {
                           Tensor3(this->planning_condition));
 
             // Per player
-            for (int player_number = 0;
-                 player_number < this->player_id_to_number.size();
+            for (int player_number = 0; player_number < this->players.size();
                  player_number++) {
                 data.add_data(get_player_variable_label(PLAYER_TASK_LABEL,
                                                         player_number + 1),
@@ -616,6 +621,17 @@ namespace tomcat {
                     MAP_VERSION_ASSIGNMENT_LABEL,
                     Tensor3::constant(1, 1, 1, this->map_version_assignment));
 
+                // NLP
+                data.add_data(get_player_variable_label(PLAYER_AGREEMENT_LABEL,
+                                                        player_number + 1),
+                              this->player_agreement[player_number]);
+
+                // FoV
+                data.add_data(
+                    get_player_variable_label(PLAYER_VICTIM_IN_FOV_LABEL,
+                                              player_number + 1),
+                    this->player_victim_in_fov[player_number]);
+
                 // Observations from measures
                 if (!json_measures.empty()) {
                     // Final score
@@ -636,6 +652,12 @@ namespace tomcat {
 
                 this->player_placed_marker[player_number] =
                     Tensor3(NO_MARKER_PLACED);
+
+                this->player_agreement[player_number] =
+                    Tensor3(NO_COMMUNICATION);
+
+                this->player_victim_in_fov[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
             }
 
             this->next_time_step += 1;
@@ -686,18 +708,21 @@ namespace tomcat {
             const nlohmann::json& json_message) {
 
             string player_id;
-            int player_number;
+            int player_number = -1;
             if (EXISTS("participant_id", json_message["data"])) {
                 player_id = json_message["data"]["participant_id"];
-                player_number =
-                    this->player_id_to_number[json_message["data"]
-                                                          ["participant_id"]];
+                if (EXISTS(player_id, this->player_id_to_number)) {
+                    player_number = this->player_id_to_number[player_id];
+                }
             }
             else if (EXISTS("playername", json_message["data"])) {
                 player_id = json_message["data"]["playername"];
-                player_number =
-                    this->player_name_to_number[json_message["data"]
-                                                            ["playername"]];
+                if (EXISTS(player_id, this->player_name_to_number)) {
+                    player_number = this->player_name_to_number[player_id];
+                } else if (EXISTS(player_id, this->player_id_to_number)) {
+                    // Some FoV data contains the player id in the playername field.
+                    player_number = this->player_id_to_number[player_id];
+                }
             }
 
             if (player_id == "") {
@@ -708,7 +733,7 @@ namespace tomcat {
                         json_message["data"]["scoreboard"]["TeamScore"];
                 }
             }
-            else {
+            else if (player_number >= 0) {
                 // Observations that are individual for each player
                 if (json_message["header"]["message_type"] == "event" &&
                     json_message["msg"]["sub_type"] == "Event:ToolUsed") {
@@ -862,6 +887,38 @@ namespace tomcat {
                     this->player_placed_marker[player_number] =
                         Tensor3(marker_block.number);
                 }
+                else if (json_message["header"]["message_type"] == "event" &&
+                         json_message["msg"]["sub_type"] ==
+                             "Event:dialogue_event") {
+
+                    for (const auto& json_extraction :
+                         json_message["data"]["extractions"]) {
+                        if (json_extraction["label"] == "Agreement") {
+                            this->player_agreement[player_number] =
+                                Tensor3(AGREEMENT);
+                            break;
+                        }
+                        else if (json_extraction["label"] == "Disagreement") {
+                            this->player_agreement[player_number] =
+                                Tensor3(DISAGREEMENT);
+                            break;
+                        }
+                    }
+                }
+                else if (json_message["header"]["message_type"] ==
+                             "observation" &&
+                         json_message["msg"]["sub_type"] == "FoV") {
+
+                    for (const auto& json_block :
+                         json_message["data"]["blocks"]) {
+                        const string& block_type = json_block["type"];
+                        if (block_type.find("victim") != string::npos) {
+                            this->player_victim_in_fov[player_number] =
+                                Tensor3(VICTIM_IN_FOV);
+                            break;
+                        }
+                    }
+                }
             }
         }
 
@@ -929,6 +986,8 @@ namespace tomcat {
             this->marker_legend_per_player.clear();
             this->map_info_per_player.clear();
             this->player_placed_marker.clear();
+            this->player_agreement.clear();
+            this->player_victim_in_fov.clear();
 
             this->final_score = NO_OBS;
             this->map_version_assignment = NO_OBS;
@@ -948,6 +1007,7 @@ namespace tomcat {
             return filename.find("TrialMessages") != string::npos &&
                    filename.find("Training") == string::npos &&
                    filename.find("PlanningASR") == string::npos &&
+                   filename.find("FoV") == string::npos &&
                    file.path().extension().string() == ".metadata";
         }
 

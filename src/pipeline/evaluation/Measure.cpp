@@ -136,7 +136,7 @@ namespace tomcat {
                         // evaluate inferences (not predictions) and the sum of
                         // probabilities among classes sum up to one.
                         int estimated_class = 0;
-                        double max_prob = 0;
+                        double max_prob = -1;
                         for (int k = 0; k < num_classes; k++) {
                             double prob = probabilities_per_class[k](i, j);
                             if (prob > max_prob) {

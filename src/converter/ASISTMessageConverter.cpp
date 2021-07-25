@@ -15,8 +15,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         ASISTMessageConverter::ASISTMessageConverter(int num_seconds,
                                                      int time_step_size)
-            : MessageConverter(num_seconds, time_step_size) {
-        }
+            : MessageConverter(num_seconds, time_step_size) {}
 
         ASISTMessageConverter::~ASISTMessageConverter() {}
 
@@ -92,6 +91,56 @@ namespace tomcat {
                     }
                 }
                 catch (nlohmann::detail::parse_error& exp) {
+                }
+            }
+
+            // Look for a FoV file and in case it exists, append FoV messages to
+            // the hashmap
+            int temp = messages_filepath.find("_Trial-");
+            stringstream fov_filepath;
+            fov_filepath << messages_filepath.substr(0, temp) << "-FoV"
+                         << messages_filepath.substr(temp);
+
+            ifstream fov_file_reader(fov_filepath.str());
+            if (fov_file_reader.good()) {
+                while (!fov_file_reader.eof()) {
+                    string message;
+                    getline(fov_file_reader, message);
+                    try {
+                        nlohmann::json json_message =
+                            nlohmann::json::parse(message);
+                        if (!json_message.contains("msg") ||
+                            !json_message["msg"].contains("timestamp")) {
+                            string error_msg =
+                                "Invalid format. Some messages do "
+                                "not contain a timestamp.";
+                            throw TomcatModelException(error_msg);
+                        }
+
+                        if (json_message["topic"] != nullptr) {
+                            const string& topic = json_message["topic"];
+
+                            if (EXISTS(topic, this->get_used_topics())) {
+                                if (topic == "trial") {
+                                    // There's an issue with the timestamp in the msg section of trial messages. The
+                                    // timestamp in this section is not being
+                                    // updated when the trial stops.
+                                    const string& timestamp =
+                                        json_message["header"]["timestamp"];
+                                    messages[timestamp] = json_message;
+                                }
+                                else {
+                                    const string& timestamp =
+                                        json_message["msg"]["timestamp"];
+                                    messages[timestamp] = json_message;
+                                }
+
+                                this->parse_individual_message(json_message);
+                            }
+                        }
+                    }
+                    catch (nlohmann::detail::parse_error& exp) {
+                    }
                 }
             }
 

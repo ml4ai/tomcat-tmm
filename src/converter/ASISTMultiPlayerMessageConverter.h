@@ -51,6 +51,10 @@ namespace tomcat {
                     "ObservedPlayerExpandedBuildingSection";
             inline const static std::string PLANNING_CONDITION_LABEL =
                 "PlanningCondition";
+            inline const static std::string PLAYER_AGREEMENT_LABEL =
+                "PlayerAgreementSpeech";
+            inline const static std::string PLAYER_VICTIM_IN_FOV_LABEL =
+                "PlayerVictimInFoV";
 
             // Condition
             const static int TEAM_PLANNING_CONDITION = 0;
@@ -85,6 +89,15 @@ namespace tomcat {
             const static int MARKER_LEGEND_B = 1;
 
             const static int NO_MARKER_PLACED = 0;
+
+            // NLP
+            const static int NO_COMMUNICATION = 0;
+            const static int DISAGREEMENT = 1;
+            const static int AGREEMENT = 2;
+
+            // FoV
+            const static int NO_VICTIM_IN_FOV = 0;
+            const static int VICTIM_IN_FOV = 1;
 
             // Bounding box of the main part of the map. Used to split the map
             // into 6 sections. Staging area is not included.
@@ -180,14 +193,14 @@ namespace tomcat {
                     : x1(x1), x2(x2), z1(z1), z2(z2) {}
 
                 std::pair<BoundingBox, BoundingBox> get_horizontal_split() {
-                    BoundingBox b1(x1, x2, z1, z1 + (z2-z1)/2);
+                    BoundingBox b1(x1, x2, z1, z1 + (z2 - z1) / 2);
                     BoundingBox b2(x1, x2, b1.z2 + 1, z2);
 
                     return {b1, b2};
                 }
 
                 std::pair<BoundingBox, BoundingBox> get_vertical_split() {
-                    BoundingBox b1(x1, x1 + (x2-x1)/2, z1, z2);
+                    BoundingBox b1(x1, x1 + (x2 - x1) / 2, z1, z2);
                     BoundingBox b2(b1.x2 + 1, x2, z1, z2);
 
                     return {b1, b2};
@@ -409,6 +422,8 @@ namespace tomcat {
             std::vector<Tensor3> marker_legend_per_player;
             std::vector<Tensor3> map_info_per_player;
             std::vector<Tensor3> player_placed_marker;
+            std::vector<Tensor3> player_agreement;
+            std::vector<Tensor3> player_victim_in_fov;
             int final_score;
             int map_version_assignment;
             int marker_legend_version_assignment;
