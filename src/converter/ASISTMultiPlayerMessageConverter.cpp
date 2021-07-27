@@ -233,6 +233,7 @@ namespace tomcat {
             topics.insert("agent/measures");
             topics.insert("observations/events/player/marker_placed");
             topics.insert("agent/dialog");
+            topics.insert("ground_truth/mission/victims_list");
 
             return topics;
         }
@@ -569,7 +570,7 @@ namespace tomcat {
 
                 // The player detects a block if it's close enough to a block
                 // and this block is close enough to a door.
-                int nearby_marker = 0;
+                int nearby_marker = NO_NEARBY_MARKER;
                 for (const auto& block : this->placed_marker_blocks) {
                     if (are_within_marker_block_detection_radius(
                             this->player_position[player_number],
@@ -719,8 +720,10 @@ namespace tomcat {
                 player_id = json_message["data"]["playername"];
                 if (EXISTS(player_id, this->player_name_to_number)) {
                     player_number = this->player_name_to_number[player_id];
-                } else if (EXISTS(player_id, this->player_id_to_number)) {
-                    // Some FoV data contains the player id in the playername field.
+                }
+                else if (EXISTS(player_id, this->player_id_to_number)) {
+                    // Some FoV data contains the player id in the playername
+                    // field.
                     player_number = this->player_id_to_number[player_id];
                 }
             }
@@ -783,6 +786,14 @@ namespace tomcat {
                     }
                     else {
                         this->task_per_player[player_number] = Tensor3(NO_TASK);
+
+                        if (json_message["data"]["triage_state"] ==
+                            "SUCCESSFUL") {
+                            stringstream id;
+                            id << json_message["data"]["victim_x"] << "#"
+                               << json_message["data"]["victim_z"];
+                            this->rescued_victims.insert(id.str());
+                        }
                     }
                 }
                 else if (json_message["header"]["message_type"] == "event" &&
@@ -913,8 +924,25 @@ namespace tomcat {
                          json_message["data"]["blocks"]) {
                         const string& block_type = json_block["type"];
                         if (block_type.find("victim") != string::npos) {
-                            this->player_victim_in_fov[player_number] =
-                                Tensor3(VICTIM_IN_FOV);
+                            stringstream id;
+                            int x = json_block["location"][0];
+                            int z = json_block["location"][2];
+                            id << x << "#" << z;
+
+                            if (EXISTS(id.str(), this->rescued_victims)) {
+                                this->player_victim_in_fov[player_number] =
+                                    Tensor3(RESCUED_VICTIM_IN_FOV);
+                            }
+                            else {
+                                if (block_type == "block_victim_1") {
+                                    this->player_victim_in_fov[player_number] =
+                                        Tensor3(REGULAR_VICTIM_IN_FOV);
+                                }
+                                else {
+                                    this->player_victim_in_fov[player_number] =
+                                        Tensor3(CRITICAL_VICTIM_IN_FOV);
+                                }
+                            }
                             break;
                         }
                     }
@@ -997,8 +1025,10 @@ namespace tomcat {
             this->player_position.clear();
             this->placed_marker_blocks.clear();
 
-            nearby_markers_info.clear();
+            this->nearby_markers_info.clear();
             this->next_time_step = 0;
+
+            this->rescued_victims.clear();
         }
 
         bool ASISTMultiPlayerMessageConverter::is_valid_message_file(

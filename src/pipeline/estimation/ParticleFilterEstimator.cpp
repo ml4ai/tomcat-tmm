@@ -100,6 +100,10 @@ namespace tomcat {
                 EvidenceSet single_point_data =
                     new_data.get_single_point_data(d);
 
+                for (const auto& base_estimator : this->base_estimators) {
+                    base_estimator->prepare_for_the_next_data_point();
+                }
+
                 if (this->max_inference_horizon == 0 &&
                     !this->variable_horizon) {
                     // Generate particles for all time steps and compute
@@ -143,7 +147,8 @@ namespace tomcat {
                         for (const auto& base_estimator :
                              this->base_estimators) {
 
-                            if (base_estimator->does_estimation_at(t)) {
+                            if (base_estimator->does_estimation_at(
+                                    d, real_time_step, new_data)) {
                                 if (base_estimator->get_inference_horizon() <
                                     0) {
                                     time_steps_ahead =
@@ -168,7 +173,8 @@ namespace tomcat {
 
                         for (const auto& base_estimator :
                              this->base_estimators) {
-                            if (base_estimator->does_estimation_at(t)) {
+                            if (base_estimator->does_estimation_at(
+                                    d, real_time_step, new_data)) {
                                 base_estimator->estimate(new_data,
                                                          particles,
                                                          projected_particles,

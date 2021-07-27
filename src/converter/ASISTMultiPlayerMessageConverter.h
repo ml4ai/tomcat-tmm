@@ -89,6 +89,7 @@ namespace tomcat {
             const static int MARKER_LEGEND_B = 1;
 
             const static int NO_MARKER_PLACED = 0;
+            const static int NO_NEARBY_MARKER = 0;
 
             // NLP
             const static int NO_COMMUNICATION = 0;
@@ -97,7 +98,9 @@ namespace tomcat {
 
             // FoV
             const static int NO_VICTIM_IN_FOV = 0;
-            const static int VICTIM_IN_FOV = 1;
+            const static int REGULAR_VICTIM_IN_FOV = 1;
+            const static int CRITICAL_VICTIM_IN_FOV = 2;
+            const static int RESCUED_VICTIM_IN_FOV = 3;
 
             // Bounding box of the main part of the map. Used to split the map
             // into 6 sections. Staging area is not included.
@@ -403,6 +406,7 @@ namespace tomcat {
             std::vector<BoundingBox> building_sections;
             std::vector<BoundingBox> expanded_building_sections;
             std::vector<Door> doors;
+            std::unordered_set<std::string> rescued_victims;
 
             // Numbers are sequential numbers starting from zero and indicate
             // the position in the vector of observations. Id's and names are

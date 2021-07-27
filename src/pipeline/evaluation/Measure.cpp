@@ -21,7 +21,8 @@ namespace tomcat {
             : estimator(estimator), threshold(threshold),
               frequency_type(frequency_type) {
 
-            if (estimator->get_inference_horizon() > 0 &&
+            if (estimator->is_binary_on_prediction() &&
+                estimator->get_inference_horizon() > 0 &&
                 estimator->get_estimates().assignment.size() == 0) {
                 stringstream ss;
                 ss << "It's only possible to evaluate prediction estimates for "
@@ -86,7 +87,7 @@ namespace tomcat {
                     }
                     valid_cols[0] -= horizon;
                 }
-                else {
+                else if (this->frequency_type == all) {
                     valid_cols =
                         vector<int>(test_data.get_num_events_for(i) - horizon);
                     for (int j = 0;
@@ -95,11 +96,25 @@ namespace tomcat {
                         valid_cols[j] = j;
                     }
                 }
+                else {
+                    // Only evaluates time steps for which there are estimates
+                    // for it.
+                    for (int j = 0; j < cols; j++) {
+                        for (const auto& estimates_per_class :
+                             this->estimator->get_estimates().estimates) {
+                            if (estimates_per_class(i, j) != NO_OBS) {
+                                valid_cols.push_back(j);
+                                break;
+                            }
+                        }
+                    }
+                }
 
                 int fixed_time_step_idx = 0;
                 for (int j : valid_cols) {
                     if (probabilities_per_class[0](i, j) == NO_OBS ||
-                        true_values(i, j + horizon) == NO_OBS)
+                        (this->estimator->is_binary_on_prediction() &&
+                         true_values(i, j + horizon) == NO_OBS))
                         continue;
 
                     if (this->estimator->get_estimates().assignment.size() >

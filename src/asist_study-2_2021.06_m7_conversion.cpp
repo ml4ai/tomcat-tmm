@@ -8,6 +8,7 @@
 
 #include "converter/ASISTMultiPlayerMessageConverter.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
 
 using namespace tomcat::model;
 using namespace std;
@@ -95,9 +96,8 @@ EvidenceSet convert_including_players(const EvidenceSet& time_data,
                 ASISTMultiPlayerMessageConverter::PLANNING_CONDITION_LABEL,
                 Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
-            complement.add_data(
-                "TrialPeriod",
-                Tensor3::constant(1, 1, events_to_add, NO_OBS));
+            complement.add_data("TrialPeriod",
+                                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             for (int player_num = 1; player_num <= 3; player_num++) {
 
@@ -263,9 +263,8 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data,
                                     MARKER_LEGEND_ASSIGNMENT_LABEL,
                                 Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
-            complement.add_data(
-                "TrialPeriod",
-                Tensor3::constant(1, 1, events_to_add, NO_OBS));
+            complement.add_data("TrialPeriod",
+                                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             complement.add_data(
                 ASISTMultiPlayerMessageConverter::PLANNING_CONDITION_LABEL,
@@ -296,53 +295,115 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data,
     return event_data;
 }
 
+EvidenceSet convert_player_areas(const EvidenceSet& time_data) {
+    EvidenceSet player_area_after_nearby_marker;
+    vector<int> player_nums = {1, 2, 3};
+
+    for (int player_num : player_nums) {
+        string nearby_marker_label =
+            ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                ASISTMultiPlayerMessageConverter::OTHER_PLAYER_NEARBY_MARKER,
+                player_num);
+        string area_label =
+            ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
+                player_num);
+
+        Event event = Event::out_of_range;
+        int event_time = 0;
+        Eigen::MatrixXd player_area =
+            Eigen::MatrixXd::Constant(time_data.get_num_data_points(),
+                                      time_data.get_time_steps(),
+                                      NO_OBS);
+        int last_nearby_marker =
+            ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
+        for (int d = 0; d < time_data.get_num_data_points(); d++) {
+            for (int t = 0; t < time_data.get_time_steps(); t++) {
+                int nearby_marker = time_data[nearby_marker_label].at(0, d, t);
+
+                if (event == Event::out_of_range) {
+                    if (nearby_marker != ASISTMultiPlayerMessageConverter::
+                                             NO_NEARBY_MARKER &&
+                        last_nearby_marker == ASISTMultiPlayerMessageConverter::
+                                                  NO_NEARBY_MARKER) {
+                        event = within_range;
+                        event_time = t;
+                    }
+                }
+                else {
+                    if (nearby_marker ==
+                        ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER) {
+                        int area = time_data[area_label].at(0, d, t);
+                        event = Event::out_of_range;
+                        player_area(d, event_time) = area;
+                    }
+                }
+            }
+        }
+
+        string next_area_nearby_marker_label =
+            ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                NextAreaOnNearbyMarkerEstimator::NAME, player_num);
+        player_area_after_nearby_marker.add_data(next_area_nearby_marker_label,
+                                                 player_area);
+    }
+
+    return player_area_after_nearby_marker;
+}
+
 void convert(const string& input_dir,
              const string& output_dir,
              unsigned int player_option,
              unsigned int player_num,
              bool keep_all) {
     EvidenceSet time_data(input_dir);
-
-    // Remove variables that are not relevant for the event based model
-    time_data.remove(ASISTMultiPlayerMessageConverter::FINAL_TEAM_SCORE_LABEL);
-    time_data.remove(
-        ASISTMultiPlayerMessageConverter::MAP_VERSION_ASSIGNMENT_LABEL);
-    time_data.remove(ASISTMultiPlayerMessageConverter::TEAM_SCORE_LABEL);
-    for (int player_num = 1; player_num <= 3; player_num++) {
-        time_data.remove(
-            ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                ASISTMultiPlayerMessageConverter::
-                    OBS_PLAYER_BUILDING_SECTION_LABEL,
-                player_num));
-        time_data.remove(
-            ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                ASISTMultiPlayerMessageConverter::
-                    OBS_PLAYER_EXPANDED_BUILDING_SECTION_LABEL,
-                player_num));
-        time_data.remove(
-            ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                ASISTMultiPlayerMessageConverter::PLAYER_MAP_VERSION_LABEL,
-                player_num));
-        time_data.remove(
-            ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                ASISTMultiPlayerMessageConverter::PLAYER_PLACED_MARKER_LABEL,
-                player_num));
-        time_data.remove(
-            ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                ASISTMultiPlayerMessageConverter::PLAYER_TASK_LABEL,
-                player_num));
-    }
-
     EvidenceSet event_data;
 
-    if (player_option == 0) {
-        event_data = convert_including_players(time_data, keep_all);
-    }
-    else if (player_option == 1) {
-        event_data = convert_merging_players(time_data, 0, keep_all);
-    }
-    else {
-        event_data = convert_merging_players(time_data, player_num, keep_all);
+    if (player_option == 3) {
+        event_data = convert_player_areas(time_data);
+    } else {
+        // Remove variables that are not relevant for the event based model
+        time_data.remove(
+            ASISTMultiPlayerMessageConverter::FINAL_TEAM_SCORE_LABEL);
+        time_data.remove(
+            ASISTMultiPlayerMessageConverter::MAP_VERSION_ASSIGNMENT_LABEL);
+        time_data.remove(ASISTMultiPlayerMessageConverter::TEAM_SCORE_LABEL);
+        for (int player_num = 1; player_num <= 3; player_num++) {
+            time_data.remove(
+                ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                    ASISTMultiPlayerMessageConverter::
+                        OBS_PLAYER_BUILDING_SECTION_LABEL,
+                    player_num));
+            time_data.remove(
+                ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                    ASISTMultiPlayerMessageConverter::
+                        OBS_PLAYER_EXPANDED_BUILDING_SECTION_LABEL,
+                    player_num));
+            time_data.remove(
+                ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                    ASISTMultiPlayerMessageConverter::PLAYER_MAP_VERSION_LABEL,
+                    player_num));
+            time_data.remove(
+                ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                    ASISTMultiPlayerMessageConverter::
+                        PLAYER_PLACED_MARKER_LABEL,
+                    player_num));
+            time_data.remove(
+                ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                    ASISTMultiPlayerMessageConverter::PLAYER_TASK_LABEL,
+                    player_num));
+        }
+
+        if (player_option == 0) {
+            event_data = convert_including_players(time_data, keep_all);
+        }
+        else if (player_option == 1) {
+            event_data = convert_merging_players(time_data, 0, keep_all);
+        }
+        else {
+            event_data =
+                convert_merging_players(time_data, player_num, keep_all);
+        }
     }
     event_data.save(output_dir);
 }
@@ -367,9 +428,10 @@ int main(int argc, char* argv[]) {
         "Directory where the event-based data must be saved.")(
         "player_option",
         po::value<unsigned int>(&player_option),
-        "0 - Include players \n"
-        "1 - Merge players \n"
-        "2 - Include a specific player")(
+        "0 - Create event-based data including players at the same time \n"
+        "1 - Create event-based data merging players \n"
+        "2 - Create event-based data for a specific player \n"
+        "3 - Create observations for next area after a nearby marker event \n")(
         "player_num",
         po::value<unsigned int>(&player_num),
         "Player to include if option 2 was selected.")(

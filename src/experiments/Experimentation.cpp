@@ -196,6 +196,11 @@ namespace tomcat {
                             fixed_time_steps = unordered_set<int>(
                                 json_estimator["frequency"]["time_steps"]);
                         }
+                        else if (json_estimator["frequency"]["type"] ==
+                                 "dynamic") {
+                            estimation_frequency_type =
+                                SamplerEstimator::dynamic;
+                        }
                         else {
                             estimation_frequency_type = SamplerEstimator::all;
                         }
@@ -309,6 +314,10 @@ namespace tomcat {
                             else if (json_estimator["evaluation"]["frequency"]
                                                    ["type"] == "last") {
                                 eval_frequency_type = Measure::last;
+                            }
+                            else if (json_estimator["evaluation"]["frequency"]
+                                                   ["type"] == "dynamic") {
+                                eval_frequency_type = Measure::dynamic;
                             }
                             else {
                                 eval_frequency_type = Measure::all;

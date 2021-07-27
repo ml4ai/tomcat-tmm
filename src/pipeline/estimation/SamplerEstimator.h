@@ -30,7 +30,7 @@ namespace tomcat {
             // Types, Enums & Constants
             //------------------------------------------------------------------
 
-            enum FREQUENCY_TYPE { all, fixed };
+            enum FREQUENCY_TYPE { all, fixed, dynamic };
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -123,11 +123,15 @@ namespace tomcat {
              * Checks whether the estimator does computation at a given time
              * step.
              *
+             * @param data_point: data point
              * @param time_step: time step
+             * @param new_data: new test data
              *
              * @return
              */
-            bool does_estimation_at(int time_step) const;
+            bool does_estimation_at(int data_point,
+                                    int time_step,
+                                    const EvidenceSet& new_data) const;
 
             //------------------------------------------------------------------
             // Getters & Setters
@@ -161,6 +165,28 @@ namespace tomcat {
                                   int data_point_idx,
                                   int time_step);
 
+            /**
+             * Checks whether a custom event is triggered at a given time
+             * step and data point.
+             *
+             * @param data_point: data point
+             * @param time_step: time step
+             * @param new_data: new test data
+             *
+             * @return
+             */
+            virtual bool
+            is_event_triggered_at(int data_point,
+                                  int time_step,
+                                  const EvidenceSet& new_data) const;
+
+            /**
+             * Make any necessary preparations before estimates for a new data
+             * point start to be computed.
+             *
+             */
+            virtual void prepare_for_the_next_data_point() const;
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -185,6 +211,19 @@ namespace tomcat {
                                   int data_point_idx,
                                   int time_step,
                                   double probability);
+
+            /**
+             * Append a new custom calculation to the list of custom data.
+             *
+             * @param estimates_idx: index of the estimates matrix to use
+             * @param data_point_idx: row of the estimates matrix being updated
+             * @param time_step: column of the estimates matrix being updated
+             * @param probability: probability estimate
+             */
+            void update_custom_data(int estimates_idx,
+                                    int data_point_idx,
+                                    int time_step,
+                                    double probability);
 
             //------------------------------------------------------------------
             // Data members

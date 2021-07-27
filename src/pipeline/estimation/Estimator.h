@@ -40,6 +40,9 @@ namespace tomcat {
             // node. In sum, there will be estimates for each possible
             // assignment the node can have.
             std::vector<Eigen::MatrixXd> estimates;
+
+            // Any extra computation that needs to be reported
+            std::vector<Eigen::MatrixXd> custom_data;
         };
 
         /**
@@ -63,6 +66,8 @@ namespace tomcat {
             // assignments make sense when a inference horizon of size > 0 is
             // used.
             std::vector<std::vector<Eigen::MatrixXd>> estimates;
+
+            std::vector<std::vector<Eigen::MatrixXd>> custom_data;
         };
 
         /**
@@ -174,6 +179,18 @@ namespace tomcat {
              */
             virtual std::vector<std::shared_ptr<Estimator>>
             get_base_estimators();
+
+            /**
+             * Whether prediction cases are binary. This is used to
+             * differentiate cases in which it's mandatory to provide an
+             * assignment to estimate probabilities in a horizon. Custom
+             * estimators might change the default behavior, which is true, if
+             * the use a positive horizon but computes estimates for multiple
+             * assignments.
+             *
+             * @return
+             */
+            virtual bool is_binary_on_prediction() const;
 
             //------------------------------------------------------------------
             // Pure virtual functions

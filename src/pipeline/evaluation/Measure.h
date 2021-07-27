@@ -44,7 +44,7 @@ namespace tomcat {
             // Types, Enums & Constants
             //------------------------------------------------------------------
 
-            enum FREQUENCY_TYPE { all, last, fixed };
+            enum FREQUENCY_TYPE { all, last, fixed, dynamic };
 
             //------------------------------------------------------------------
             // Constructors & Destructor

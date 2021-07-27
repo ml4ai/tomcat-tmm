@@ -8,6 +8,7 @@
 #include "pipeline/estimation/custom_metrics/IndependentMarkerLegendVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/MarkerLegendVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -121,6 +122,16 @@ namespace tomcat {
                     IndependentMarkerLegendVersionAssignmentEstimator>(
                     model, frequency_type);
             }
+            else if (name == NextAreaOnNearbyMarkerEstimator::NAME + "P1") {
+                estimator =
+                    make_shared<NextAreaOnNearbyMarkerEstimator>(model, 1);
+            } else if (name == NextAreaOnNearbyMarkerEstimator::NAME + "P2") {
+                estimator =
+                    make_shared<NextAreaOnNearbyMarkerEstimator>(model, 2);
+            } else if (name == NextAreaOnNearbyMarkerEstimator::NAME + "P3") {
+                estimator =
+                    make_shared<NextAreaOnNearbyMarkerEstimator>(model, 3);
+            }
 
             return estimator;
         }
@@ -146,9 +157,24 @@ namespace tomcat {
 
         string SamplerEstimator::get_name() const { return "sampler"; }
 
-        bool SamplerEstimator::does_estimation_at(int time_step) const {
-            return this->frequency_type == all ||
-                   EXISTS(time_step, this->fixed_steps);
+        bool SamplerEstimator::does_estimation_at(
+            int data_point, int time_step, const EvidenceSet& new_data) const {
+            bool temp = false;
+            if (this->frequency_type == all ||
+                EXISTS(time_step, this->fixed_steps)) {
+                temp = true;
+            }
+            else if (this->frequency_type == dynamic) {
+                temp = this->is_event_triggered_at(
+                    data_point, time_step, new_data);
+            }
+            return temp;
+        }
+
+        bool SamplerEstimator::is_event_triggered_at(
+            int data_point, int time_step, const EvidenceSet& new_data) const {
+            // It works like frequency == all for a non custom estimator
+            return true;
         }
 
         void SamplerEstimator::estimate(const EvidenceSet& new_data,
@@ -307,8 +333,27 @@ namespace tomcat {
             int new_rows =
                 max(data_point_idx + 1, (int)estimates_matrix.rows());
             int new_cols = max(time_step + 1, (int)estimates_matrix.cols());
-            estimates_matrix.conservativeResizeLike(Eigen::MatrixXd::Constant(new_rows, new_cols, NO_OBS));
+            estimates_matrix.conservativeResizeLike(
+                Eigen::MatrixXd::Constant(new_rows, new_cols, NO_OBS));
             estimates_matrix(data_point_idx, time_step) = probability;
+        }
+
+        void SamplerEstimator::update_custom_data(int estimates_idx,
+                                                  int data_point_idx,
+                                                  int time_step,
+                                                  double probability) {
+            auto& estimates_matrix =
+                this->estimates.custom_data.at(estimates_idx);
+            int new_rows =
+                max(data_point_idx + 1, (int)estimates_matrix.rows());
+            int new_cols = max(time_step + 1, (int)estimates_matrix.cols());
+            estimates_matrix.conservativeResizeLike(
+                Eigen::MatrixXd::Constant(new_rows, new_cols, NO_OBS));
+            estimates_matrix(data_point_idx, time_step) = probability;
+        }
+
+        void SamplerEstimator::prepare_for_the_next_data_point() const {
+            // No default preparation needed
         }
 
         //----------------------------------------------------------------------
