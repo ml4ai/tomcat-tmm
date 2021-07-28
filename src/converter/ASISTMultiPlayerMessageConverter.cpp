@@ -102,7 +102,14 @@ namespace tomcat {
             this->player_position = converter.player_position;
             this->placed_marker_blocks = converter.placed_marker_blocks;
             this->nearby_markers_info = converter.nearby_markers_info;
-            this->player_placed_marker = converter.player_placed_marker;
+            this->placed_marker_per_player = converter.placed_marker_per_player;
+            this->victim_in_fov_per_player = converter.victim_in_fov_per_player;
+            this->agreement_speech_per_player =
+                converter.agreement_speech_per_player;
+            this->marker_legend_speech_per_player =
+                converter.marker_legend_speech_per_player;
+            this->action_enter_speech_per_player =
+                converter.action_enter_speech_per_player;
         }
 
         void ASISTMultiPlayerMessageConverter::load_map_area_configuration(
@@ -345,9 +352,12 @@ namespace tomcat {
             this->player_position.push_back({0, 0});
             this->nearby_markers_info.resize(this->nearby_markers_info.size() +
                                              1);
-            this->player_placed_marker.push_back(Tensor3(NO_MARKER_PLACED));
-            this->player_agreement.push_back(Tensor3(NO_COMMUNICATION));
-            this->player_victim_in_fov.push_back(Tensor3(NO_VICTIM_IN_FOV));
+            this->placed_marker_per_player.push_back(Tensor3(NO_MARKER_PLACED));
+            this->victim_in_fov_per_player.push_back(Tensor3(NO_VICTIM_IN_FOV));
+
+            this->agreement_speech_per_player.push_back(Tensor3(NO_SPEECH));
+            this->marker_legend_speech_per_player.push_back(Tensor3(NO_SPEECH));
+            this->action_enter_speech_per_player.push_back(Tensor3(NO_SPEECH));
         }
 
         int ASISTMultiPlayerMessageConverter::get_numeric_trial_number(
@@ -566,7 +576,7 @@ namespace tomcat {
                 data.add_data(
                     get_player_variable_label(PLAYER_PLACED_MARKER_LABEL,
                                               player_number + 1),
-                    this->player_placed_marker.at(player_number));
+                    this->placed_marker_per_player.at(player_number));
 
                 // The player detects a block if it's close enough to a block
                 // and this block is close enough to a door.
@@ -625,13 +635,22 @@ namespace tomcat {
                 // NLP
                 data.add_data(get_player_variable_label(PLAYER_AGREEMENT_LABEL,
                                                         player_number + 1),
-                              this->player_agreement[player_number]);
+                              this->agreement_speech_per_player[player_number]);
+                data.add_data(
+                    get_player_variable_label(
+                        PLAYER_MARKER_LEGEND_VERSION_SPEECH_LABEL,
+                        player_number + 1),
+                    this->marker_legend_speech_per_player[player_number]);
+                data.add_data(
+                    get_player_variable_label(PLAYER_ACTION_ENTER_SPEECH_LABEL,
+                                              player_number + 1),
+                    this->action_enter_speech_per_player[player_number]);
 
                 // FoV
                 data.add_data(
                     get_player_variable_label(PLAYER_VICTIM_IN_FOV_LABEL,
                                               player_number + 1),
-                    this->player_victim_in_fov[player_number]);
+                    this->victim_in_fov_per_player[player_number]);
 
                 // Observations from measures
                 if (!json_measures.empty()) {
@@ -651,14 +670,19 @@ namespace tomcat {
                     this->task_per_player[player_number] = Tensor3(NO_TASK);
                 }
 
-                this->player_placed_marker[player_number] =
+                this->placed_marker_per_player[player_number] =
                     Tensor3(NO_MARKER_PLACED);
 
-                this->player_agreement[player_number] =
-                    Tensor3(NO_COMMUNICATION);
-
-                this->player_victim_in_fov[player_number] =
+                this->victim_in_fov_per_player[player_number] =
                     Tensor3(NO_VICTIM_IN_FOV);
+
+                // Reset speeches
+                this->agreement_speech_per_player[player_number] =
+                    Tensor3(NO_SPEECH);
+                this->marker_legend_speech_per_player[player_number] =
+                    Tensor3(NO_SPEECH);
+                this->action_enter_speech_per_player[player_number] =
+                    Tensor3(NO_SPEECH);
             }
 
             this->next_time_step += 1;
@@ -895,7 +919,7 @@ namespace tomcat {
                     if (!placed_on_top)
                         this->placed_marker_blocks.push_back(marker_block);
 
-                    this->player_placed_marker[player_number] =
+                    this->placed_marker_per_player[player_number] =
                         Tensor3(marker_block.number);
                 }
                 else if (json_message["header"]["message_type"] == "event" &&
@@ -905,14 +929,63 @@ namespace tomcat {
                     for (const auto& json_extraction :
                          json_message["data"]["extractions"]) {
                         if (json_extraction["label"] == "Agreement") {
-                            this->player_agreement[player_number] =
-                                Tensor3(AGREEMENT);
-                            break;
+                            this->agreement_speech_per_player[player_number] =
+                                Tensor3(AGREEMENT_SPEECH);
                         }
                         else if (json_extraction["label"] == "Disagreement") {
-                            this->player_agreement[player_number] =
-                                Tensor3(DISAGREEMENT);
-                            break;
+                            this->agreement_speech_per_player[player_number] =
+                                Tensor3(DISAGREEMENT_SPEECH);
+                        }
+                        else if (json_extraction["label"] == "Enter") {
+                            this->action_enter_speech_per_player
+                                [player_number] = Tensor3(ENTER_SPEECH);
+                        }
+                        else if (json_extraction["label"] == "MarkerMeaning") {
+                            string victim_type;
+                            int marker_number = NO_OBS;
+                            int marker_legend = NO_OBS;
+
+                            for (const string& attachment :
+                                 json_extraction["attachments"]) {
+                                if (attachment == "{\"value\":\"none\"}") {
+                                    victim_type = "none";
+                                }
+                                else if (attachment ==
+                                         "{\"value\":\"regular\"}") {
+                                    victim_type = "regular";
+                                }
+                                else if (attachment == "{\"value\":\"1\"}") {
+                                    marker_number = 1;
+                                }
+                                else if (attachment == "{\"value\":\"2\"}") {
+                                    marker_number = 2;
+                                }
+
+                                if (victim_type == "none") {
+                                    if (marker_number == 1) {
+                                        marker_legend = MARKER_LEGEND_A_SPEECH;
+                                    }
+                                    else if (marker_number == 2) {
+                                        marker_legend = MARKER_LEGEND_B_SPEECH;
+                                    }
+                                }
+                                else if (victim_type == "regular") {
+                                    if (marker_number == 1) {
+                                        marker_legend = MARKER_LEGEND_B_SPEECH;
+                                    }
+                                    else if (marker_number == 2) {
+                                        marker_legend = MARKER_LEGEND_A_SPEECH;
+                                    }
+                                }
+
+                                if (marker_legend != NO_OBS) {
+                                    this->marker_legend_speech_per_player
+                                        [player_number] =
+                                        Tensor3(marker_legend);
+
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
@@ -930,16 +1003,18 @@ namespace tomcat {
                             id << x << "#" << z;
 
                             if (EXISTS(id.str(), this->rescued_victims)) {
-                                this->player_victim_in_fov[player_number] =
+                                this->victim_in_fov_per_player[player_number] =
                                     Tensor3(RESCUED_VICTIM_IN_FOV);
                             }
                             else {
                                 if (block_type == "block_victim_1") {
-                                    this->player_victim_in_fov[player_number] =
+                                    this->victim_in_fov_per_player
+                                        [player_number] =
                                         Tensor3(REGULAR_VICTIM_IN_FOV);
                                 }
                                 else {
-                                    this->player_victim_in_fov[player_number] =
+                                    this->victim_in_fov_per_player
+                                        [player_number] =
                                         Tensor3(CRITICAL_VICTIM_IN_FOV);
                                 }
                             }
@@ -1013,9 +1088,11 @@ namespace tomcat {
             this->section_per_player.clear();
             this->marker_legend_per_player.clear();
             this->map_info_per_player.clear();
-            this->player_placed_marker.clear();
-            this->player_agreement.clear();
-            this->player_victim_in_fov.clear();
+            this->placed_marker_per_player.clear();
+            this->victim_in_fov_per_player.clear();
+            this->agreement_speech_per_player.clear();
+            this->marker_legend_speech_per_player.clear();
+            this->action_enter_speech_per_player.clear();
 
             this->final_score = NO_OBS;
             this->map_version_assignment = NO_OBS;

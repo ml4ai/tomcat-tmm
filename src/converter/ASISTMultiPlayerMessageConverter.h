@@ -51,10 +51,17 @@ namespace tomcat {
                     "ObservedPlayerExpandedBuildingSection";
             inline const static std::string PLANNING_CONDITION_LABEL =
                 "PlanningCondition";
-            inline const static std::string PLAYER_AGREEMENT_LABEL =
-                "PlayerAgreementSpeech";
             inline const static std::string PLAYER_VICTIM_IN_FOV_LABEL =
                 "PlayerVictimInFoV";
+
+            // Speeches
+            inline const static std::string PLAYER_AGREEMENT_LABEL =
+                "PlayerAgreementSpeech";
+            inline const static std::string
+                PLAYER_MARKER_LEGEND_VERSION_SPEECH_LABEL =
+                    "PlayerMarkerLegendVersionSpeech";
+            inline const static std::string PLAYER_ACTION_ENTER_SPEECH_LABEL =
+                "PlayerActionEnterSpeech";
 
             // Condition
             const static int TEAM_PLANNING_CONDITION = 0;
@@ -92,9 +99,14 @@ namespace tomcat {
             const static int NO_NEARBY_MARKER = 0;
 
             // NLP
-            const static int NO_COMMUNICATION = 0;
-            const static int DISAGREEMENT = 1;
-            const static int AGREEMENT = 2;
+            const static int NO_SPEECH = 0;
+
+            const static int DISAGREEMENT_SPEECH = 1;
+            const static int AGREEMENT_SPEECH = 2;
+
+            const static int MARKER_LEGEND_A_SPEECH = 1;
+            const static int MARKER_LEGEND_B_SPEECH = 2;
+            const static int ENTER_SPEECH = 1;
 
             // FoV
             const static int NO_VICTIM_IN_FOV = 0;
@@ -425,13 +437,17 @@ namespace tomcat {
             std::vector<Tensor3> expanded_section_per_player;
             std::vector<Tensor3> marker_legend_per_player;
             std::vector<Tensor3> map_info_per_player;
-            std::vector<Tensor3> player_placed_marker;
-            std::vector<Tensor3> player_agreement;
-            std::vector<Tensor3> player_victim_in_fov;
+            std::vector<Tensor3> placed_marker_per_player;
+            std::vector<Tensor3> victim_in_fov_per_player;
             int final_score;
             int map_version_assignment;
             int marker_legend_version_assignment;
             int current_team_score;
+
+            // Speeches
+            std::vector<Tensor3> agreement_speech_per_player;
+            std::vector<Tensor3> marker_legend_speech_per_player;
+            std::vector<Tensor3> action_enter_speech_per_player;
 
             // Auxiliary variables that change over the course of the game
             std::vector<Position> player_position;

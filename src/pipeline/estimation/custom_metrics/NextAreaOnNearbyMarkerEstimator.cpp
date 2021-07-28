@@ -33,7 +33,6 @@ namespace tomcat {
             const NextAreaOnNearbyMarkerEstimator& estimator) {
             SamplerEstimator::copy(estimator);
             this->player_num = estimator.player_num;
-            this->last_nearby_markers = estimator.last_nearby_markers;
         }
 
         NextAreaOnNearbyMarkerEstimator&
@@ -41,7 +40,6 @@ namespace tomcat {
             const NextAreaOnNearbyMarkerEstimator& estimator) {
             SamplerEstimator::copy(estimator);
             this->player_num = estimator.player_num;
-            this->last_nearby_markers = estimator.last_nearby_markers;
             return *this;
         }
 
@@ -55,11 +53,11 @@ namespace tomcat {
             // which the samples from a marker block nearby are 0 (player left
             // the range of detection of a marker block)
             this->estimates.custom_data = vector<Eigen::MatrixXd>(1);
-            this->last_nearby_markers.clear();
+            this->prepare_for_the_next_data_point();
         }
 
         string NextAreaOnNearbyMarkerEstimator::get_name() const {
-            return NAME;
+            return this->estimates.label;
         }
 
         void NextAreaOnNearbyMarkerEstimator::estimate(
@@ -122,29 +120,32 @@ namespace tomcat {
                     ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
                     this->player_num);
 
+            bool entered_marker_range = false;
             int current_nearby_marker =
                 new_data[nearby_marker_label].at(0, data_point, time_step);
-            int current_area =
-                new_data[area_label].at(0, data_point, time_step);
 
-            bool entered_marker_range = false;
-            if (current_area == ASISTMultiPlayerMessageConverter::HALLWAY) {
-                if (current_nearby_marker !=
-                    ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER) {
-                    if (time_step == 0) {
-                        entered_marker_range = true;
-                    }
-                    else {
-                        entered_marker_range =
-                            this->last_nearby_markers[time_step - 1] ==
-                            ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
-                    }
+            if (this->within_marker_range) {
+                if (time_step == this->time_step_at_entrance) {
+                    entered_marker_range = true;
+                }
+                else if (current_nearby_marker != 1 &&
+                         current_nearby_marker != 2) {
+                    this->within_marker_range = false;
                 }
             }
+            else {
+                int current_area =
+                    new_data[area_label].at(0, data_point, time_step);
 
-            if (last_nearby_markers.size() <= time_step) {
-                last_nearby_markers.resize(time_step + 1);
-                last_nearby_markers[time_step] = current_nearby_marker;
+                if (current_area == ASISTMultiPlayerMessageConverter::HALLWAY) {
+                    if (current_nearby_marker == 1 ||
+                        current_nearby_marker == 2) {
+
+                        entered_marker_range = true;
+                        this->within_marker_range = true;
+                        this->time_step_at_entrance = time_step;
+                    }
+                }
             }
 
             return entered_marker_range;
@@ -158,7 +159,8 @@ namespace tomcat {
 
         void NextAreaOnNearbyMarkerEstimator::prepare_for_the_next_data_point()
             const {
-            this->last_nearby_markers.clear();
+            this->within_marker_range = false;
+            this->time_step_at_entrance = -1;
         }
 
     } // namespace model

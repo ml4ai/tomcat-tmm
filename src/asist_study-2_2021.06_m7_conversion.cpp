@@ -159,7 +159,9 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data,
             EvidenceSet event_data_per_player(true);
             vector<pair<int, int>> time_2_event_per_player;
             Event event = Event::out_of_range;
+            int event_time = 0;
 
+            EvidenceSet single_event_data;
             for (int t = 0; t < time_data.get_time_steps(); t++) {
                 int observed_marker =
                     single_point_time_data
@@ -169,19 +171,25 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data,
                                      OTHER_PLAYER_NEARBY_MARKER,
                                  player_num)]
                             .at(0, 0, t);
-                if ((event == Event::out_of_range && observed_marker > 0) ||
-                    (event == Event::within_range && observed_marker == 0)) {
+                int player_area =
+                    single_point_time_data
+                        [ASISTMultiPlayerMessageConverter::
+                             get_player_variable_label(
+                                 ASISTMultiPlayerMessageConverter::
+                                     PLAYER_AREA_LABEL,
+                                 player_num)]
+                            .at(0, 0, t);
 
-                    if (event == Event::out_of_range) {
-                        event = Event::within_range;
-                    }
-                    else {
-                        event = Event::out_of_range;
-                    }
+                if (event == Event::out_of_range &&
+                    (observed_marker == 1 || observed_marker == 2) &&
+                    player_area == ASISTMultiPlayerMessageConverter::HALLWAY) {
+
+                    event = within_range;
+                    event_time = t;
+                    single_event_data = EvidenceSet(true);
 
                     EvidenceSet single_time_data =
                         single_point_time_data.get_single_time_data(t);
-                    EvidenceSet single_event_data(true);
 
                     string marker_legend_label =
                         ASISTMultiPlayerMessageConverter::
@@ -207,13 +215,14 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data,
                         add_player_suffix(ASISTMultiPlayerMessageConverter::
                                               OTHER_PLAYER_NEARBY_MARKER,
                                           player_num);
-                    string player_area_label = add_player_suffix(
-                        ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
-                        player_num);
                     string player_marker_legend_label = add_player_suffix(
                         ASISTMultiPlayerMessageConverter::
                             PLAYER_MARKER_LEGEND_VERSION_LABEL,
                         player_num);
+                    string player_victim_in_fov_label =
+                        add_player_suffix(ASISTMultiPlayerMessageConverter::
+                                              PLAYER_VICTIM_IN_FOV_LABEL,
+                                          player_num);
 
                     // The player variables do not make a distinction between
                     // players in this setting. Each player will be added as a
@@ -224,17 +233,25 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data,
                     single_event_data.add_data(
                         ASISTMultiPlayerMessageConverter::
                             OTHER_PLAYER_NEARBY_MARKER,
-                        single_time_data[player_nearby_marker_label]);
-                    single_event_data.add_data(
-                        ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
-                        single_time_data[player_area_label]);
+                        single_time_data[player_nearby_marker_label] - 1);
                     single_event_data.add_data(
                         ASISTMultiPlayerMessageConverter::
                             PLAYER_MARKER_LEGEND_VERSION_LABEL,
                         single_time_data[player_marker_legend_label]);
+                    single_event_data.add_data(
+                        ASISTMultiPlayerMessageConverter::
+                            PLAYER_VICTIM_IN_FOV_LABEL,
+                        single_time_data[player_victim_in_fov_label]);
+                }
+                else if (event == Event::within_range && observed_marker != 1 &&
+                         observed_marker != 2) {
+                    event = Event::out_of_range;
+
+                    single_event_data.add_data("NextAreaOnNearbyMarker",
+                                               player_area);
 
                     time_2_event_per_player.push_back(
-                        {t, event_data_per_player.get_time_steps()});
+                        {event_time, event_data_per_player.get_time_steps()});
                     event_data_per_player.hstack(single_event_data);
                 }
             }
@@ -278,13 +295,16 @@ EvidenceSet convert_merging_players(const EvidenceSet& time_data,
                 ASISTMultiPlayerMessageConverter::OTHER_PLAYER_NEARBY_MARKER,
                 Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
-            complement.add_data(
-                ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
-                Tensor3::constant(1, 1, events_to_add, NO_OBS));
+            complement.add_data("NextAreaOnNearbyMarker",
+                                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             complement.add_data(ASISTMultiPlayerMessageConverter::
                                     PLAYER_MARKER_LEGEND_VERSION_LABEL,
                                 Tensor3::constant(1, 1, events_to_add, NO_OBS));
+
+            complement.add_data(
+                ASISTMultiPlayerMessageConverter::PLAYER_VICTIM_IN_FOV_LABEL,
+                Tensor3::constant(1, 1, events_to_add, NO_OBS));
 
             event_trial.hstack(complement);
         }
@@ -309,31 +329,27 @@ EvidenceSet convert_player_areas(const EvidenceSet& time_data) {
                 ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
                 player_num);
 
-        Event event = Event::out_of_range;
-        int event_time = 0;
         Eigen::MatrixXd player_area =
             Eigen::MatrixXd::Constant(time_data.get_num_data_points(),
                                       time_data.get_time_steps(),
                                       NO_OBS);
-        int last_nearby_marker =
-            ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
         for (int d = 0; d < time_data.get_num_data_points(); d++) {
+            Event event = Event::out_of_range;
+            int event_time = 0;
+
             for (int t = 0; t < time_data.get_time_steps(); t++) {
                 int nearby_marker = time_data[nearby_marker_label].at(0, d, t);
+                int area = time_data[area_label].at(0, d, t);
 
-                if (event == Event::out_of_range) {
-                    if (nearby_marker != ASISTMultiPlayerMessageConverter::
-                                             NO_NEARBY_MARKER &&
-                        last_nearby_marker == ASISTMultiPlayerMessageConverter::
-                                                  NO_NEARBY_MARKER) {
+                if (event == Event::out_of_range &&
+                    area == ASISTMultiPlayerMessageConverter::HALLWAY) {
+                    if (nearby_marker == 1 || nearby_marker == 2) {
                         event = within_range;
                         event_time = t;
                     }
                 }
-                else {
-                    if (nearby_marker ==
-                        ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER) {
-                        int area = time_data[area_label].at(0, d, t);
+                else if (event == Event::within_range) {
+                    if (nearby_marker != 1 && nearby_marker != 2) {
                         event = Event::out_of_range;
                         player_area(d, event_time) = area;
                     }
@@ -361,7 +377,8 @@ void convert(const string& input_dir,
 
     if (player_option == 3) {
         event_data = convert_player_areas(time_data);
-    } else {
+    }
+    else {
         // Remove variables that are not relevant for the event based model
         time_data.remove(
             ASISTMultiPlayerMessageConverter::FINAL_TEAM_SCORE_LABEL);

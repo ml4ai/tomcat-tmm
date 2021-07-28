@@ -356,6 +356,12 @@ namespace tomcat {
             // No default preparation needed
         }
 
+        bool SamplerEstimator::is_binary_on_prediction() const {
+            // A positive horizon is used in the estimates but we are not
+            // constrained to a binary problem.
+            return false;
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------

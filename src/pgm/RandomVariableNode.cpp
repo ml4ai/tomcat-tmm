@@ -335,8 +335,10 @@ namespace tomcat {
                 cpd = this->cpd_templates.at(key);
             }
             else {
-                throw invalid_argument(
-                    "No CPD found associated with the parents informed.");
+                stringstream ss;
+                ss << "No CPD found associated with the parents "
+                   << key;
+                throw invalid_argument(ss.str());
             }
 
             return cpd;

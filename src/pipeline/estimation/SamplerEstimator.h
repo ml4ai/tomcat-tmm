@@ -119,6 +119,8 @@ namespace tomcat {
 
             std::string get_name() const override;
 
+            bool is_binary_on_prediction() const override;
+
             /**
              * Checks whether the estimator does computation at a given time
              * step.

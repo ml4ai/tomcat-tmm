@@ -80,7 +80,9 @@ namespace tomcat {
             bool show_filter_progress = false;
             if (this->show_progress) {
                 cout << "\nEmpirically computing estimations...\n";
-                if (new_data.get_num_data_points() == 1) {
+                if (new_data.get_num_data_points() == 1 &&
+                    this->max_inference_horizon == 0 &&
+                    !this->variable_horizon) {
                     show_filter_progress = true;
                     this->show_progress = false;
                 }

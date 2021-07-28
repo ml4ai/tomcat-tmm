@@ -103,7 +103,8 @@ namespace tomcat {
 
             int player_num;
 
-            mutable std::vector<int> last_nearby_markers;
+            mutable bool within_marker_range;
+            mutable int time_step_at_entrance;
         };
 
     } // namespace model
