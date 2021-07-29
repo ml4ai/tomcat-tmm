@@ -83,33 +83,6 @@ namespace tomcat {
         void ASISTMultiPlayerMessageConverter::copy_converter(
             const ASISTMultiPlayerMessageConverter& converter) {
             ASISTMessageConverter::copy_converter(converter);
-            this->mission_started = converter.mission_started;
-            this->elapsed_time = converter.elapsed_time;
-            this->num_players = converter.num_players;
-            this->player_id_to_number = converter.player_id_to_number;
-            this->player_name_to_number = converter.player_name_to_number;
-            this->players = converter.players;
-            this->task_per_player = converter.task_per_player;
-            this->role_per_player = converter.role_per_player;
-            this->area_per_player = converter.area_per_player;
-            this->section_per_player = converter.section_per_player;
-            this->marker_legend_per_player = converter.marker_legend_per_player;
-            this->map_info_per_player = converter.map_info_per_player;
-            this->final_score = converter.final_score;
-            this->map_version_assignment = converter.map_version_assignment;
-            this->marker_legend_version_assignment =
-                converter.marker_legend_version_assignment;
-            this->player_position = converter.player_position;
-            this->placed_marker_blocks = converter.placed_marker_blocks;
-            this->nearby_markers_info = converter.nearby_markers_info;
-            this->placed_marker_per_player = converter.placed_marker_per_player;
-            this->victim_in_fov_per_player = converter.victim_in_fov_per_player;
-            this->agreement_speech_per_player =
-                converter.agreement_speech_per_player;
-            this->marker_legend_speech_per_player =
-                converter.marker_legend_speech_per_player;
-            this->action_enter_speech_per_player =
-                converter.action_enter_speech_per_player;
         }
 
         void ASISTMultiPlayerMessageConverter::load_map_area_configuration(
@@ -132,6 +105,14 @@ namespace tomcat {
 
                     this->map_area_configuration[area_id] =
                         area_type.find("room") != string::npos;
+
+                    if (area_type == "room_part") {
+                        int x1 = location["bounds"]["coordinates"][0]["x"];
+                        int z1 = location["bounds"]["coordinates"][0]["z"];
+                        int x2 = location["bounds"]["coordinates"][1]["x"];
+                        int z2 = location["bounds"]["coordinates"][1]["z"];
+                        this->rooms.push_back({x1, x2, z1, z2});
+                    }
                 }
 
                 // Doors
@@ -298,9 +279,9 @@ namespace tomcat {
                         team_n_trial.substr(0, team_n_trial.find("_"));
                     string trial_id =
                         team_n_trial.substr(team_n_trial.find("_") + 1);
-                    // Team planning or no planning
+                    // TNo planning or planning
                     this->planning_condition =
-                        stoi((string)json_message["data"]["condition"]) - 1;
+                        2 - stoi((string)json_message["data"]["condition"]);
 
                     json_mission_log["trial_id"] = trial_id;
                     json_mission_log["team_id"] = team_id;
@@ -347,17 +328,47 @@ namespace tomcat {
             this->section_per_player.push_back(Tensor3(OUT_OF_BUILDING));
             this->expanded_section_per_player.push_back(
                 Tensor3(OUT_OF_BUILDING));
-            this->marker_legend_per_player.push_back(Tensor3(NO_OBS));
             this->map_info_per_player.push_back(Tensor3(NO_OBS));
-            this->player_position.push_back({0, 0});
+
+            // Markers
+            this->marker_legend_per_player.push_back(Tensor3(NO_OBS));
             this->nearby_markers_info.resize(this->nearby_markers_info.size() +
                                              1);
             this->placed_marker_per_player.push_back(Tensor3(NO_MARKER_PLACED));
-            this->victim_in_fov_per_player.push_back(Tensor3(NO_VICTIM_IN_FOV));
 
-            this->agreement_speech_per_player.push_back(Tensor3(NO_SPEECH));
+            // FoV
+            this->victim_in_fov_per_player.push_back(Tensor3(NO_VICTIM_IN_FOV));
+            this->safe_victim_in_fov_per_player.push_back(
+                Tensor3(NO_VICTIM_IN_FOV));
+            this->regular_victim_in_fov_per_player.push_back(
+                Tensor3(NO_VICTIM_IN_FOV));
+            this->critical_victim_in_fov_per_player.push_back(
+                Tensor3(NO_VICTIM_IN_FOV));
+            this->hallway_safe_victim_in_fov_per_player.push_back(
+                Tensor3(NO_VICTIM_IN_FOV));
+            this->hallway_regular_victim_in_fov_per_player.push_back(
+                Tensor3(NO_VICTIM_IN_FOV));
+            this->hallway_critical_victim_in_fov_per_player.push_back(
+                Tensor3(NO_VICTIM_IN_FOV));
+            this->room_safe_victim_in_fov_per_player.push_back(
+                Tensor3(NO_VICTIM_IN_FOV));
+            this->room_regular_victim_in_fov_per_player.push_back(
+                Tensor3(NO_VICTIM_IN_FOV));
+            this->room_critical_victim_in_fov_per_player.push_back(
+                Tensor3(NO_VICTIM_IN_FOV));
+            this->safe_victim_in_fov_location_per_player.push_back({0, 0});
+            this->regular_victim_in_fov_location_per_player.push_back({0, 0});
+            this->critical_victim_in_fov_location_per_player.push_back({0, 0});
+
+            // Speech
             this->marker_legend_speech_per_player.push_back(Tensor3(NO_SPEECH));
-            this->action_enter_speech_per_player.push_back(Tensor3(NO_SPEECH));
+            this->agreement_speech_per_player.push_back(Tensor3(NO_SPEECH));
+            this->action_move_to_room_per_player.push_back(Tensor3(NO_SPEECH));
+            this->knowledge_sharing_speech_per_player.push_back(
+                Tensor3(NO_SPEECH));
+
+            // Extras
+            this->player_position.push_back({0, 0});
         }
 
         int ASISTMultiPlayerMessageConverter::get_numeric_trial_number(
@@ -562,57 +573,6 @@ namespace tomcat {
                 data.add_data(get_player_variable_label(PLAYER_AREA_LABEL,
                                                         player_number + 1),
                               this->area_per_player.at(player_number));
-                data.add_data(
-                    get_player_variable_label(
-                        PLAYER_MARKER_LEGEND_VERSION_LABEL, player_number + 1),
-                    this->marker_legend_per_player.at(player_number));
-                data.add_data(
-                    MARKER_LEGEND_ASSIGNMENT_LABEL,
-                    Tensor3::constant(
-                        1, 1, 1, this->marker_legend_version_assignment));
-                data.add_data(
-                    TEAM_SCORE_LABEL,
-                    Tensor3::constant(1, 1, 1, this->current_team_score));
-                data.add_data(
-                    get_player_variable_label(PLAYER_PLACED_MARKER_LABEL,
-                                              player_number + 1),
-                    this->placed_marker_per_player.at(player_number));
-
-                // The player detects a block if it's close enough to a block
-                // and this block is close enough to a door.
-                int nearby_marker = NO_NEARBY_MARKER;
-                for (const auto& block : this->placed_marker_blocks) {
-                    if (are_within_marker_block_detection_radius(
-                            this->player_position[player_number],
-                            block.position) &&
-                        block.player_id != this->players[player_number].id &&
-                        block.player_id != this->players[player_number].name) {
-
-                        Door door = this->get_closest_door(block.position);
-                        if (are_within_marker_block_detection_radius(
-                                block.position, door.position)) {
-                            nearby_marker = block.number;
-
-                            if (!EXISTS(
-                                    this->next_time_step,
-                                    this->nearby_markers_info[player_number])) {
-                                this->nearby_markers_info
-                                    [player_number][this->next_time_step] =
-                                    vector<MarkerBlockAndDoor>();
-                            }
-
-                            MarkerBlockAndDoor block_and_door(block, door);
-                            this
-                                ->nearby_markers_info[player_number]
-                                                     [this->next_time_step]
-                                .push_back(block_and_door);
-                        }
-                    }
-                }
-                data.add_data(
-                    get_player_variable_label(OTHER_PLAYER_NEARBY_MARKER,
-                                              player_number + 1),
-                    nearby_marker);
 
                 // Map model
                 int section = this->get_building_section(player_number);
@@ -632,6 +592,141 @@ namespace tomcat {
                     MAP_VERSION_ASSIGNMENT_LABEL,
                     Tensor3::constant(1, 1, 1, this->map_version_assignment));
 
+                // Marker
+                data.add_data(
+                    get_player_variable_label(
+                        PLAYER_MARKER_LEGEND_VERSION_LABEL, player_number + 1),
+                    this->marker_legend_per_player.at(player_number));
+                data.add_data(
+                    MARKER_LEGEND_ASSIGNMENT_LABEL,
+                    Tensor3::constant(
+                        1, 1, 1, this->marker_legend_version_assignment));
+                data.add_data(
+                    get_player_variable_label(PLAYER_PLACED_MARKER_LABEL,
+                                              player_number + 1),
+                    this->placed_marker_per_player.at(player_number));
+
+                // The player detects a block if it's close enough to a block
+                // and this block is close enough to a door. We only emmit a
+                // marker if the player is in the hallway and the block is
+                // either 1 or 2.
+                int nearby_marker = NO_NEARBY_MARKER;
+                int current_area =
+                    this->area_per_player.at(player_number).at(0, 0, 0);
+                vector<int> nearby_marker_per_player(3, NO_NEARBY_MARKER);
+                if (current_area == HALLWAY) {
+                    for (const auto& block : this->placed_marker_blocks) {
+                        if (block.player_id ==
+                                this->players[player_number].id ||
+                            block.player_id ==
+                                this->players[player_number].name ||
+                            block.number == 3) {
+                            // Marker 1 or 2 placed by another player.
+                            continue;
+                        }
+
+                        if (are_within_marker_block_detection_radius(
+                                this->player_position[player_number],
+                                block.position)) {
+
+                            Door door = this->get_closest_door(block.position);
+                            if (are_within_marker_block_detection_radius(
+                                    block.position, door.position)) {
+                                nearby_marker = block.number;
+
+                                nearby_marker_per_player[block.player_number] =
+                                    block.number;
+
+                                if (!EXISTS(this->next_time_step,
+                                            this->nearby_markers_info
+                                                [player_number])) {
+                                    this->nearby_markers_info
+                                        [player_number][this->next_time_step] =
+                                        vector<MarkerBlockAndDoor>();
+                                }
+
+                                MarkerBlockAndDoor block_and_door(block, door);
+                                this
+                                    ->nearby_markers_info[player_number]
+                                                         [this->next_time_step]
+                                    .push_back(block_and_door);
+                            }
+                        }
+                    }
+                }
+                data.add_data(
+                    get_player_variable_label(OTHER_PLAYER_NEARBY_MARKER,
+                                              player_number + 1),
+                    nearby_marker);
+                if (player_number == 0) {
+                    data.add_data(get_player_variable_label(
+                                      PLAYER2_NEARBY_MARKER, player_number + 1),
+                                  nearby_marker_per_player[1]);
+                    data.add_data(get_player_variable_label(
+                                      PLAYER3_NEARBY_MARKER, player_number + 1),
+                                  nearby_marker_per_player[2]);
+                }
+                else if (player_number == 1) {
+                    data.add_data(get_player_variable_label(
+                                      PLAYER1_NEARBY_MARKER, player_number + 1),
+                                  nearby_marker_per_player[0]);
+                    data.add_data(get_player_variable_label(
+                                      PLAYER3_NEARBY_MARKER, player_number + 1),
+                                  nearby_marker_per_player[2]);
+                }
+                else {
+                    data.add_data(get_player_variable_label(
+                                      PLAYER1_NEARBY_MARKER, player_number + 1),
+                                  nearby_marker_per_player[0]);
+                    data.add_data(get_player_variable_label(
+                                      PLAYER2_NEARBY_MARKER, player_number + 1),
+                                  nearby_marker_per_player[1]);
+                }
+
+                // FoV
+                data.add_data(
+                    get_player_variable_label(PLAYER_VICTIM_IN_FOV_LABEL,
+                                              player_number + 1),
+                    this->victim_in_fov_per_player[player_number]);
+                data.add_data(
+                    get_player_variable_label(PLAYER_SAFE_VICTIM_IN_FOV_LABEL,
+                                              player_number + 1),
+                    this->safe_victim_in_fov_per_player[player_number]);
+                data.add_data(
+                    get_player_variable_label(
+                        PLAYER_REGULAR_VICTIM_IN_FOV_LABEL, player_number + 1),
+                    this->regular_victim_in_fov_per_player[player_number]);
+                data.add_data(
+                    get_player_variable_label(
+                        PLAYER_CRITICAL_VICTIM_IN_FOV_LABEL, player_number + 1),
+                    this->critical_victim_in_fov_per_player[player_number]);
+
+
+                for (const auto& victim_pos :
+                     this->safe_victim_in_fov_location_per_player
+                         [player_number]) {
+                    bool in_room = false;
+                    for (const auto& room_box : this->rooms) {
+                        if (victim_pos.is_inside(room_box)) {
+                            in_room = true;
+                            break;
+                        }
+                    }
+
+                    if (in_room) {
+                        data.add_data(get_player_variable_label(
+                                          PLAYER_SAFE_ROOM_VICTIM_IN_FOV_LABEL,
+                                          player_number + 1),
+                                      VICTIM_IN_FOV);
+                    }
+                    else {
+                        data.add_data(get_player_variable_label(
+                            PLAYER_SAFE_HALLWAY_VICTIM_IN_FOV_LABEL,
+                            player_number + 1),
+                                      VICTIM_IN_FOV);
+                    }
+                }
+
                 // NLP
                 data.add_data(get_player_variable_label(PLAYER_AGREEMENT_LABEL,
                                                         player_number + 1),
@@ -642,15 +737,15 @@ namespace tomcat {
                         player_number + 1),
                     this->marker_legend_speech_per_player[player_number]);
                 data.add_data(
-                    get_player_variable_label(PLAYER_ACTION_ENTER_SPEECH_LABEL,
-                                              player_number + 1),
-                    this->action_enter_speech_per_player[player_number]);
-
-                // FoV
+                    get_player_variable_label(
+                        PLAYER_ACTION_MOVE_TO_ROOM_SPEECH_LABEL,
+                        player_number + 1),
+                    this->action_move_to_room_per_player[player_number]);
                 data.add_data(
-                    get_player_variable_label(PLAYER_VICTIM_IN_FOV_LABEL,
-                                              player_number + 1),
-                    this->victim_in_fov_per_player[player_number]);
+                    get_player_variable_label(
+                        PLAYER_KNOWLEDGE_SHARING_SPEECH_LABEL,
+                        player_number + 1),
+                    this->knowledge_sharing_speech_per_player[player_number]);
 
                 // Observations from measures
                 if (!json_measures.empty()) {
@@ -659,6 +754,13 @@ namespace tomcat {
                         FINAL_TEAM_SCORE_LABEL,
                         Tensor3::constant(1, 1, 1, this->final_score));
                 }
+
+                // Team
+                data.add_data(
+                    TEAM_SCORE_LABEL,
+                    Tensor3::constant(1, 1, 1, this->current_team_score));
+
+                // Reset observations
 
                 // Carrying ans saving a victim are tasks that have
                 // an explicit end event. We don't reset the last
@@ -670,18 +772,44 @@ namespace tomcat {
                     this->task_per_player[player_number] = Tensor3(NO_TASK);
                 }
 
+                // Marker
                 this->placed_marker_per_player[player_number] =
                     Tensor3(NO_MARKER_PLACED);
 
+                // FoV
                 this->victim_in_fov_per_player[player_number] =
                     Tensor3(NO_VICTIM_IN_FOV);
+                this->safe_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
+                this->regular_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
+                this->critical_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
+                this->hallway_safe_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
+                this->hallway_regular_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
+                this->hallway_critical_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
+                this->room_safe_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
+                this->room_regular_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
+                this->room_critical_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_VICTIM_IN_FOV);
+
+                this->safe_victim_in_fov_location_per_player.clear();
+                this->regular_victim_in_fov_location_per_player.clear();
+                this->critical_victim_in_fov_location_per_player.clear();
 
                 // Reset speeches
                 this->agreement_speech_per_player[player_number] =
                     Tensor3(NO_SPEECH);
                 this->marker_legend_speech_per_player[player_number] =
                     Tensor3(NO_SPEECH);
-                this->action_enter_speech_per_player[player_number] =
+                this->action_move_to_room_per_player[player_number] =
+                    Tensor3(NO_SPEECH);
+                this->knowledge_sharing_speech_per_player[player_number] =
                     Tensor3(NO_SPEECH);
             }
 
@@ -810,14 +938,6 @@ namespace tomcat {
                     }
                     else {
                         this->task_per_player[player_number] = Tensor3(NO_TASK);
-
-                        if (json_message["data"]["triage_state"] ==
-                            "SUCCESSFUL") {
-                            stringstream id;
-                            id << json_message["data"]["victim_x"] << "#"
-                               << json_message["data"]["victim_z"];
-                            this->rescued_victims.insert(id.str());
-                        }
                     }
                 }
                 else if (json_message["header"]["message_type"] == "event" &&
@@ -902,8 +1022,15 @@ namespace tomcat {
                     int z = json_message["data"]["marker_z"];
                     MarkerBlock marker_block({x, z});
                     marker_block.player_id = player_id;
+                    marker_block.player_number = player_number;
                     const string& type = json_message["data"]["type"];
                     marker_block.number = stoi(type.substr(type.length() - 1));
+
+                    if (marker_block.number == 3) {
+                        // Ignore marker 3 as it's similar to both legend
+                        // versions
+                        marker_block.number = NO_NEARBY_MARKER;
+                    }
 
                     // If block was placed on top of other, replace the old one
                     bool placed_on_top = false;
@@ -916,11 +1043,12 @@ namespace tomcat {
                             break;
                         }
                     }
-                    if (!placed_on_top)
+                    if (!placed_on_top &&
+                        marker_block.number != NO_NEARBY_MARKER) {
                         this->placed_marker_blocks.push_back(marker_block);
-
-                    this->placed_marker_per_player[player_number] =
-                        Tensor3(marker_block.number);
+                        this->placed_marker_per_player[player_number] =
+                            Tensor3(marker_block.number);
+                    }
                 }
                 else if (json_message["header"]["message_type"] == "event" &&
                          json_message["msg"]["sub_type"] ==
@@ -932,32 +1060,35 @@ namespace tomcat {
                             this->agreement_speech_per_player[player_number] =
                                 Tensor3(AGREEMENT_SPEECH);
                         }
-                        else if (json_extraction["label"] == "Disagreement") {
-                            this->agreement_speech_per_player[player_number] =
-                                Tensor3(DISAGREEMENT_SPEECH);
-                        }
                         else if (json_extraction["label"] == "Enter") {
-                            this->action_enter_speech_per_player
+                            this->action_move_to_room_per_player
                                 [player_number] = Tensor3(ENTER_SPEECH);
+                        }
+                        else if (json_extraction["label"] ==
+                                 "KnowledgeSharing") {
+                            this->knowledge_sharing_speech_per_player
+                                [player_number] =
+                                Tensor3(KNOWLEDGE_SHARING_SPEECH);
                         }
                         else if (json_extraction["label"] == "MarkerMeaning") {
                             string victim_type;
                             int marker_number = NO_OBS;
                             int marker_legend = NO_OBS;
 
-                            for (const string& attachment :
-                                 json_extraction["attachments"]) {
-                                if (attachment == "{\"value\":\"none\"}") {
-                                    victim_type = "none";
+                            for (const auto& json_attachment :
+                                 nlohmann::json::parse(
+                                     json_extraction["attachments"])) {
+                                if (json_attachment["value"] == "none") {
+                                    victim_type = json_attachment["value"];
                                 }
-                                else if (attachment ==
-                                         "{\"value\":\"regular\"}") {
-                                    victim_type = "regular";
+                                else if (json_attachment["value"] ==
+                                         "regular") {
+                                    victim_type = json_attachment["value"];
                                 }
-                                else if (attachment == "{\"value\":\"1\"}") {
+                                else if (json_attachment["value"] == "1") {
                                     marker_number = 1;
                                 }
-                                else if (attachment == "{\"value\":\"2\"}") {
+                                else if (json_attachment["value"] == "2") {
                                     marker_number = 2;
                                 }
 
@@ -997,28 +1128,39 @@ namespace tomcat {
                          json_message["data"]["blocks"]) {
                         const string& block_type = json_block["type"];
                         if (block_type.find("victim") != string::npos) {
-                            stringstream id;
                             int x = json_block["location"][0];
-                            int z = json_block["location"][2];
-                            id << x << "#" << z;
+                            int z = json_block["location"][1];
+                            Position pos(x, z);
+                            // Locations are stored so we determined if the
+                            // victim is inside a room or not later. No need to
+                            // compute now because the granularity of the time
+                            // steps are bigger than the frequency of the
+                            // messages.
 
-                            if (EXISTS(id.str(), this->rescued_victims)) {
+                            if (block_type == "block_victim_1") {
+                                this->victim_in_fov_per_player[player_number] =
+                                    Tensor3(REGULAR_VICTIM_IN_FOV);
+                                this->regular_victim_in_fov_per_player
+                                    [player_number] = Tensor3(VICTIM_IN_FOV);
+                                this->regular_victim_in_fov_location_per_player
+                                    [player_number] = pos;
+                            }
+                            else if (block_type == "block_victim_proximity") {
+                                this->victim_in_fov_per_player[player_number] =
+                                    Tensor3(CRITICAL_VICTIM_IN_FOV);
+                                this->critical_victim_in_fov_per_player
+                                    [player_number] = Tensor3(VICTIM_IN_FOV);
+                                this->critical_victim_in_fov_location_per_player
+                                    [player_number] = pos;
+                            }
+                            else if (block_type == "block_victim_saved") {
                                 this->victim_in_fov_per_player[player_number] =
                                     Tensor3(RESCUED_VICTIM_IN_FOV);
+                                this->safe_victim_in_fov_per_player
+                                    [player_number] = Tensor3(VICTIM_IN_FOV);
+                                this->safe_victim_in_fov_location_per_player
+                                    [player_number] = pos;
                             }
-                            else {
-                                if (block_type == "block_victim_1") {
-                                    this->victim_in_fov_per_player
-                                        [player_number] =
-                                        Tensor3(REGULAR_VICTIM_IN_FOV);
-                                }
-                                else {
-                                    this->victim_in_fov_per_player
-                                        [player_number] =
-                                        Tensor3(CRITICAL_VICTIM_IN_FOV);
-                                }
-                            }
-                            break;
                         }
                     }
                 }
@@ -1086,26 +1228,48 @@ namespace tomcat {
             this->role_per_player.clear();
             this->area_per_player.clear();
             this->section_per_player.clear();
-            this->marker_legend_per_player.clear();
             this->map_info_per_player.clear();
-            this->placed_marker_per_player.clear();
+            this->rooms.clear();
+
+            // FoV
             this->victim_in_fov_per_player.clear();
+            this->safe_victim_in_fov_per_player.clear();
+            this->regular_victim_in_fov_per_player.clear();
+            this->critical_victim_in_fov_per_player.clear();
+            this->hallway_safe_victim_in_fov_per_player.clear();
+            this->hallway_regular_victim_in_fov_per_player.clear();
+            this->hallway_critical_victim_in_fov_per_player.clear();
+            this->room_safe_victim_in_fov_per_player.clear();
+            this->room_regular_victim_in_fov_per_player.clear();
+            this->room_critical_victim_in_fov_per_player.clear();
+
+            this->safe_victim_in_fov_location_per_player.clear();
+            this->regular_victim_in_fov_location_per_player.clear();
+            this->critical_victim_in_fov_location_per_player.clear();
+
+            // Marker
+            this->marker_legend_per_player.clear();
+            this->placed_marker_per_player.clear();
+
+            // Speech
             this->agreement_speech_per_player.clear();
             this->marker_legend_speech_per_player.clear();
-            this->action_enter_speech_per_player.clear();
+            this->action_move_to_room_per_player.clear();
+            this->knowledge_sharing_speech_per_player.clear();
 
+            // Team
+            this->planning_condition = NO_OBS;
             this->final_score = NO_OBS;
             this->map_version_assignment = NO_OBS;
             this->marker_legend_version_assignment = NO_OBS;
             this->current_team_score = 0;
 
+            // Extras
             this->player_position.clear();
             this->placed_marker_blocks.clear();
 
             this->nearby_markers_info.clear();
             this->next_time_step = 0;
-
-            this->rescued_victims.clear();
         }
 
         bool ASISTMultiPlayerMessageConverter::is_valid_message_file(

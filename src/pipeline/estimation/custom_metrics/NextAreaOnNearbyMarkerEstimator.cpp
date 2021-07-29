@@ -82,12 +82,13 @@ namespace tomcat {
                     ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
                     this->player_num);
 
+            int detected_marker =
+                new_data[nearby_marker_label].at(0, data_point_idx, time_step);
             for (int i = 0; i < n; i++) {
                 for (int t = 0; t < this->inference_horizon; t++) {
                     int nearby_marker =
                         projected_particles[nearby_marker_label].at(0, i, t);
-                    if (nearby_marker ==
-                        ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER) {
+                    if (nearby_marker != detected_marker) {
                         int area = projected_particles[area_label].at(0, i, t);
                         areas[area] += 1;
                         break;

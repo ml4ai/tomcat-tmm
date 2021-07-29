@@ -25,12 +25,6 @@ namespace tomcat {
         class ASISTMultiPlayerMessageConverter : public ASISTMessageConverter {
           public:
             // Observable node names
-            inline const static std::string MARKER_LEGEND_ASSIGNMENT_LABEL =
-                "MarkerLegendVersionAssignment";
-            inline const static std::string PLAYER_MARKER_LEGEND_VERSION_LABEL =
-                "PlayerMarkerLegendVersion";
-            inline const static std::string OTHER_PLAYER_NEARBY_MARKER =
-                "OtherPlayerNearbyMarker";
             inline const static std::string PLAYER_ROLE_LABEL =
                 "ObservedPlayerRole";
             inline const static std::string PLAYER_TASK_LABEL = "PlayerTask";
@@ -51,8 +45,42 @@ namespace tomcat {
                     "ObservedPlayerExpandedBuildingSection";
             inline const static std::string PLANNING_CONDITION_LABEL =
                 "PlanningCondition";
+
+            // Markers
+            inline const static std::string MARKER_LEGEND_ASSIGNMENT_LABEL =
+                "MarkerLegendVersionAssignment";
+            inline const static std::string PLAYER_MARKER_LEGEND_VERSION_LABEL =
+                "PlayerMarkerLegendVersion";
+            inline const static std::string OTHER_PLAYER_NEARBY_MARKER =
+                "OtherPlayerNearbyMarker";
+            inline const static std::string PLAYER1_NEARBY_MARKER =
+                "Player1NearbyMarker";
+            inline const static std::string PLAYER2_NEARBY_MARKER =
+                "Player2NearbyMarker";
+            inline const static std::string PLAYER3_NEARBY_MARKER =
+                "Player3NearbyMarker";
+
+            // FoV
             inline const static std::string PLAYER_VICTIM_IN_FOV_LABEL =
                 "PlayerVictimInFoV";
+            inline const static std::string PLAYER_SAFE_VICTIM_IN_FOV_LABEL =
+                "PlayerSafeVictimInFoV";
+            inline const static std::string PLAYER_REGULAR_VICTIM_IN_FOV_LABEL =
+                "PlayerRegularVictimInFoV";
+            inline const static std::string PLAYER_CRITICAL_VICTIM_IN_FOV_LABEL =
+                "PlayerCriticalVictimInFoV";
+            inline const static std::string PLAYER_SAFE_HALLWAY_VICTIM_IN_FOV_LABEL =
+                "PlayerSafeHallwayVictimInFoV";
+            inline const static std::string PLAYER_REGULAR_HALLWAY_VICTIM_IN_FOV_LABEL =
+                "PlayerRegularHallwayVictimInFoV";
+            inline const static std::string PLAYER_CRITICAL_HALLWAY_VICTIM_IN_FOV_LABEL =
+                "PlayerCriticalHallwayVictimInFoV";
+            inline const static std::string PLAYER_SAFE_ROOM_VICTIM_IN_FOV_LABEL =
+                "PlayerSafeRoomVictimInFoV";
+            inline const static std::string PLAYER_REGULAR_ROOM_VICTIM_IN_FOV_LABEL =
+                "PlayerRegularRoomVictimInFoV";
+            inline const static std::string PLAYER_CRITICAL_ROOM_VICTIM_IN_FOV_LABEL =
+                "PlayerCriticalRoomVictimInFoV";
 
             // Speeches
             inline const static std::string PLAYER_AGREEMENT_LABEL =
@@ -60,12 +88,15 @@ namespace tomcat {
             inline const static std::string
                 PLAYER_MARKER_LEGEND_VERSION_SPEECH_LABEL =
                     "PlayerMarkerLegendVersionSpeech";
-            inline const static std::string PLAYER_ACTION_ENTER_SPEECH_LABEL =
-                "PlayerActionEnterSpeech";
+            inline const static std::string PLAYER_ACTION_MOVE_TO_ROOM_SPEECH_LABEL =
+                "PlayerActionMoveToRoomSpeech";
+            inline const static std::string
+                PLAYER_KNOWLEDGE_SHARING_SPEECH_LABEL =
+                "PlayerKnowledgeSharingSpeech";
 
             // Condition
-            const static int TEAM_PLANNING_CONDITION = 0;
-            const static int NO_PLANNING_CONDITION = 1;
+            const static int NO_TEAM_PLANNING = 0;
+            const static int TEAM_PLANNING = 1;
 
             // Task values
             const static int NO_TASK = 0;
@@ -101,8 +132,8 @@ namespace tomcat {
             // NLP
             const static int NO_SPEECH = 0;
 
-            const static int DISAGREEMENT_SPEECH = 1;
-            const static int AGREEMENT_SPEECH = 2;
+            const static int AGREEMENT_SPEECH = 1;
+            const static int KNOWLEDGE_SHARING_SPEECH = 1;
 
             const static int MARKER_LEGEND_A_SPEECH = 1;
             const static int MARKER_LEGEND_B_SPEECH = 2;
@@ -113,6 +144,8 @@ namespace tomcat {
             const static int REGULAR_VICTIM_IN_FOV = 1;
             const static int CRITICAL_VICTIM_IN_FOV = 2;
             const static int RESCUED_VICTIM_IN_FOV = 3;
+
+            const static int VICTIM_IN_FOV = 1;
 
             // Bounding box of the main part of the map. Used to split the map
             // into 6 sections. Staging area is not included.
@@ -255,6 +288,7 @@ namespace tomcat {
                 std::string player_id;
                 Position position;
                 int number;
+                int player_number;
 
                 MarkerBlock(const Position& position) : position(position) {}
 
@@ -409,8 +443,6 @@ namespace tomcat {
 
             int num_players;
 
-            int planning_condition;
-
             // Stores the id of all possible areas in the map along with a flag
             // indicating whether the area is a room or not (e.g, yard, hallway
             // etc.).
@@ -418,7 +450,7 @@ namespace tomcat {
             std::vector<BoundingBox> building_sections;
             std::vector<BoundingBox> expanded_building_sections;
             std::vector<Door> doors;
-            std::unordered_set<std::string> rescued_victims;
+            std::vector<BoundingBox> rooms;
 
             // Numbers are sequential numbers starting from zero and indicate
             // the position in the vector of observations. Id's and names are
@@ -435,19 +467,42 @@ namespace tomcat {
             std::vector<Tensor3> area_per_player;
             std::vector<Tensor3> section_per_player;
             std::vector<Tensor3> expanded_section_per_player;
-            std::vector<Tensor3> marker_legend_per_player;
             std::vector<Tensor3> map_info_per_player;
-            std::vector<Tensor3> placed_marker_per_player;
+
+            // FoV
+            // TODO - remove after testing models. Kept for retrocompatibility with some models tested
             std::vector<Tensor3> victim_in_fov_per_player;
-            int final_score;
-            int map_version_assignment;
-            int marker_legend_version_assignment;
-            int current_team_score;
+
+            std::vector<Tensor3> safe_victim_in_fov_per_player;
+            std::vector<Tensor3> regular_victim_in_fov_per_player;
+            std::vector<Tensor3> critical_victim_in_fov_per_player;
+            std::vector<Tensor3> hallway_safe_victim_in_fov_per_player;
+            std::vector<Tensor3> hallway_regular_victim_in_fov_per_player;
+            std::vector<Tensor3> hallway_critical_victim_in_fov_per_player;
+            std::vector<Tensor3> room_safe_victim_in_fov_per_player;
+            std::vector<Tensor3> room_regular_victim_in_fov_per_player;
+            std::vector<Tensor3> room_critical_victim_in_fov_per_player;
+
+            std::vector<std::vector<Position>> safe_victim_in_fov_location_per_player;
+            std::vector<std::vector<Position>> regular_victim_in_fov_location_per_player;
+            std::vector<std::vector<Position>> critical_victim_in_fov_location_per_player;
+
+            // Marker
+            std::vector<Tensor3> placed_marker_per_player;
+            std::vector<Tensor3> marker_legend_per_player;
 
             // Speeches
             std::vector<Tensor3> agreement_speech_per_player;
             std::vector<Tensor3> marker_legend_speech_per_player;
-            std::vector<Tensor3> action_enter_speech_per_player;
+            std::vector<Tensor3> action_move_to_room_per_player;
+            std::vector<Tensor3> knowledge_sharing_speech_per_player;
+
+            // Team
+            int planning_condition;
+            int final_score;
+            int map_version_assignment;
+            int marker_legend_version_assignment;
+            int current_team_score;
 
             // Auxiliary variables that change over the course of the game
             std::vector<Position> player_position;
