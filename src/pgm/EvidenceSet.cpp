@@ -277,6 +277,18 @@ namespace tomcat {
                 save_tensor_to_file(filepath, data);
             }
 
+            // Save metadata
+            if (!this->metadata.empty()) {
+                string metadata_filepath =
+                    get_filepath(output_dir, MessageConverter::LOG_FILE);
+                ofstream mmetadata_file;
+                mmetadata_file.open(metadata_filepath);
+                mmetadata_file << setw(4) << this->metadata;
+                mmetadata_file.close();
+            }
+
+
+            // Save event mapping
             if (this->event_based) {
                 nlohmann::json map_per_point = nlohmann::json::array();
                 for (const auto& time_2_events :

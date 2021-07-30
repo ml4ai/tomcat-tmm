@@ -20,7 +20,7 @@ namespace tomcat {
             : EstimationProcess(agent, reporter) {
 
             if (report_filepath != "") {
-                this->report_file.open(report_filepath);
+                this->report_file.open(report_filepath, ios_base::app);
             }
         }
 

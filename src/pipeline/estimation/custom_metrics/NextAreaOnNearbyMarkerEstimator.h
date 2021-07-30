@@ -27,7 +27,8 @@ namespace tomcat {
              *
              */
             NextAreaOnNearbyMarkerEstimator(
-                const std::shared_ptr<DynamicBayesNet>& model, int player_num);
+                const std::shared_ptr<DynamicBayesNet>& model,
+                const nlohmann::json& json_config);
 
             ~NextAreaOnNearbyMarkerEstimator();
 
@@ -96,15 +97,25 @@ namespace tomcat {
 
             void prepare_for_the_next_data_point() const override;
 
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
+
+            int get_player_number() const;
+
+            int get_placed_by_player_nummber() const;
+
           private:
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
 
-            int player_num;
+            int player_number;
+            int placed_by_player_nummber;
 
             mutable bool within_marker_range;
             mutable int time_step_at_entrance;
+            mutable int marker_at_entrance;
         };
 
     } // namespace model

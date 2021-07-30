@@ -34,9 +34,9 @@ add_executable(view model_visulization.cpp)
 target_include_directories(view PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(view PRIVATE ${ALL_LIBS})
 
-add_executable(convert_2_marker_events asist_study-2_2021.06_m7_conversion.cpp)
-target_include_directories(convert_2_marker_events PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(convert_2_marker_events PRIVATE ${ALL_LIBS})
+add_executable(convert_study2_hsr asist_study-2_2021.06.cpp)
+target_include_directories(convert_study2_hsr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(convert_study2_hsr PRIVATE ${ALL_LIBS})
 
 option(CODE_COVERAGE "Enable coverage reporting" OFF)
 

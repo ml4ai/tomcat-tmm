@@ -52,11 +52,13 @@ namespace tomcat {
 
         void FinalTeamScoreEstimator::prepare() {
             // Estimated final score
+            this->estimates.estimates = vector<Eigen::MatrixXd>(1);
+
             // Average number of regular rescues
             // Std of regular rescues
             // Average number of critical rescues
             // Std of critical rescues
-            this->estimates.estimates = vector<Eigen::MatrixXd>(5);
+            this->estimates.custom_data = vector<Eigen::MatrixXd>(4);
         }
 
         string FinalTeamScoreEstimator::get_name() const { return NAME; }
@@ -114,14 +116,15 @@ namespace tomcat {
 
             this->update_estimates(
                 0, data_point_idx, time_step, estimated_final_score);
-            this->update_estimates(
-                1, data_point_idx, time_step, (int)avg_rescues[0]);
-            this->update_estimates(
-                2, data_point_idx, time_step, std_regular_rescues);
-            this->update_estimates(
-                3, data_point_idx, time_step, (int)avg_rescues[1]);
-            this->update_estimates(
-                4, data_point_idx, time_step, std_critical_rescues);
+
+            this->update_custom_data(
+                0, data_point_idx, time_step, (int)avg_rescues[0]);
+            this->update_custom_data(
+                1, data_point_idx, time_step, std_regular_rescues);
+            this->update_custom_data(
+                2, data_point_idx, time_step, (int)avg_rescues[1]);
+            this->update_custom_data(
+                3, data_point_idx, time_step, std_critical_rescues);
         }
 
         Eigen::MatrixXi FinalTeamScoreEstimator::get_projected_rescues(

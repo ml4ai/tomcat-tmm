@@ -256,6 +256,8 @@ void create_planning_before_trial_data(const string& input_dir,
     if (!data.get_metadata().empty()) {
         Eigen::MatrixXd planning_before_trial(data.get_num_data_points(),
                                               data.get_time_steps());
+        Eigen::MatrixXd trial_order(data.get_num_data_points(),
+                                    data.get_time_steps());
 
         for (int d = 0; d < data.get_num_data_points(); d++) {
             const auto& json_file = data.get_metadata()[d];
@@ -267,19 +269,23 @@ void create_planning_before_trial_data(const string& input_dir,
                                    .at(0, d, 0);
                 planning_before_trial.row(d) =
                     Eigen::VectorXd::Constant(data.get_time_steps(), planning);
+                trial_order.row(d) =
+                    Eigen::VectorXd::Constant(data.get_time_steps(), 1);
             }
             else {
                 // There's never a planning session before the first trial of a
                 // team
                 planning_before_trial.row(d) = Eigen::VectorXd::Constant(
                     data.get_time_steps(), NO_PLANNING);
+                trial_order.row(d) =
+                    Eigen::VectorXd::Constant(data.get_time_steps(), 0);
             }
         }
 
-        EvidenceSet planning_before_trial_data;
-        string label = "PlanningBeforeTrial";
-        planning_before_trial_data.add_data(label, planning_before_trial);
-        planning_before_trial_data.save(output_dir);
+        EvidenceSet new_data;
+        new_data.add_data("PlanningBeforeTrial", planning_before_trial);
+        new_data.add_data("TrialOrder", trial_order);
+        new_data.save(output_dir);
     }
 }
 
@@ -290,7 +296,7 @@ void create_m7_data_from_external_source(const string& input_dir,
         long start_elapsed_time;
         string subject_id;
         string door_id;
-        int marker;
+        int marker_number;
         int marker_x;
         int marker_z;
         string marker_placed_by;
@@ -324,26 +330,43 @@ void create_m7_data_from_external_source(const string& input_dir,
 
             vector<string> tokens;
             boost::split(tokens, line, boost::is_any_of(","));
+            const string& measure = tokens[MEASURE_IDX];
 
-            string trial_id = tokens[TRIAL_IDX];
+            if (measure != "M6" && measure != "M7")
+                continue;
+
+            // Some entries contain TMXXXX_T000XX. This strips the trial id from
+            // the token no matter the format
+            string trial_id =
+                tokens[TRIAL_IDX].substr(tokens[TRIAL_IDX].find("T0"));
+
             if (!EXISTS(trial_id, trial_to_data)) {
                 trial_to_data[trial_id] = {};
             }
 
             auto& m7_data = trial_to_data[trial_id];
-            if (tokens[MEASURE_IDX] == "M6") {
+            if (measure == "M6") {
                 if (tokens[GROUND_TRUTH_IDX][0] == 'B') {
                     m7_data.subject_with_legend_b = tokens[SUBJECT_IDX];
                 }
             }
-            else if (tokens[MEASURE_IDX] == "M7") {
+            else if (measure == "M7") {
                 M7_Event m7_event;
                 m7_event.start_elapsed_time =
                     stoi(tokens[START_ELAPSED_TIME_IDX]);
+                m7_event.marker_number =
+                    tokens[MARKER_TYPE_IDX]
+                          [tokens[MARKER_TYPE_IDX].size() - 1] -
+                    '0';
+                if (m7_event.start_elapsed_time == NO_OBS ||
+                    (m7_event.marker_number != 1 &&
+                     m7_event.marker_number != 2)) {
+                    continue;
+                }
+
                 m7_event.subject_id = tokens[SUBJECT_IDX];
                 m7_event.door_id = tokens[DOOR_IDX];
-                m7_event.marker = (int)
-                    tokens[MARKER_TYPE_IDX][tokens[MARKER_TYPE_IDX].size() - 1];
+
                 m7_event.marker_x = stoi(tokens[MARKER_X_IDX]);
                 m7_event.marker_z = stoi(tokens[MARKER_Z_IDX]);
                 m7_event.marker_placed_by = tokens[MARKER_PLACED_BY_IDX];
@@ -361,9 +384,10 @@ void create_m7_data_from_external_source(const string& input_dir,
     EvidenceSet data(input_dir);
     if (!data.get_metadata().empty()) {
         int num_rows = data.get_num_data_points();
-        int num_cols = data.get_num_data_points();
+        int num_cols = data.get_time_steps();
 
-        Eigen::MatrixXd marker_legend_assignment;
+        Eigen::MatrixXd marker_legend_assignment =
+            Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS);
         vector<Eigen::MatrixXd> marker_legend_version_per_player(
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, MARKER_LEGEND_A));
         vector<Eigen::MatrixXd> next_area_per_player1(
@@ -411,9 +435,8 @@ void create_m7_data_from_external_source(const string& input_dir,
 
         nlohmann::json json_new_metadata = data.get_metadata();
 
-        bool has_ground_truth;
         for (int d = 0; d < num_rows; d++) {
-            nlohmann::json& json_file = json_new_metadata["files_converted"][d];
+            nlohmann::json& json_file = json_new_metadata[d];
             const auto& m7_data = trial_to_data[json_file["trial_id"]];
 
             unordered_map<string, int> player_callsign_to_number(3);
@@ -422,7 +445,7 @@ void create_m7_data_from_external_source(const string& input_dir,
             for (const auto& json_player : json_file["players"]) {
                 player_callsign_to_number[json_player["callsign"]] =
                     player_number;
-                player_callsign_to_number[json_player["id"]] = player_number;
+                player_id_to_number[json_player["id"]] = player_number;
                 player_number++;
             }
 
@@ -436,6 +459,8 @@ void create_m7_data_from_external_source(const string& input_dir,
                 Eigen::VectorXd::Constant(num_cols, player_number);
 
             json_file["m7_events"] = nlohmann::json::array();
+            int matching = 0;
+            int total = m7_data.events.size();
             for (const auto& m7_event : m7_data.events) {
                 player_number = player_id_to_number[m7_event.subject_id];
                 int other_player_number =
@@ -450,22 +475,29 @@ void create_m7_data_from_external_source(const string& input_dir,
                 // conversion.
                 area_per_player[player_number](d, time_step) = HALLWAY;
 
-                if (m7_event.next_area != NO_OBS) {
-                    has_ground_truth = true;
-                }
-
                 // Include the new event
                 if ((player_number == 0 && other_player_number == 1) ||
                     (player_number == 1 && other_player_number == 0) ||
                     (player_number == 2 && other_player_number == 0)) {
+
+                    if (nearby_marker_per_player1[player_number](
+                            d, time_step) != 0) {
+                        matching++;
+                    }
+
                     nearby_marker_per_player1[player_number](d, time_step) =
-                        m7_event.marker;
+                        m7_event.marker_number;
                     next_area_per_player1[player_number](d, time_step) =
                         m7_event.next_area;
                 }
                 else {
+                    if (nearby_marker_per_player2[player_number](
+                            d, time_step) != 0) {
+                        matching++;
+                    }
+
                     nearby_marker_per_player2[player_number](d, time_step) =
-                        m7_event.marker;
+                        m7_event.marker_number;
                     next_area_per_player2[player_number](d, time_step) =
                         m7_event.next_area;
                 }
@@ -474,12 +506,14 @@ void create_m7_data_from_external_source(const string& input_dir,
                 // report generation
                 nlohmann::json json_m7_event;
                 json_m7_event["time_step"] = time_step;
-                json_m7_event["marker_number"] = m7_event.marker;
+                json_m7_event["marker_number"] = m7_event.marker_number;
                 json_m7_event["marker_x"] = m7_event.marker_x;
                 json_m7_event["marker_z"] = m7_event.marker_z;
                 json_m7_event["door_id"] = m7_event.door_id;
                 json_m7_event["subject_id"] = m7_event.subject_id;
                 json_m7_event["placed_by"] = m7_event.marker_placed_by;
+                json_m7_event["subject_number"] = player_number;
+                json_m7_event["placed_by_number"] = other_player_number;
 
                 json_file["m7_events"].push_back(json_m7_event);
             }
@@ -523,6 +557,26 @@ void create_m7_data_from_external_source(const string& input_dir,
                           nearby_marker_per_player2[2]);
 
         new_data.save(output_dir);
+    }
+}
+
+void split_report_per_trial(const string& output_dir,
+                            const string& report_filepath) {
+    // Trials are processed in order so we can treat the file considering that
+    // trial messages won't be scrambled.
+    string previous_trial;
+    ifstream file(report_filepath);
+    while (!file.eof()) {
+        string message;
+        getline(file, message);
+
+        nlohmann::json json_message = nlohmann::json::parse(message);
+        if (previous_trial != json_message["msg"]["trial_id"]) {
+            if (previous_trial != "" ) {
+                // Close file
+            }
+            // Open a new one
+        }
     }
 }
 

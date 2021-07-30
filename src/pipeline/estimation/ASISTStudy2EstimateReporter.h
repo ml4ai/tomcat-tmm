@@ -4,7 +4,13 @@
 #include <string>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "pipeline/estimation/ASISTEstimateReporter.h"
+#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
+#include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/IndependentMarkerLegendVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -70,12 +76,12 @@ namespace tomcat {
              * @param data_point: mission trial index (if multiple missions are
              * being processed at the same time)
              */
-            void
-            add_final_team_score_prediction(nlohmann::json& json_predictions,
-                                            const AgentPtr& agent,
-                                            const EstimatorPtr& estimator,
-                                            int time_step,
-                                            int data_point) const;
+            void add_final_team_score_prediction(
+                nlohmann::json& json_predictions,
+                const AgentPtr& agent,
+                const std::shared_ptr<FinalTeamScoreEstimator>& estimator,
+                int time_step,
+                int data_point) const;
 
             /**
              * Adds information about the prediction of the knowledge about the
@@ -88,11 +94,13 @@ namespace tomcat {
              * @param data_point: mission trial index (if multiple missions are
              * being processed at the same time)
              */
-            void add_map_info_prediction(nlohmann::json& json_predictions,
-                                         const AgentPtr& agent,
-                                         const EstimatorPtr& estimator,
-                                         int time_step,
-                                         int data_point) const;
+            void add_map_info_prediction(
+                nlohmann::json& json_predictions,
+                const AgentPtr& agent,
+                const std::shared_ptr<IndependentMapVersionAssignmentEstimator>&
+                    estimator,
+                int time_step,
+                int data_point) const;
 
             /**
              * Adds information about the prediction of the knowledge about the
@@ -105,11 +113,14 @@ namespace tomcat {
              * @param data_point: mission trial index (if multiple missions are
              * being processed at the same time)
              */
-            void add_marker_legend_prediction(nlohmann::json& json_predictions,
-                                              const AgentPtr& agent,
-                                              const EstimatorPtr& estimator,
-                                              int time_step,
-                                              int data_point) const;
+            void add_marker_legend_prediction(
+                nlohmann::json& json_predictions,
+                const AgentPtr& agent,
+                const std::shared_ptr<
+                    IndependentMarkerLegendVersionAssignmentEstimator>&
+                    estimator,
+                int time_step,
+                int data_point) const;
 
             /**
              * Adds information about the prediction of action taken in face of
@@ -122,12 +133,13 @@ namespace tomcat {
              * @param data_point: mission trial index (if multiple missions are
              * being processed at the same time)
              */
-            void
-            add_marker_false_belief_prediction(nlohmann::json& json_predictions,
-                                               const AgentPtr& agent,
-                                               const EstimatorPtr& estimator,
-                                               int time_step,
-                                               int data_point) const;
+            void add_marker_false_belief_prediction(
+                nlohmann::json& json_predictions,
+                const AgentPtr& agent,
+                const std::shared_ptr<NextAreaOnNearbyMarkerEstimator>&
+                    estimator,
+                int time_step,
+                int data_point) const;
 
             /**
              * Calculates the timestamp at a given time step within the mission.
@@ -142,6 +154,17 @@ namespace tomcat {
             std::string get_timestamp_at(const AgentPtr& agent,
                                          int time_step,
                                          int data_point) const;
+
+            void initialize_m7(const nlohmann::json& evidence_metadata) const;
+
+            //------------------------------------------------------------------
+            // Data member
+            //------------------------------------------------------------------
+
+            mutable bool m7_initialized = false;
+            mutable std::vector<
+                std::unordered_map<int, std::vector<nlohmann::json>>>
+                m7_time_steps_per_data_point;
         };
 
     } // namespace model
