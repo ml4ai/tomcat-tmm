@@ -118,6 +118,12 @@ namespace tomcat {
                 log_file.open(log_filepath);
                 log_file << setw(4) << json_log;
 
+                // Only the converted portion. TO be used by an EvidenceSet object
+                string metadata_filepath = get_filepath(data_dir, METADATA_FILE);
+                ofstream metadata_file;
+                metadata_file.open(metadata_filepath);
+                metadata_file << setw(4) << json_log["files_converted"];
+
                 data.save(data_dir);
             }
         }

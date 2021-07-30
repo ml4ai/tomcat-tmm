@@ -97,7 +97,9 @@ namespace tomcat {
         SamplerEstimatorPtr SamplerEstimator::create_custom_estimator(
             const std::string& name,
             const DBNPtr& model,
+            const nlohmann::json& json_config,
             FREQUENCY_TYPE frequency_type) {
+
             SamplerEstimatorPtr estimator;
             if (name == FinalTeamScoreEstimator::NAME) {
                 estimator =
@@ -122,15 +124,9 @@ namespace tomcat {
                     IndependentMarkerLegendVersionAssignmentEstimator>(
                     model, frequency_type);
             }
-            else if (name == NextAreaOnNearbyMarkerEstimator::NAME + "P1") {
-                estimator =
-                    make_shared<NextAreaOnNearbyMarkerEstimator>(model, 1);
-            } else if (name == NextAreaOnNearbyMarkerEstimator::NAME + "P2") {
-                estimator =
-                    make_shared<NextAreaOnNearbyMarkerEstimator>(model, 2);
-            } else if (name == NextAreaOnNearbyMarkerEstimator::NAME + "P3") {
-                estimator =
-                    make_shared<NextAreaOnNearbyMarkerEstimator>(model, 3);
+            else if (name == NextAreaOnNearbyMarkerEstimator::NAME) {
+                estimator = make_shared<NextAreaOnNearbyMarkerEstimator>(
+                    model, json_config);
             }
 
             return estimator;

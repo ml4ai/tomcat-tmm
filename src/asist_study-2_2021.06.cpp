@@ -2,15 +2,19 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/program_options.hpp>
+#include <nlohmann/json.hpp>
 
 #include "converter/ASISTMultiPlayerMessageConverter.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
+#include "utils/FileHandler.h"
 
 using namespace tomcat::model;
 using namespace std;
@@ -24,6 +28,7 @@ namespace po = boost::program_options;
 #define MARKER_LEGEND_A ASISTMultiPlayerMessageConverter::MARKER_LEGEND_A
 #define MARKER_LEGEND_B ASISTMultiPlayerMessageConverter::MARKER_LEGEND_B
 #define HALLWAY ASISTMultiPlayerMessageConverter::HALLWAY
+#define ROOM ASISTMultiPlayerMessageConverter::HALLWAY
 
 #define P1_NEARBY_MARKER_LABEL                                                 \
     ASISTMultiPlayerMessageConverter::PLAYER1_NEARBY_MARKER_LABEL
@@ -294,6 +299,7 @@ void create_m7_data_from_external_source(const string& input_dir,
                                          const string& external_filepath) {
     struct M7_Event {
         long start_elapsed_time;
+        long resolved_elapsed_time;
         string subject_id;
         string door_id;
         int marker_number;
@@ -315,10 +321,11 @@ void create_m7_data_from_external_source(const string& input_dir,
     const int GROUND_TRUTH_IDX = 4;
     const int DOOR_IDX = 5;
     const int START_ELAPSED_TIME_IDX = 6;
-    const int MARKER_X_IDX = 7;
-    const int MARKER_Z_IDX = 8;
-    const int MARKER_PLACED_BY_IDX = 9;
-    const int MARKER_TYPE_IDX = 10;
+    const int RESOLVED_ELAPSED_TIME_IDX = 7;
+    const int MARKER_X_IDX = 8;
+    const int MARKER_Z_IDX = 9;
+    const int MARKER_PLACED_BY_IDX = 10;
+    const int MARKER_TYPE_IDX = 11;
 
     unordered_map<string, M7_Data> trial_to_data;
     ifstream file(external_filepath);
@@ -354,6 +361,8 @@ void create_m7_data_from_external_source(const string& input_dir,
                 M7_Event m7_event;
                 m7_event.start_elapsed_time =
                     stoi(tokens[START_ELAPSED_TIME_IDX]);
+                m7_event.resolved_elapsed_time =
+                    stoi(tokens[RESOLVED_ELAPSED_TIME_IDX]);
                 m7_event.marker_number =
                     tokens[MARKER_TYPE_IDX]
                           [tokens[MARKER_TYPE_IDX].size() - 1] -
@@ -407,31 +416,37 @@ void create_m7_data_from_external_source(const string& input_dir,
         area_per_player[2] =
             data[add_player_suffix(PLAYER_AREA_LABEL, 3)](0, 0);
 
-        next_area_per_player1[0] =
-            data[add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL, 1)](0, 0);
-        next_area_per_player2[0] =
-            data[add_player_suffix(NEXT_AREA_AFTER_P3_MARKER_LABEL, 1)](0, 0);
-        next_area_per_player1[1] =
-            data[add_player_suffix(NEXT_AREA_AFTER_P1_MARKER_LABEL, 2)](0, 0);
-        next_area_per_player2[1] =
-            data[add_player_suffix(NEXT_AREA_AFTER_P3_MARKER_LABEL, 2)](0, 0);
-        next_area_per_player1[2] =
-            data[add_player_suffix(NEXT_AREA_AFTER_P1_MARKER_LABEL, 3)](0, 0);
-        next_area_per_player2[2] =
-            data[add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL, 3)](0, 0);
-
-        nearby_marker_per_player1[0] =
-            data[add_player_suffix(P2_NEARBY_MARKER_LABEL, 1)](0, 0);
-        nearby_marker_per_player2[0] =
-            data[add_player_suffix(P3_NEARBY_MARKER_LABEL, 1)](0, 0);
-        nearby_marker_per_player1[1] =
-            data[add_player_suffix(P1_NEARBY_MARKER_LABEL, 2)](0, 0);
-        nearby_marker_per_player2[1] =
-            data[add_player_suffix(P3_NEARBY_MARKER_LABEL, 2)](0, 0);
-        nearby_marker_per_player1[2] =
-            data[add_player_suffix(P1_NEARBY_MARKER_LABEL, 3)](0, 0);
-        nearby_marker_per_player2[2] =
-            data[add_player_suffix(P2_NEARBY_MARKER_LABEL, 3)](0, 0);
+        //        next_area_per_player1[0] =
+        //            data[add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL,
+        //            1)](0, 0);
+        //        next_area_per_player2[0] =
+        //            data[add_player_suffix(NEXT_AREA_AFTER_P3_MARKER_LABEL,
+        //            1)](0, 0);
+        //        next_area_per_player1[1] =
+        //            data[add_player_suffix(NEXT_AREA_AFTER_P1_MARKER_LABEL,
+        //            2)](0, 0);
+        //        next_area_per_player2[1] =
+        //            data[add_player_suffix(NEXT_AREA_AFTER_P3_MARKER_LABEL,
+        //            2)](0, 0);
+        //        next_area_per_player1[2] =
+        //            data[add_player_suffix(NEXT_AREA_AFTER_P1_MARKER_LABEL,
+        //            3)](0, 0);
+        //        next_area_per_player2[2] =
+        //            data[add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL,
+        //            3)](0, 0);
+        //
+        //        nearby_marker_per_player1[0] =
+        //            data[add_player_suffix(P2_NEARBY_MARKER_LABEL, 1)](0, 0);
+        //        nearby_marker_per_player2[0] =
+        //            data[add_player_suffix(P3_NEARBY_MARKER_LABEL, 1)](0, 0);
+        //        nearby_marker_per_player1[1] =
+        //            data[add_player_suffix(P1_NEARBY_MARKER_LABEL, 2)](0, 0);
+        //        nearby_marker_per_player2[1] =
+        //            data[add_player_suffix(P3_NEARBY_MARKER_LABEL, 2)](0, 0);
+        //        nearby_marker_per_player1[2] =
+        //            data[add_player_suffix(P1_NEARBY_MARKER_LABEL, 3)](0, 0);
+        //        nearby_marker_per_player2[2] =
+        //            data[add_player_suffix(P2_NEARBY_MARKER_LABEL, 3)](0, 0);
 
         nlohmann::json json_new_metadata = data.get_metadata();
 
@@ -459,53 +474,92 @@ void create_m7_data_from_external_source(const string& input_dir,
                 Eigen::VectorXd::Constant(num_cols, player_number);
 
             json_file["m7_events"] = nlohmann::json::array();
-            int matching = 0;
-            int total = m7_data.events.size();
             for (const auto& m7_event : m7_data.events) {
                 player_number = player_id_to_number[m7_event.subject_id];
                 int other_player_number =
                     player_callsign_to_number[m7_event.marker_placed_by];
 
-                int elapsed_milliseconds =
+                int start_elapsed_milliseconds =
                     m7_event.start_elapsed_time -
                     (int)json_file["initial_elapsed_milliseconds"];
-                int time_step = min(elapsed_milliseconds / 1000, num_cols - 1);
+                int resolved_elapsed_milliseconds =
+                    m7_event.resolved_elapsed_time -
+                    (int)json_file["initial_elapsed_milliseconds"];
+                int time_step =
+                    min(start_elapsed_milliseconds / 1000, num_cols - 1);
+                int final_time_step =
+                    min(resolved_elapsed_milliseconds / 1000, num_cols - 1);
+                if (resolved_elapsed_milliseconds < 0) {
+                    // Estimate the player is going to be around the marker for
+                    // 2 seconds. This is necessary so we can capture the right
+                    // player next area in the test set. The event might stop
+                    // before the player enters the room.
+                    final_time_step = time_step + 2;
+                }
+                else if (final_time_step == time_step) {
+                    final_time_step = time_step + 1;
+                }
 
-                // Make it consistent with the other events detected at
-                // conversion.
-                area_per_player[player_number](d, time_step) = HALLWAY;
+                // Make the area where the player is consistent with the event.
+                // It always happens when the player is in the hallway.
+                for (int t = time_step; t < final_time_step; t++) {
+                    area_per_player[player_number](d, t) = HALLWAY;
+                }
+                if (m7_event.next_area == NO_OBS) {
+                    // Area is not given in the test file. We just try no make
+                    // observations from the game more synchronized with the
+                    // events given because they are measured in different time
+                    // scales. Accurate observations are important because of
+                    // the belief update over time. The model has to use
+                    // information about what happened to improve its future
+                    // predictions.
+                    if (area_per_player[player_number](
+                        d, final_time_step - 1) == ROOM) {
+                        // The measurements are taken in milliseconds and the
+                        // data in seconds. Therefore, if the player is in a
+                        // room at the second of a measurement, this means this
+                        // is his next area should be in the room.
+                        area_per_player[player_number](d, final_time_step) =
+                            ROOM;
+                        area_per_player[player_number](d, final_time_step - 1) =
+                            HALLWAY;
+                    }
+                }
+                else {
+                    // Area is given in the training file. We just use it.
+                    area_per_player[player_number](d, final_time_step) =
+                        m7_event.next_area;
+                }
 
                 // Include the new event
                 if ((player_number == 0 && other_player_number == 1) ||
                     (player_number == 1 && other_player_number == 0) ||
                     (player_number == 2 && other_player_number == 0)) {
 
-                    if (nearby_marker_per_player1[player_number](
-                            d, time_step) != 0) {
-                        matching++;
+                    for (int t = time_step; t < final_time_step; t++) {
+                        nearby_marker_per_player1[player_number](d, t) =
+                            m7_event.marker_number;
+                        next_area_per_player1[player_number](d, t) =
+                            m7_event.next_area;
                     }
-
-                    nearby_marker_per_player1[player_number](d, time_step) =
-                        m7_event.marker_number;
-                    next_area_per_player1[player_number](d, time_step) =
-                        m7_event.next_area;
                 }
                 else {
-                    if (nearby_marker_per_player2[player_number](
-                            d, time_step) != 0) {
-                        matching++;
+                    for (int t = time_step; t < final_time_step; t++) {
+                        nearby_marker_per_player2[player_number](d, t) =
+                            m7_event.marker_number;
+                        next_area_per_player2[player_number](d, t) =
+                            m7_event.next_area;
                     }
-
-                    nearby_marker_per_player2[player_number](d, time_step) =
-                        m7_event.marker_number;
-                    next_area_per_player2[player_number](d, time_step) =
-                        m7_event.next_area;
                 }
 
                 // Update metadata. Information in this file will be used in the
                 // report generation
                 nlohmann::json json_m7_event;
                 json_m7_event["time_step"] = time_step;
+                json_m7_event["start_elapsed_time"] =
+                    m7_event.start_elapsed_time;
+                json_m7_event["resolved_elapsed_time"] =
+                    m7_event.resolved_elapsed_time;
                 json_m7_event["marker_number"] = m7_event.marker_number;
                 json_m7_event["marker_x"] = m7_event.marker_x;
                 json_m7_event["marker_z"] = m7_event.marker_z;
@@ -560,24 +614,64 @@ void create_m7_data_from_external_source(const string& input_dir,
     }
 }
 
-void split_report_per_trial(const string& output_dir,
-                            const string& report_filepath) {
+void split_report_per_trial(const string& report_filepath,
+                            const string& output_dir) {
     // Trials are processed in order so we can treat the file considering that
     // trial messages won't be scrambled.
+    unordered_map<string, vector<string>> predictions_per_trial;
+
     string previous_trial;
     ifstream file(report_filepath);
-    while (!file.eof()) {
-        string message;
-        getline(file, message);
+    if (file.good()) {
+        while (!file.eof()) {
+            string message;
+            getline(file, message);
 
-        nlohmann::json json_message = nlohmann::json::parse(message);
-        if (previous_trial != json_message["msg"]["trial_id"]) {
-            if (previous_trial != "" ) {
-                // Close file
+            if (message == "")
+                continue;
+
+            nlohmann::json json_message = nlohmann::json::parse(message);
+            const string& trial_id = json_message["msg"]["trial_id"];
+
+            if (EXISTS(trial_id, predictions_per_trial)) {
+                predictions_per_trial[trial_id].push_back(message);
             }
-            // Open a new one
+            else {
+                predictions_per_trial[trial_id] = {message};
+            }
+        }
+
+        for (const auto& [trial_id, predictions] : predictions_per_trial) {
+            string out_filename =
+                report_filepath.substr(report_filepath.rfind('/'));
+            boost::replace_all(out_filename, "ALL", trial_id);
+            string out_filepath = get_filepath(output_dir, out_filename);
+            ofstream out_file(out_filepath);
+            if (out_file.is_open()) {
+                for (const string& prediction : predictions) {
+                    out_file << prediction << "\n";
+                }
+                out_file.close();
+            }
         }
     }
+}
+
+void create_m7_player_areas(const string& input_dir, const string& output_dir) {
+    EvidenceSet data(input_dir);
+
+    const auto& area_p1 = data[add_player_suffix(PLAYER_AREA_LABEL, 1)];
+    const auto& area_p2 = data[add_player_suffix(PLAYER_AREA_LABEL, 2)];
+    const auto& area_p3 = data[add_player_suffix(PLAYER_AREA_LABEL, 3)];
+
+    data.add_data(add_player_suffix("Player2" + PLAYER_AREA_LABEL, 1), area_p1);
+    data.add_data(add_player_suffix("Player3" + PLAYER_AREA_LABEL, 1), area_p1);
+    data.add_data(add_player_suffix("Player1" + PLAYER_AREA_LABEL, 2), area_p2);
+    data.add_data(add_player_suffix("Player3" + PLAYER_AREA_LABEL, 2), area_p2);
+    data.add_data(add_player_suffix("Player1" + PLAYER_AREA_LABEL, 3), area_p3);
+    data.add_data(add_player_suffix("Player2" + PLAYER_AREA_LABEL, 3), area_p3);
+
+    data.save(output_dir);
 }
 
 int main(int argc, char* argv[]) {
@@ -597,10 +691,13 @@ int main(int argc, char* argv[]) {
         "detection.\n"
         "1 - Create TrialPeriod data.\n"
         "2 - Create PlanningBeforeTrial data.\n"
-        "3 - Create data for M7 evaluation based on external source."
-        "file.\n")("input_dir",
-                   po::value<string>(&input_dir)->required(),
-                   "Directory where observations are stored.")(
+        "3 - Create data for M7 evaluation based on external source. file.\n"
+        "4 - Split report with all the predictions into individual reports per "
+        "trial.\n"
+        "5 - Create extra player areas for M7 models.")(
+        "input_dir",
+        po::value<string>(&input_dir),
+        "Directory where observations are stored.")(
         "output_dir",
         po::value<string>(&output_dir)->required(),
         "Directory new observations must be saved.")(
@@ -609,7 +706,8 @@ int main(int argc, char* argv[]) {
         "Number of periods if option 1 is chosen")(
         "external_filepath",
         po::value<string>(&external_filepath),
-        "Filepath of a .csv file needed if option selected is 3.");
+        "Filepath of a .csv file needed if option selected is 3 or report with "
+        "merged predictions if option selected is 4.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -632,6 +730,12 @@ int main(int argc, char* argv[]) {
     case 3:
         create_m7_data_from_external_source(
             input_dir, output_dir, external_filepath);
+        break;
+    case 4:
+        split_report_per_trial(external_filepath, output_dir);
+        break;
+    case 5:
+        create_m7_player_areas(input_dir, output_dir);
         break;
     }
 }

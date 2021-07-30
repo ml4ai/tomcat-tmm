@@ -201,7 +201,7 @@ namespace tomcat {
             }
 
             return this->time_steps * this->time_step_size -
-                   (seconds + minutes * 60) - 1;
+                   (seconds + minutes * 60);
         }
 
         //----------------------------------------------------------------------

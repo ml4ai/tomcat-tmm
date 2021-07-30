@@ -59,7 +59,7 @@ void evaluate(const string& experiment_id,
     }
     string report_filepath;
     if (report_filename != "") {
-        report_filepath = fmt::format("{}/{}.json", eval_dir, report_filename);
+        report_filepath = fmt::format("{}/{}", eval_dir, report_filename);
     }
     experimentation.set_offline_estimation_process(agent_json,
                                                    num_particles,

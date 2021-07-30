@@ -136,12 +136,11 @@ namespace tomcat {
             for (const auto& file : fs::directory_iterator(data_folder_path)) {
                 string filename = file.path().filename().string();
                 if (fs::is_regular_file(file)) {
-                    if (filename == MessageConverter::LOG_FILE) {
+                    if (filename == MessageConverter::METADATA_FILE) {
                         fstream log_file;
                         log_file.open(file.path().string());
                         if (log_file.is_open()) {
-                            this->metadata = nlohmann::json::parse(
-                                log_file)["files_converted"];
+                            this->metadata = nlohmann::json::parse(log_file);
                             log_file.close();
                         }
                     }
@@ -280,13 +279,12 @@ namespace tomcat {
             // Save metadata
             if (!this->metadata.empty()) {
                 string metadata_filepath =
-                    get_filepath(output_dir, MessageConverter::LOG_FILE);
+                    get_filepath(output_dir, MessageConverter::METADATA_FILE);
                 ofstream mmetadata_file;
                 mmetadata_file.open(metadata_filepath);
                 mmetadata_file << setw(4) << this->metadata;
                 mmetadata_file.close();
             }
-
 
             // Save event mapping
             if (this->event_based) {

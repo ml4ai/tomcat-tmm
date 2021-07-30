@@ -23,7 +23,7 @@ namespace tomcat {
              * Creates an instance of the next area metric.
              *
              * @param model: DBN
-             * @param player_num: player number
+             * @param json_config: configuration
              *
              */
             NextAreaOnNearbyMarkerEstimator(
@@ -37,10 +37,10 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             NextAreaOnNearbyMarkerEstimator(
-                const NextAreaOnNearbyMarkerEstimator& final_score);
+                const NextAreaOnNearbyMarkerEstimator& estimator);
 
             NextAreaOnNearbyMarkerEstimator&
-            operator=(const NextAreaOnNearbyMarkerEstimator& final_Score);
+            operator=(const NextAreaOnNearbyMarkerEstimator& estimator);
 
             NextAreaOnNearbyMarkerEstimator(NextAreaOnNearbyMarkerEstimator&&) =
                 default;
@@ -97,6 +97,12 @@ namespace tomcat {
 
             void prepare_for_the_next_data_point() const override;
 
+            /**
+             * Store the name of variables of interest based on the player
+             * number and who placed the marker.
+             */
+            void store_labels();
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
@@ -116,6 +122,9 @@ namespace tomcat {
             mutable bool within_marker_range;
             mutable int time_step_at_entrance;
             mutable int marker_at_entrance;
+
+            std::string nearby_marker_label;
+            std::string area_label;
         };
 
     } // namespace model

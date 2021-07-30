@@ -242,10 +242,16 @@ namespace tomcat {
                     }
                     else {
                         if (json_estimator["type"] == "custom") {
+                            nlohmann::json json_config;
+                            if (EXISTS("config", json_estimator)) {
+                                json_config = json_estimator["config"];
+                            }
+
                             SamplerEstimatorPtr estimator =
                                 SamplerEstimator::create_custom_estimator(
                                     json_estimator["name"],
                                     this->model,
+                                    json_config,
                                     estimation_frequency_type);
 
                             estimator->set_fixed_steps(fixed_time_steps);

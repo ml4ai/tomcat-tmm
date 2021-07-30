@@ -239,10 +239,11 @@ namespace tomcat {
 
                 if (mission_state == "start") {
                     this->mission_started = true;
-                    this->elapsed_seconds = 0;
+                    this->elapsed_seconds = -1;
 
                     // Store observations in the initial time step
-//                    data = this->build_evidence_set_from_observations();
+                    //                    data =
+                    //                    this->build_evidence_set_from_observations();
                 }
                 else if (mission_state == "stop") {
                     this->mission_finished = true;
@@ -271,6 +272,12 @@ namespace tomcat {
                     json_mission_log["team_id"] = team_id;
                     json_mission_log["experiment_id"] =
                         json_message["msg"]["experiment_id"];
+                    json_mission_log["trial_unique_id"] =
+                        json_message["msg"]["trial_id"];
+                    json_mission_log["replay_parent_id"] =
+                        json_message["msg"]["replay_parent_id"];
+                    json_mission_log["replay_id"] =
+                        json_message["msg"]["replay_id"];
 
                     this->experiment_id = json_mission_log["experiment_id"];
 
@@ -544,7 +551,7 @@ namespace tomcat {
                 const string& timer = json_message["data"]["mission_timer"];
                 int elapsed_seconds = this->get_elapsed_time(timer);
 
-                if (elapsed_seconds == 0) {
+                if (elapsed_seconds == 0 && this->elapsed_seconds < 0) {
                     // Store initial timestamp
                     const string& timestamp = json_message["msg"]["timestamp"];
                     json_mission_log["initial_timestamp"] = timestamp;
@@ -563,6 +570,7 @@ namespace tomcat {
                     }
 
                     data = this->build_evidence_set_from_observations();
+                    this->elapsed_seconds = 0;
                 }
 
                 if (elapsed_seconds ==
@@ -573,8 +581,8 @@ namespace tomcat {
                     data = this->build_evidence_set_from_observations();
 
                     this->elapsed_seconds += this->time_step_size;
-                    if (this->elapsed_seconds + 1 >=
-                        this->time_steps * this->time_step_size) {
+                    if (this->elapsed_seconds >=
+                        this->time_steps * this->time_step_size - 1) {
                         this->write_to_log_on_mission_finished(
                             json_mission_log);
                         this->mission_finished = true;
@@ -1093,46 +1101,60 @@ namespace tomcat {
                 // marker if the player is in the hallway and the block is
                 // either 1 or 2.
                 int nearby_marker = NO_NEARBY_MARKER;
-                int current_area =
-                    this->area_per_player.at(player_number).at(0, 0, 0);
                 vector<int> nearby_marker_per_player(3, nearby_marker);
-                if (current_area == HALLWAY) {
-                    for (const auto& block : this->placed_marker_blocks) {
-                        if (block.player_number == player_number ||
-                            block.number == 3) {
-                            // Marker 1 or 2 placed by another player.
-                            continue;
-                        }
-
-                        if (are_within_marker_block_detection_radius(
-                                this->player_position[player_number],
-                                block.position)) {
-
-                            Door door = this->get_closest_door(block.position);
-                            if (are_within_marker_block_detection_radius(
-                                    block.position, door.position)) {
-                                nearby_marker = block.number;
-
-                                nearby_marker_per_player[block.player_number] =
-                                    block.number;
-
-                                if (!EXISTS(this->next_time_step,
-                                            this->nearby_markers_info
-                                                [player_number])) {
-                                    this->nearby_markers_info
-                                        [player_number][this->next_time_step] =
-                                        vector<MarkerBlockAndDoor>();
-                                }
-
-                                MarkerBlockAndDoor block_and_door(block, door);
-                                this
-                                    ->nearby_markers_info[player_number]
-                                                         [this->next_time_step]
-                                    .push_back(block_and_door);
-                            }
-                        }
-                    }
-                }
+                // This will be filled later by the ground truth file provided
+                // by ASIST.
+                //                int current_area =
+                //                    this->area_per_player.at(player_number).at(0,
+                //                    0, 0);
+                //                if (current_area == HALLWAY) {
+                //                    for (const auto& block :
+                //                    this->placed_marker_blocks) {
+                //                        if (block.player_number ==
+                //                        player_number ||
+                //                            block.number == 3) {
+                //                            // Marker 1 or 2 placed by another
+                //                            player. continue;
+                //                        }
+                //
+                //                        if
+                //                        (are_within_marker_block_detection_radius(
+                //                                this->player_position[player_number],
+                //                                block.position)) {
+                //
+                //                            Door door =
+                //                            this->get_closest_door(block.position);
+                //                            if
+                //                            (are_within_marker_block_detection_radius(
+                //                                    block.position,
+                //                                    door.position)) {
+                //                                nearby_marker = block.number;
+                //
+                //                                nearby_marker_per_player[block.player_number]
+                //                                =
+                //                                    block.number;
+                //
+                //                                if
+                //                                (!EXISTS(this->next_time_step,
+                //                                            this->nearby_markers_info
+                //                                                [player_number]))
+                //                                                {
+                //                                    this->nearby_markers_info
+                //                                        [player_number][this->next_time_step]
+                //                                        =
+                //                                        vector<MarkerBlockAndDoor>();
+                //                                }
+                //
+                //                                MarkerBlockAndDoor
+                //                                block_and_door(block, door);
+                //                                this
+                //                                    ->nearby_markers_info[player_number]
+                //                                                         [this->next_time_step]
+                //                                    .push_back(block_and_door);
+                //                            }
+                //                        }
+                //                    }
+                //                }
                 data.add_data(
                     get_player_variable_label(OTHER_PLAYER_NEARBY_MARKER,
                                               player_number + 1),

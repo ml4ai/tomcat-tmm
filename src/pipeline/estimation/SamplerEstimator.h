@@ -5,6 +5,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "pipeline/estimation/Estimator.h"
 #include "sampling/AncestralSampler.h"
 #include "sampling/Sampler.h"
@@ -100,14 +102,17 @@ namespace tomcat {
              *
              * @param name: estimator name
              * @param model: model used for estimation
+             * @param json_config: extra configuration
              * @param frequency_type: frequency at which estimates must be
              * computed
+
              *
              * @return Newly created instance of the custom estimator
              */
             static SamplerEstimatorPtr
             create_custom_estimator(const std::string& name,
                                     const DBNPtr& model,
+                                    const nlohmann::json& json_config,
                                     FREQUENCY_TYPE frequency_type = all);
 
             //------------------------------------------------------------------

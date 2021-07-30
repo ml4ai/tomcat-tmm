@@ -44,20 +44,19 @@ namespace tomcat {
                 // and data points will be processed at the end of the
                 // estimation function. Therefore, we need to process time
                 // by time to publish estimates over time.
-                for (int t = 0; t <= this->last_time_step; t++) {
-                    auto messages =
-                        this->reporter->translate_estimates_to_messages(
-                            this->agent, t);
 
-                    if (this->report_file.is_open()) {
-                        for (const auto& message : messages) {
-                            this->report_file << message << "\n";
-                        }
+                // The reporter can process all time steps at once
+                auto messages = this->reporter->translate_estimates_to_messages(
+                    this->agent, NO_OBS);
+
+                if (this->report_file.is_open()) {
+                    for (const auto& message : messages) {
+                        this->report_file << message << "\n";
                     }
-                    else {
-                        for (const auto& message : messages) {
-                            cout << message << "\n";
-                        }
+                }
+                else {
+                    for (const auto& message : messages) {
+                        cout << message << "\n";
                     }
                 }
             }

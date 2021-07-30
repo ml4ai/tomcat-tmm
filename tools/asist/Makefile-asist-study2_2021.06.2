@@ -1,0 +1,157 @@
+# The name of the Google Cloud Source folder where the ASIST HSR data resides.
+STUDY_ID = study-2_2021.06
+
+# Binaries required for the ASIST evaluation analyses
+BUILD_DIR = ../../../build
+
+# Path to the files containing the maps definition
+MAP_PATH = map/Saturn_1.5_3D_sm_v1.0.json
+
+# File containing events for M7
+GT_FILE = ground_truth/study-2_2021.06_HSRData_GroundTruth-TrainingData_Study-2_Vers-1.csv
+
+# Path to the file containing the agents definition
+SCORE_AGENT_PATH = agents/report/score_agent.json
+MAP_AGENT_PATH = agents/report/map_agent.json
+MARKER_AGENT_PATH = agents/report/marker_agent.json
+NEXT_AREA_AGENT_PATH = agents/report/next_area_agent.json
+
+# Original data from the message bus to be used for training
+MSG_DIR = messages
+SPLIT_MSG_DIR = split_messages
+#TRAIN_MSG_DIR = $(SPLIT_MSG_DIR)/report_train
+#TEST_MSG_DIR = $(SPLIT_MSG_DIR)/report_test
+TRAIN_MSG_DIR = $(SPLIT_MSG_DIR)/train
+TEST_MSG_DIR = $(SPLIT_MSG_DIR)/test
+
+# File with the trial numbers to use for training and testing
+#TRAIN_TRIALS_FILE = $(SPLIT_MSG_DIR)/report_train_list.txt
+#TEST_TRIALS_FILE = $(SPLIT_MSG_DIR)/report_test_list.txt
+TRAIN_TRIALS_FILE = $(SPLIT_MSG_DIR)/train_list.txt
+TEST_TRIALS_FILE = $(SPLIT_MSG_DIR)/test_list.txt
+
+# Directory where converted data will reside
+SAMPLES_DIR = samples
+TRAIN_SAMPLES_DIR = samples/train
+TEST_SAMPLES_DIR = samples/test
+
+# Other relevant directories
+PARAMS_DIR = params/report
+MODEL_DIR = model/report
+EVAL_DIR = eval/report
+
+# Name of the final report file
+REPORT_FILENAME = HSRData_Predictions_UAZ_TOMCAT_Trial-ALL_Vers-1.metadata
+FINAL_REPORT_FILES_DIR = $(EVAL_DIR)/final_files
+
+NUM_PARTICLES = 5
+JOBS = 1
+
+# Phony targets
+.PHONY: all
+.PHONY: build
+.PHONY: sync
+.PHONY: split
+.PHONY: convert
+.PHONY: score
+.PHONY: map
+.PHONY: marker
+.PHONY: next_action
+.PHONY: split_report
+
+all: build sync split convert score map marker next_area split_report eval
+
+# (Re)builds the evaluation system
+build:
+	@cd $(BUILD_DIR) && make -j evaluate
+	@cd $(BUILD_DIR) && make -j convert_study2_hsr
+
+# Synchronize message folder with the GSC
+sync:
+	@GCS_DIR=$(STUDY_ID) DATA_DIR=$(MSG_DIR) ../../../tools/asist/sync_asist_data
+
+split: $(TRAIN_MSG_DIR) $(TEST_MSG_DIR)
+
+# Creates symbolic links for the message files in the folder split_messages
+# according to the trial numbers defined for training and testing.
+$(TRAIN_MSG_DIR): ../../../tools/asist/split_asist_data $(TRAIN_TRIALS_FILE)
+	@echo "Reserving training messages..."
+	@ORIGINAL_MSG_DIR=$(MSG_DIR) TRIALS_FILE=$(TRAIN_TRIALS_FILE) \
+	TARGET_MSG_DIR=$@ ./$<
+
+$(TEST_MSG_DIR): ../../../tools/asist/split_asist_data $(TEST_TRIALS_FILE)
+	@echo "Reserving test messages..."
+	@ORIGINAL_MSG_DIR=$(MSG_DIR) TRIALS_FILE=$(TEST_TRIALS_FILE) \
+	TARGET_MSG_DIR=$@ ./$<
+
+# Parses messages from the testbed and converts them to matrices of
+# observations. One matrix for each observable node in the model. We always
+# try to convert, if there's nothing to convert, the program will handle that.
+convert:
+	@echo "Converting training data..."
+	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_PATH) \
+		--messages_dir $(TRAIN_MSG_DIR) --data_dir $(TRAIN_SAMPLES_DIR) \
+		--seconds 900 --step_size 1 --multiplayer
+	@./$(BUILD_DIR)/bin/convert_study2_hsr --input_dir $(TRAIN_SAMPLES_DIR) \
+    	--output_dir $(TRAIN_SAMPLES_DIR) --option 1 --periods 3
+	@./$(BUILD_DIR)/bin/convert_study2_hsr --input_dir $(TRAIN_SAMPLES_DIR) \
+    	--output_dir $(TRAIN_SAMPLES_DIR) --option 2
+	@./$(BUILD_DIR)/bin/convert_study2_hsr --input_dir $(TRAIN_SAMPLES_DIR) \
+		--output_dir $(TRAIN_SAMPLES_DIR) --option 3 \
+		--external_filepath $(GT_FILE)
+
+	@echo "Converting test data..."
+	@./$(BUILD_DIR)/bin/convert --map_json $(MAP_PATH) \
+		--messages_dir $(TEST_MSG_DIR) --data_dir $(TEST_SAMPLES_DIR) \
+		--seconds 900 --step_size 1 --multiplayer
+	@./$(BUILD_DIR)/bin/convert_study2_hsr --input_dir $(TEST_SAMPLES_DIR) \
+    	--output_dir $(TEST_SAMPLES_DIR) --option 0
+	@./$(BUILD_DIR)/bin/convert_study2_hsr --input_dir $(TEST_SAMPLES_DIR) \
+    	--output_dir $(TEST_SAMPLES_DIR) --option 1 --periods 3
+	@./$(BUILD_DIR)/bin/convert_study2_hsr --input_dir $(TEST_SAMPLES_DIR) \
+		--output_dir $(TEST_SAMPLES_DIR) --option 2
+	@./$(BUILD_DIR)/bin/convert_study2_hsr --input_dir $(TEST_SAMPLES_DIR) \
+        --output_dir $(TEST_SAMPLES_DIR) --option 3 \
+        --external_filepath $(GT_FILE)
+
+eval: build score map marker next_area split_report
+
+score:
+	@echo "Estimating M1: Final Team Score..."
+	@./$(BUILD_DIR)/bin/evaluate --exp_id "score_estimates" --model_dir $(MODEL_DIR) \
+    	--data_dir $(TEST_SAMPLES_DIR) --params_dir $(PARAMS_DIR)/score \
+        --agent_json $(SCORE_AGENT_PATH) --K 1 --T 900 \
+     	--particles $(NUM_PARTICLES) --jobs $(JOBS) --eval_dir $(EVAL_DIR) \
+     	--reporter 1 --report_filename $(REPORT_FILENAME)
+
+map:
+	@echo "Estimating M3: Map Version..."
+	@./$(BUILD_DIR)/bin/evaluate --exp_id "map_estimates" --model_dir $(MODEL_DIR) \
+    	--data_dir $(TEST_SAMPLES_DIR) --params_dir $(PARAMS_DIR)/map \
+        --agent_json $(MAP_AGENT_PATH) --K 1 --T 900 \
+     	--particles $(NUM_PARTICLES) --jobs $(JOBS) --eval_dir $(EVAL_DIR) \
+     	--reporter 1 --report_filename $(REPORT_FILENAME)
+
+marker:
+	@echo "Estimating M6: Marker Legend..."
+	@./$(BUILD_DIR)/bin/evaluate --exp_id "marker_estimates" --model_dir $(MODEL_DIR) \
+    	--data_dir $(TEST_SAMPLES_DIR) --params_dir $(PARAMS_DIR)/marker \
+        --agent_json $(MARKER_AGENT_PATH) --K 1 --T 900 \
+     	--particles $(NUM_PARTICLES) --jobs $(JOBS) --eval_dir $(EVAL_DIR) \
+     	--reporter 1 --report_filename $(REPORT_FILENAME)
+
+next_area:
+	@echo "Estimating M7: Next Area..."
+	@./$(BUILD_DIR)/bin/evaluate --exp_id "next_action_estimates" --model_dir $(MODEL_DIR) \
+    	--data_dir $(TEST_SAMPLES_DIR)/M7 --params_dir $(PARAMS_DIR)/next_area \
+        --agent_json $(NEXT_AREA_AGENT_PATH) --K 1 --T 900 \
+        --particles $(NUM_PARTICLES) --jobs $(JOBS) --eval_dir $(EVAL_DIR) \
+        --reporter 1 --report_filename $(REPORT_FILENAME)
+
+split_report:
+	@echo "Preparing final report files..."
+	@./$(BUILD_DIR)/bin/convert_study2_hsr --output_dir $(FINAL_REPORT_FILES_DIR) --option 4 \
+    	--external_filepath $(EVAL_DIR)/$(REPORT_FILENAME)
+
+
+
