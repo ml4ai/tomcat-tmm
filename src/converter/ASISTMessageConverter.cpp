@@ -9,6 +9,7 @@ namespace tomcat {
     namespace model {
 
         using namespace std;
+        namespace fs = boost::filesystem;
 
         //----------------------------------------------------------------------
         // Constructors & Destructor
@@ -22,6 +23,23 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+        void
+        ASISTMessageConverter::convert_messages(const std::string& messages_dir,
+                                                const std::string& data_dir) {
+            // Store FoV files to be appended to the messages if it comes in a
+            // separate file.
+            this->fov_filepaths.clear();
+            string fov_dir =  messages_dir + "/FoV";
+            for (const auto& file : fs::directory_iterator(fov_dir)) {
+                string filename = file.path().filename().string();
+                const size_t start = filename.find("T00");
+                const size_t end = filename.find("_Member");
+                string trial_team = filename.substr(start, end-start);
+                this->fov_filepaths[trial_team] = file.path().string();
+            }
+            MessageConverter::convert_messages(messages_dir, data_dir);
+        }
+
         EvidenceSet ASISTMessageConverter::get_data_from_message(
             const nlohmann::json& json_message,
             nlohmann::json& json_mission_log) {
@@ -100,55 +118,60 @@ namespace tomcat {
                 }
             }
 
-            // Look for FoV data in a separate file if it's not contained in the
-            // main messages file.
+            // Look for FoV data in a separate file in the same directory if
+            // it's not contained in the main messages file.
             if (!contains_fov) {
-                int temp = messages_filepath.find("_Trial-");
-                stringstream fov_filepath;
-                fov_filepath << messages_filepath.substr(0, temp) << "-FoV"
-                             << messages_filepath.substr(temp);
+                const size_t start = messages_filepath.find("T00");
+                const size_t end = messages_filepath.find("_Member");
+                string trial_team =
+                    messages_filepath.substr(start, end - start);
 
-                ifstream fov_file_reader(fov_filepath.str());
-                if (fov_file_reader.good()) {
-                    while (!fov_file_reader.eof()) {
-                        string message;
-                        getline(fov_file_reader, message);
-                        try {
-                            nlohmann::json json_message =
-                                nlohmann::json::parse(message);
-                            if (!json_message.contains("msg") ||
-                                !json_message["msg"].contains("timestamp")) {
-                                string error_msg =
-                                    "Invalid format. Some messages do "
-                                    "not contain a timestamp.";
-                                throw TomcatModelException(error_msg);
-                            }
+                if (EXISTS(trial_team, this->fov_filepaths)) {
+                    const string& fov_filepath =
+                        this->fov_filepaths[trial_team];
+                    ifstream fov_file_reader(fov_filepath);
+                    if (fov_file_reader.good()) {
+                        while (!fov_file_reader.eof()) {
+                            string message;
+                            getline(fov_file_reader, message);
+                            try {
+                                nlohmann::json json_message =
+                                    nlohmann::json::parse(message);
+                                if (!json_message.contains("msg") ||
+                                    !json_message["msg"].contains(
+                                        "timestamp")) {
+                                    string error_msg =
+                                        "Invalid format. Some messages do "
+                                        "not contain a timestamp.";
+                                    throw TomcatModelException(error_msg);
+                                }
 
-                            if (json_message["topic"] != nullptr) {
-                                const string& topic = json_message["topic"];
+                                if (json_message["topic"] != nullptr) {
+                                    const string& topic = json_message["topic"];
 
-                                if (EXISTS(topic, this->get_used_topics())) {
-                                    if (topic == "trial") {
-                                        // There's an issue with the timestamp
-                                        // in the msg section of trial messages.
-                                        // The timestamp in this section is not
-                                        // being updated when the trial stops.
-                                        const string& timestamp =
-                                            json_message["header"]["timestamp"];
-                                        messages[timestamp] = json_message;
+                                    if (EXISTS(topic,
+                                               this->get_used_topics())) {
+                                        if (topic == "trial") {
+                                            // There's an issue with the timestamp in the msg section of trial messages. The timestamp in this section is not being updated when the trial stops.
+                                            const string& timestamp =
+                                                json_message["header"]
+                                                            ["timestamp"];
+                                            messages[timestamp] = json_message;
+                                        }
+                                        else {
+                                            const string& timestamp =
+                                                json_message["msg"]
+                                                            ["timestamp"];
+                                            messages[timestamp] = json_message;
+                                        }
+
+                                        this->parse_individual_message(
+                                            json_message);
                                     }
-                                    else {
-                                        const string& timestamp =
-                                            json_message["msg"]["timestamp"];
-                                        messages[timestamp] = json_message;
-                                    }
-
-                                    this->parse_individual_message(
-                                        json_message);
                                 }
                             }
-                        }
-                        catch (nlohmann::detail::parse_error& exp) {
+                            catch (nlohmann::detail::parse_error& exp) {
+                            }
                         }
                     }
                 }
@@ -178,7 +201,7 @@ namespace tomcat {
             }
 
             return this->time_steps * this->time_step_size -
-                   (seconds + minutes * 60);
+                   (seconds + minutes * 60) - 1;
         }
 
         //----------------------------------------------------------------------

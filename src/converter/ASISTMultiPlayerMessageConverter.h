@@ -53,11 +53,11 @@ namespace tomcat {
                 "PlayerMarkerLegendVersion";
             inline const static std::string OTHER_PLAYER_NEARBY_MARKER =
                 "OtherPlayerNearbyMarker";
-            inline const static std::string PLAYER1_NEARBY_MARKER =
+            inline const static std::string PLAYER1_NEARBY_MARKER_LABEL =
                 "Player1NearbyMarker";
-            inline const static std::string PLAYER2_NEARBY_MARKER =
+            inline const static std::string PLAYER2_NEARBY_MARKER_LABEL =
                 "Player2NearbyMarker";
-            inline const static std::string PLAYER3_NEARBY_MARKER =
+            inline const static std::string PLAYER3_NEARBY_MARKER_LABEL =
                 "Player3NearbyMarker";
 
             // FoV
@@ -67,20 +67,27 @@ namespace tomcat {
                 "PlayerSafeVictimInFoV";
             inline const static std::string PLAYER_REGULAR_VICTIM_IN_FOV_LABEL =
                 "PlayerRegularVictimInFoV";
-            inline const static std::string PLAYER_CRITICAL_VICTIM_IN_FOV_LABEL =
-                "PlayerCriticalVictimInFoV";
-            inline const static std::string PLAYER_SAFE_HALLWAY_VICTIM_IN_FOV_LABEL =
-                "PlayerSafeHallwayVictimInFoV";
-            inline const static std::string PLAYER_REGULAR_HALLWAY_VICTIM_IN_FOV_LABEL =
-                "PlayerRegularHallwayVictimInFoV";
-            inline const static std::string PLAYER_CRITICAL_HALLWAY_VICTIM_IN_FOV_LABEL =
-                "PlayerCriticalHallwayVictimInFoV";
-            inline const static std::string PLAYER_SAFE_ROOM_VICTIM_IN_FOV_LABEL =
-                "PlayerSafeRoomVictimInFoV";
-            inline const static std::string PLAYER_REGULAR_ROOM_VICTIM_IN_FOV_LABEL =
-                "PlayerRegularRoomVictimInFoV";
-            inline const static std::string PLAYER_CRITICAL_ROOM_VICTIM_IN_FOV_LABEL =
-                "PlayerCriticalRoomVictimInFoV";
+            inline const static std::string
+                PLAYER_CRITICAL_VICTIM_IN_FOV_LABEL =
+                    "PlayerCriticalVictimInFoV";
+            inline const static std::string
+                PLAYER_HALLWAY_SAFE_VICTIM_IN_FOV_LABEL =
+                    "PlayerHallwaySafeVictimInFoV";
+            inline const static std::string
+                PLAYER_HALLWAY_REGULAR_VICTIM_IN_FOV_LABEL =
+                    "PlayerHallwayRegularVictimInFoV";
+            inline const static std::string
+                PLAYER_HALLWAY_CRITICAL_VICTIM_IN_FOV_LABEL =
+                    "PlayerHallwayCriticalVictimInFoV";
+            inline const static std::string
+                PLAYER_ROOM_SAFE_VICTIM_IN_FOV_LABEL =
+                    "PlayerRoomSafeVictimInFoV";
+            inline const static std::string
+                PLAYER_ROOM_REGULAR_VICTIM_IN_FOV_LABEL =
+                    "PlayerRoomRegularVictimInFoV";
+            inline const static std::string
+                PLAYER_ROOM_CRITICAL_VICTIM_IN_FOV_LABEL =
+                    "PlayerRoomCriticalVictimInFoV";
 
             // Speeches
             inline const static std::string PLAYER_AGREEMENT_LABEL =
@@ -88,11 +95,12 @@ namespace tomcat {
             inline const static std::string
                 PLAYER_MARKER_LEGEND_VERSION_SPEECH_LABEL =
                     "PlayerMarkerLegendVersionSpeech";
-            inline const static std::string PLAYER_ACTION_MOVE_TO_ROOM_SPEECH_LABEL =
-                "PlayerActionMoveToRoomSpeech";
+            inline const static std::string
+                PLAYER_ACTION_MOVE_TO_ROOM_SPEECH_LABEL =
+                    "PlayerActionMoveToRoomSpeech";
             inline const static std::string
                 PLAYER_KNOWLEDGE_SHARING_SPEECH_LABEL =
-                "PlayerKnowledgeSharingSpeech";
+                    "PlayerKnowledgeSharingSpeech";
 
             // Condition
             const static int NO_TEAM_PLANNING = 0;
@@ -285,7 +293,6 @@ namespace tomcat {
             };
 
             struct MarkerBlock {
-                std::string player_id;
                 Position position;
                 int number;
                 int player_number;
@@ -437,6 +444,124 @@ namespace tomcat {
             void
             write_to_log_on_mission_finished(nlohmann::json& json_log) const;
 
+            /**
+             * Stores the current scoreboard.
+             *
+             * @param json_message
+             */
+            void parse_scoreboard_message(const nlohmann::json& json_message);
+
+            /**
+             * Detects rubble clearing
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void parse_tool_usage_message(const nlohmann::json& json_message,
+                                          int player_number);
+
+            /**
+             * Detects rescue
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void parse_triage_message(const nlohmann::json& json_message,
+                                      int player_number);
+
+            /**
+             * Detects whether a victim is being carried
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void parse_victim_pickup_message(const nlohmann::json& json_message,
+                                             int player_number);
+
+            /**
+             * Detects whether a victim was placed
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void
+            parse_victim_placement_message(const nlohmann::json& json_message,
+                                           int player_number);
+
+            /**
+             * Stores the player's role
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void
+            parse_role_selection_message(const nlohmann::json& json_message,
+                                         int player_number);
+
+            /**
+             * Stores the player's transition to a new area
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void parse_area_message(const nlohmann::json& json_message,
+                                    int player_number);
+
+            /**
+             * Stores live player info
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void parse_player_state_message(const nlohmann::json& json_message,
+                                            int player_number);
+
+            /**
+             * Detects whether a marker was placed
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void
+            parse_marker_placement_message(const nlohmann::json& json_message,
+                                           int player_number);
+
+            /**
+             * Stores dialogs
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void parse_dialog_message(const nlohmann::json& json_message,
+                                      int player_number);
+
+            /**
+             * Stores relevant info in the player's FoV
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void parse_fov_message(const nlohmann::json& json_message,
+                                   int player_number);
+
+            /**
+             * Stores the initial list of victims and their relative area (room
+             * or hallway)
+             *
+             * @param json_message: message
+             */
+            void parse_victim_list_message(const nlohmann::json& json_message);
+
+            /**
+             * Checks whether an entity in a given position is inside a room or
+             * not.
+             *
+             * @param position: position of the entity
+             *
+             * @return
+             */
+            bool is_in_room(const Position& position) const;
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
@@ -451,6 +576,7 @@ namespace tomcat {
             std::vector<BoundingBox> expanded_building_sections;
             std::vector<Door> doors;
             std::vector<BoundingBox> rooms;
+            std::unordered_map<std::string, bool> victim_to_area;
 
             // Numbers are sequential numbers starting from zero and indicate
             // the position in the vector of observations. Id's and names are
@@ -470,7 +596,8 @@ namespace tomcat {
             std::vector<Tensor3> map_info_per_player;
 
             // FoV
-            // TODO - remove after testing models. Kept for retrocompatibility with some models tested
+            // TODO - remove after testing models. Kept for retrocompatibility
+            // with some models tested
             std::vector<Tensor3> victim_in_fov_per_player;
 
             std::vector<Tensor3> safe_victim_in_fov_per_player;
@@ -482,10 +609,6 @@ namespace tomcat {
             std::vector<Tensor3> room_safe_victim_in_fov_per_player;
             std::vector<Tensor3> room_regular_victim_in_fov_per_player;
             std::vector<Tensor3> room_critical_victim_in_fov_per_player;
-
-            std::vector<std::vector<Position>> safe_victim_in_fov_location_per_player;
-            std::vector<std::vector<Position>> regular_victim_in_fov_location_per_player;
-            std::vector<std::vector<Position>> critical_victim_in_fov_location_per_player;
 
             // Marker
             std::vector<Tensor3> placed_marker_per_player;

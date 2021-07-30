@@ -54,6 +54,9 @@ namespace tomcat {
             // Member functions
             //------------------------------------------------------------------
 
+            void convert_messages(const std::string& messages_dir,
+                                          const std::string& data_dir) override;
+
             EvidenceSet
             get_data_from_message(const nlohmann::json& json_message,
                                   nlohmann::json& json_mission_log) override;
@@ -155,13 +158,15 @@ namespace tomcat {
             // ignored.
             bool mission_started = false;
 
-            int elapsed_time = 0;
+            int elapsed_seconds = 0;
 
             time_t mission_initial_timestamp;
 
             int mission_trial_number = -1;
 
             std::string experiment_id;
+
+            std::unordered_map<std::string, std::string> fov_filepaths;
 
         };
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -85,14 +86,8 @@ namespace tomcat {
              * @param messages_dir: directory where the message files are
              * @param data_dir: directory where data must be saved
              */
-            void convert_messages(const std::string& messages_dir,
-                                  const std::string& data_dir);
-
-            /*
-             * Clears cache and prepare to process a new mission.
-             */
-            void start_new_mission();
-
+            virtual void convert_messages(const std::string& messages_dir,
+                                          const std::string& data_dir);
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -148,6 +143,11 @@ namespace tomcat {
              */
             void copy_converter(const MessageConverter& converter);
 
+            /*
+             * Clears cache and prepare to process a new mission.
+             */
+            void start_new_mission();
+
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
@@ -199,7 +199,7 @@ namespace tomcat {
              * @return List of message files that were not previously
              * processed.
              */
-            std::unordered_set<std::string>
+            std::set<std::string>
             get_unprocessed_message_filenames(const std::string& messages_dir,
                                               const std::string& data_dir);
         };

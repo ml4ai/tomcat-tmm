@@ -46,7 +46,7 @@ namespace tomcat {
         void MessageConverter::convert_messages(const string& messages_dir,
                                                 const string& data_dir) {
 
-            unordered_set<string> unprocessed_filenames =
+            set<string> unprocessed_filenames =
                 this->get_unprocessed_message_filenames(messages_dir, data_dir);
             int num_files = unprocessed_filenames.size();
             cout << "Converting " << num_files << " message files...";
@@ -122,7 +122,7 @@ namespace tomcat {
             }
         }
 
-        unordered_set<string>
+        set<string>
         MessageConverter::get_unprocessed_message_filenames(
             const string& messages_dir, const string& data_dir) {
 
@@ -147,7 +147,7 @@ namespace tomcat {
 
             // Get files in the message directory that were not previously
             // processed
-            unordered_set<string> unprocessed_files;
+            set<string> unprocessed_files;
             for (const auto& file : fs::directory_iterator(messages_dir)) {
                 string filename = file.path().filename().string();
                 if ((fs::is_regular_file(file)) &&
