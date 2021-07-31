@@ -379,6 +379,14 @@ void create_m7_data_from_external_source(const string& input_dir,
                 m7_event.marker_x = stoi(tokens[MARKER_X_IDX]);
                 m7_event.marker_z = stoi(tokens[MARKER_Z_IDX]);
                 m7_event.marker_placed_by = tokens[MARKER_PLACED_BY_IDX];
+                if (tokens[GROUND_TRUTH_IDX] != "False" &&
+                    tokens[GROUND_TRUTH_IDX] != "True") {
+                    m7_event.next_area = NO_OBS;
+                }
+                else {
+                    m7_event.next_area =
+                        (int)(tokens[GROUND_TRUTH_IDX] == "True");
+                }
                 m7_event.next_area = (int)(tokens[GROUND_TRUTH_IDX] == "True");
                 m7_data.events.push_back(m7_event);
             }
@@ -514,7 +522,7 @@ void create_m7_data_from_external_source(const string& input_dir,
                     // information about what happened to improve its future
                     // predictions.
                     if (area_per_player[player_number](
-                        d, final_time_step - 1) == ROOM) {
+                            d, final_time_step - 1) == ROOM) {
                         // The measurements are taken in milliseconds and the
                         // data in seconds. Therefore, if the player is in a
                         // room at the second of a measurement, this means this
