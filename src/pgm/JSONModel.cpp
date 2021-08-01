@@ -9,8 +9,8 @@
 #include "distribution/Distribution.h"
 #include "distribution/Gamma.h"
 #include "distribution/Gaussian.h"
-#include "distribution/Poisson.h"
 #include "distribution/Geometric.h"
+#include "distribution/Poisson.h"
 #include "pgm/ConstantNode.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/NodeMetadata.h"
@@ -21,8 +21,8 @@
 #include "pgm/cpd/DirichletCPD.h"
 #include "pgm/cpd/GammaCPD.h"
 #include "pgm/cpd/GaussianCPD.h"
-#include "pgm/cpd/PoissonCPD.h"
 #include "pgm/cpd/GeometricCPD.h"
+#include "pgm/cpd/PoissonCPD.h"
 #include "utils/Definitions.h"
 
 /**
@@ -252,8 +252,12 @@ namespace tomcat {
 
             for (const auto& node : json_model["nodes"]["data"]) {
                 const string& label = node["label"];
-                if (EXISTS(label, nodes_with_replicable_child) ||
-                    node["replicable"]) {
+                bool prior = false;
+                if (EXISTS("prior", node)) {
+                    prior = node["prior"];
+                }
+                if (!prior && (EXISTS(label, nodes_with_replicable_child) ||
+                               node["replicable"])) {
                     metadatas[label].push_back(make_shared<NodeMetadata>(
                         NodeMetadata::create_multiple_time_link_metadata(
                             label,
@@ -520,14 +524,18 @@ namespace tomcat {
                 split_string(json_cpd["parameters"], ",");
 
             int rows = 1;
-            if (rv_nodes.at(cpd_owner_label).at(0)->get_metadata()->is_parameter()) {
+            if (rv_nodes.at(cpd_owner_label)
+                    .at(0)
+                    ->get_metadata()
+                    ->is_parameter()) {
                 rows = rv_nodes.at(cpd_owner_label).size();
-            } else {
+            }
+            else {
                 for (const string& index_node : json_cpd["index_nodes"]) {
                     int cardinality = rv_nodes.at(index_node)
-                        .at(0)
-                        ->get_metadata()
-                        ->get_cardinality();
+                                          .at(0)
+                                          ->get_metadata()
+                                          ->get_cardinality();
                     rows *= cardinality;
                 }
             }
@@ -569,7 +577,7 @@ namespace tomcat {
             size_t pos;
             while ((pos = str.find(delimiter)) != string::npos) {
                 double token = stod(str.substr(0, pos));
-                if(token == 0) {
+                if (token == 0) {
                     token = EPSILON; // For numerical stability.
                 }
                 split_list.push_back(token);

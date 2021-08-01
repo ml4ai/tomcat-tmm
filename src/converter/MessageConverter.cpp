@@ -52,9 +52,17 @@ namespace tomcat {
             cout << "Converting " << num_files << " message files...";
             boost::progress_display progress(num_files);
 
-            nlohmann::json json_log;
+            boost::filesystem::create_directories(data_dir);
 
-            EvidenceSet data;
+            nlohmann::json json_log;
+            string log_filepath = get_filepath(data_dir, LOG_FILE);
+            ifstream log_file(log_filepath);
+            if (log_file.good() && log_file.is_open()) {
+                json_log = nlohmann::json::parse(log_file);
+            }
+            log_file.close();
+
+            EvidenceSet data(data_dir);
             for (const auto& mission_filename : unprocessed_filenames) {
                 nlohmann::json json_mission_log;
 
@@ -76,7 +84,7 @@ namespace tomcat {
                             this->do_offline_conversion_extra_validations();
 
                             mission_data.hstack(new_data);
-                            next_time_step += 1;
+                            next_time_step += new_data.get_time_steps();
 
                             // mission_finished can be set to true in
                             // get_data_from_message if the maximum number of
@@ -108,23 +116,16 @@ namespace tomcat {
                     json_log["files_not_converted"].push_back(json_mission_log);
                 }
 
-                ++progress;
-            }
+                // Save every processed file to avoid having to convert again in case something get wrong with other files
+                ofstream out_log_file;
+                out_log_file.open(log_filepath);
+                out_log_file << setw(4) << json_log;
+                out_log_file.close();
 
-            boost::filesystem::create_directories(data_dir);
-            if (!unprocessed_filenames.empty()) {
-                string log_filepath = get_filepath(data_dir, LOG_FILE);
-                ofstream log_file;
-                log_file.open(log_filepath);
-                log_file << setw(4) << json_log;
-
-                // Only the converted portion. TO be used by an EvidenceSet object
-                string metadata_filepath = get_filepath(data_dir, METADATA_FILE);
-                ofstream metadata_file;
-                metadata_file.open(metadata_filepath);
-                metadata_file << setw(4) << json_log["files_converted"];
-
+                data.set_metadata(json_log["files_converted"]);
                 data.save(data_dir);
+
+                ++progress;
             }
         }
 

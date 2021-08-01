@@ -61,8 +61,9 @@ namespace tomcat {
                         Tensor3 node_data = data[node_label];
                         int t = rv_node->get_time_step();
                         if (t < node_data.get_shape().at(2)) {
-                            rv_node->set_assignment(
-                                node_data(t, 2).transpose());
+                            const Eigen::MatrixXd& values =
+                                node_data(t, 2).transpose();
+                            rv_node->set_assignment(values);
                         }
                     }
                 }
@@ -106,8 +107,7 @@ namespace tomcat {
                     Eigen::Matrix assignment = node->get_assignment();
                     for (int i = 0; i < assignment.rows(); i++) {
                         for (int j = 0; j < assignment.cols(); j++) {
-                            int index =
-                                j * d2 * d3 + i * d3 + t;
+                            int index = j * d2 * d3 + i * d3 + t;
                             buffer[index] = assignment(i, j);
                         }
                     }

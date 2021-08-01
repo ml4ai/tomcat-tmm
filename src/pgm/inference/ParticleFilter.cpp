@@ -66,9 +66,11 @@ namespace tomcat {
             // top.
             for (const auto& node :
                  this->template_dbn.get_nodes_topological_order(false)) {
-                if (!node->get_metadata()->is_replicable() &&
-                    !node->get_metadata()->is_parameter()) {
-
+                //                if (!node->get_metadata()->is_replicable() &&
+                //                    !node->get_metadata()->is_parameter()) {
+                if (node->get_metadata()->is_multitime() &&
+                    !node->get_metadata()->is_parameter() &&
+                    !node->get_metadata()->has_multitime_child()) {
                     RVNodePtr rv_node =
                         dynamic_pointer_cast<RandomVariableNode>(node);
 
@@ -125,8 +127,6 @@ namespace tomcat {
                                     int time_step) {
 
             int template_time_step = min(time_step, LAST_TEMPLATE_TIME_STEP);
-
-            //            unordered_set<string> elapse_from_posterior;
 
             // Fill nodes with data
             for (const string& node_label : new_data.get_node_labels()) {
@@ -232,7 +232,9 @@ namespace tomcat {
                 this->template_dbn.get_data_nodes(template_time_step);
             for (const auto& node :
                  this->template_dbn.get_single_time_nodes()) {
-                if (node->get_metadata()->get_initial_time_step() < time_step) {
+                if (node->get_metadata()->get_initial_time_step() < time_step &&
+                    EXISTS(node->get_metadata()->get_label(),
+                           this->marginal_set)) {
                     nodes.push_back(node);
                 }
             }
@@ -299,6 +301,13 @@ namespace tomcat {
                     if (this->template_dbn.has_node_with_label(node_label)) {
                         const auto& node = this->template_dbn.get_node(
                             node_label, template_time_step);
+                        const auto& data = new_data[node_label];
+                        double value = data.depth(
+                            0, time_step - this->last_time_step - 1)(0, 0);
+                        if (value == NO_OBS) {
+                            // No observation for the node at this time step
+                            continue;
+                        }
                         if (node) {
                             log_weights.array() +=
                                 (node->get_pdfs(

@@ -534,7 +534,8 @@ namespace tomcat {
             for (int i = initial_row; i < initial_row + num_rows; i++) {
                 int distribution_idx = distribution_indices[i];
 
-                if (distribution_idx == NO_OBS) {
+                if (distribution_idx == NO_OBS ||
+                    cpd_owner->get_assignment()(i, 0) == NO_OBS) {
                     weights.row(i - initial_row) =
                         Eigen::VectorXd::Ones(cardinality);
                 }

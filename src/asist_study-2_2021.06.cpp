@@ -29,6 +29,7 @@ namespace po = boost::program_options;
 #define MARKER_LEGEND_B ASISTMultiPlayerMessageConverter::MARKER_LEGEND_B
 #define HALLWAY ASISTMultiPlayerMessageConverter::HALLWAY
 #define ROOM ASISTMultiPlayerMessageConverter::HALLWAY
+#define MARKER_AREA 2
 
 #define P1_NEARBY_MARKER_LABEL                                                 \
     ASISTMultiPlayerMessageConverter::PLAYER1_NEARBY_MARKER_LABEL
@@ -37,9 +38,21 @@ namespace po = boost::program_options;
 #define P3_NEARBY_MARKER_LABEL                                                 \
     ASISTMultiPlayerMessageConverter::PLAYER3_NEARBY_MARKER_LABEL
 #define PLAYER_AREA_LABEL ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL
+#define MARKER_LEGEND_ASSIGNMENT_LABEL                                         \
+    ASISTMultiPlayerMessageConverter::MARKER_LEGEND_ASSIGNMENT_LABEL
+#define PLAYER_MARKER_LEGEND_VERSION_LABEL                                     \
+    ASISTMultiPlayerMessageConverter::PLAYER_MARKER_LEGEND_VERSION_LABEL
+
 const inline string NEXT_AREA_AFTER_P1_MARKER_LABEL = "NextAreaAfterP1Marker";
 const inline string NEXT_AREA_AFTER_P2_MARKER_LABEL = "NextAreaAfterP2Marker";
 const inline string NEXT_AREA_AFTER_P3_MARKER_LABEL = "NextAreaAfterP3Marker";
+
+const inline string PLAYER1_PLAYER_MARKER_AREA_LABEL =
+    "Player1PlayerMarkerArea";
+const inline string PLAYER2_PLAYER_MARKER_AREA_LABEL =
+    "Player2PlayerMarkerArea";
+const inline string PLAYER3_PLAYER_MARKER_AREA_LABEL =
+    "Player3PlayerMarkerArea";
 
 enum Event { within_range, out_of_range };
 
@@ -363,13 +376,19 @@ void create_m7_data_from_external_source(const string& input_dir,
                     stoi(tokens[START_ELAPSED_TIME_IDX]);
                 m7_event.resolved_elapsed_time =
                     stoi(tokens[RESOLVED_ELAPSED_TIME_IDX]);
-                m7_event.marker_number =
-                    tokens[MARKER_TYPE_IDX]
-                          [tokens[MARKER_TYPE_IDX].size() - 1] -
-                    '0';
-                if (m7_event.start_elapsed_time == NO_OBS ||
-                    (m7_event.marker_number != 1 &&
-                     m7_event.marker_number != 2)) {
+
+                if (m7_event.start_elapsed_time == NO_OBS) {
+                    cout << trial_id << ": Invalid start elapsed time.\n";
+                    continue;
+                }
+
+                if (tokens[MARKER_TYPE_IDX].find("1") != string::npos) {
+                    m7_event.marker_number = 1;
+                }
+                else if (tokens[MARKER_TYPE_IDX].find("2") != string::npos) {
+                    m7_event.marker_number = 2;
+                }
+                else {
                     continue;
                 }
 
@@ -387,7 +406,6 @@ void create_m7_data_from_external_source(const string& input_dir,
                     m7_event.next_area =
                         (int)(tokens[GROUND_TRUTH_IDX] == "True");
                 }
-                m7_event.next_area = (int)(tokens[GROUND_TRUTH_IDX] == "True");
                 m7_data.events.push_back(m7_event);
             }
         }
@@ -407,6 +425,7 @@ void create_m7_data_from_external_source(const string& input_dir,
             Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS);
         vector<Eigen::MatrixXd> marker_legend_version_per_player(
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, MARKER_LEGEND_A));
+
         vector<Eigen::MatrixXd> next_area_per_player1(
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
         vector<Eigen::MatrixXd> next_area_per_player2(
@@ -415,7 +434,16 @@ void create_m7_data_from_external_source(const string& input_dir,
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_MARKER));
         vector<Eigen::MatrixXd> nearby_marker_per_player2(
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_MARKER));
+        //        vector<Eigen::MatrixXd> nearby_marker_per_player1(
+        //            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
+        //        vector<Eigen::MatrixXd> nearby_marker_per_player2(
+        //            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
         vector<Eigen::MatrixXd> area_per_player(3);
+
+        vector<Eigen::MatrixXd> marker_area_per_player1(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
+        vector<Eigen::MatrixXd> marker_area_per_player2(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
 
         area_per_player[0] =
             data[add_player_suffix(PLAYER_AREA_LABEL, 1)](0, 0);
@@ -424,24 +452,6 @@ void create_m7_data_from_external_source(const string& input_dir,
         area_per_player[2] =
             data[add_player_suffix(PLAYER_AREA_LABEL, 3)](0, 0);
 
-        //        next_area_per_player1[0] =
-        //            data[add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL,
-        //            1)](0, 0);
-        //        next_area_per_player2[0] =
-        //            data[add_player_suffix(NEXT_AREA_AFTER_P3_MARKER_LABEL,
-        //            1)](0, 0);
-        //        next_area_per_player1[1] =
-        //            data[add_player_suffix(NEXT_AREA_AFTER_P1_MARKER_LABEL,
-        //            2)](0, 0);
-        //        next_area_per_player2[1] =
-        //            data[add_player_suffix(NEXT_AREA_AFTER_P3_MARKER_LABEL,
-        //            2)](0, 0);
-        //        next_area_per_player1[2] =
-        //            data[add_player_suffix(NEXT_AREA_AFTER_P1_MARKER_LABEL,
-        //            3)](0, 0);
-        //        next_area_per_player2[2] =
-        //            data[add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL,
-        //            3)](0, 0);
         //
         //        nearby_marker_per_player1[0] =
         //            data[add_player_suffix(P2_NEARBY_MARKER_LABEL, 1)](0, 0);
@@ -508,35 +518,43 @@ void create_m7_data_from_external_source(const string& input_dir,
                     final_time_step = time_step + 1;
                 }
 
+                final_time_step = min(final_time_step, num_cols);
+
                 // Make the area where the player is consistent with the event.
                 // It always happens when the player is in the hallway.
                 for (int t = time_step; t < final_time_step; t++) {
                     area_per_player[player_number](d, t) = HALLWAY;
                 }
-                if (m7_event.next_area == NO_OBS) {
-                    // Area is not given in the test file. We just try no make
-                    // observations from the game more synchronized with the
-                    // events given because they are measured in different time
-                    // scales. Accurate observations are important because of
-                    // the belief update over time. The model has to use
-                    // information about what happened to improve its future
-                    // predictions.
-                    if (area_per_player[player_number](
-                            d, final_time_step - 1) == ROOM) {
-                        // The measurements are taken in milliseconds and the
-                        // data in seconds. Therefore, if the player is in a
-                        // room at the second of a measurement, this means this
-                        // is his next area should be in the room.
-                        area_per_player[player_number](d, final_time_step) =
-                            ROOM;
-                        area_per_player[player_number](d, final_time_step - 1) =
-                            HALLWAY;
+
+                if (final_time_step < num_cols) {
+                    if (m7_event.next_area == NO_OBS) {
+                        // Area is not given in the test file. We just try
+                        // no make observations from the game more
+                        // synchronized with the events given because they
+                        // are measured in different time scales. Accurate
+                        // observations are important because of the belief
+                        // update over time. The model has to use
+                        // information about what happened to improve its
+                        // future predictions.
+                        if (area_per_player[player_number](
+                                d, final_time_step - 1) == ROOM) {
+                            // The measurements are taken in milliseconds
+                            // and the data in seconds. Therefore, if the
+                            // player is in a room at the second of a
+                            // measurement, this means this is his next
+                            // area should be in the room.
+                            area_per_player[player_number](d, final_time_step) =
+                                ROOM;
+                            area_per_player[player_number](
+                                d, final_time_step - 1) = HALLWAY;
+                        }
                     }
-                }
-                else {
-                    // Area is given in the training file. We just use it.
-                    area_per_player[player_number](d, final_time_step) =
-                        m7_event.next_area;
+                    else {
+                        // Area is given in the training file. We just use
+                        // it.
+                        area_per_player[player_number](d, final_time_step) =
+                            m7_event.next_area;
+                    }
                 }
 
                 // Include the new event
@@ -547,21 +565,42 @@ void create_m7_data_from_external_source(const string& input_dir,
                     for (int t = time_step; t < final_time_step; t++) {
                         nearby_marker_per_player1[player_number](d, t) =
                             m7_event.marker_number;
+                        //                        nearby_marker_per_player1[player_number](d,
+                        //                        t) =
+                        //                            m7_event.marker_number -
+                        //                            1;
                         next_area_per_player1[player_number](d, t) =
                             m7_event.next_area;
+                    }
+
+                    if (final_time_step < num_cols) {
+                        marker_area_per_player1[player_number](
+                            d, final_time_step) =
+                            area_per_player[player_number](d, final_time_step);
                     }
                 }
                 else {
                     for (int t = time_step; t < final_time_step; t++) {
                         nearby_marker_per_player2[player_number](d, t) =
                             m7_event.marker_number;
+                        //                        nearby_marker_per_player2[player_number](d,
+                        //                        t) =
+                        //                            m7_event.marker_number -
+                        //                            1;
                         next_area_per_player2[player_number](d, t) =
                             m7_event.next_area;
+
+                        if (final_time_step < num_cols) {
+                            marker_area_per_player2[player_number](
+                                d, final_time_step) =
+                                area_per_player[player_number](d,
+                                                               final_time_step);
+                        }
                     }
                 }
 
-                // Update metadata. Information in this file will be used in the
-                // report generation
+                // Update metadata. Information in this file will be used
+                // in the report generation
                 nlohmann::json json_m7_event;
                 json_m7_event["time_step"] = time_step;
                 json_m7_event["start_elapsed_time"] =
@@ -584,6 +623,18 @@ void create_m7_data_from_external_source(const string& input_dir,
         // Create new dataset. Replace metadata and some observations.
         EvidenceSet new_data = data;
         new_data.set_metadata(json_new_metadata);
+
+        new_data.add_data(MARKER_LEGEND_ASSIGNMENT_LABEL,
+                          marker_legend_assignment);
+        new_data.add_data(
+            add_player_suffix(PLAYER_MARKER_LEGEND_VERSION_LABEL, 1),
+            marker_legend_version_per_player[0]);
+        new_data.add_data(
+            add_player_suffix(PLAYER_MARKER_LEGEND_VERSION_LABEL, 2),
+            marker_legend_version_per_player[1]);
+        new_data.add_data(
+            add_player_suffix(PLAYER_MARKER_LEGEND_VERSION_LABEL, 3),
+            marker_legend_version_per_player[2]);
 
         new_data.add_data(add_player_suffix(PLAYER_AREA_LABEL, 1),
                           area_per_player[0]);
@@ -618,6 +669,25 @@ void create_m7_data_from_external_source(const string& input_dir,
         new_data.add_data(add_player_suffix(P2_NEARBY_MARKER_LABEL, 3),
                           nearby_marker_per_player2[2]);
 
+        new_data.add_data(
+            add_player_suffix(PLAYER2_PLAYER_MARKER_AREA_LABEL, 1),
+            marker_area_per_player1[0]);
+        new_data.add_data(
+            add_player_suffix(PLAYER3_PLAYER_MARKER_AREA_LABEL, 1),
+            marker_area_per_player2[0]);
+        new_data.add_data(
+            add_player_suffix(PLAYER1_PLAYER_MARKER_AREA_LABEL, 2),
+            marker_area_per_player1[1]);
+        new_data.add_data(
+            add_player_suffix(PLAYER3_PLAYER_MARKER_AREA_LABEL, 2),
+            marker_area_per_player2[1]);
+        new_data.add_data(
+            add_player_suffix(PLAYER1_PLAYER_MARKER_AREA_LABEL, 3),
+            marker_area_per_player1[2]);
+        new_data.add_data(
+            add_player_suffix(PLAYER2_PLAYER_MARKER_AREA_LABEL, 3),
+            marker_area_per_player2[2]);
+
         new_data.save(output_dir);
     }
 }
@@ -639,13 +709,14 @@ void split_report_per_trial(const string& report_filepath,
                 continue;
 
             nlohmann::json json_message = nlohmann::json::parse(message);
-            const string& trial_id = json_message["msg"]["trial_id"];
+            string trial_id = json_message["msg"]["trial_number"];
+            json_message["msg"].erase("trial_number");
 
             if (EXISTS(trial_id, predictions_per_trial)) {
-                predictions_per_trial[trial_id].push_back(message);
+                predictions_per_trial[trial_id].push_back(json_message.dump());
             }
             else {
-                predictions_per_trial[trial_id] = {message};
+                predictions_per_trial[trial_id] = {json_message.dump()};
             }
         }
 

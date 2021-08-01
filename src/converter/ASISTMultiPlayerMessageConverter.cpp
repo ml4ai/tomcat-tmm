@@ -400,142 +400,149 @@ namespace tomcat {
 
         void ASISTMultiPlayerMessageConverter::fill_fixed_measures() {
             if (!this->json_measures.empty()) {
-                // M1: Team score
-                this->final_score = json_measures["data"]["M1"]["final_score"];
+                if (!json_measures["data"].empty()) {
+                    // M1: Team score
+                    this->final_score =
+                        json_measures["data"]["M1"]["final_score"];
 
-                // M3: Map
-                /*
-                 * The assignments of maps per player are:
-                 * Player 1 | Player 2 | Player 3 | Value
-                 * 24	  34	     64	        0
-                 * 24	  64	     34	        1
-                 * 34	  24	     64	        2
-                 * 34	  64	     24	        3
-                 * 64	  24	     34	        4
-                 * 64	  34	     24	        5
-                 */
-                unordered_set<int> map_assignment = {0, 1, 2, 3, 4, 5};
-                for (const nlohmann::json& json_map :
-                     json_measures["data"]["M3"]) {
+                    // M3: Map
+                    /*
+                     * The assignments of maps per player are:
+                     * Player 1 | Player 2 | Player 3 | Value
+                     * 24	  34	     64	        0
+                     * 24	  64	     34	        1
+                     * 34	  24	     64	        2
+                     * 34	  64	     24	        3
+                     * 64	  24	     34	        4
+                     * 64	  34	     24	        5
+                     */
+                    unordered_set<int> map_assignment = {0, 1, 2, 3, 4, 5};
+                    for (const nlohmann::json& json_map :
+                         json_measures["data"]["M3"]) {
 
-                    int player_number;
-                    if (EXISTS("participant_id", json_map)) {
-                        player_number = this->player_id_to_number
-                                            [json_map["participant_id"]];
+                        int player_number;
+                        if (EXISTS("participant_id", json_map)) {
+                            player_number = this->player_id_to_number
+                                                [json_map["participant_id"]];
+                        }
+                        else {
+                            if (player_name_to_number.empty()) {
+                                throw TomcatModelException(
+                                    "The measures agent requires the player "
+                                    "name "
+                                    "but that was not provided by the trial.");
+                            }
+                            player_number = this->player_name_to_number
+                                                [json_map["player_name"]];
+                        }
+
+                        const string& static_map = json_map["map_name"];
+                        string version =
+                            static_map.substr(static_map.length() - 2);
+                        if (version == "24") {
+                            this->map_info_per_player[player_number] =
+                                Tensor3(SECTIONS_2N4);
+
+                            if (player_number == 0) {
+                                map_assignment.erase(2);
+                                map_assignment.erase(3);
+                                map_assignment.erase(4);
+                                map_assignment.erase(5);
+                            }
+                            else if (player_number == 1) {
+                                map_assignment.erase(0);
+                                map_assignment.erase(1);
+                                map_assignment.erase(3);
+                                map_assignment.erase(5);
+                            }
+                            else if (player_number == 2) {
+                                map_assignment.erase(0);
+                                map_assignment.erase(1);
+                                map_assignment.erase(2);
+                                map_assignment.erase(4);
+                            }
+                        }
+                        else if (version == "34") {
+                            this->map_info_per_player[player_number] =
+                                Tensor3(SECTIONS_3N4);
+
+                            if (player_number == 0) {
+                                map_assignment.erase(0);
+                                map_assignment.erase(1);
+                                map_assignment.erase(4);
+                                map_assignment.erase(5);
+                            }
+                            else if (player_number == 1) {
+                                map_assignment.erase(1);
+                                map_assignment.erase(2);
+                                map_assignment.erase(3);
+                                map_assignment.erase(4);
+                            }
+                            else if (player_number == 2) {
+                                map_assignment.erase(0);
+                                map_assignment.erase(2);
+                                map_assignment.erase(3);
+                                map_assignment.erase(5);
+                            }
+                        }
+                        else if (version == "64") {
+                            this->map_info_per_player[player_number] =
+                                Tensor3(SECTIONS_6N4);
+
+                            if (player_number == 0) {
+                                map_assignment.erase(0);
+                                map_assignment.erase(1);
+                                map_assignment.erase(2);
+                                map_assignment.erase(3);
+                            }
+                            else if (player_number == 1) {
+                                map_assignment.erase(0);
+                                map_assignment.erase(2);
+                                map_assignment.erase(4);
+                                map_assignment.erase(5);
+                            }
+                            else if (player_number == 2) {
+                                map_assignment.erase(1);
+                                map_assignment.erase(3);
+                                map_assignment.erase(4);
+                                map_assignment.erase(5);
+                            }
+                        }
                     }
-                    else {
-                        if (player_name_to_number.empty()) {
-                            throw TomcatModelException(
-                                "The measures agent requires the player name "
-                                "but that was not provided by the trial.");
-                        }
-                        player_number = this->player_name_to_number
-                                            [json_map["player_name"]];
-                    }
+                    this->map_version_assignment = *map_assignment.begin();
 
-                    const string& static_map = json_map["map_name"];
-                    string version = static_map.substr(static_map.length() - 2);
-                    if (version == "24") {
-                        this->map_info_per_player[player_number] =
-                            Tensor3(SECTIONS_2N4);
+                    // M6: Marker block legend
+                    for (const nlohmann::json& json_marker :
+                         json_measures["data"]["M6"]) {
 
-                        if (player_number == 0) {
-                            map_assignment.erase(2);
-                            map_assignment.erase(3);
-                            map_assignment.erase(4);
-                            map_assignment.erase(5);
+                        int player_number;
+                        if (EXISTS("participant_id", json_marker)) {
+                            player_number = this->player_id_to_number
+                                                [json_marker["participant_id"]];
                         }
-                        else if (player_number == 1) {
-                            map_assignment.erase(0);
-                            map_assignment.erase(1);
-                            map_assignment.erase(3);
-                            map_assignment.erase(5);
+                        else {
+                            if (player_name_to_number.empty()) {
+                                throw TomcatModelException(
+                                    "The measures agent requires the player "
+                                    "name "
+                                    "but that was not provided by the trial.");
+                            }
+                            player_number = this->player_name_to_number
+                                                [json_marker["player_name"]];
                         }
-                        else if (player_number == 2) {
-                            map_assignment.erase(0);
-                            map_assignment.erase(1);
-                            map_assignment.erase(2);
-                            map_assignment.erase(4);
-                        }
-                    }
-                    else if (version == "34") {
-                        this->map_info_per_player[player_number] =
-                            Tensor3(SECTIONS_3N4);
 
-                        if (player_number == 0) {
-                            map_assignment.erase(0);
-                            map_assignment.erase(1);
-                            map_assignment.erase(4);
-                            map_assignment.erase(5);
+                        const string& marker_legend =
+                            json_marker["marker_block_legend"];
+                        if (marker_legend[0] == 'A') {
+                            this->marker_legend_per_player[player_number] =
+                                Tensor3(MARKER_LEGEND_A);
                         }
-                        else if (player_number == 1) {
-                            map_assignment.erase(1);
-                            map_assignment.erase(2);
-                            map_assignment.erase(3);
-                            map_assignment.erase(4);
+                        else if (marker_legend[0] == 'B') {
+                            this->marker_legend_per_player[player_number] =
+                                Tensor3(MARKER_LEGEND_B);
+                            this->marker_legend_version_assignment =
+                                player_number;
                         }
-                        else if (player_number == 2) {
-                            map_assignment.erase(0);
-                            map_assignment.erase(2);
-                            map_assignment.erase(3);
-                            map_assignment.erase(5);
-                        }
-                    }
-                    else if (version == "64") {
-                        this->map_info_per_player[player_number] =
-                            Tensor3(SECTIONS_6N4);
-
-                        if (player_number == 0) {
-                            map_assignment.erase(0);
-                            map_assignment.erase(1);
-                            map_assignment.erase(2);
-                            map_assignment.erase(3);
-                        }
-                        else if (player_number == 1) {
-                            map_assignment.erase(0);
-                            map_assignment.erase(2);
-                            map_assignment.erase(4);
-                            map_assignment.erase(5);
-                        }
-                        else if (player_number == 2) {
-                            map_assignment.erase(1);
-                            map_assignment.erase(3);
-                            map_assignment.erase(4);
-                            map_assignment.erase(5);
-                        }
-                    }
-                }
-                this->map_version_assignment = *map_assignment.begin();
-
-                // M6: Marker block legend
-                for (const nlohmann::json& json_marker :
-                     json_measures["data"]["M6"]) {
-
-                    int player_number;
-                    if (EXISTS("participant_id", json_marker)) {
-                        player_number = this->player_id_to_number
-                                            [json_marker["participant_id"]];
-                    }
-                    else {
-                        if (player_name_to_number.empty()) {
-                            throw TomcatModelException(
-                                "The measures agent requires the player name "
-                                "but that was not provided by the trial.");
-                        }
-                        player_number = this->player_name_to_number
-                                            [json_marker["player_name"]];
-                    }
-
-                    const string& marker_legend =
-                        json_marker["marker_block_legend"];
-                    if (marker_legend[0] == 'A') {
-                        this->marker_legend_per_player[player_number] =
-                            Tensor3(MARKER_LEGEND_A);
-                    }
-                    else if (marker_legend[0] == 'B') {
-                        this->marker_legend_per_player[player_number] =
-                            Tensor3(MARKER_LEGEND_B);
-                        this->marker_legend_version_assignment = player_number;
                     }
                 }
             }
@@ -573,12 +580,14 @@ namespace tomcat {
                     this->elapsed_seconds = 0;
                 }
 
-                if (elapsed_seconds ==
-                    this->elapsed_seconds + this->time_step_size) {
-                    // Every time there's a transition, we store the last
-                    // observations collected.
-
-                    data = this->build_evidence_set_from_observations();
+                // Every time there's a transition, we store the last
+                // observations collected.
+                // Some messages might be lost and we have to replicate some
+                // data
+                for (int t = this->elapsed_seconds + this->time_step_size;
+                     t <= elapsed_seconds;
+                     t++) {
+                    data.hstack(this->build_evidence_set_from_observations());
 
                     this->elapsed_seconds += this->time_step_size;
                     if (this->elapsed_seconds >=
@@ -586,6 +595,7 @@ namespace tomcat {
                         this->write_to_log_on_mission_finished(
                             json_mission_log);
                         this->mission_finished = true;
+                        break;
                     }
                 }
             }
@@ -615,13 +625,28 @@ namespace tomcat {
 
             string player_id;
             int player_number = -1;
+
             if (EXISTS("participant_id", json_message["data"])) {
+                if (json_message["data"]["participant_id"] == nullptr) {
+                    if (json_message["msg"]["sub_type"] != "FoV") {
+                        throw TomcatModelException("Participant ID is null.");
+                    }
+                    // If it's FoV, we just ignore FoV Messages.
+                    return;
+                }
                 player_id = json_message["data"]["participant_id"];
                 if (EXISTS(player_id, this->player_id_to_number)) {
                     player_number = this->player_id_to_number[player_id];
                 }
             }
             else if (EXISTS("playername", json_message["data"])) {
+                if (json_message["data"]["playername"] == nullptr) {
+                    if (json_message["msg"]["sub_type"] != "FoV") {
+                        throw TomcatModelException("Participant ID is null.");
+                    }
+                    // If it's FoV, we just ignore FoV Messages.
+                    return;
+                }
                 player_id = json_message["data"]["playername"];
                 if (EXISTS(player_id, this->player_name_to_number)) {
                     player_number = this->player_name_to_number[player_id];

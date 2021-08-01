@@ -48,11 +48,11 @@ namespace tomcat {
 
             for (int d = 0; d < num_data_points; d++) {
                 state_message["msg"] = this->get_common_msg_section(agent, d);
-                state_message["msg"]["sub_type"] = "prediction:state";
+                state_message["msg"]["sub_type"] = "Prediction:State";
 
                 prediction_message["msg"] =
                     this->get_common_msg_section(agent, d);
-                prediction_message["msg"]["sub_type"] = "prediction:action";
+                prediction_message["msg"]["sub_type"] = "Prediction:Action";
 
                 vector<nlohmann::json> predictions;
                 for (const auto& estimator : agent->get_estimators()) {
@@ -61,15 +61,6 @@ namespace tomcat {
                         if (const auto& score_estimator =
                                 dynamic_pointer_cast<FinalTeamScoreEstimator>(
                                     base_estimator)) {
-                            state_message["data"]["group"]["explanation"] =
-                                "The final score is estimated by simulating "
-                                "actions until the end of the mission based on "
-                                "a "
-                                "Markov process. The average number of actions "
-                                "consistent with regular and critical victim "
-                                "rescues per player are used to estimate the "
-                                "most "
-                                "likely score to be achieved by the team.";
 
                             predictions =
                                 this->get_final_team_score_predictions(
@@ -77,6 +68,20 @@ namespace tomcat {
 
                             for (const auto& prediction : predictions) {
                                 state_message["data"] = prediction["data"];
+                                state_message["data"]["group"]["explanation"] =
+                                    "The final score is estimated by "
+                                    "simulating "
+                                    "actions until the end of the mission "
+                                    "based on "
+                                    "a "
+                                    "Markov process. The average number of "
+                                    "actions "
+                                    "consistent with regular and critical "
+                                    "victim "
+                                    "rescues per player is used to estimate "
+                                    "the "
+                                    "most "
+                                    "likely score to be achieved by the team.";
                                 messages.push_back(state_message);
                             }
                         }
@@ -84,29 +89,37 @@ namespace tomcat {
                             const auto& map_estimator = dynamic_pointer_cast<
                                 IndependentMapVersionAssignmentEstimator>(
                                 base_estimator)) {
-                            state_message["data"]["group"]["explanation"] =
-                                "The map version assignment is estimated by "
-                                "the "
-                                "most likely visible section per player based "
-                                "on "
-                                "transitions from one section to another and "
-                                "how "
-                                "long the players spend on a given area of the "
-                                "building. Different planning conditions and "
-                                "role "
-                                "affect how the player favors areas of the map "
-                                "and "
-                                "are also take into consideration int the "
-                                "inference. The final assignment is given by "
-                                "the "
-                                "most likely valid combination of independent "
-                                "visible sections per player.";
 
                             predictions = this->get_map_info_predictions(
                                 agent, map_estimator, time_step, d);
 
                             for (const auto& prediction : predictions) {
                                 state_message["data"] = prediction["data"];
+                                state_message["data"]["group"]["explanation"] =
+                                    "The map version assignment is estimated "
+                                    "by "
+                                    "the "
+                                    "most likely visible section per player "
+                                    "based "
+                                    "on "
+                                    "transitions from one section to another "
+                                    "and "
+                                    "how "
+                                    "long the players stay on a given area of "
+                                    "the "
+                                    "building. Different planning conditions "
+                                    "and "
+                                    "roles "
+                                    "affect how the player favors areas of the "
+                                    "map "
+                                    "and "
+                                    "are also taken into consideration in the "
+                                    "inference. The final assignment is given "
+                                    "by "
+                                    "the "
+                                    "most likely valid combination of "
+                                    "independent "
+                                    "visible sections per player.";
                                 messages.push_back(state_message);
                             }
                         }
@@ -115,27 +128,29 @@ namespace tomcat {
                                 IndependentMarkerLegendVersionAssignmentEstimator>(
                                 base_estimator)) {
 
-                            state_message["data"]["group"]["explanation"] =
-                                "The legend version is estimated based a "
-                                "Markov "
-                                "process over player's belief about two main "
-                                "actions: rescuing victims in a room or "
-                                "leaving "
-                                "victims in a room. Marker placements, victim "
-                                "rescues, and player's marker legend version "
-                                "are "
-                                "some of the variables that help to update "
-                                "this "
-                                "belief. The change of marker meaning is also "
-                                "taking into consideration as dependent Markov "
-                                "chain that gets updated throughout the "
-                                "mission.";
-
                             predictions = this->get_marker_legend_predictions(
                                 agent, marker_estimator, time_step, d);
 
                             for (const auto& prediction : predictions) {
                                 state_message["data"] = prediction["data"];
+                                state_message["data"]["group"]["explanation"] =
+                                    "The legend version is estimated based a "
+                                    "Markov "
+                                    "process over player's belief about two "
+                                    "main "
+                                    "actions: rescuing victims in a room or "
+                                    "leaving "
+                                    "victims in a room. Marker placements and "
+                                    "victim "
+                                    "rescues are "
+                                    "some of the variables that help to update "
+                                    "this "
+                                    "belief. The change of marker meaning is "
+                                    "also "
+                                    "taking into consideration as a dependent "
+                                    "Markov "
+                                    "chain that gets updated throughout the "
+                                    "mission.";
                                 messages.push_back(state_message);
                             }
                         }
@@ -144,32 +159,25 @@ namespace tomcat {
                                          NextAreaOnNearbyMarkerEstimator>(
                                          base_estimator)) {
 
-                            prediction_message["data"]["group"]["explanation"] =
-                                "The next action taken in face of a marker "
-                                "block "
-                                "is estimated by generating the most probable "
-                                "scenarios 5 time steps ahead. States "
-                                "consistent "
-                                "with the player being out of a marker block "
-                                "range of detection are taken into "
-                                "consideration "
-                                "to estimate the most probable area the player "
-                                "ends up in. A player's intent follows a "
-                                "Markov "
-                                "process getting updated to reflect the "
-                                "player's "
-                                "disposition to enter or leaving rooms for a "
-                                "given marker by a given player at different "
-                                "times "
-                                "during the mission. The player marker legend "
-                                "version works as a prior on the player's "
-                                "intent.";
-
                             predictions = this->get_next_area_predictions(
                                 agent, next_action_estimator, time_step, d);
 
                             for (const auto& prediction : predictions) {
                                 prediction_message["data"] = prediction["data"];
+                                prediction_message["data"]["group"]["explanatio"
+                                                                    "n"] =
+                                    "The next action taken in face of a marker "
+                                    "block "
+                                    "is estimated by computing the probability "
+                                    "that the player will be in a room within "
+                                    "5 minutes after seeing a marker block. "
+                                    "The model keeps two coupled Markov "
+                                    "chains: one representing the player's "
+                                    "intent and another one representing his "
+                                    "belief about the meaning of the markers "
+                                    "over time. Markers and next areas are "
+                                    "observations emitted from the player's "
+                                    "intent.";
                                 messages.push_back(prediction_message);
                             }
                         }
@@ -200,17 +208,15 @@ namespace tomcat {
         nlohmann::json ASISTStudy2EstimateReporter::get_common_msg_section(
             const AgentPtr& agent, int data_point) const {
             nlohmann::json msg_common;
-//            msg_common["trial_id"] =
-//                agent->get_evidence_metadata()[data_point]["trial_unique_id"];
-//            msg_common["replay_id"] =
-//                agent->get_evidence_metadata()[data_point]["replay_id"];
-//            msg_common["replay_root_id"] =
-//                agent->get_evidence_metadata()[data_point]["replay_root_id"];
+            msg_common["trial_id"] =
+                agent->get_evidence_metadata()[data_point]["trial_unique_id"];
             msg_common["experiment_id"] =
                 agent->get_evidence_metadata()[data_point]["experiment_id"];
             msg_common["timestamp"] = this->get_current_timestamp();
             msg_common["source"] = agent->get_id();
             msg_common["version"] = "1.0";
+            msg_common["trial_number"] =
+                agent->get_evidence_metadata()[data_point]["trial_id"];
 
             return msg_common;
         }
@@ -282,9 +288,9 @@ namespace tomcat {
                     json_prediction["explanation"]["regular_victim"]
                                    ["std_number_rescues"] = std_regular;
                     json_prediction["explanation"]["critical_victim"]
-                                   ["avg_number_rescues"] = avg_regular;
+                                   ["avg_number_rescues"] = avg_critical;
                     json_prediction["explanation"]["critical_victim"]
-                                   ["avg_number_rescues"] = std_regular;
+                                   ["std_number_rescues"] = std_critical;
                     json_predictions.push_back(json_prediction);
 
                     json_data["data"]["predictions"] = json_predictions;

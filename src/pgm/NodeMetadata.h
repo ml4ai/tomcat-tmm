@@ -254,6 +254,8 @@ namespace tomcat {
 
             void set_timer_metadata(std::shared_ptr<NodeMetadata>& metadata);
 
+            bool has_multitime_child() const;
+
           private:
             //------------------------------------------------------------------
             // Constructor
@@ -347,6 +349,8 @@ namespace tomcat {
             // information is stored to avoid unnecessary CPD updates when
             // unrolling a DBN.
             bool replicable_parameter_parent = false;
+
+            bool multitime_child = false;
 
             // Indicates whether the node is a timer or not. A timer node is
             // used in Semi-Markov Models.

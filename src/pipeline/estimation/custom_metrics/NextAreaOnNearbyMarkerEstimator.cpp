@@ -68,6 +68,9 @@ namespace tomcat {
                 this->area_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "Player1PlayerArea", this->player_number + 1);
+//                this->area_label =
+//                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+//                        "Player1PlayerMarkerArea", this->player_number + 1);
             }
             else if (this->placed_by_player_nummber == 1) {
                 this->nearby_marker_label =
@@ -78,6 +81,9 @@ namespace tomcat {
                 this->area_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "Player2PlayerArea", this->player_number + 1);
+//                this->area_label =
+//                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+//                        "Player2PlayerMarkerArea", this->player_number + 1);
             }
             else {
                 this->nearby_marker_label =
@@ -88,6 +94,9 @@ namespace tomcat {
                 this->area_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "Player3PlayerArea", this->player_number + 1);
+//                this->area_label =
+//                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+//                        "Player3PlayerMarkerArea", this->player_number + 1);
             }
         }
 
@@ -120,20 +129,26 @@ namespace tomcat {
             //                new_data[nearby_marker_label].at(0,
             //                data_point_idx, time_step);
             for (int i = 0; i < n; i++) {
+                int area = ASISTMultiPlayerMessageConverter::HALLWAY;
                 for (int t = 0; t < this->inference_horizon; t++) {
-                    int nearby_marker =
-                        projected_particles[this->nearby_marker_label].at(
-                            0, i, t);
-                    //                    if (nearby_marker != detected_marker)
-                    //                    {
-                    if (nearby_marker ==
-                        ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER) {
-                        int area =
-                            projected_particles[this->area_label].at(0, i, t);
-                        areas[area] += 1;
+//                    int nearby_marker =
+//                        projected_particles[this->nearby_marker_label].at(
+//                            0, i, t);
+//                    //                    if (nearby_marker != detected_marker)
+//                    //                    {
+//                    if (nearby_marker ==
+//                        ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER) {
+//                        int area =
+//                            projected_particles[this->area_label].at(0, i, t);
+//                        areas[area] += 1;
+//                        break;
+//                    }
+                    area = projected_particles[this->area_label].at(0, i, t);
+                    if (area == ASISTMultiPlayerMessageConverter::ROOM) {
                         break;
                     }
                 }
+                areas[area] += 1;
             }
 
             double num_valid_particles = areas.sum();
@@ -157,6 +172,7 @@ namespace tomcat {
 
             return current_nearby_marker !=
                    ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
+//            return current_nearby_marker == 0 || current_nearby_marker == 1;
 
             //            if (this->within_marker_range) {
             //                if (time_step == this->time_step_at_entrance) {

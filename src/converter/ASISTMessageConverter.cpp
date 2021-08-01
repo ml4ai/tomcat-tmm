@@ -198,6 +198,7 @@ namespace tomcat {
                 seconds = stoi(time.substr(time.find(":") + 1, time.size()));
             }
             catch (invalid_argument& e) {
+                return NO_OBS;
             }
 
             return this->time_steps * this->time_step_size -
