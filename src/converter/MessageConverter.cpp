@@ -151,17 +151,18 @@ namespace tomcat {
                     processed_files.insert((string)json_file["filename"]);
                 }
             }
+            cout << processed_files.size() << endl;
 
             // Get files in the message directory that were not previously
             // processed
             set<string> unprocessed_files;
             for (const auto& file : fs::directory_iterator(messages_dir)) {
                 string filename = file.path().filename().string();
-                cout << filename << endl;
                 if ((fs::is_regular_file(file)) &&
                     this->is_valid_message_file(file)) {
 
                     if (!EXISTS(filename, processed_files)) {
+                        cout << filename << endl;
                         unprocessed_files.insert(filename);
                     }
                 }
