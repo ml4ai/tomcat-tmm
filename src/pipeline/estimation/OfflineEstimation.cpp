@@ -53,6 +53,7 @@ namespace tomcat {
                     for (const auto& message : messages) {
                         this->report_file << message << "\n";
                     }
+                    this->report_file.close();
                 }
                 else {
                     for (const auto& message : messages) {

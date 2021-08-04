@@ -259,7 +259,7 @@ namespace tomcat {
                     this->experiment_id = json_message["msg"]["experiment_id"];
 
                     const string& team_n_trial =
-                        json_message["data"]["trial_number"];
+                        json_message["data"]["name"];
                     string team_id =
                         team_n_trial.substr(0, team_n_trial.find("_"));
                     string trial_id =

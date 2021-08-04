@@ -322,8 +322,8 @@ namespace tomcat {
                     json_data["data"]["created_elapsed_time"] =
                         get_milliseconds_at(agent, t, data_point);
 
-                    double probability = 0;
-                    int assignment = 0;
+                    double probability = -1;
+                    int assignment = -1;
                     for (const auto& probabilities :
                          estimator->get_estimates().estimates) {
                         if (probabilities(data_point, t) > probability) {
@@ -421,8 +421,8 @@ namespace tomcat {
                     json_data["data"]["created_elapsed_time"] =
                         get_milliseconds_at(agent, t, data_point);
 
-                    double probability = 0;
-                    int assignment = 0;
+                    double probability = -1;
+                    int assignment = -1;
                     for (const auto& probabilities :
                          estimator->get_estimates().estimates) {
                         if (probabilities(data_point, t) > probability) {
@@ -482,8 +482,10 @@ namespace tomcat {
 
             if (time_step == NO_OBS) {
                 // Batch processing
-                for (const auto& json_m7_event :
-                     agent->get_evidence_metadata()[data_point]["m7_events"]) {
+                const auto& json_events =
+                    agent->get_evidence_metadata()[data_point]["m7_events"];
+
+                for (const auto& json_m7_event : json_events) {
                     int subject_number = json_m7_event["subject_number"];
                     int placed_by_number = json_m7_event["placed_by_number"];
 
@@ -497,7 +499,7 @@ namespace tomcat {
                     nlohmann::json json_data =
                         this->get_common_data_section(agent, data_point);
                     json_data["data"]["created_elapsed_time"] =
-                        get_milliseconds_at(agent, t, data_point);
+                        json_m7_event["start_elapsed_time"];
 
                     nlohmann::json json_predictions = nlohmann::json::array();
                     nlohmann::json prediction;
@@ -523,12 +525,14 @@ namespace tomcat {
                         prediction["probability"] = 1 - probability_hallway;
                     }
 
-                    nlohmann::json json_marker;
-                    json_marker["location"]["x"] = json_m7_event["marker_x"];
-                    json_marker["location"]["z"] = json_m7_event["marker_z"];
-                    json_marker["callsign"] = json_m7_event["placed_by"];
-                    prediction["type"] =
-                        json_marker == 1 ? "Marker Block 1" : "Marker Block 2";
+                    nlohmann::json json_using;
+                    json_using["location"]["x"] = json_m7_event["marker_x"];
+                    json_using["location"]["y"] = 60;
+                    json_using["location"]["z"] = json_m7_event["marker_z"];
+                    json_using["callsign"] = json_m7_event["placed_by"];
+                    json_using["type"] =
+                        json_m7_event["marker_number"] == 1 ? "Marker Block 1" : "Marker Block 2";
+                    prediction["using"] = json_using;
                     prediction["subject"] = json_m7_event["subject_id"];
                     prediction["object"] = json_m7_event["door_id"];
 
