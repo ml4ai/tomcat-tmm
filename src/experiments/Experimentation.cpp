@@ -193,8 +193,10 @@ namespace tomcat {
                     if (EXISTS("frequency", json_estimator)) {
                         if (json_estimator["frequency"]["type"] == "fixed") {
                             estimation_frequency_type = SamplerEstimator::fixed;
+                            const vector<int>& time_steps =
+                                json_estimator["frequency"]["time_steps"];
                             fixed_time_steps = unordered_set<int>(
-                                json_estimator["frequency"]["time_steps"]);
+                                time_steps.begin(), time_steps.end());
                         }
                         else if (json_estimator["frequency"]["type"] ==
                                  "dynamic") {
@@ -305,17 +307,21 @@ namespace tomcat {
 
                     // Evaluation for the estimator
                     if (EXISTS("evaluation", json_estimator)) {
+                        const vector<string>& measures =
+                            json_estimator["evaluation"]["measures"];
                         for (const auto& measure_name : unordered_set<string>(
-                                 json_estimator["evaluation"]["measures"])) {
+                                 measures.begin(), measures.end())) {
 
                             Measure::FREQUENCY_TYPE eval_frequency_type;
                             unordered_set<int> fixed_time_steps;
                             if (json_estimator["evaluation"]["frequency"]
                                               ["type"] == "fixed") {
                                 eval_frequency_type = Measure::fixed;
-                                fixed_time_steps = unordered_set<int>(
+                                const vector<int> time_steps =
                                     json_estimator["evaluation"]["frequency"]
-                                                  ["time_steps"]);
+                                                  ["time_steps"];
+                                fixed_time_steps = unordered_set<int>(
+                                    time_steps.begin(), time_steps.end());
                             }
                             else if (json_estimator["evaluation"]["frequency"]
                                                    ["type"] == "last") {
