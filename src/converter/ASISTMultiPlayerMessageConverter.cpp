@@ -1454,7 +1454,7 @@ namespace tomcat {
 
         bool ASISTMultiPlayerMessageConverter::is_valid_message_file(
             const boost::filesystem::directory_entry& file) const {
-            const string& filename = file.path().filename().string();
+            const string filename = file.path().filename().string();
 
             cout << filename << endl;
             cout << (filename.find("TrialMessages") != string::npos) << ":"
