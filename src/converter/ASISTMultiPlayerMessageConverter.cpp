@@ -1050,7 +1050,7 @@ namespace tomcat {
                     }
                 }
                 else if (block_type.find("marker_block") != string::npos) {
-                    if (json_block['marker_type'] == "MarkerBlock1") {
+                    if (json_block["marker_type"] == "MarkerBlock1") {
                         this->marker1_in_fov_per_player[player_number] =
                             Tensor3(1);
                     }
@@ -1355,6 +1355,10 @@ namespace tomcat {
                     Tensor3(NO_VICTIM_IN_FOV);
                 this->room_critical_victim_in_fov_per_player[player_number] =
                     Tensor3(NO_VICTIM_IN_FOV);
+                this->marker1_in_fov_per_player[player_number] =
+                    Tensor3(NO_NEARBY_MARKER);
+                this->marker2_in_fov_per_player[player_number] =
+                    Tensor3(NO_NEARBY_MARKER);
 
                 // Reset speeches
                 this->agreement_speech_per_player[player_number] =
