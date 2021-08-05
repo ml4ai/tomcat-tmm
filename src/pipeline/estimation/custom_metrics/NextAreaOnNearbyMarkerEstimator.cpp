@@ -59,15 +59,20 @@ namespace tomcat {
         //----------------------------------------------------------------------
 
         void NextAreaOnNearbyMarkerEstimator::store_labels() {
+            this->area_label =
+                ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                    ASISTMultiPlayerMessageConverter::
+                    PLAYER_AREA_LABEL, this->player_number + 1);
+
             if (this->placed_by_player_nummber == 0) {
                 this->nearby_marker_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         ASISTMultiPlayerMessageConverter::
                             PLAYER1_NEARBY_MARKER_LABEL,
                         this->player_number + 1);
-                this->area_label =
-                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                        "Player1PlayerArea", this->player_number + 1);
+//                this->area_label =
+//                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+//                        "Player1PlayerArea", this->player_number + 1);
 //                this->area_label =
 //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
 //                        "Player1PlayerMarkerArea", this->player_number + 1);
@@ -78,9 +83,9 @@ namespace tomcat {
                         ASISTMultiPlayerMessageConverter::
                             PLAYER2_NEARBY_MARKER_LABEL,
                         this->player_number + 1);
-                this->area_label =
-                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                        "Player2PlayerArea", this->player_number + 1);
+//                this->area_label =
+//                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+//                        "Player2PlayerArea", this->player_number + 1);
 //                this->area_label =
 //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
 //                        "Player2PlayerMarkerArea", this->player_number + 1);
@@ -91,9 +96,9 @@ namespace tomcat {
                         ASISTMultiPlayerMessageConverter::
                             PLAYER3_NEARBY_MARKER_LABEL,
                         this->player_number + 1);
-                this->area_label =
-                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                        "Player3PlayerArea", this->player_number + 1);
+//                this->area_label =
+//                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+//                        "Player3PlayerArea", this->player_number + 1);
 //                this->area_label =
 //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
 //                        "Player3PlayerMarkerArea", this->player_number + 1);
