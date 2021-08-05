@@ -29,12 +29,12 @@ namespace tomcat {
             // Store FoV files to be appended to the messages if it comes in a
             // separate file.
             this->fov_filepaths.clear();
-            string fov_dir =  messages_dir + "/FoV";
+            string fov_dir = messages_dir + "/FoV";
             for (const auto& file : fs::directory_iterator(fov_dir)) {
                 string filename = file.path().filename().string();
                 const size_t start = filename.find("T00");
                 const size_t end = filename.find("_Member");
-                string trial_team = filename.substr(start, end-start);
+                string trial_team = filename.substr(start, end - start);
                 this->fov_filepaths[trial_team] = file.path().string();
             }
             MessageConverter::convert_messages(messages_dir, data_dir);
@@ -99,16 +99,19 @@ namespace tomcat {
                                     json_message["header"]["timestamp"];
                                 messages[timestamp] = json_message;
                             }
-//                            else {
-//                                const string& timestamp =
-//                                    json_message["msg"]["timestamp"];
-//                                messages[timestamp] = json_message;
-//
-//                                if (topic ==
-//                                    "agent/pygl_fov/player/3d/summary") {
-//                                    contains_fov = true;
-//                                }
-//                            }
+                            else if (topic !=
+                                     "agent/pygl_fov/player/3d/summary") {
+                                const string& timestamp =
+                                    json_message["msg"]["timestamp"];
+                                messages[timestamp] = json_message;
+
+                                //                                if (topic ==
+                                //                                    "agent/pygl_fov/player/3d/summary")
+                                //                                    {
+                                //                                    contains_fov
+                                //                                    = true;
+                                //                                }
+                            }
 
                             this->parse_individual_message(json_message);
                         }
@@ -120,61 +123,58 @@ namespace tomcat {
 
             // Look for FoV data in a separate file in the same directory if
             // it's not contained in the main messages file.
-//            if (!contains_fov) {
-                const size_t start = messages_filepath.find("T00");
-                const size_t end = messages_filepath.find("_Member");
-                string trial_team =
-                    messages_filepath.substr(start, end - start);
+            //            if (!contains_fov) {
+            const size_t start = messages_filepath.find("T00");
+            const size_t end = messages_filepath.find("_Member");
+            string trial_team = messages_filepath.substr(start, end - start);
 
-                if (EXISTS(trial_team, this->fov_filepaths)) {
-                    const string& fov_filepath =
-                        this->fov_filepaths[trial_team];
-                    ifstream fov_file_reader(fov_filepath);
-                    if (fov_file_reader.good()) {
-                        while (!fov_file_reader.eof()) {
-                            string message;
-                            getline(fov_file_reader, message);
-                            try {
-                                nlohmann::json json_message =
-                                    nlohmann::json::parse(message);
-                                if (!json_message.contains("msg") ||
-                                    !json_message["msg"].contains(
-                                        "timestamp")) {
-                                    string error_msg =
-                                        "Invalid format. Some messages do "
-                                        "not contain a timestamp.";
-                                    throw TomcatModelException(error_msg);
-                                }
-
-                                if (json_message["topic"] != nullptr) {
-                                    const string& topic = json_message["topic"];
-
-                                    if (EXISTS(topic,
-                                               this->get_used_topics())) {
-                                        if (topic == "trial") {
-                                            // There's an issue with the timestamp in the msg section of trial messages. The timestamp in this section is not being updated when the trial stops.
-                                            const string& timestamp =
-                                                json_message["header"]
-                                                            ["timestamp"];
-                                            messages[timestamp] = json_message;
-                                        }
-                                        else {
-                                            const string& timestamp =
-                                                json_message["msg"]
-                                                            ["timestamp"];
-                                            messages[timestamp] = json_message;
-                                        }
-
-                                        this->parse_individual_message(
-                                            json_message);
-                                    }
-                                }
+            if (EXISTS(trial_team, this->fov_filepaths)) {
+                const string& fov_filepath = this->fov_filepaths[trial_team];
+                ifstream fov_file_reader(fov_filepath);
+                if (fov_file_reader.good()) {
+                    while (!fov_file_reader.eof()) {
+                        string message;
+                        getline(fov_file_reader, message);
+                        try {
+                            nlohmann::json json_message =
+                                nlohmann::json::parse(message);
+                            if (!json_message.contains("msg") ||
+                                !json_message["msg"].contains("timestamp")) {
+                                string error_msg =
+                                    "Invalid format. Some messages do "
+                                    "not contain a timestamp.";
+                                throw TomcatModelException(error_msg);
                             }
-                            catch (nlohmann::detail::parse_error& exp) {
+
+                            if (json_message["topic"] != nullptr) {
+                                const string& topic = json_message["topic"];
+
+                                if (EXISTS(topic, this->get_used_topics())) {
+                                    if (topic == "trial") {
+                                        // There's an issue with the timestamp
+                                        // in the msg section of trial messages.
+                                        // The timestamp in this section is not
+                                        // being updated when the trial stops.
+                                        const string& timestamp =
+                                            json_message["header"]["timestamp"];
+                                        messages[timestamp] = json_message;
+                                    }
+                                    else {
+                                        const string& timestamp =
+                                            json_message["msg"]["timestamp"];
+                                        messages[timestamp] = json_message;
+                                    }
+
+                                    this->parse_individual_message(
+                                        json_message);
+                                }
                             }
                         }
+                        catch (nlohmann::detail::parse_error& exp) {
+                        }
                     }
-//                }
+                }
+                //                }
             }
 
             return messages;
