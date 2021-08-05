@@ -88,6 +88,12 @@ namespace tomcat {
             inline const static std::string
                 PLAYER_ROOM_CRITICAL_VICTIM_IN_FOV_LABEL =
                     "PlayerRoomCriticalVictimInFoV";
+            inline const static std::string
+                PLAYER_MARKER1_IN_FOV_LABEL =
+                "PlayerMarker1InFoV";
+            inline const static std::string
+                PLAYER_MARKER2_IN_FOV_LABEL =
+                "PlayerMarker2InFoV";
 
             // Speeches
             inline const static std::string PLAYER_AGREEMENT_LABEL =
@@ -609,6 +615,8 @@ namespace tomcat {
             std::vector<Tensor3> room_safe_victim_in_fov_per_player;
             std::vector<Tensor3> room_regular_victim_in_fov_per_player;
             std::vector<Tensor3> room_critical_victim_in_fov_per_player;
+            std::vector<Tensor3> marker1_in_fov_per_player;
+            std::vector<Tensor3> marker2_in_fov_per_player;
 
             // Marker
             std::vector<Tensor3> placed_marker_per_player;

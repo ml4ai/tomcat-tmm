@@ -258,8 +258,7 @@ namespace tomcat {
                         json_message["data"]["trial_number"]);
                     this->experiment_id = json_message["msg"]["experiment_id"];
 
-                    const string& team_n_trial =
-                        json_message["data"]["name"];
+                    const string& team_n_trial = json_message["data"]["name"];
                     string team_id =
                         team_n_trial.substr(0, team_n_trial.find("_"));
                     string trial_id =
@@ -348,6 +347,8 @@ namespace tomcat {
                 Tensor3(NO_VICTIM_IN_FOV));
             this->room_critical_victim_in_fov_per_player.push_back(
                 Tensor3(NO_VICTIM_IN_FOV));
+            this->marker1_in_fov_per_player.push_back(Tensor3(NO_NEARBY_MARKER));
+            this->marker2_in_fov_per_player.push_back(Tensor3(NO_NEARBY_MARKER));
 
             // Speech
             this->marker_legend_speech_per_player.push_back(Tensor3(NO_SPEECH));
@@ -1048,6 +1049,16 @@ namespace tomcat {
                         }
                     }
                 }
+                else if (block_type.find("marker_block") != string::npos) {
+                    if (json_block['marker_type'] == "MarkerBlock1") {
+                        this->marker1_in_fov_per_player[player_number] =
+                            Tensor3(1);
+                    }
+                    else if (json_block["marker_type"] == "MarkerBlock2") {
+                        this->marker2_in_fov_per_player[player_number] =
+                            Tensor3(1);
+                    }
+                }
             }
         }
 
@@ -1247,6 +1258,16 @@ namespace tomcat {
                                   player_number + 1),
                               this->room_critical_victim_in_fov_per_player
                                   [player_number]);
+                data.add_data(get_player_variable_label(
+                    PLAYER_MARKER1_IN_FOV_LABEL,
+                    player_number + 1),
+                              this->marker1_in_fov_per_player
+                              [player_number]);
+                data.add_data(get_player_variable_label(
+                    PLAYER_MARKER2_IN_FOV_LABEL,
+                    player_number + 1),
+                              this->marker2_in_fov_per_player
+                              [player_number]);
 
                 data.add_data(
                     get_player_variable_label(
@@ -1426,6 +1447,8 @@ namespace tomcat {
             this->room_safe_victim_in_fov_per_player.clear();
             this->room_regular_victim_in_fov_per_player.clear();
             this->room_critical_victim_in_fov_per_player.clear();
+            this->marker1_in_fov_per_player.clear();
+            this->marker2_in_fov_per_player.clear();
 
             // Marker
             this->marker_legend_per_player.clear();
@@ -1455,14 +1478,6 @@ namespace tomcat {
         bool ASISTMultiPlayerMessageConverter::is_valid_message_file(
             const boost::filesystem::directory_entry& file) const {
             const string filename = file.path().filename().string();
-
-            cout << filename << endl;
-            cout << (filename.find("TrialMessages") != string::npos) << ":"
-                 << (filename.find("Training") == string::npos) << ":"
-                << (filename.find("PlanningASR") == string::npos) << ":"
-                << (filename.find("FoV") == string::npos) << ":"
-                << (file.path().extension().string() == ".metadata") << endl;
-
 
             return filename.find("TrialMessages") != string::npos &&
                    filename.find("Training") == string::npos &&
