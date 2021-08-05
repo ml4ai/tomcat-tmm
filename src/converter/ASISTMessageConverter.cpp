@@ -99,16 +99,16 @@ namespace tomcat {
                                     json_message["header"]["timestamp"];
                                 messages[timestamp] = json_message;
                             }
-                            else {
-                                const string& timestamp =
-                                    json_message["msg"]["timestamp"];
-                                messages[timestamp] = json_message;
-
-                                if (topic ==
-                                    "agent/pygl_fov/player/3d/summary") {
-                                    contains_fov = true;
-                                }
-                            }
+//                            else {
+//                                const string& timestamp =
+//                                    json_message["msg"]["timestamp"];
+//                                messages[timestamp] = json_message;
+//
+//                                if (topic ==
+//                                    "agent/pygl_fov/player/3d/summary") {
+//                                    contains_fov = true;
+//                                }
+//                            }
 
                             this->parse_individual_message(json_message);
                         }
@@ -120,7 +120,7 @@ namespace tomcat {
 
             // Look for FoV data in a separate file in the same directory if
             // it's not contained in the main messages file.
-            if (!contains_fov) {
+//            if (!contains_fov) {
                 const size_t start = messages_filepath.find("T00");
                 const size_t end = messages_filepath.find("_Member");
                 string trial_team =
@@ -174,7 +174,7 @@ namespace tomcat {
                             }
                         }
                     }
-                }
+//                }
             }
 
             return messages;

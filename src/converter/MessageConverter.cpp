@@ -162,7 +162,6 @@ namespace tomcat {
                     this->is_valid_message_file(file)) {
 
                     if (!EXISTS(filename, processed_files)) {
-                        cout << filename << endl;
                         unprocessed_files.insert(filename);
                     }
                 }

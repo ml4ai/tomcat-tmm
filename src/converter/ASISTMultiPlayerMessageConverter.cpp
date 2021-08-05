@@ -977,6 +977,7 @@ namespace tomcat {
             const nlohmann::json& json_message, int player_number) {
             for (const auto& json_block : json_message["data"]["blocks"]) {
                 const string& block_type = json_block["type"];
+                cout << block_type << endl;
                 if (block_type.find("victim") != string::npos) {
                     int x = json_block["location"][0];
                     int z = json_block["location"][2];
