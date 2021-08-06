@@ -95,6 +95,25 @@ namespace tomcat {
                 PLAYER_MARKER2_IN_FOV_LABEL =
                 "PlayerMarker2InFoV";
 
+            inline const static std::string
+                PLAYER1_PLAYER_MARKER1_IN_FOV_LABEL =
+                "Player1PlayerMarker1InFoV";
+            inline const static std::string
+                PLAYER2_PLAYER_MARKER1_IN_FOV_LABEL =
+                "Player2PlayerMarker1InFoV";
+            inline const static std::string
+                PLAYER3_PLAYER_MARKER1_IN_FOV_LABEL =
+                "Player3PlayerMarker1InFoV";
+            inline const static std::string
+                PLAYER1_PLAYER_MARKER2_IN_FOV_LABEL =
+                "Player1PlayerMarker2InFoV";
+            inline const static std::string
+                PLAYER2_PLAYER_MARKER2_IN_FOV_LABEL =
+                "Player2PlayerMarker2InFoV";
+            inline const static std::string
+                PLAYER3_PLAYER_MARKER2_IN_FOV_LABEL =
+                "Player3PlayerMarker2InFoV";
+
             // Speeches
             inline const static std::string PLAYER_AGREEMENT_LABEL =
                 "PlayerAgreementSpeech";
@@ -617,6 +636,13 @@ namespace tomcat {
             std::vector<Tensor3> room_critical_victim_in_fov_per_player;
             std::vector<Tensor3> marker1_in_fov_per_player;
             std::vector<Tensor3> marker2_in_fov_per_player;
+
+            std::vector<Tensor3> player1_marker1_in_fov_per_player;
+            std::vector<Tensor3> player2_marker1_in_fov_per_player;
+            std::vector<Tensor3> player3_marker1_in_fov_per_player;
+            std::vector<Tensor3> player1_marker2_in_fov_per_player;
+            std::vector<Tensor3> player2_marker2_in_fov_per_player;
+            std::vector<Tensor3> player3_marker2_in_fov_per_player;
 
             // Marker
             std::vector<Tensor3> placed_marker_per_player;

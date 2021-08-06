@@ -347,8 +347,23 @@ namespace tomcat {
                 Tensor3(NO_VICTIM_IN_FOV));
             this->room_critical_victim_in_fov_per_player.push_back(
                 Tensor3(NO_VICTIM_IN_FOV));
-            this->marker1_in_fov_per_player.push_back(Tensor3(NO_NEARBY_MARKER));
-            this->marker2_in_fov_per_player.push_back(Tensor3(NO_NEARBY_MARKER));
+            this->marker1_in_fov_per_player.push_back(
+                Tensor3(NO_NEARBY_MARKER));
+            this->marker2_in_fov_per_player.push_back(
+                Tensor3(NO_NEARBY_MARKER));
+
+            this->player1_marker1_in_fov_per_player.push_back(
+                Tensor3(NO_NEARBY_MARKER));
+            this->player2_marker1_in_fov_per_player.push_back(
+                Tensor3(NO_NEARBY_MARKER));
+            this->player3_marker1_in_fov_per_player.push_back(
+                Tensor3(NO_NEARBY_MARKER));
+            this->player1_marker2_in_fov_per_player.push_back(
+                Tensor3(NO_NEARBY_MARKER));
+            this->player2_marker2_in_fov_per_player.push_back(
+                Tensor3(NO_NEARBY_MARKER));
+            this->player3_marker2_in_fov_per_player.push_back(
+                Tensor3(NO_NEARBY_MARKER));
 
             // Speech
             this->marker_legend_speech_per_player.push_back(Tensor3(NO_SPEECH));
@@ -1050,13 +1065,50 @@ namespace tomcat {
                     }
                 }
                 else if (block_type.find("marker_block") != string::npos) {
-                    if (json_block["marker_type"] == "MarkerBlock1") {
-                        this->marker1_in_fov_per_player[player_number] =
-                            Tensor3(1);
+                    const string& owner = json_block["owner"];
+                    int owner_number = -1;
+                    if (EXISTS(owner, this->player_id_to_number)) {
+                        owner_number = this->player_id_to_number[owner];
                     }
-                    else if (json_block["marker_type"] == "MarkerBlock2") {
-                        this->marker2_in_fov_per_player[player_number] =
-                            Tensor3(1);
+                    else if (EXISTS(owner, this->player_name_to_number)) {
+                        owner_number = this->player_name_to_number[owner];
+                    }
+
+                    if (owner_number >= 0 && owner_number != player_number) {
+                        if (json_block["marker_type"] == "MarkerBlock1") {
+                            this->marker1_in_fov_per_player[player_number] =
+                                Tensor3(1);
+
+                            if (owner_number == 0) {
+                                this->player1_marker1_in_fov_per_player
+                                    [player_number] = Tensor3(1);
+                            }
+                            else if (owner_number == 1) {
+                                this->player2_marker1_in_fov_per_player
+                                    [player_number] = Tensor3(1);
+                            }
+                            else {
+                                this->player3_marker1_in_fov_per_player
+                                    [player_number] = Tensor3(1);
+                            }
+                        }
+                        else if (json_block["marker_type"] == "MarkerBlock2") {
+                            this->marker2_in_fov_per_player[player_number] =
+                                Tensor3(1);
+
+                            if (owner_number == 0) {
+                                this->player1_marker2_in_fov_per_player
+                                    [player_number] = Tensor3(1);
+                            }
+                            else if (owner_number == 1) {
+                                this->player2_marker2_in_fov_per_player
+                                    [player_number] = Tensor3(1);
+                            }
+                            else {
+                                this->player3_marker2_in_fov_per_player
+                                    [player_number] = Tensor3(1);
+                            }
+                        }
                     }
                 }
             }
@@ -1258,16 +1310,67 @@ namespace tomcat {
                                   player_number + 1),
                               this->room_critical_victim_in_fov_per_player
                                   [player_number]);
-                data.add_data(get_player_variable_label(
-                    PLAYER_MARKER1_IN_FOV_LABEL,
-                    player_number + 1),
-                              this->marker1_in_fov_per_player
-                              [player_number]);
-                data.add_data(get_player_variable_label(
-                    PLAYER_MARKER2_IN_FOV_LABEL,
-                    player_number + 1),
-                              this->marker2_in_fov_per_player
-                              [player_number]);
+                data.add_data(
+                    get_player_variable_label(PLAYER_MARKER1_IN_FOV_LABEL,
+                                              player_number + 1),
+                    this->marker1_in_fov_per_player[player_number]);
+                data.add_data(
+                    get_player_variable_label(PLAYER_MARKER2_IN_FOV_LABEL,
+                                              player_number + 1),
+                    this->marker2_in_fov_per_player[player_number]);
+
+                if (player_number == 0) {
+                    data.add_data(
+                        get_player_variable_label(PLAYER2_PLAYER_MARKER1_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player2_marker1_in_fov_per_player[player_number]);
+                    data.add_data(
+                        get_player_variable_label(PLAYER3_PLAYER_MARKER1_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player3_marker1_in_fov_per_player[player_number]);
+                    data.add_data(
+                        get_player_variable_label(PLAYER2_PLAYER_MARKER2_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player2_marker2_in_fov_per_player[player_number]);
+                    data.add_data(
+                        get_player_variable_label(PLAYER3_PLAYER_MARKER2_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player3_marker2_in_fov_per_player[player_number]);
+                } else if (player_number == 1) {
+                    data.add_data(
+                        get_player_variable_label(PLAYER1_PLAYER_MARKER1_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player1_marker1_in_fov_per_player[player_number]);
+                    data.add_data(
+                        get_player_variable_label(PLAYER3_PLAYER_MARKER1_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player3_marker1_in_fov_per_player[player_number]);
+                    data.add_data(
+                        get_player_variable_label(PLAYER1_PLAYER_MARKER2_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player1_marker2_in_fov_per_player[player_number]);
+                    data.add_data(
+                        get_player_variable_label(PLAYER3_PLAYER_MARKER2_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player3_marker2_in_fov_per_player[player_number]);
+                } else {
+                    data.add_data(
+                        get_player_variable_label(PLAYER1_PLAYER_MARKER1_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player1_marker1_in_fov_per_player[player_number]);
+                    data.add_data(
+                        get_player_variable_label(PLAYER2_PLAYER_MARKER1_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player2_marker1_in_fov_per_player[player_number]);
+                    data.add_data(
+                        get_player_variable_label(PLAYER1_PLAYER_MARKER2_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player1_marker2_in_fov_per_player[player_number]);
+                    data.add_data(
+                        get_player_variable_label(PLAYER2_PLAYER_MARKER2_IN_FOV_LABEL,
+                                                  player_number + 1),
+                        this->player2_marker2_in_fov_per_player[player_number]);
+                }
 
                 data.add_data(
                     get_player_variable_label(
@@ -1358,6 +1461,19 @@ namespace tomcat {
                 this->marker1_in_fov_per_player[player_number] =
                     Tensor3(NO_NEARBY_MARKER);
                 this->marker2_in_fov_per_player[player_number] =
+                    Tensor3(NO_NEARBY_MARKER);
+
+                this->player1_marker1_in_fov_per_player[player_number] =
+                    Tensor3(NO_NEARBY_MARKER);
+                this->player2_marker1_in_fov_per_player[player_number] =
+                    Tensor3(NO_NEARBY_MARKER);
+                this->player3_marker1_in_fov_per_player[player_number] =
+                    Tensor3(NO_NEARBY_MARKER);
+                this->player1_marker2_in_fov_per_player[player_number] =
+                    Tensor3(NO_NEARBY_MARKER);
+                this->player2_marker2_in_fov_per_player[player_number] =
+                    Tensor3(NO_NEARBY_MARKER);
+                this->player3_marker2_in_fov_per_player[player_number] =
                     Tensor3(NO_NEARBY_MARKER);
 
                 // Reset speeches
@@ -1453,6 +1569,13 @@ namespace tomcat {
             this->room_critical_victim_in_fov_per_player.clear();
             this->marker1_in_fov_per_player.clear();
             this->marker2_in_fov_per_player.clear();
+
+            this->player1_marker1_in_fov_per_player.clear();
+            this->player2_marker1_in_fov_per_player.clear();
+            this->player3_marker1_in_fov_per_player.clear();
+            this->player1_marker2_in_fov_per_player.clear();
+            this->player2_marker2_in_fov_per_player.clear();
+            this->player3_marker2_in_fov_per_player.clear();
 
             // Marker
             this->marker_legend_per_player.clear();

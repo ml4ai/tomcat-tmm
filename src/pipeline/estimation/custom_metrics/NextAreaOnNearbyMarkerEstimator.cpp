@@ -151,13 +151,17 @@ namespace tomcat {
                         projected_particles[ASISTMultiPlayerMessageConverter::
                                                 get_player_variable_label(
                                                     "PlayerIntent",
-                                                    this->player_number + 1)].at(0, data_point_idx, t);
+                                                    this->player_number + 1)]
+                            .at(0, data_point_idx, t);
 
                     area = projected_particles[this->area_label].at(0, i, t);
-//                    if (area == ASISTMultiPlayerMessageConverter::ROOM) {
-//                        break;
-//                    }
-                    if (next_intent != current_intent) break;
+                    //                    if (area ==
+                    //                    ASISTMultiPlayerMessageConverter::ROOM)
+                    //                    {
+                    //                        break;
+                    //                    }
+                    if (next_intent != current_intent)
+                        break;
                 }
                 areas[area] += 1;
             }
@@ -181,10 +185,9 @@ namespace tomcat {
             int current_nearby_marker = new_data[this->nearby_marker_label].at(
                 0, data_point, time_step);
 
-            return current_nearby_marker !=
-                   ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
-            //            return current_nearby_marker == 0 ||
-            //            current_nearby_marker == 1;
+            //            return current_nearby_marker !=
+            //                   ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
+            return current_nearby_marker == 0 || current_nearby_marker == 1;
 
             //            if (this->within_marker_range) {
             //                if (time_step == this->time_step_at_entrance) {
