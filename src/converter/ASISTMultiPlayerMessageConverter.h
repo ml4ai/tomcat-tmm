@@ -88,31 +88,34 @@ namespace tomcat {
             inline const static std::string
                 PLAYER_ROOM_CRITICAL_VICTIM_IN_FOV_LABEL =
                     "PlayerRoomCriticalVictimInFoV";
-            inline const static std::string
-                PLAYER_MARKER1_IN_FOV_LABEL =
+            inline const static std::string PLAYER_MARKER1_IN_FOV_LABEL =
                 "PlayerMarker1InFoV";
-            inline const static std::string
-                PLAYER_MARKER2_IN_FOV_LABEL =
+            inline const static std::string PLAYER_MARKER2_IN_FOV_LABEL =
                 "PlayerMarker2InFoV";
 
             inline const static std::string
                 PLAYER1_PLAYER_MARKER1_IN_FOV_LABEL =
-                "Player1PlayerMarker1InFoV";
+                    "Player1PlayerMarker1InFoV";
             inline const static std::string
                 PLAYER2_PLAYER_MARKER1_IN_FOV_LABEL =
-                "Player2PlayerMarker1InFoV";
+                    "Player2PlayerMarker1InFoV";
             inline const static std::string
                 PLAYER3_PLAYER_MARKER1_IN_FOV_LABEL =
-                "Player3PlayerMarker1InFoV";
+                    "Player3PlayerMarker1InFoV";
             inline const static std::string
                 PLAYER1_PLAYER_MARKER2_IN_FOV_LABEL =
-                "Player1PlayerMarker2InFoV";
+                    "Player1PlayerMarker2InFoV";
             inline const static std::string
                 PLAYER2_PLAYER_MARKER2_IN_FOV_LABEL =
-                "Player2PlayerMarker2InFoV";
+                    "Player2PlayerMarker2InFoV";
             inline const static std::string
                 PLAYER3_PLAYER_MARKER2_IN_FOV_LABEL =
-                "Player3PlayerMarker2InFoV";
+                    "Player3PlayerMarker2InFoV";
+
+            inline const static std::string OPEN_DOOR_IN_FOV_LABEL =
+                "OpenDoorInFoV";
+            inline const static std::string CLOSED_DOOR_IN_FOV_LABEL =
+                "ClosedDoorInFoV";
 
             // Speeches
             inline const static std::string PLAYER_AGREEMENT_LABEL =
@@ -179,6 +182,9 @@ namespace tomcat {
             const static int RESCUED_VICTIM_IN_FOV = 3;
 
             const static int VICTIM_IN_FOV = 1;
+
+            const static int NO_DOOR_IN_FOV = 0;
+            const static int DOOR_IN_FOV = 1;
 
             // Bounding box of the main part of the map. Used to split the map
             // into 6 sections. Staging area is not included.
@@ -570,6 +576,15 @@ namespace tomcat {
                                    int player_number);
 
             /**
+             * Updates door state: open or closed
+             *
+             * @param json_message: message
+             * @param player_number: player number
+             */
+            void parse_door_message(const nlohmann::json& json_message,
+                                    int player_number);
+
+            /**
              * Stores the initial list of victims and their relative area (room
              * or hallway)
              *
@@ -602,6 +617,7 @@ namespace tomcat {
             std::vector<Door> doors;
             std::vector<BoundingBox> rooms;
             std::unordered_map<std::string, bool> victim_to_area;
+            std::unordered_map<std::string, bool> door_state; // open or closed
 
             // Numbers are sequential numbers starting from zero and indicate
             // the position in the vector of observations. Id's and names are
@@ -643,6 +659,9 @@ namespace tomcat {
             std::vector<Tensor3> player1_marker2_in_fov_per_player;
             std::vector<Tensor3> player2_marker2_in_fov_per_player;
             std::vector<Tensor3> player3_marker2_in_fov_per_player;
+
+            std::vector<Tensor3> open_door_in_fov_per_player;
+            std::vector<Tensor3> closed_door_in_fov_per_player;
 
             // Marker
             std::vector<Tensor3> placed_marker_per_player;

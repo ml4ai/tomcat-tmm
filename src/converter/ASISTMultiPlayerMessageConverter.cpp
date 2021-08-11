@@ -90,6 +90,7 @@ namespace tomcat {
 
             this->map_area_configuration.clear();
             this->doors.clear();
+            this->door_state.clear();
 
             fstream map_file;
             map_file.open(map_filepath);
@@ -135,6 +136,12 @@ namespace tomcat {
                         z = location["bounds"]["coordinates"][1]["z"];
                         door.position = Position(x, z);
                         this->doors.push_back(door);
+
+                        stringstream ss;
+                        ss << x << "#" << z;
+                        string id = ss.str();
+
+                        this->door_state[id] = false;
                     }
                 }
             }
@@ -222,6 +229,7 @@ namespace tomcat {
             topics.insert("observations/events/player/marker_placed");
             topics.insert("agent/dialog");
             topics.insert("ground_truth/mission/victims_list");
+            topics.insert("observations/events/player/door");
 
             return topics;
         }
@@ -364,6 +372,11 @@ namespace tomcat {
                 Tensor3(NO_NEARBY_MARKER));
             this->player3_marker2_in_fov_per_player.push_back(
                 Tensor3(NO_NEARBY_MARKER));
+
+            this->open_door_in_fov_per_player.push_back(
+                Tensor3(NO_DOOR_IN_FOV));
+            this->closed_door_in_fov_per_player.push_back(
+                Tensor3(NO_DOOR_IN_FOV));
 
             // Speech
             this->marker_legend_speech_per_player.push_back(Tensor3(NO_SPEECH));
@@ -745,6 +758,11 @@ namespace tomcat {
 
                     this->parse_fov_message(json_message, player_number);
                 }
+                else if (json_message["header"]["message_type"] == "event" &&
+                         json_message["msg"]["sub_type"] == "Event:Door") {
+
+                    this->parse_door_message(json_message, player_number);
+                }
             }
         }
 
@@ -1111,7 +1129,37 @@ namespace tomcat {
                         }
                     }
                 }
+                else if (block_type.find("door") != string::npos) {
+                    int x = json_block["location"][0];
+                    int z = json_block["location"][2];
+                    stringstream ss;
+                    ss << x << "#" << z;
+                    string id = ss.str();
+                    bool is_open = this->door_state[id];
+
+                    if (is_open) {
+                        this->open_door_in_fov_per_player[player_number] =
+                            Tensor3(DOOR_IN_FOV);
+                    }
+                    else {
+                        this->closed_door_in_fov_per_player[player_number] =
+                            Tensor3(DOOR_IN_FOV);
+                    }
+                }
             }
+        }
+
+        void ASISTMultiPlayerMessageConverter::parse_door_message(
+            const nlohmann::json& json_message, int player_number) {
+
+            int x = json_message["data"]["door_x"];
+            int z = json_message["data"]["door_x"];
+            bool state = json_message["data"]["open"];
+
+            stringstream ss;
+            ss << x << "#" << z;
+            string id = ss.str();
+            this->door_state[id] = state;
         }
 
         void ASISTMultiPlayerMessageConverter::parse_victim_list_message(
@@ -1321,54 +1369,68 @@ namespace tomcat {
 
                 if (player_number == 0) {
                     data.add_data(
-                        get_player_variable_label(PLAYER2_PLAYER_MARKER1_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER2_PLAYER_MARKER1_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player2_marker1_in_fov_per_player[player_number]);
                     data.add_data(
-                        get_player_variable_label(PLAYER3_PLAYER_MARKER1_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER3_PLAYER_MARKER1_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player3_marker1_in_fov_per_player[player_number]);
                     data.add_data(
-                        get_player_variable_label(PLAYER2_PLAYER_MARKER2_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER2_PLAYER_MARKER2_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player2_marker2_in_fov_per_player[player_number]);
                     data.add_data(
-                        get_player_variable_label(PLAYER3_PLAYER_MARKER2_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER3_PLAYER_MARKER2_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player3_marker2_in_fov_per_player[player_number]);
-                } else if (player_number == 1) {
+                }
+                else if (player_number == 1) {
                     data.add_data(
-                        get_player_variable_label(PLAYER1_PLAYER_MARKER1_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER1_PLAYER_MARKER1_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player1_marker1_in_fov_per_player[player_number]);
                     data.add_data(
-                        get_player_variable_label(PLAYER3_PLAYER_MARKER1_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER3_PLAYER_MARKER1_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player3_marker1_in_fov_per_player[player_number]);
                     data.add_data(
-                        get_player_variable_label(PLAYER1_PLAYER_MARKER2_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER1_PLAYER_MARKER2_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player1_marker2_in_fov_per_player[player_number]);
                     data.add_data(
-                        get_player_variable_label(PLAYER3_PLAYER_MARKER2_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER3_PLAYER_MARKER2_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player3_marker2_in_fov_per_player[player_number]);
-                } else {
+                }
+                else {
                     data.add_data(
-                        get_player_variable_label(PLAYER1_PLAYER_MARKER1_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER1_PLAYER_MARKER1_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player1_marker1_in_fov_per_player[player_number]);
                     data.add_data(
-                        get_player_variable_label(PLAYER2_PLAYER_MARKER1_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER2_PLAYER_MARKER1_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player2_marker1_in_fov_per_player[player_number]);
                     data.add_data(
-                        get_player_variable_label(PLAYER1_PLAYER_MARKER2_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER1_PLAYER_MARKER2_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player1_marker2_in_fov_per_player[player_number]);
                     data.add_data(
-                        get_player_variable_label(PLAYER2_PLAYER_MARKER2_IN_FOV_LABEL,
-                                                  player_number + 1),
+                        get_player_variable_label(
+                            PLAYER2_PLAYER_MARKER2_IN_FOV_LABEL,
+                            player_number + 1),
                         this->player2_marker2_in_fov_per_player[player_number]);
                 }
 
@@ -1387,6 +1449,18 @@ namespace tomcat {
                                   player_number + 1),
                               this->hallway_critical_victim_in_fov_per_player
                                   [player_number]);
+
+                data.add_data(
+                    get_player_variable_label(
+                        OPEN_DOOR_IN_FOV_LABEL,
+                        player_number + 1),
+                    this->open_door_in_fov_per_player[player_number]);
+                data.add_data(
+                    get_player_variable_label(
+                        CLOSED_DOOR_IN_FOV_LABEL,
+                        player_number + 1),
+                    this->closed_door_in_fov_per_player[player_number]);
+
 
                 // NLP
                 data.add_data(get_player_variable_label(PLAYER_AGREEMENT_LABEL,
@@ -1475,6 +1549,11 @@ namespace tomcat {
                     Tensor3(NO_NEARBY_MARKER);
                 this->player3_marker2_in_fov_per_player[player_number] =
                     Tensor3(NO_NEARBY_MARKER);
+
+                this->open_door_in_fov_per_player[player_number] =
+                    Tensor3(NO_DOOR_IN_FOV);
+                this->closed_door_in_fov_per_player[player_number] =
+                    Tensor3(NO_DOOR_IN_FOV);
 
                 // Reset speeches
                 this->agreement_speech_per_player[player_number] =
@@ -1576,6 +1655,9 @@ namespace tomcat {
             this->player1_marker2_in_fov_per_player.clear();
             this->player2_marker2_in_fov_per_player.clear();
             this->player3_marker2_in_fov_per_player.clear();
+
+            this->open_door_in_fov_per_player.clear();
+            this->closed_door_in_fov_per_player.clear();
 
             // Marker
             this->marker_legend_per_player.clear();

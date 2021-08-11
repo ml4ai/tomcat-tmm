@@ -350,9 +350,16 @@ namespace tomcat {
                     auto& samples_per_class =
                         this->node_label_to_samples.at(node_label)[i];
                     if (sample.rows() == 1) {
-                        samples_per_class(this->step_counter -
-                                              this->burn_in_period,
-                                          time_step) = sample(0, i);
+                        if (samples_per_class.rows() == 1) {
+                            // Data node
+                            samples_per_class(0, time_step) = sample(0, i);
+                        }
+                        else {
+                            // Parameters
+                            samples_per_class(this->step_counter -
+                                                  this->burn_in_period,
+                                              time_step) = sample(0, i);
+                        }
                     }
                     else {
                         // In-plate nodes always generate a matrix of samples

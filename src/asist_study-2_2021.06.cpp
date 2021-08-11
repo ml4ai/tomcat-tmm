@@ -43,9 +43,15 @@ namespace po = boost::program_options;
 #define PLAYER_MARKER_LEGEND_VERSION_LABEL                                     \
     ASISTMultiPlayerMessageConverter::PLAYER_MARKER_LEGEND_VERSION_LABEL
 
-const inline string NEXT_AREA_AFTER_P1_MARKER_LABEL = "NextAreaAfterP1Marker";
-const inline string NEXT_AREA_AFTER_P2_MARKER_LABEL = "NextAreaAfterP2Marker";
-const inline string NEXT_AREA_AFTER_P3_MARKER_LABEL = "NextAreaAfterP3Marker";
+#define NEXT_AREA_AFTER_P1_MARKER_LABEL "NextAreaAfterP1Marker"
+#define NEXT_AREA_AFTER_P2_MARKER_LABEL "NextAreaAfterP2Marker"
+#define NEXT_AREA_AFTER_P3_MARKER_LABEL "NextAreaAfterP3Marker"
+#define P1_NEARBY_MARKER1_LABEL "Player1NearbyMarker1"
+#define P2_NEARBY_MARKER1_LABEL "Player2NearbyMarker1"
+#define P3_NEARBY_MARKER1_LABEL "Player3NearbyMarker1"
+#define P1_NEARBY_MARKER2_LABEL "Player1NearbyMarker2"
+#define P2_NEARBY_MARKER2_LABEL "Player2NearbyMarker2"
+#define P3_NEARBY_MARKER2_LABEL "Player3NearbyMarker2"
 
 const inline string PLAYER1_PLAYER_MARKER_AREA_LABEL =
     "Player1PlayerMarkerArea";
@@ -434,10 +440,17 @@ void create_m7_data_from_external_source(const string& input_dir,
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_MARKER));
         vector<Eigen::MatrixXd> nearby_marker_per_player2(
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_MARKER));
-        //        vector<Eigen::MatrixXd> nearby_marker_per_player1(
-        //            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
-        //        vector<Eigen::MatrixXd> nearby_marker_per_player2(
-        //            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
+
+        // Per marker. Binary variable.
+        vector<Eigen::MatrixXd> nearby_marker1_per_player1(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_MARKER));
+        vector<Eigen::MatrixXd> nearby_marker1_per_player2(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_MARKER));
+        vector<Eigen::MatrixXd> nearby_marker2_per_player1(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_MARKER));
+        vector<Eigen::MatrixXd> nearby_marker2_per_player2(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_MARKER));
+
         vector<Eigen::MatrixXd> area_per_player(3);
 
         vector<Eigen::MatrixXd> marker_area_per_player1(
@@ -451,20 +464,6 @@ void create_m7_data_from_external_source(const string& input_dir,
             data[add_player_suffix(PLAYER_AREA_LABEL, 2)](0, 0);
         area_per_player[2] =
             data[add_player_suffix(PLAYER_AREA_LABEL, 3)](0, 0);
-
-        //
-        //        nearby_marker_per_player1[0] =
-        //            data[add_player_suffix(P2_NEARBY_MARKER_LABEL, 1)](0, 0);
-        //        nearby_marker_per_player2[0] =
-        //            data[add_player_suffix(P3_NEARBY_MARKER_LABEL, 1)](0, 0);
-        //        nearby_marker_per_player1[1] =
-        //            data[add_player_suffix(P1_NEARBY_MARKER_LABEL, 2)](0, 0);
-        //        nearby_marker_per_player2[1] =
-        //            data[add_player_suffix(P3_NEARBY_MARKER_LABEL, 2)](0, 0);
-        //        nearby_marker_per_player1[2] =
-        //            data[add_player_suffix(P1_NEARBY_MARKER_LABEL, 3)](0, 0);
-        //        nearby_marker_per_player2[2] =
-        //            data[add_player_suffix(P2_NEARBY_MARKER_LABEL, 3)](0, 0);
 
         nlohmann::json json_new_metadata = data.get_metadata();
 
@@ -565,12 +564,15 @@ void create_m7_data_from_external_source(const string& input_dir,
                     for (int t = time_step; t < final_time_step; t++) {
                         nearby_marker_per_player1[player_number](d, t) =
                             m7_event.marker_number;
-                        //                        nearby_marker_per_player1[player_number](d,
-                        //                        t) =
-                        //                            m7_event.marker_number -
-                        //                            1;
                         next_area_per_player1[player_number](d, t) =
                             m7_event.next_area;
+
+                        if (m7_event.marker_number == 1) {
+                            nearby_marker1_per_player1[player_number](d, t) = 1;
+                        }
+                        else {
+                            nearby_marker2_per_player1[player_number](d, t) = 1;
+                        }
                     }
 
                     if (final_time_step < num_cols) {
@@ -583,12 +585,15 @@ void create_m7_data_from_external_source(const string& input_dir,
                     for (int t = time_step; t < final_time_step; t++) {
                         nearby_marker_per_player2[player_number](d, t) =
                             m7_event.marker_number;
-                        //                        nearby_marker_per_player2[player_number](d,
-                        //                        t) =
-                        //                            m7_event.marker_number -
-                        //                            1;
                         next_area_per_player2[player_number](d, t) =
                             m7_event.next_area;
+
+                        if (m7_event.marker_number == 1) {
+                            nearby_marker1_per_player2[player_number](d, t) = 1;
+                        }
+                        else {
+                            nearby_marker2_per_player2[player_number](d, t) = 1;
+                        }
 
                         if (final_time_step < num_cols) {
                             marker_area_per_player2[player_number](
@@ -668,6 +673,32 @@ void create_m7_data_from_external_source(const string& input_dir,
                           nearby_marker_per_player1[2]);
         new_data.add_data(add_player_suffix(P2_NEARBY_MARKER_LABEL, 3),
                           nearby_marker_per_player2[2]);
+
+        new_data.add_data(add_player_suffix(P2_NEARBY_MARKER1_LABEL, 1),
+                          nearby_marker1_per_player1[0]);
+        new_data.add_data(add_player_suffix(P3_NEARBY_MARKER1_LABEL, 1),
+                          nearby_marker1_per_player2[0]);
+        new_data.add_data(add_player_suffix(P1_NEARBY_MARKER1_LABEL, 2),
+                          nearby_marker1_per_player1[1]);
+        new_data.add_data(add_player_suffix(P3_NEARBY_MARKER1_LABEL, 2),
+                          nearby_marker1_per_player2[1]);
+        new_data.add_data(add_player_suffix(P1_NEARBY_MARKER1_LABEL, 3),
+                          nearby_marker1_per_player1[2]);
+        new_data.add_data(add_player_suffix(P2_NEARBY_MARKER1_LABEL, 3),
+                          nearby_marker1_per_player2[2]);
+
+        new_data.add_data(add_player_suffix(P2_NEARBY_MARKER2_LABEL, 1),
+                          nearby_marker2_per_player1[0]);
+        new_data.add_data(add_player_suffix(P3_NEARBY_MARKER2_LABEL, 1),
+                          nearby_marker2_per_player2[0]);
+        new_data.add_data(add_player_suffix(P1_NEARBY_MARKER2_LABEL, 2),
+                          nearby_marker2_per_player1[1]);
+        new_data.add_data(add_player_suffix(P3_NEARBY_MARKER2_LABEL, 2),
+                          nearby_marker2_per_player2[1]);
+        new_data.add_data(add_player_suffix(P1_NEARBY_MARKER2_LABEL, 3),
+                          nearby_marker2_per_player1[2]);
+        new_data.add_data(add_player_suffix(P2_NEARBY_MARKER2_LABEL, 3),
+                          nearby_marker2_per_player2[2]);
 
         new_data.add_data(
             add_player_suffix(PLAYER2_PLAYER_MARKER_AREA_LABEL, 1),
@@ -795,26 +826,36 @@ int main(int argc, char* argv[]) {
         cout << desc << "\n";
         return 1;
     }
+    //
+    //    switch (option) {
+    //    case 0:
+    //        create_next_area_on_nearby_marker_data(input_dir, output_dir);
+    //        break;
+    //    case 1:
+    //        create_trial_period_data(input_dir, output_dir, num_periods);
+    //        break;
+    //    case 2:
+    //        create_planning_before_trial_data(input_dir, output_dir);
+    //        break;
+    //    case 3:
+    //        create_m7_data_from_external_source(
+    //            input_dir, output_dir, external_filepath);
+    //        break;
+    //    case 4:
+    //        split_report_per_trial(external_filepath, output_dir);
+    //        break;
+    //    case 5:
+    //        create_m7_player_areas(input_dir, output_dir);
+    //        break;
+    //    }
 
-    switch (option) {
-    case 0:
-        create_next_area_on_nearby_marker_data(input_dir, output_dir);
-        break;
-    case 1:
-        create_trial_period_data(input_dir, output_dir, num_periods);
-        break;
-    case 2:
-        create_planning_before_trial_data(input_dir, output_dir);
-        break;
-    case 3:
-        create_m7_data_from_external_source(
-            input_dir, output_dir, external_filepath);
-        break;
-    case 4:
-        split_report_per_trial(external_filepath, output_dir);
-        break;
-    case 5:
-        create_m7_player_areas(input_dir, output_dir);
-        break;
-    }
+    EvidenceSet evidence(
+        "../../data/asist/study-2_2021.06/evidence/val_single", false);
+    evidence.keep_only(9);
+    evidence.save("../../data/asist/study-2_2021.06/evidence/val_single");
+
+    EvidenceSet evidence2(
+        "../../data/asist/study-2_2021.06/evidence/train_single", false);
+    evidence2.keep_only(9);
+    evidence2.save("../../data/asist/study-2_2021.06/evidence/train_single");
 }

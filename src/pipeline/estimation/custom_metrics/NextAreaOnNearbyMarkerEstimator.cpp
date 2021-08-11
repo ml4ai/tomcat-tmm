@@ -59,10 +59,10 @@ namespace tomcat {
         //----------------------------------------------------------------------
 
         void NextAreaOnNearbyMarkerEstimator::store_labels() {
-            this->area_label =
-                ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                    ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
-                    this->player_number + 1);
+            //            this->area_label =
+            //                ASISTMultiPlayerMessageConverter::get_player_variable_label(
+            //                    ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
+            //                    this->player_number + 1);
 
             if (this->placed_by_player_nummber == 0) {
                 this->nearby_marker_label =
@@ -70,10 +70,12 @@ namespace tomcat {
                         ASISTMultiPlayerMessageConverter::
                             PLAYER1_NEARBY_MARKER_LABEL,
                         this->player_number + 1);
-                //                this->area_label =
-                //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                //                        "Player1PlayerArea",
-                //                        this->player_number + 1);
+                this->area_label =
+                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                        "Player1PlayerArea", this->player_number + 1);
+                this->intent_label =
+                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                        "Player1PlayerIntent", this->player_number + 1);
                 //                this->area_label =
                 //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
                 //                        "Player1PlayerMarkerArea",
@@ -85,10 +87,12 @@ namespace tomcat {
                         ASISTMultiPlayerMessageConverter::
                             PLAYER2_NEARBY_MARKER_LABEL,
                         this->player_number + 1);
-                //                this->area_label =
-                //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                //                        "Player2PlayerArea",
-                //                        this->player_number + 1);
+                this->area_label =
+                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                        "Player2PlayerArea", this->player_number + 1);
+                this->intent_label =
+                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                        "Player2PlayerIntent", this->player_number + 1);
                 //                this->area_label =
                 //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
                 //                        "Player2PlayerMarkerArea",
@@ -100,10 +104,12 @@ namespace tomcat {
                         ASISTMultiPlayerMessageConverter::
                             PLAYER3_NEARBY_MARKER_LABEL,
                         this->player_number + 1);
-                //                this->area_label =
-                //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                //                        "Player3PlayerArea",
-                //                        this->player_number + 1);
+                this->area_label =
+                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                        "Player3PlayerArea", this->player_number + 1);
+                this->intent_label =
+                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                        "Player3PlayerIntent", this->player_number + 1);
                 //                this->area_label =
                 //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
                 //                        "Player3PlayerMarkerArea",
@@ -139,31 +145,31 @@ namespace tomcat {
             //            int detected_marker =
             //                new_data[nearby_marker_label].at(0,
             //                data_point_idx, time_step);
-            int current_intent =
-                particles[ASISTMultiPlayerMessageConverter::
-                              get_player_variable_label(
-                                  "PlayerIntent", this->player_number + 1)]
-                    .at(0, data_point_idx, 0);
+            //            int current_intent =
+            //                particles[this->intent_label].at(0,
+            //                data_point_idx, 0);
             for (int i = 0; i < n; i++) {
                 int area = ASISTMultiPlayerMessageConverter::HALLWAY;
+//                bool intent_changed = false;
+                // Next area
                 for (int t = 0; t < this->inference_horizon; t++) {
-                    int next_intent =
-                        projected_particles[ASISTMultiPlayerMessageConverter::
-                                                get_player_variable_label(
-                                                    "PlayerIntent",
-                                                    this->player_number + 1)]
-                            .at(0, data_point_idx, t);
+                    //                    int next_intent =
+                    //                        projected_particles[this->intent_label].at(
+                    //                            0, data_point_idx, t-1);
 
                     area = projected_particles[this->area_label].at(0, i, t);
-                    //                    if (area ==
-                    //                    ASISTMultiPlayerMessageConverter::ROOM)
-                    //                    {
+                    if (area == ASISTMultiPlayerMessageConverter::ROOM) {
+                        break;
+                    }
+                    //                    if (next_intent != current_intent) {
+                    //                        intent_changed = true;
                     //                        break;
                     //                    }
-                    if (next_intent != current_intent)
-                        break;
                 }
+
+                //                if (intent_changed) {
                 areas[area] += 1;
+                //                }
             }
 
             double num_valid_particles = areas.sum();
@@ -185,9 +191,10 @@ namespace tomcat {
             int current_nearby_marker = new_data[this->nearby_marker_label].at(
                 0, data_point, time_step);
 
-            //            return current_nearby_marker !=
-            //                   ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
-            return current_nearby_marker == 0 || current_nearby_marker == 1;
+            return current_nearby_marker !=
+                   ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
+            //            return current_nearby_marker == 0 ||
+            //            current_nearby_marker == 1;
 
             //            if (this->within_marker_range) {
             //                if (time_step == this->time_step_at_entrance) {
