@@ -826,36 +826,36 @@ int main(int argc, char* argv[]) {
         cout << desc << "\n";
         return 1;
     }
+
+    switch (option) {
+    case 0:
+        create_next_area_on_nearby_marker_data(input_dir, output_dir);
+        break;
+    case 1:
+        create_trial_period_data(input_dir, output_dir, num_periods);
+        break;
+    case 2:
+        create_planning_before_trial_data(input_dir, output_dir);
+        break;
+    case 3:
+        create_m7_data_from_external_source(
+            input_dir, output_dir, external_filepath);
+        break;
+    case 4:
+        split_report_per_trial(external_filepath, output_dir);
+        break;
+    case 5:
+        create_m7_player_areas(input_dir, output_dir);
+        break;
+    }
+
+    //    EvidenceSet evidence(
+    //        "../../data/asist/study-2_2021.06/evidence/val_single", false);
+    //    evidence.keep_only(9);
+    //    evidence.save("../../data/asist/study-2_2021.06/evidence/val_single");
     //
-    //    switch (option) {
-    //    case 0:
-    //        create_next_area_on_nearby_marker_data(input_dir, output_dir);
-    //        break;
-    //    case 1:
-    //        create_trial_period_data(input_dir, output_dir, num_periods);
-    //        break;
-    //    case 2:
-    //        create_planning_before_trial_data(input_dir, output_dir);
-    //        break;
-    //    case 3:
-    //        create_m7_data_from_external_source(
-    //            input_dir, output_dir, external_filepath);
-    //        break;
-    //    case 4:
-    //        split_report_per_trial(external_filepath, output_dir);
-    //        break;
-    //    case 5:
-    //        create_m7_player_areas(input_dir, output_dir);
-    //        break;
-    //    }
-
-    EvidenceSet evidence(
-        "../../data/asist/study-2_2021.06/evidence/val_single", false);
-    evidence.keep_only(9);
-    evidence.save("../../data/asist/study-2_2021.06/evidence/val_single");
-
-    EvidenceSet evidence2(
-        "../../data/asist/study-2_2021.06/evidence/train_single", false);
-    evidence2.keep_only(9);
-    evidence2.save("../../data/asist/study-2_2021.06/evidence/train_single");
+    //    EvidenceSet evidence2(
+    //        "../../data/asist/study-2_2021.06/evidence/train_single", false);
+    //    evidence2.keep_only(9);
+    //    evidence2.save("../../data/asist/study-2_2021.06/evidence/train_single");
 }
