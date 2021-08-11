@@ -121,27 +121,51 @@ namespace tomcat {
                     const string& area_type = location["type"];
                     const string& area_id = location["id"];
 
-                    if (area_type == "door") {
+                    if (area_type == "door" || area_type == "double_door") {
                         // Include each block that comprises a door as a
                         // door object in the list because the position to a
                         // doorway (in terms of blocks) will affect how
                         // marker blocks are detected.
-                        int x = location["bounds"]["coordinates"][0]["x"];
-                        int z = location["bounds"]["coordinates"][0]["z"];
-                        Door door({x, z});
+                        int x1 = location["bounds"]["coordinates"][0]["x"];
+                        int z1 = location["bounds"]["coordinates"][0]["z"];
+                        Door door({x1, z1});
                         door.id = area_id;
                         this->doors.push_back(door);
 
-                        x = location["bounds"]["coordinates"][1]["x"];
-                        z = location["bounds"]["coordinates"][1]["z"];
-                        door.position = Position(x, z);
-                        this->doors.push_back(door);
-
                         stringstream ss;
-                        ss << x << "#" << z;
+                        ss << x1 << "#" << z1;
                         string id = ss.str();
-
                         this->door_state[id] = false;
+
+                        if (area_type == "double_door") {
+                            int x2 = location["bounds"]["coordinates"][1]["x"];
+                            int z2 = location["bounds"]["coordinates"][1]["z"];
+                            door.position = Position(x2, z2);
+                            this->doors.push_back(door);
+
+                            if (x2 - x1 > 1) {
+                                ss = stringstream();
+                                ss << (x2 - 1) << "#" << z1;
+                                id = ss.str();
+                                this->door_state[id] = false;
+
+                                ss = stringstream();
+                                ss << (x2 - 1) << "#" << z2;
+                                id = ss.str();
+                                this->door_state[id] = false;
+                            }
+                            else if (z2 - z1 > 1) {
+                                ss = stringstream();
+                                ss << x1 << "#" << (z2 - 1);
+                                id = ss.str();
+                                this->door_state[id] = false;
+
+                                ss = stringstream();
+                                ss << x2 << "#" << (z2 - 1);
+                                id = ss.str();
+                                this->door_state[id] = false;
+                            }
+                        }
                     }
                 }
             }
@@ -1135,8 +1159,8 @@ namespace tomcat {
                     stringstream ss;
                     ss << x << "#" << z;
                     string id = ss.str();
-                    bool is_open = this->door_state[id];
 
+                    bool is_open = this->door_state[id];
                     if (is_open) {
                         this->open_door_in_fov_per_player[player_number] =
                             Tensor3(DOOR_IN_FOV);
@@ -1153,12 +1177,13 @@ namespace tomcat {
             const nlohmann::json& json_message, int player_number) {
 
             int x = json_message["data"]["door_x"];
-            int z = json_message["data"]["door_x"];
+            int z = json_message["data"]["door_z"];
             bool state = json_message["data"]["open"];
 
             stringstream ss;
             ss << x << "#" << z;
             string id = ss.str();
+
             this->door_state[id] = state;
         }
 
@@ -1450,17 +1475,13 @@ namespace tomcat {
                               this->hallway_critical_victim_in_fov_per_player
                                   [player_number]);
 
+                data.add_data(get_player_variable_label(OPEN_DOOR_IN_FOV_LABEL,
+                                                        player_number + 1),
+                              this->open_door_in_fov_per_player[player_number]);
                 data.add_data(
-                    get_player_variable_label(
-                        OPEN_DOOR_IN_FOV_LABEL,
-                        player_number + 1),
-                    this->open_door_in_fov_per_player[player_number]);
-                data.add_data(
-                    get_player_variable_label(
-                        CLOSED_DOOR_IN_FOV_LABEL,
-                        player_number + 1),
+                    get_player_variable_label(CLOSED_DOOR_IN_FOV_LABEL,
+                                              player_number + 1),
                     this->closed_door_in_fov_per_player[player_number]);
-
 
                 // NLP
                 data.add_data(get_player_variable_label(PLAYER_AGREEMENT_LABEL,
