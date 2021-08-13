@@ -284,6 +284,13 @@ namespace tomcat {
              */
             int get_num_events_for(int data_point) const;
 
+            /**
+             * Adds the content of another evidence set to the current set.
+             *
+             * @param other_set: set to add contents from
+             */
+            void merge(const EvidenceSet& other_set);
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------

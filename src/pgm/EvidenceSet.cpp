@@ -405,6 +405,13 @@ namespace tomcat {
             return num_events;
         }
 
+        void EvidenceSet::merge(const EvidenceSet& other_set) {
+            this->metadata.insert(this->metadata.end(),
+                                  other_set.get_metadata().begin(),
+                                  other_set.get_metadata().end());
+            this->vstack(other_set);
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
