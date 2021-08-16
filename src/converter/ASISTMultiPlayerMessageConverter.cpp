@@ -1281,18 +1281,20 @@ namespace tomcat {
                         if (this->player_position[player_number].get_distance(
                                 this->markers_near_door_per_player[i][j]
                                     .position) <= MARKER_PROXIMITY_DISTANCE) {
-                            nearby_marker_per_player[i] =
-                                this->markers_near_door_per_player[i][j].number;
-
-                            if (nearby_marker_per_player[i] !=
-                                    NO_NEARBY_MARKER &&
-                                nearby_marker_per_player[i] !=
+                            if (this->markers_near_door_per_player[i][j].number != 3) {
+                                nearby_marker_per_player[i] =
                                     this->markers_near_door_per_player[i][j]
-                                        .number) {
-                                // Ignore ambiguous markers. Different markers
-                                // placed by the same player close to each
-                                // other.
-                                nearby_marker_per_player[i] = NO_NEARBY_MARKER;
+                                        .number;
+
+                                if (nearby_marker_per_player[i] !=
+                                        NO_NEARBY_MARKER &&
+                                    nearby_marker_per_player[i] !=
+                                        this->markers_near_door_per_player[i][j]
+                                            .number) {
+                                    // Ignore ambiguous markers. Different markers placed by the same player close to each other.
+                                    nearby_marker_per_player[i] =
+                                        NO_NEARBY_MARKER;
+                                }
                             }
                         }
                     }
