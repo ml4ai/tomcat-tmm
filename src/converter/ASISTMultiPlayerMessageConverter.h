@@ -51,8 +51,6 @@ namespace tomcat {
                 "MarkerLegendVersionAssignment";
             inline const static std::string PLAYER_MARKER_LEGEND_VERSION_LABEL =
                 "PlayerMarkerLegendVersion";
-            inline const static std::string OTHER_PLAYER_NEARBY_MARKER =
-                "OtherPlayerNearbyMarker";
             inline const static std::string PLAYER1_NEARBY_MARKER_LABEL =
                 "Player1NearbyMarker";
             inline const static std::string PLAYER2_NEARBY_MARKER_LABEL =
@@ -193,6 +191,8 @@ namespace tomcat {
             int MAP_SECTION_MIN_Z = -10;
             int MAP_SECTION_MAX_Z = 60;
 
+            int MARKER_PROXIMITY_DISTANCE = 2;
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -295,10 +295,10 @@ namespace tomcat {
             };
 
             struct Position {
-                int x;
-                int z;
+                double x;
+                double z;
 
-                Position(int x, int z) : x(x), z(z) {}
+                Position(double x, double z) : x(x), z(z) {}
 
                 bool is_inside(const BoundingBox& box) const {
                     return this->x <= box.x2 && this->x >= box.x1 &&
@@ -650,8 +650,6 @@ namespace tomcat {
             std::vector<Tensor3> room_safe_victim_in_fov_per_player;
             std::vector<Tensor3> room_regular_victim_in_fov_per_player;
             std::vector<Tensor3> room_critical_victim_in_fov_per_player;
-            std::vector<Tensor3> marker1_in_fov_per_player;
-            std::vector<Tensor3> marker2_in_fov_per_player;
 
             std::vector<Tensor3> player1_marker1_in_fov_per_player;
             std::vector<Tensor3> player2_marker1_in_fov_per_player;
@@ -683,6 +681,7 @@ namespace tomcat {
             // Auxiliary variables that change over the course of the game
             std::vector<Position> player_position;
             std::vector<MarkerBlock> placed_marker_blocks;
+            std::vector<std::vector<MarkerBlock>> markers_near_door_per_player;
 
             // When processing offline, some measures will be available to
             // process and we save them as ground truth observations so we can

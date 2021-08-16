@@ -128,7 +128,7 @@ namespace tomcat {
                         // marker blocks are detected.
                         int x1 = location["bounds"]["coordinates"][0]["x"];
                         int z1 = location["bounds"]["coordinates"][0]["z"];
-                        Door door({x1, z1});
+                        Door door({x1 + 0.5, z1 + 0.5});
                         door.id = area_id;
                         this->doors.push_back(door);
 
@@ -140,7 +140,7 @@ namespace tomcat {
                         if (area_type == "double_door") {
                             int x2 = location["bounds"]["coordinates"][1]["x"];
                             int z2 = location["bounds"]["coordinates"][1]["z"];
-                            door.position = Position(x2, z2);
+                            door.position = Position(x2 - 0.5, z2 - 0.5);
                             this->doors.push_back(door);
 
                             if (x2 - x1 > 1) {
@@ -379,10 +379,6 @@ namespace tomcat {
                 Tensor3(NO_VICTIM_IN_FOV));
             this->room_critical_victim_in_fov_per_player.push_back(
                 Tensor3(NO_VICTIM_IN_FOV));
-            this->marker1_in_fov_per_player.push_back(
-                Tensor3(NO_NEARBY_MARKER));
-            this->marker2_in_fov_per_player.push_back(
-                Tensor3(NO_NEARBY_MARKER));
 
             this->player1_marker1_in_fov_per_player.push_back(
                 Tensor3(NO_NEARBY_MARKER));
@@ -411,6 +407,7 @@ namespace tomcat {
 
             // Extras
             this->player_position.push_back({0, 0});
+            this->markers_near_door_per_player.push_back({});
         }
 
         int ASISTMultiPlayerMessageConverter::get_numeric_trial_number(
@@ -933,32 +930,43 @@ namespace tomcat {
 
         void ASISTMultiPlayerMessageConverter::parse_marker_placement_message(
             const nlohmann::json& json_message, int player_number) {
+            const string& type = json_message["data"]["type"];
+            int marker_number = stoi(type.substr(type.length() - 1));
+            this->placed_marker_per_player[player_number] =
+                Tensor3(marker_number);
+
             int x = json_message["data"]["marker_x"];
             int z = json_message["data"]["marker_z"];
-            MarkerBlock marker_block({x, z});
-            marker_block.player_number = player_number;
-            const string& type = json_message["data"]["type"];
-            marker_block.number = stoi(type.substr(type.length() - 1));
+            MarkerBlock marker({x + 0.5, z + 0.5});
+            marker.number = marker_number;
 
-            if (marker_block.number == 3) {
-                // Ignore marker 3 as it's similar to both legend
-                // versions
-                marker_block.number = NO_NEARBY_MARKER;
+            if (marker_number != 3) {
+                for (const auto& door : this->doors) {
+                    if (door.position.get_distance(marker.position) <=
+                        MARKER_PROXIMITY_DISTANCE) {
+                        this->markers_near_door_per_player[player_number]
+                            .push_back(marker);
+                    }
+                }
             }
 
             // If block was placed on top of other, replace the old one
             bool placed_on_top = false;
-            for (int i = 0; i < this->placed_marker_blocks.size(); i++) {
-                if (marker_block.overwrites(this->placed_marker_blocks[i])) {
-                    this->placed_marker_blocks[i] = marker_block;
-                    placed_on_top = true;
+            for (int i = 0; i < this->players.size(); i++) {
+                for (int j = 0;
+                     j < this->markers_near_door_per_player[i].size();
+                     j++) {
+                    if (marker.overwrites(
+                            this->markers_near_door_per_player[i][j])) {
+                        this->markers_near_door_per_player[i][j] = marker;
+                        placed_on_top = true;
+                        break;
+                    }
+                }
+
+                if (placed_on_top) {
                     break;
                 }
-            }
-            if (!placed_on_top && marker_block.number != NO_NEARBY_MARKER) {
-                this->placed_marker_blocks.push_back(marker_block);
-                this->placed_marker_per_player[player_number] =
-                    Tensor3(marker_block.number);
             }
         }
 
@@ -1118,9 +1126,6 @@ namespace tomcat {
 
                     if (owner_number >= 0 && owner_number != player_number) {
                         if (json_block["marker_type"] == "MarkerBlock1") {
-                            this->marker1_in_fov_per_player[player_number] =
-                                Tensor3(1);
-
                             if (owner_number == 0) {
                                 this->player1_marker1_in_fov_per_player
                                     [player_number] = Tensor3(1);
@@ -1135,9 +1140,6 @@ namespace tomcat {
                             }
                         }
                         else if (json_block["marker_type"] == "MarkerBlock2") {
-                            this->marker2_in_fov_per_player[player_number] =
-                                Tensor3(1);
-
                             if (owner_number == 0) {
                                 this->player1_marker2_in_fov_per_player
                                     [player_number] = Tensor3(1);
@@ -1261,65 +1263,41 @@ namespace tomcat {
                 // and this block is close enough to a door. We only emmit a
                 // marker if the player is in the hallway and the block is
                 // either 1 or 2.
+                int current_area =
+                    this->area_per_player.at(player_number).at(0, 0, 0);
                 int nearby_marker = NO_NEARBY_MARKER;
                 vector<int> nearby_marker_per_player(3, nearby_marker);
-                // This will be filled later by the ground truth file provided
-                // by ASIST.
-                //                int current_area =
-                //                    this->area_per_player.at(player_number).at(0,
-                //                    0, 0);
-                //                if (current_area == HALLWAY) {
-                //                    for (const auto& block :
-                //                    this->placed_marker_blocks) {
-                //                        if (block.player_number ==
-                //                        player_number ||
-                //                            block.number == 3) {
-                //                            // Marker 1 or 2 placed by another
-                //                            player. continue;
-                //                        }
-                //
-                //                        if
-                //                        (are_within_marker_block_detection_radius(
-                //                                this->player_position[player_number],
-                //                                block.position)) {
-                //
-                //                            Door door =
-                //                            this->get_closest_door(block.position);
-                //                            if
-                //                            (are_within_marker_block_detection_radius(
-                //                                    block.position,
-                //                                    door.position)) {
-                //                                nearby_marker = block.number;
-                //
-                //                                nearby_marker_per_player[block.player_number]
-                //                                =
-                //                                    block.number;
-                //
-                //                                if
-                //                                (!EXISTS(this->next_time_step,
-                //                                            this->nearby_markers_info
-                //                                                [player_number]))
-                //                                                {
-                //                                    this->nearby_markers_info
-                //                                        [player_number][this->next_time_step]
-                //                                        =
-                //                                        vector<MarkerBlockAndDoor>();
-                //                                }
-                //
-                //                                MarkerBlockAndDoor
-                //                                block_and_door(block, door);
-                //                                this
-                //                                    ->nearby_markers_info[player_number]
-                //                                                         [this->next_time_step]
-                //                                    .push_back(block_and_door);
-                //                            }
-                //                        }
-                //                    }
-                //                }
-                data.add_data(
-                    get_player_variable_label(OTHER_PLAYER_NEARBY_MARKER,
-                                              player_number + 1),
-                    nearby_marker);
+                for (int i = 0; i < this->players.size(); i++) {
+                    if (i == player_number)
+                        continue;
+
+                    if (current_area == ROOM)
+                        continue;
+
+                    for (int j = 0;
+                         j < this->markers_near_door_per_player[i].size();
+                         j++) {
+
+                        if (this->player_position[player_number].get_distance(
+                                this->markers_near_door_per_player[i][j]
+                                    .position) <= MARKER_PROXIMITY_DISTANCE) {
+                            nearby_marker_per_player[i] =
+                                this->markers_near_door_per_player[i][j].number;
+
+                            if (nearby_marker_per_player[i] !=
+                                    NO_NEARBY_MARKER &&
+                                nearby_marker_per_player[i] !=
+                                    this->markers_near_door_per_player[i][j]
+                                        .number) {
+                                // Ignore ambiguous markers. Different markers
+                                // placed by the same player close to each
+                                // other.
+                                nearby_marker_per_player[i] = NO_NEARBY_MARKER;
+                            }
+                        }
+                    }
+                }
+
                 if (player_number == 0) {
                     data.add_data(
                         get_player_variable_label(PLAYER2_NEARBY_MARKER_LABEL,
@@ -1383,15 +1361,16 @@ namespace tomcat {
                                   player_number + 1),
                               this->room_critical_victim_in_fov_per_player
                                   [player_number]);
-                data.add_data(
-                    get_player_variable_label(PLAYER_MARKER1_IN_FOV_LABEL,
-                                              player_number + 1),
-                    this->marker1_in_fov_per_player[player_number]);
-                data.add_data(
-                    get_player_variable_label(PLAYER_MARKER2_IN_FOV_LABEL,
-                                              player_number + 1),
-                    this->marker2_in_fov_per_player[player_number]);
 
+                // Only get markers in fov when the player is in a hallway
+                if (current_area == ROOM) {
+                    this->player1_marker1_in_fov_per_player[player_number] =
+                        Tensor3(NO_NEARBY_MARKER);
+                    this->player2_marker1_in_fov_per_player[player_number] =
+                        Tensor3(NO_NEARBY_MARKER);
+                    this->player3_marker1_in_fov_per_player[player_number] =
+                        Tensor3(NO_NEARBY_MARKER);
+                }
                 if (player_number == 0) {
                     data.add_data(
                         get_player_variable_label(
@@ -1475,6 +1454,14 @@ namespace tomcat {
                               this->hallway_critical_victim_in_fov_per_player
                                   [player_number]);
 
+
+                // Only get door status in fov when the player is in a hallway
+                if (current_area == ROOM) {
+                    this->open_door_in_fov_per_player[player_number] =
+                        Tensor3(NO_DOOR_IN_FOV);
+                    this->closed_door_in_fov_per_player[player_number] =
+                        Tensor3(NO_DOOR_IN_FOV);
+                }
                 data.add_data(get_player_variable_label(OPEN_DOOR_IN_FOV_LABEL,
                                                         player_number + 1),
                               this->open_door_in_fov_per_player[player_number]);
@@ -1553,10 +1540,6 @@ namespace tomcat {
                     Tensor3(NO_VICTIM_IN_FOV);
                 this->room_critical_victim_in_fov_per_player[player_number] =
                     Tensor3(NO_VICTIM_IN_FOV);
-                this->marker1_in_fov_per_player[player_number] =
-                    Tensor3(NO_NEARBY_MARKER);
-                this->marker2_in_fov_per_player[player_number] =
-                    Tensor3(NO_NEARBY_MARKER);
 
                 this->player1_marker1_in_fov_per_player[player_number] =
                     Tensor3(NO_NEARBY_MARKER);
@@ -1667,8 +1650,6 @@ namespace tomcat {
             this->room_safe_victim_in_fov_per_player.clear();
             this->room_regular_victim_in_fov_per_player.clear();
             this->room_critical_victim_in_fov_per_player.clear();
-            this->marker1_in_fov_per_player.clear();
-            this->marker2_in_fov_per_player.clear();
 
             this->player1_marker1_in_fov_per_player.clear();
             this->player2_marker1_in_fov_per_player.clear();
@@ -1700,6 +1681,7 @@ namespace tomcat {
             // Extras
             this->player_position.clear();
             this->placed_marker_blocks.clear();
+            this->markers_near_door_per_player.clear();
 
             this->nearby_markers_info.clear();
             this->next_time_step = 0;

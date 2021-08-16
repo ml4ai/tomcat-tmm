@@ -723,6 +723,133 @@ void create_m7_data_from_external_source(const string& input_dir,
     }
 }
 
+void create_m7_player_areas(const string& input_dir, const string& output_dir) {
+    EvidenceSet data(input_dir);
+
+    const auto& area_p1 = data[add_player_suffix(PLAYER_AREA_LABEL, 1)];
+    const auto& area_p2 = data[add_player_suffix(PLAYER_AREA_LABEL, 2)];
+    const auto& area_p3 = data[add_player_suffix(PLAYER_AREA_LABEL, 3)];
+
+    data.add_data(add_player_suffix("Player2" + PLAYER_AREA_LABEL, 1), area_p1);
+    data.add_data(add_player_suffix("Player3" + PLAYER_AREA_LABEL, 1), area_p1);
+    data.add_data(add_player_suffix("Player1" + PLAYER_AREA_LABEL, 2), area_p2);
+    data.add_data(add_player_suffix("Player3" + PLAYER_AREA_LABEL, 2), area_p2);
+    data.add_data(add_player_suffix("Player1" + PLAYER_AREA_LABEL, 3), area_p3);
+    data.add_data(add_player_suffix("Player2" + PLAYER_AREA_LABEL, 3), area_p3);
+
+    data.save(output_dir);
+}
+
+void create_observations_for_next_accessed_area(const string& input_dir,
+                                                const string& output_dir) {
+    EvidenceSet data(input_dir);
+
+    if (!data.get_metadata().empty()) {
+        int num_rows = data.get_num_data_points();
+        int num_cols = data.get_time_steps();
+
+        vector<Eigen::MatrixXd> next_area_per_player1(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
+        vector<Eigen::MatrixXd> next_area_per_player2(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
+
+        for (int player_number = 0; player_number < 3; player_number++) {
+            Eigen::MatrixXd nearby_markers_by_1;
+            Eigen::MatrixXd nearby_markers_by_2;
+
+            if (player_number == 0) {
+                nearby_markers_by_1 = data[add_player_suffix(
+                    P2_NEARBY_MARKER_LABEL, player_number + 1)](0, 0);
+
+                nearby_markers_by_2 = data[add_player_suffix(
+                    P3_NEARBY_MARKER_LABEL, player_number + 1)](0, 0);
+            }
+            else if (player_number == 1) {
+                nearby_markers_by_1 = data[add_player_suffix(
+                    P1_NEARBY_MARKER_LABEL, player_number + 1)](0, 0);
+                nearby_markers_by_2 = data[add_player_suffix(
+                    P3_NEARBY_MARKER_LABEL, player_number + 1)](0, 0);
+            }
+            else {
+                nearby_markers_by_1 = data[add_player_suffix(
+                    P1_NEARBY_MARKER_LABEL, player_number + 1)](0, 0);
+                nearby_markers_by_2 = data[add_player_suffix(
+                    P2_NEARBY_MARKER_LABEL, player_number + 1)](0, 0);
+            }
+
+            for (int d = 0; d < num_rows; d++) {
+                Event event1 = Event::out_of_range;
+                Event event2 = Event::out_of_range;
+                int time_event1;
+                int time_event2;
+                for (int t = 0; t < num_cols; t++) {
+                    // First pair of players
+                    if (event1 == Event::out_of_range &&
+                        nearby_markers_by_1(d, t) != NO_MARKER) {
+                        // Player enters the range of a marker block;
+                        event1 = Event::within_range;
+                        time_event1 = t;
+                    }
+                    else if (event1 == Event::within_range &&
+                             nearby_markers_by_1(d, t) == NO_MARKER) {
+                        // Player leaves the range of a marker block;
+                        event1 = Event::out_of_range;
+
+                        // Fill the resolution area.
+                        int current_area =
+                            data[add_player_suffix(PLAYER_AREA_LABEL,
+                                                   player_number + 1)]
+                                .at(0, d, t);
+                        for (int i = time_event1; i < t; i++) {
+                            next_area_per_player1[player_number](d, i) =
+                                current_area;
+                        }
+                    }
+
+                    // Second pair of players
+                    if (event2 == Event::out_of_range &&
+                        nearby_markers_by_2(d, t) != NO_MARKER) {
+                        // Player enters the range of a marker block;
+                        event2 = Event::within_range;
+                        time_event2 = t;
+                    }
+                    else if (event2 == Event::within_range &&
+                             nearby_markers_by_2(d, t) == NO_MARKER) {
+                        // Player leaves the range of a marker block;
+                        event2 = Event::out_of_range;
+
+                        // Fill the resolution area.
+                        int current_area =
+                            data[add_player_suffix(PLAYER_AREA_LABEL,
+                                                   player_number + 1)]
+                                .at(0, d, t);
+                        for (int i = time_event2; i < t; i++) {
+                            next_area_per_player2[player_number](d, i) =
+                                current_area;
+                        }
+                    }
+                }
+            }
+        }
+
+        EvidenceSet new_data = data;
+        new_data.add_data(add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL, 1),
+                          next_area_per_player1[0]);
+        new_data.add_data(add_player_suffix(NEXT_AREA_AFTER_P3_MARKER_LABEL, 1),
+                          next_area_per_player2[0]);
+        new_data.add_data(add_player_suffix(NEXT_AREA_AFTER_P1_MARKER_LABEL, 2),
+                          next_area_per_player1[1]);
+        new_data.add_data(add_player_suffix(NEXT_AREA_AFTER_P3_MARKER_LABEL, 2),
+                          next_area_per_player2[1]);
+        new_data.add_data(add_player_suffix(NEXT_AREA_AFTER_P1_MARKER_LABEL, 3),
+                          next_area_per_player1[2]);
+        new_data.add_data(add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL, 3),
+                          next_area_per_player2[2]);
+
+        new_data.save(output_dir);
+    }
+}
+
 void split_report_per_trial(const string& report_filepath,
                             const string& output_dir) {
     // Trials are processed in order so we can treat the file considering that
@@ -767,23 +894,6 @@ void split_report_per_trial(const string& report_filepath,
     }
 }
 
-void create_m7_player_areas(const string& input_dir, const string& output_dir) {
-    EvidenceSet data(input_dir);
-
-    const auto& area_p1 = data[add_player_suffix(PLAYER_AREA_LABEL, 1)];
-    const auto& area_p2 = data[add_player_suffix(PLAYER_AREA_LABEL, 2)];
-    const auto& area_p3 = data[add_player_suffix(PLAYER_AREA_LABEL, 3)];
-
-    data.add_data(add_player_suffix("Player2" + PLAYER_AREA_LABEL, 1), area_p1);
-    data.add_data(add_player_suffix("Player3" + PLAYER_AREA_LABEL, 1), area_p1);
-    data.add_data(add_player_suffix("Player1" + PLAYER_AREA_LABEL, 2), area_p2);
-    data.add_data(add_player_suffix("Player3" + PLAYER_AREA_LABEL, 2), area_p2);
-    data.add_data(add_player_suffix("Player1" + PLAYER_AREA_LABEL, 3), area_p3);
-    data.add_data(add_player_suffix("Player2" + PLAYER_AREA_LABEL, 3), area_p3);
-
-    data.save(output_dir);
-}
-
 int main(int argc, char* argv[]) {
     unsigned int option;
     unsigned int num_periods;
@@ -802,12 +912,13 @@ int main(int argc, char* argv[]) {
         "1 - Create TrialPeriod data.\n"
         "2 - Create PlanningBeforeTrial data.\n"
         "3 - Create data for M7 evaluation based on external source. file.\n"
-        "4 - Split report with all the predictions into individual reports per "
-        "trial.\n"
-        "5 - Create extra player areas for M7 models.")(
-        "input_dir",
-        po::value<string>(&input_dir),
-        "Directory where observations are stored.")(
+        "4 - Create extra player areas for M7 models.\n"
+        "5 - Create next accessed areas based on the nearby markers "
+        "observations.\n"
+        "6 - Split report with all the predictions into individual reports per "
+        "trial.\n")("input_dir",
+                    po::value<string>(&input_dir),
+                    "Directory where observations are stored.")(
         "output_dir",
         po::value<string>(&output_dir)->required(),
         "Directory new observations must be saved.")(
@@ -842,20 +953,23 @@ int main(int argc, char* argv[]) {
             input_dir, output_dir, external_filepath);
         break;
     case 4:
-        split_report_per_trial(external_filepath, output_dir);
+        create_m7_player_areas(input_dir, output_dir);
         break;
     case 5:
-        create_m7_player_areas(input_dir, output_dir);
+        create_observations_for_next_accessed_area(input_dir, output_dir);
+        break;
+    case 6:
+        split_report_per_trial(external_filepath, output_dir);
         break;
     }
 
-//        EvidenceSet evidence(
-//            "../../data/asist/study-2_2021.06/evidence/val", false);
-//        evidence.keep_only(4);
-//        evidence.save("../../data/asist/study-2_2021.06/evidence/val_single");
-//
-//        EvidenceSet evidence2(
-//            "../../data/asist/study-2_2021.06/evidence/val", false);
-//        evidence2.keep_only(4);
-//        evidence2.save("../../data/asist/study-2_2021.06/evidence/train_single");
+    //        EvidenceSet evidence(
+    //            "../../data/asist/study-2_2021.06/evidence/val", false);
+    //        evidence.keep_only(4);
+    //        evidence.save("../../data/asist/study-2_2021.06/evidence/val_single");
+    //
+    //        EvidenceSet evidence2(
+    //            "../../data/asist/study-2_2021.06/evidence/val", false);
+    //        evidence2.keep_only(4);
+    //        evidence2.save("../../data/asist/study-2_2021.06/evidence/train_single");
 }
