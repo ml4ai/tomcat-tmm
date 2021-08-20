@@ -160,6 +160,10 @@ namespace tomcat {
                             }
                         }
 
+                        if (num_classes == 2 && max_prob < this->threshold) {
+                            estimated_class = 1 - estimated_class;
+                        }
+
                         int true_class = true_values(i, j);
                         confusion_matrices[fixed_time_step_idx](
                             estimated_class, true_class) += 1;

@@ -46,12 +46,21 @@ namespace po = boost::program_options;
 #define NEXT_AREA_AFTER_P1_MARKER_LABEL "NextAreaAfterP1Marker"
 #define NEXT_AREA_AFTER_P2_MARKER_LABEL "NextAreaAfterP2Marker"
 #define NEXT_AREA_AFTER_P3_MARKER_LABEL "NextAreaAfterP3Marker"
+#define NEXT_AREA_AFTER_P1_MARKER1_LABEL "NextAreaAfterP1Marker1"
+#define NEXT_AREA_AFTER_P2_MARKER1_LABEL "NextAreaAfterP2Marker1"
+#define NEXT_AREA_AFTER_P3_MARKER1_LABEL "NextAreaAfterP3Marker1"
+#define NEXT_AREA_AFTER_P1_MARKER2_LABEL "NextAreaAfterP1Marker2"
+#define NEXT_AREA_AFTER_P2_MARKER2_LABEL "NextAreaAfterP2Marker2"
+#define NEXT_AREA_AFTER_P3_MARKER2_LABEL "NextAreaAfterP3Marker2"
 #define P1_NEARBY_MARKER1_LABEL "Player1NearbyMarker1"
 #define P2_NEARBY_MARKER1_LABEL "Player2NearbyMarker1"
 #define P3_NEARBY_MARKER1_LABEL "Player3NearbyMarker1"
 #define P1_NEARBY_MARKER2_LABEL "Player1NearbyMarker2"
 #define P2_NEARBY_MARKER2_LABEL "Player2NearbyMarker2"
 #define P3_NEARBY_MARKER2_LABEL "Player3NearbyMarker2"
+#define P1_MARKER_RANGE_LABEL "Player1PlayerMarkerRange"
+#define P2_MARKER_RANGE_LABEL "Player2PlayerMarkerRange"
+#define P3_MARKER_RANGE_LABEL "Player3PlayerMarkerRange"
 
 const inline string PLAYER1_PLAYER_MARKER_AREA_LABEL =
     "Player1PlayerMarkerArea";
@@ -753,6 +762,21 @@ void create_observations_for_next_accessed_area(const string& input_dir,
         vector<Eigen::MatrixXd> next_area_per_player2(
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
 
+        vector<Eigen::MatrixXd> next_area_per_player1_m1(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
+        vector<Eigen::MatrixXd> next_area_per_player2_m1(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
+
+        vector<Eigen::MatrixXd> next_area_per_player1_m2(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
+        vector<Eigen::MatrixXd> next_area_per_player2_m2(
+            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
+
+        vector<Eigen::MatrixXd> marker_range_player1(
+            3, Eigen::MatrixXd::Zero(num_rows, num_cols));
+        vector<Eigen::MatrixXd> marker_range_player2(
+            3, Eigen::MatrixXd::Zero(num_rows, num_cols));
+
         for (int player_number = 0; player_number < 3; player_number++) {
             Eigen::MatrixXd nearby_markers_by_1;
             Eigen::MatrixXd nearby_markers_by_2;
@@ -782,6 +806,8 @@ void create_observations_for_next_accessed_area(const string& input_dir,
                 Event event2 = Event::out_of_range;
                 int time_event1;
                 int time_event2;
+                int marker_event1;
+                int marker_event2;
                 for (int t = 0; t < num_cols; t++) {
                     // First pair of players
                     if (event1 == Event::out_of_range &&
@@ -789,21 +815,40 @@ void create_observations_for_next_accessed_area(const string& input_dir,
                         // Player enters the range of a marker block;
                         event1 = Event::within_range;
                         time_event1 = t;
+                        marker_event1 = nearby_markers_by_1(d, t);
                     }
                     else if (event1 == Event::within_range &&
                              nearby_markers_by_1(d, t) == NO_MARKER) {
                         // Player leaves the range of a marker block;
                         event1 = Event::out_of_range;
 
-                        // Fill the resolution area.
+                        // Fill the resolution area for all time steps the
+                        // player spends on a set of markers. This will be used
+                        // to evaluate the performance of the model.
                         int current_area =
                             data[add_player_suffix(PLAYER_AREA_LABEL,
                                                    player_number + 1)]
                                 .at(0, d, t);
+
                         for (int i = time_event1; i < t; i++) {
                             next_area_per_player1[player_number](d, i) =
                                 current_area;
                         }
+
+                        // Unique observation when transition occurs. This will
+                        // be used as a variable in the model.
+                        if (marker_event1 == 1) {
+                            next_area_per_player1_m1[player_number](d, t) =
+                                current_area;
+                        }
+                        else {
+                            next_area_per_player1_m2[player_number](d, t) =
+                                current_area;
+                        }
+                    }
+
+                    if (event1 == Event::within_range) {
+                        marker_range_player1[player_number](d, t) = 1;
                     }
 
                     // Second pair of players
@@ -812,6 +857,7 @@ void create_observations_for_next_accessed_area(const string& input_dir,
                         // Player enters the range of a marker block;
                         event2 = Event::within_range;
                         time_event2 = t;
+                        marker_event2 = nearby_markers_by_2(d, t);
                     }
                     else if (event2 == Event::within_range &&
                              nearby_markers_by_2(d, t) == NO_MARKER) {
@@ -827,6 +873,19 @@ void create_observations_for_next_accessed_area(const string& input_dir,
                             next_area_per_player2[player_number](d, i) =
                                 current_area;
                         }
+
+                        if (marker_event2 == 1) {
+                            next_area_per_player2_m1[player_number](d, t) =
+                                current_area;
+                        }
+                        else {
+                            next_area_per_player2_m2[player_number](d, t) =
+                                current_area;
+                        }
+                    }
+
+                    if (event2 == Event::within_range) {
+                        marker_range_player2[player_number](d, t) = 1;
                     }
                 }
             }
@@ -845,6 +904,63 @@ void create_observations_for_next_accessed_area(const string& input_dir,
                           next_area_per_player1[2]);
         new_data.add_data(add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL, 3),
                           next_area_per_player2[2]);
+
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P2_MARKER1_LABEL, 1),
+            next_area_per_player1_m1[0]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P3_MARKER1_LABEL, 1),
+            next_area_per_player2_m1[0]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P1_MARKER1_LABEL, 2),
+            next_area_per_player1_m1[1]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P3_MARKER1_LABEL, 2),
+            next_area_per_player2_m1[1]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P1_MARKER1_LABEL, 3),
+            next_area_per_player1_m1[2]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P2_MARKER1_LABEL, 3),
+            next_area_per_player2_m1[2]);
+
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P2_MARKER2_LABEL, 1),
+            next_area_per_player1_m2[0]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P3_MARKER2_LABEL, 1),
+            next_area_per_player2_m2[0]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P1_MARKER2_LABEL, 2),
+            next_area_per_player1_m2[1]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P3_MARKER2_LABEL, 2),
+            next_area_per_player2_m2[1]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P1_MARKER2_LABEL, 3),
+            next_area_per_player1_m2[2]);
+        new_data.add_data(
+            add_player_suffix(NEXT_AREA_AFTER_P2_MARKER2_LABEL, 3),
+            next_area_per_player2_m2[2]);
+
+        new_data.add_data(
+            add_player_suffix(P2_MARKER_RANGE_LABEL, 1),
+            marker_range_player1[0]);
+        new_data.add_data(
+            add_player_suffix(P3_MARKER_RANGE_LABEL, 1),
+            marker_range_player2[0]);
+        new_data.add_data(
+            add_player_suffix(P1_MARKER_RANGE_LABEL, 2),
+            marker_range_player1[1]);
+        new_data.add_data(
+            add_player_suffix(P3_MARKER_RANGE_LABEL, 2),
+            marker_range_player2[1]);
+        new_data.add_data(
+            add_player_suffix(P1_MARKER_RANGE_LABEL, 3),
+            marker_range_player1[2]);
+        new_data.add_data(
+            add_player_suffix(P2_MARKER_RANGE_LABEL, 3),
+            marker_range_player2[2]);
 
         new_data.save(output_dir);
     }

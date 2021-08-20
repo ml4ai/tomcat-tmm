@@ -336,21 +336,22 @@ namespace tomcat {
                             }
 
                             MeasurePtr measure;
+                            double thres = 0.5;
                             if (measure_name == Accuracy::NAME) {
                                 measure = make_shared<Accuracy>(
-                                    base_estimator, 0.5, eval_frequency_type);
+                                    base_estimator, thres, eval_frequency_type);
                             }
                             else if (measure_name == F1Score::MACRO_NAME) {
                                 measure =
                                     make_shared<F1Score>(base_estimator,
-                                                         0.5,
+                                                         thres,
                                                          eval_frequency_type,
                                                          true);
                             }
                             else if (measure_name == F1Score::MICRO_NAME) {
                                 measure =
                                     make_shared<F1Score>(base_estimator,
-                                                         0.5,
+                                                         thres,
                                                          eval_frequency_type,
                                                          false);
                             }

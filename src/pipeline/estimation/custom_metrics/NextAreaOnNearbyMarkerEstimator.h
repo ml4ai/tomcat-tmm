@@ -126,6 +126,8 @@ namespace tomcat {
             std::string nearby_marker_label;
             std::string area_label;
             std::string intent_label;
+            std::string state_label;
+            std::string next_area_label;
         };
 
     } // namespace model
