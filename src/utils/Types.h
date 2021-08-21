@@ -7,6 +7,7 @@ namespace tomcat {
     namespace model {
         class Node;
         class RandomVariableNode;
+        class NumericNode;
         class NodeMetadata;
         class CPD;
         class Distribution;
@@ -16,9 +17,11 @@ namespace tomcat {
         typedef std::shared_ptr<NodeMetadata> MetadataPtr;
         typedef std::shared_ptr<Node> NodePtr;
         typedef std::shared_ptr<RandomVariableNode> RVNodePtr;
+        typedef std::shared_ptr<NumericNode> NumNodePtr;
         typedef std::shared_ptr<TimerNode> TimerNodePtr;
         typedef std::vector<NodePtr> NodePtrVec;
         typedef std::vector<RVNodePtr> RVNodePtrVec;
+        typedef std::vector<NumNodePtr> NumNodePtrVec;
         typedef std::vector<TimerNode> TimerNodePtrVec;
         typedef std::shared_ptr<CPD> CPDPtr;
         typedef std::shared_ptr<Distribution> DistributionPtr;

@@ -1,6 +1,6 @@
 #include "pgm/cpd/GammaCPD.h"
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
 
 namespace tomcat {

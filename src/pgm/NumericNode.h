@@ -8,7 +8,7 @@ namespace tomcat {
         /**
          * A node with constant numerical values assigned to it.
          */
-        class ConstantNode : public Node {
+        class NumericNode : public Node {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -20,7 +20,7 @@ namespace tomcat {
              * @param value: node's numerical assignment
              * @param label: node's label
              */
-            ConstantNode(double value, const std::string& label = "unlabeled");
+            NumericNode(double value, const std::string& label = "unlabeled");
 
             /**
              * Creates a constant node with a multidimensional value assigned to
@@ -29,7 +29,7 @@ namespace tomcat {
              * @param values: node's constant assignment
              * * @param label: node's label
              */
-            ConstantNode(const Eigen::VectorXd& values,
+            NumericNode(const Eigen::VectorXd& values,
                          const std::string& label = "unlabeled");
 
             /**
@@ -39,21 +39,21 @@ namespace tomcat {
              * @param values: node's constant assignment
              * * @param label: node's label
              */
-            ConstantNode(const Eigen::VectorXd&& values,
+            NumericNode(const Eigen::VectorXd&& values,
                          const std::string& label = "unlabeled");
 
-            ~ConstantNode();
+            ~NumericNode();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            ConstantNode(const ConstantNode& node);
+            NumericNode(const NumericNode& node);
 
-            ConstantNode& operator=(const ConstantNode& node);
+            NumericNode& operator=(const NumericNode& node);
 
-            ConstantNode(ConstantNode&&) = default;
+            NumericNode(NumericNode&&) = default;
 
-            ConstantNode& operator=(ConstantNode&&) = default;
+            NumericNode& operator=(NumericNode&&) = default;
 
             //------------------------------------------------------------------
             // Member functions

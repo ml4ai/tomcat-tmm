@@ -3,7 +3,7 @@
 #include <gsl/gsl_cdf.h>
 #include <gsl/gsl_randist.h>
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
 
 namespace tomcat {
@@ -18,9 +18,28 @@ namespace tomcat {
 
         Geometric::Geometric(shared_ptr<Node>&& p) : Distribution({move(p)}) {}
 
+        Geometric::Geometric(const vector<shared_ptr<Node>>& p)
+            : Distribution({p}) {
+            // The vector is here just to maintain the same interface
+            // for all distributions, but a geometric distribution cannot have
+            // more than one parameter.
+            if (p.size() > 1) {
+                throw TomcatModelException("A geometric distribution must have "
+                                           "a single parameter node.");
+            }
+        }
+
+        Geometric::Geometric(vector<shared_ptr<Node>>&& p)
+            : Distribution({move(p)}) {
+            if (p.size() > 1) {
+                throw TomcatModelException("A geometric distribution must have "
+                                           "a single parameter node.");
+            }
+        }
+
         Geometric::Geometric(double p) {
-            shared_ptr<ConstantNode> p_node =
-                make_shared<ConstantNode>(ConstantNode(p));
+            shared_ptr<NumericNode> p_node =
+                make_shared<NumericNode>(NumericNode(p));
             this->parameters.push_back(move(p_node));
         }
 
@@ -114,8 +133,13 @@ namespace tomcat {
         unique_ptr<Distribution> Geometric::clone() const {
             unique_ptr<Geometric> new_distribution =
                 make_unique<Geometric>(*this);
-            new_distribution->parameters[0] =
-                new_distribution->parameters[0]->clone();
+
+            for (auto& parameter : new_distribution->parameters) {
+                // Do not clone numeric nodes to allow them to be sharable.
+                if (parameter->is_random_variable()) {
+                    parameter = parameter->clone();
+                }
+            }
 
             return new_distribution;
         }

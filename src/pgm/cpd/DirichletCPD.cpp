@@ -1,6 +1,6 @@
 #include "pgm/cpd/DirichletCPD.h"
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
 
 namespace tomcat {
@@ -95,17 +95,28 @@ namespace tomcat {
             }
         }
 
-        string DirichletCPD::get_name() const {
-            return "Dirichlet";
-        }
+        string DirichletCPD::get_name() const { return "Dirichlet"; }
 
         void DirichletCPD::add_to_sufficient_statistics(
             const vector<double>& values) {
 
+            // The dirichlet distribution works by incrementing the value of a
+            // parameter to allow coefficient sharing among different
+            // distributions.
+
+            // TODO - Fix this if we need a parameter to depend on another node.
+            int distribution_idx = 0;
+            const auto& distribution = this->distributions[distribution_idx];
             scoped_lock lock(*this->sufficient_statistics_mutex);
             for (int value : values) {
-                this->sufficient_statistics(value) += 1;
+                const auto& parameter = distribution->get_parameters()[value];
+                parameter->increment_assignment(1);
             }
+
+            //            scoped_lock lock(*this->sufficient_statistics_mutex);
+            //            for (int value : values) {
+            //                this->sufficient_statistics(value) += 1;
+            //            }
         }
 
         Eigen::MatrixXd DirichletCPD::sample_from_conjugacy(
@@ -122,11 +133,14 @@ namespace tomcat {
             Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
             for (int i = 0; i < distribution_indices.size(); i++) {
                 int distribution_idx = distribution_indices(i);
+                const auto& distribution =
+                    this->distributions[distribution_idx];
+                //                Eigen::VectorXd assignment =
+                //                    distribution->sample_from_conjugacy(
+                //                        random_generator, 0,
+                //                        this->sufficient_statistics);
                 Eigen::VectorXd assignment =
-                    this->distributions[distribution_idx]
-                        ->sample_from_conjugacy(random_generator,
-                                                distribution_idx,
-                                                this->sufficient_statistics);
+                    distribution->sample(random_generator);
                 samples.row(i) = move(assignment);
             }
 
@@ -134,13 +148,17 @@ namespace tomcat {
         }
 
         void DirichletCPD::reset_sufficient_statistics() {
-            this->sufficient_statistics =
-                Eigen::VectorXd::Zero(this->sufficient_statistics.size());
+//            this->sufficient_statistics =
+//                Eigen::VectorXd::Zero(this->sufficient_statistics.size());
+            int distribution_idx = 0;
+            const auto& distribution = this->distributions[distribution_idx];
+            for (const auto& parameter : distribution->get_parameters()) {
+                parameter->pop_assignment();
+                parameter->stack_assignment();
+            }
         }
 
-        bool DirichletCPD::is_continuous() const {
-            return false;
-        }
+        bool DirichletCPD::is_continuous() const { return false; }
 
     } // namespace model
 } // namespace tomcat

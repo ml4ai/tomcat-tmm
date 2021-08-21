@@ -1,9 +1,9 @@
 #include "Gaussian.h"
 
-#include <gsl/gsl_randist.h>
 #include <gsl/gsl_cdf.h>
+#include <gsl/gsl_randist.h>
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 
 namespace tomcat {
     namespace model {
@@ -20,14 +20,33 @@ namespace tomcat {
         Gaussian::Gaussian(shared_ptr<Node>&& mean, shared_ptr<Node>&& variance)
             : Distribution({move(mean), move(variance)}) {}
 
+        Gaussian::Gaussian(const vector<shared_ptr<Node>>& parameters)
+            : Distribution(parameters) {
+            // The vector is here just to maintain the same interface
+            // for all distributions, but a Gaussian distribution cannot have
+            // more than two parameters.
+            if (parameters.size() > 1) {
+                throw TomcatModelException(
+                    "A Gaussian distribution must have two parameter nodes.");
+            }
+        }
+
+        Gaussian::Gaussian(vector<shared_ptr<Node>>& parameters)
+            : Distribution(move(parameters)) {
+            if (parameters.size() > 1) {
+                throw TomcatModelException(
+                    "A Gaussian distribution must have two parameter nodes.");
+            }
+        }
+
         Gaussian::Gaussian(double mean, double variance) {
-            ConstantNode mean_node(mean);
-            ConstantNode variance_node(variance);
+            NumericNode mean_node(mean);
+            NumericNode variance_node(variance);
 
             this->parameters.push_back(
-                make_shared<ConstantNode>(move(mean_node)));
+                make_shared<NumericNode>(move(mean_node)));
             this->parameters.push_back(
-                make_shared<ConstantNode>(move(variance_node)));
+                make_shared<NumericNode>(move(variance_node)));
         }
 
         Gaussian::~Gaussian() {}
@@ -35,9 +54,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        Gaussian::Gaussian(const Gaussian& gaussian) {
-            this->copy(gaussian);
-        }
+        Gaussian::Gaussian(const Gaussian& gaussian) { this->copy(gaussian); }
 
         Gaussian& Gaussian::operator=(const Gaussian& gaussian) {
             this->copy(gaussian);
@@ -107,8 +124,8 @@ namespace tomcat {
 
         Eigen::VectorXd
         Gaussian::sample(const std::shared_ptr<gsl_rng>& random_generator,
-                          const Eigen::VectorXd& weights,
-                          double replace_by_weight) const {
+                         const Eigen::VectorXd& weights,
+                         double replace_by_weight) const {
             throw TomcatModelException("Not defined for continuous "
                                        "distributions.");
         }
@@ -150,7 +167,10 @@ namespace tomcat {
                 make_unique<Gaussian>(*this);
 
             for (auto& parameter : new_distribution->parameters) {
-                parameter = parameter->clone();
+                // Do not clone numeric nodes to allow them to be sharable.
+                if (parameter->is_random_variable()) {
+                    parameter = parameter->clone();
+                }
             }
 
             return new_distribution;

@@ -2,6 +2,7 @@
 
 #include <fstream>
 
+#include <boost/algorithm/string.hpp>
 #include <nlohmann/json.hpp>
 
 #include "distribution/Categorical.h"
@@ -11,9 +12,9 @@
 #include "distribution/Gaussian.h"
 #include "distribution/Geometric.h"
 #include "distribution/Poisson.h"
-#include "pgm/ConstantNode.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/NodeMetadata.h"
+#include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
 #include "pgm/TimerNode.h"
 #include "pgm/cpd/CPD.h"
@@ -36,6 +37,7 @@ namespace tomcat {
 
         typedef unordered_map<string, vector<MetadataPtr>> MetadataMap;
         typedef unordered_map<string, RVNodePtrVec> RVMap;
+        typedef std::unordered_map<std::string, NumNodePtr> VarMap;
         typedef unordered_set<string> NodeSet;
         typedef unordered_map<string, pair<int, int>> ParamMapConfig;
 
@@ -47,6 +49,15 @@ namespace tomcat {
          */
         static void create_timer_metadatas(const nlohmann::json& json_model,
                                            MetadataMap& metadatas);
+
+        /**
+         * Create a map of variables defined in the file, if any.
+         *
+         * @param json_model: json object containing the model's specification
+         * @param variables: variables created so far
+         */
+        static void create_variables(const nlohmann::json& json_model,
+                                     VarMap& variables);
 
         /**
          * Creates metadatas for data nodes and adds to the list of metadatas.
@@ -121,10 +132,12 @@ namespace tomcat {
          * @param cpd: json with the CPD specifications
          * @param cpd_owner_label: label of the node that owns the CPD
          * @param rv_nodes: list of all the nodes in the model
+         * @param variables: list of defined variables
          */
         static void create_cpds(const nlohmann::json& json_cpds,
                                 const string& cpd_owner_label,
-                                const RVMap& rv_nodes);
+                                const RVMap& rv_nodes,
+                                const VarMap& variables);
 
         /**
          * Creates a constant CPD and associates it to the corresponding node.
@@ -136,22 +149,27 @@ namespace tomcat {
          * @param cols: number of columns in the CPD. It can either be the
          * cardinality of the node or the number of parameters of a specific
          * distribution
+         * @param variables: list of defined variables
          */
-        template <class C>
+        template <class C, class D>
         static void create_constant_cpd(const nlohmann::json& json_cpd,
                                         const string& cpd_owner_label,
                                         const RVMap& rv_nodes,
-                                        int cols);
+                                        int cols,
+                                        const VarMap& variables);
 
         /**
-         * Splits a string into a list of doubles given a delimiter.
+         * Splits a string into a list of numeric nodes given a delimiter.
          *
          * @param str: string to be split
          * @param delimiter: delimiter
+         * @param variables: list of defined variables
          *
          * @return list of tokens
          */
-        static vector<double> split_string(string str, string delimiter = ",");
+        static NumNodePtrVec split_string(string str,
+                                          const VarMap& variables,
+                                          string delimiter = ",");
 
         /**
          * Creates a CPD that depend on other nodes (parameter nodes) and
@@ -176,6 +194,10 @@ namespace tomcat {
 
                 MetadataMap metadatas;
                 RVMap rv_nodes;
+                VarMap variables;
+
+                // Create variables if provided
+                create_variables(json_model, variables);
 
                 // Create metadatas
                 create_timer_metadatas(json_model, metadatas);
@@ -209,13 +231,16 @@ namespace tomcat {
 
                 // Create CPDs and connections between parameter and data nodes
                 for (const auto& node : json_model["nodes"]["timers"]) {
-                    create_cpds(node["cpds"], node["label"], rv_nodes);
+                    create_cpds(
+                        node["cpds"], node["label"], rv_nodes, variables);
                 }
                 for (const auto& node : json_model["nodes"]["parameters"]) {
-                    create_cpds(node["cpds"], node["label"], rv_nodes);
+                    create_cpds(
+                        node["cpds"], node["label"], rv_nodes, variables);
                 }
                 for (const auto& node : json_model["nodes"]["data"]) {
-                    create_cpds(node["cpds"], node["label"], rv_nodes);
+                    create_cpds(
+                        node["cpds"], node["label"], rv_nodes, variables);
                 }
 
                 // Create model and add nodes to it
@@ -232,6 +257,20 @@ namespace tomcat {
                 stringstream ss;
                 ss << "The file " << filepath << " does not exist.";
                 throw TomcatModelException(ss.str());
+            }
+        }
+
+        static void create_variables(const nlohmann::json& json_model,
+                                     VarMap& variables) {
+            if (EXISTS("variables", json_model)) {
+                for (const auto& json_variable : json_model["variables"]) {
+                    const string& var_name = json_variable["name"];
+                    double value = json_variable["default_value"];
+                    if (value == 0) {
+                        value = EPSILON; // For numerical stability
+                    }
+                    variables[var_name] = make_shared<NumericNode>(value);
+                }
             }
         }
 
@@ -415,7 +454,8 @@ namespace tomcat {
 
         static void create_cpds(const nlohmann::json& json_cpds,
                                 const string& cpd_owner_label,
-                                const RVMap& rv_nodes) {
+                                const RVMap& rv_nodes,
+                                const VarMap& variables) {
             for (const auto& json_cpd : json_cpds) {
                 const string& distribution = json_cpd["distribution"];
 
@@ -425,32 +465,38 @@ namespace tomcat {
                                               .at(0)
                                               ->get_metadata()
                                               ->get_cardinality();
-                        create_constant_cpd<CategoricalCPD>(
-                            json_cpd, cpd_owner_label, rv_nodes, cardinality);
+                        create_constant_cpd<CategoricalCPD, Categorical>(json_cpd,
+                                                            cpd_owner_label,
+                                                            rv_nodes,
+                                                            cardinality,
+                                                            variables);
                     }
                     else if (distribution == "poisson") {
-                        create_constant_cpd<PoissonCPD>(
-                            json_cpd, cpd_owner_label, rv_nodes, 1);
+                        create_constant_cpd<PoissonCPD, Poisson>(
+                            json_cpd, cpd_owner_label, rv_nodes, 1, variables);
                     }
                     else if (distribution == "geometric") {
-                        create_constant_cpd<GeometricCPD>(
-                            json_cpd, cpd_owner_label, rv_nodes, 1);
+                        create_constant_cpd<GeometricCPD, Geometric>(
+                            json_cpd, cpd_owner_label, rv_nodes, 1, variables);
                     }
                     else if (distribution == "dirichlet") {
                         int sample_size = rv_nodes.at(cpd_owner_label)
                                               .at(0)
                                               ->get_metadata()
                                               ->get_sample_size();
-                        create_constant_cpd<DirichletCPD>(
-                            json_cpd, cpd_owner_label, rv_nodes, sample_size);
+                        create_constant_cpd<DirichletCPD, Dirichlet>(json_cpd,
+                                                          cpd_owner_label,
+                                                          rv_nodes,
+                                                          sample_size,
+                                                          variables);
                     }
                     else if (distribution == "gamma") {
-                        create_constant_cpd<GammaCPD>(
-                            json_cpd, cpd_owner_label, rv_nodes, 2);
+                        create_constant_cpd<GammaCPD, Gamma>(
+                            json_cpd, cpd_owner_label, rv_nodes, 2, variables);
                     }
                     else if (distribution == "gaussian") {
-                        create_constant_cpd<GaussianCPD>(
-                            json_cpd, cpd_owner_label, rv_nodes, 2);
+                        create_constant_cpd<GaussianCPD, Gaussian>(
+                            json_cpd, cpd_owner_label, rv_nodes, 2, variables);
                     }
                     else {
                         stringstream ss;
@@ -505,11 +551,12 @@ namespace tomcat {
             }
         }
 
-        template <class C>
+        template <class C, class D>
         static void create_constant_cpd(const nlohmann::json& json_cpd,
                                         const string& cpd_owner_label,
                                         const RVMap& rv_nodes,
-                                        int cols) {
+                                        int cols,
+                                        const VarMap& variables) {
 
             vector<MetadataPtr> index_metadatas;
             for (const string& index_node_label : json_cpd["index_nodes"]) {
@@ -520,8 +567,8 @@ namespace tomcat {
                     rv_nodes.at(index_node_label).at(0)->get_metadata());
             }
 
-            vector<double> parameter_values =
-                split_string(json_cpd["parameters"], ",");
+            NumNodePtrVec cpd_parameters =
+                split_string(json_cpd["parameters"], variables);
 
             int rows = 1;
             if (rv_nodes.at(cpd_owner_label)
@@ -539,29 +586,66 @@ namespace tomcat {
                     rows *= cardinality;
                 }
             }
-            Eigen::MatrixXd cpd_table =
-                Eigen::Map<Eigen::Matrix<double,
-                                         Eigen::Dynamic,
-                                         Eigen::Dynamic,
-                                         Eigen::RowMajor>>(
-                    parameter_values.data(), rows, cols);
+//            Eigen::MatrixXd cpd_table =
+//                Eigen::Map<Eigen::Matrix<double,
+//                                         Eigen::Dynamic,
+//                                         Eigen::Dynamic,
+//                                         Eigen::RowMajor>>(
+//                    parameter_values.data(), rows, cols);
 
+            // Each row of the matrix comprises the CPD of one of the
+            // node copies
             if (rv_nodes.at(cpd_owner_label).size() == 1) {
-                // Full matrix as CPD
-                CPDPtr cpd = make_shared<C>(index_metadatas, cpd_table);
+                // A single cop comprised of several distributions
+                vector<shared_ptr<D>> distributions;
+                int i = 0;
+                for (int row = 0; row < rows; row++) {
+                    NodePtrVec distribution_parameters;
+                    for (int col = 0; col < cols; col++) {
+                        distribution_parameters.push_back(cpd_parameters.at(i++));
+                    }
+
+                    shared_ptr<D> distribution = make_shared<D>(distribution_parameters);
+                    distributions.push_back(move(distribution));
+                }
+
+                CPDPtr cpd = make_shared<C>(index_metadatas, distributions);
                 const auto& cpd_owner = rv_nodes.at(cpd_owner_label).at(0);
                 cpd_owner->add_cpd_template(move(cpd));
-            }
-            else {
-                // Each row of the matrix comprises the CPD of one of the
-                // node copies
-                for (int i = 0; i < rv_nodes.at(cpd_owner_label).size(); i++) {
-                    CPDPtr cpd =
-                        make_shared<C>(index_metadatas, cpd_table.row(i));
-                    const auto& cpd_owner = rv_nodes.at(cpd_owner_label).at(i);
+            } else {
+                // One CPD per row (per parameter)
+                int i = 0;
+                for (int row = 0; row < rows; row++) {
+                    NodePtrVec distribution_parameters;
+                    for (int col = 0; col < cols; col++) {
+                        distribution_parameters.push_back(cpd_parameters.at(i++));
+                    }
+
+                    shared_ptr<D> distribution = make_shared<D>(distribution_parameters);
+                    vector<shared_ptr<D>> distributions;
+                    distributions.push_back(move(distribution));
+                    CPDPtr cpd = make_shared<C>(index_metadatas, distributions);
+                    const auto& cpd_owner = rv_nodes.at(cpd_owner_label).at(row);
                     cpd_owner->add_cpd_template(move(cpd));
                 }
             }
+
+//            if (rows == 1) {
+//                // Full matrix as CPD
+//                CPDPtr cpd = make_shared<C>(index_metadatas, cpd_table);
+//                const auto& cpd_owner = rv_nodes.at(cpd_owner_label).at(0);
+//                cpd_owner->add_cpd_template(move(cpd));
+//            }
+//            else {
+//                // Each row of the matrix comprises the CPD of one of the
+//                // node copies
+//                for (int i = 0; i < rows; i++) {
+//                    CPDPtr cpd =
+//                        make_shared<C>(index_metadatas, cpd_table.row(i));
+//                    const auto& cpd_owner = rv_nodes.at(cpd_owner_label).at(i);
+//                    cpd_owner->add_cpd_template(move(cpd));
+//                }
+//            }
         }
 
         /**
@@ -572,22 +656,44 @@ namespace tomcat {
          *
          * @return list of tokens
          */
-        static vector<double> split_string(string str, string delimiter) {
-            vector<double> split_list;
-            size_t pos;
-            while ((pos = str.find(delimiter)) != string::npos) {
-                double token = stod(str.substr(0, pos));
-                if (token == 0) {
-                    token = EPSILON; // For numerical stability.
+        static NumNodePtrVec
+        split_string(string str, const VarMap& variables, string delimiter) {
+            NumNodePtrVec values;
+            vector<string> tokens;
+            boost::split(tokens, str, boost::is_any_of(delimiter));
+            for (string token : tokens) {
+                boost::trim(token);
+                if (EXISTS(token, variables)) {
+                    values.push_back(variables.at(token));
                 }
-                split_list.push_back(token);
-                str.erase(0, pos + delimiter.length());
+                else {
+                    double value = stod(token);
+                    if (value == 0) {
+                        value = EPSILON; // For numerical stability.
+                    }
+                    values.push_back(make_shared<NumericNode>(value));
+                }
             }
 
-            double token = stod(str.substr(0, pos));
-            split_list.push_back(token);
-
-            return split_list;
+            return values;
+            //
+            //
+            //
+            //
+            //
+            //            vector<double> split_list;
+            //            size_t pos;
+            //            while ((pos = str.find(delimiter)) != string::npos) {
+            //                double token = stod(str.substr(0, pos));
+            //
+            //                split_list.push_back(token);
+            //                str.erase(0, pos + delimiter.length());
+            //            }
+            //
+            //            double token = stod(str.substr(0, pos));
+            //            split_list.push_back(token);
+            //
+            //            return split_list;
         }
 
         template <class C, class D>
@@ -598,7 +704,7 @@ namespace tomcat {
             vector<MetadataPtr> index_metadatas;
             for (const string& index_node_label : json_cpd["index_nodes"]) {
                 // Index nodes can only be data nodes,
-                // and therefore, only has one copy in
+                // and therefore, only have one copy in
                 // the metadata list.
                 index_metadatas.push_back(
                     rv_nodes.at(index_node_label).at(0)->get_metadata());

@@ -67,7 +67,7 @@ namespace tomcat {
             if (this->placed_by_player_nummber == 0) {
                 this->nearby_marker_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                        "Player1PlayerMarkerRange", this->player_number + 1);
+                        "Player1NearbyMarker", this->player_number + 1);
                 this->area_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "Player1PlayerArea", this->player_number + 1);
@@ -79,7 +79,7 @@ namespace tomcat {
                         "Player1State", this->player_number + 1);
                 this->next_area_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                        "NextAreaAfterP1Marker1", this->player_number + 1);
+                        "NextAreaAfterP1Marker2", this->player_number + 1);
                 //                this->area_label =
                 //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
                 //                        "Player1PlayerMarkerArea",
@@ -88,7 +88,7 @@ namespace tomcat {
             else if (this->placed_by_player_nummber == 1) {
                 this->nearby_marker_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                        "Player2PlayerMarkerRange", this->player_number + 1);
+                        "Player2NearbyMarker", this->player_number + 1);
                 this->area_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "Player2PlayerArea", this->player_number + 1);
@@ -100,7 +100,7 @@ namespace tomcat {
                         "Player2State", this->player_number + 1);
                 this->next_area_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                        "NextAreaAfterP2Marker1", this->player_number + 1);
+                        "NextAreaAfterP2Marker2", this->player_number + 1);
                 //                this->area_label =
                 //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
                 //                        "Player2PlayerMarkerArea",
@@ -109,7 +109,7 @@ namespace tomcat {
             else {
                 this->nearby_marker_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                        "Player3PlayerMarkerRange", this->player_number + 1);
+                        "Player3NearbyMarker", this->player_number + 1);
                 this->area_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "Player3PlayerArea", this->player_number + 1);
@@ -121,7 +121,7 @@ namespace tomcat {
                         "Player3State", this->player_number + 1);
                 this->next_area_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                        "NextAreaAfterP3Marker1", this->player_number + 1);
+                        "NextAreaAfterP3Marker2", this->player_number + 1);
                 //                this->area_label =
                 //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
                 //                        "Player3PlayerMarkerArea",
@@ -222,8 +222,9 @@ namespace tomcat {
             int current_nearby_marker = new_data[this->nearby_marker_label].at(
                 0, data_point, time_step);
 
-            return current_nearby_marker !=
-                   ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
+//            return current_nearby_marker !=
+//                   ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
+            return current_nearby_marker == 2;
             //            return current_nearby_marker == 0 ||
             //            current_nearby_marker == 1;
 

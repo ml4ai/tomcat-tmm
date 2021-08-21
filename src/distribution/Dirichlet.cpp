@@ -2,7 +2,7 @@
 
 #include <gsl/gsl_randist.h>
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
 
 namespace tomcat {
@@ -15,22 +15,22 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Dirichlet::Dirichlet(const vector<shared_ptr<Node>>& alpha)
             : Distribution(alpha) {
-            this->init_constant_alpha();
+//            this->init_constant_alpha();
         }
 
         Dirichlet::Dirichlet(vector<shared_ptr<Node>>&& alpha)
             : Distribution(move(alpha)) {
-            this->init_constant_alpha();
+//            this->init_constant_alpha();
         }
 
         Dirichlet::Dirichlet(const Eigen::VectorXd& alpha) {
-            this->constant_alpha = Eigen::MatrixXd(1, alpha.size());
-            this->constant_alpha.row(0) = alpha;
+//            this->constant_alpha = Eigen::MatrixXd(1, alpha.size());
+//            this->constant_alpha.row(0) = alpha;
 
             for (int i = 0; i < alpha.size(); i++) {
-                ConstantNode parameter_node(alpha(i));
+                NumericNode parameter_node(alpha(i));
                 this->parameters.push_back(
-                    make_shared<ConstantNode>(move(parameter_node)));
+                    make_shared<NumericNode>(move(parameter_node)));
             }
         }
 
@@ -55,7 +55,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void Dirichlet::init_constant_alpha() {
             for (auto& parameter : this->parameters) {
-                if (!dynamic_pointer_cast<ConstantNode>(parameter)) {
+                if (!dynamic_pointer_cast<NumericNode>(parameter)) {
                     // Alpha can only be constant if all the parameter nodes
                     // that composes it are constant.
                     return;
@@ -164,7 +164,10 @@ namespace tomcat {
                 make_unique<Dirichlet>(*this);
 
             for (auto& parameter : new_distribution->parameters) {
-                parameter = parameter->clone();
+                // Do not clone numeric nodes to allow them to be sharable.
+                if (parameter->is_random_variable()) {
+                    parameter = parameter->clone();
+                }
             }
 
             return new_distribution;

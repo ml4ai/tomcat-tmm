@@ -1,6 +1,6 @@
 #include "pgm/cpd/GaussianCPD.h"
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
 
 namespace tomcat {

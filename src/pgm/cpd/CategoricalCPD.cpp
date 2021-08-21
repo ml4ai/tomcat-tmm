@@ -3,7 +3,7 @@
 #include <thread>
 #include <unordered_set>
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 #include "pgm/TimerNode.h"
 #include "utils/EigenExtensions.h"
 #include "utils/Multithreading.h"

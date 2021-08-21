@@ -4,8 +4,8 @@
 
 #include <eigen3/Eigen/Dense>
 
-#include "utils/Definitions.h"
 #include "pgm/NodeMetadata.h"
+#include "utils/Definitions.h"
 
 namespace tomcat {
     namespace model {
@@ -81,6 +81,31 @@ namespace tomcat {
              */
             int get_size() const;
 
+            /**
+             * Saves the node's current assignment for future usage.
+             */
+            void stack_assignment();
+
+            /**
+             * Increments the node's assignment by a value.
+             */
+            void increment_assignment(int increment);
+
+            /**
+             * Sets as the node's assignment a previously stacked assignment. If
+             * there's no assignment stacked, the node's assignment is preserved.
+             */
+            void pop_assignment();
+
+            //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
+            /**
+             * Indicates whether the node is a of type Random Variable
+             */
+            virtual bool is_random_variable() const;
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -134,6 +159,8 @@ namespace tomcat {
             // observable and data is provided). Each value is assigned to a row
             // of the matrix.
             Eigen::MatrixXd assignment;
+
+            Eigen::MatrixXd stacked_assignment;
         };
 
     } // namespace model

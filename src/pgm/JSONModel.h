@@ -18,14 +18,6 @@ namespace tomcat {
     namespace model {
 
         class DynamicBayesNet;
-
-        typedef std::unordered_map<std::string, std::vector<MetadataPtr>>
-            MetadataMap;
-        typedef std::unordered_map<std::string, RVNodePtrVec> RVMap;
-        typedef std::unordered_set<std::string> NodeSet;
-        typedef std::unordered_map<std::string, std::pair<int, int>>
-            ParamMapConfig;
-
         DynamicBayesNet create_model_from_json(const std::string& filepath);
 
     } // namespace model

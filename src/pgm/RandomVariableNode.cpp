@@ -105,6 +105,10 @@ namespace tomcat {
             return this->metadata->get_timed_name(this->time_step);
         }
 
+        bool RandomVariableNode::is_random_variable() const {
+            return true;
+        }
+
         void RandomVariableNode::update_cpd_templates_dependencies(
             const NodeMap& parameter_nodes_map) {
             for (auto& mapping : this->cpd_templates) {

@@ -2,7 +2,7 @@
 
 #include <gsl/gsl_randist.h>
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
 
 namespace tomcat {
@@ -20,15 +20,49 @@ namespace tomcat {
         Categorical::Categorical(shared_ptr<Node>&& probabilities)
             : Distribution({move(probabilities)}) {}
 
+        Categorical::Categorical(const vector<shared_ptr<Node>>& probabilities)
+            : Distribution(probabilities) {
+            if (probabilities.size() > 1) {
+                // Merge individual nodes in a single node containing all the
+                // probabilities
+                Eigen::VectorXd parameter_values(probabilities.size());
+                int i = 0;
+                for (const auto& probability_node : probabilities) {
+                    parameter_values(i++) =
+                        probability_node->get_assignment()(0, 0);
+                }
+                NumNodePtr parameter =
+                    make_shared<NumericNode>(parameter_values);
+                this->parameters = {parameter};
+            }
+        }
+
+        Categorical::Categorical(vector<shared_ptr<Node>>&& probabilities)
+            : Distribution(move(probabilities)) {
+            if (probabilities.size() > 1) {
+                // Merge individual nodes in a single node containing all the
+                // probabilities
+                Eigen::MatrixXd parameter_values(1, probabilities.size());
+                int col = 0;
+                for (const auto& probability_node : probabilities) {
+                    parameter_values(0, col++) =
+                        probability_node->get_assignment()(0, 0);
+                }
+                NumNodePtr parameter =
+                    make_shared<NumericNode>(parameter_values);
+                this->parameters = {parameter};
+            }
+        }
+
         Categorical::Categorical(const Eigen::VectorXd& probabilities) {
-            shared_ptr<ConstantNode> probabilities_node =
-                make_shared<ConstantNode>(ConstantNode(probabilities));
+            shared_ptr<NumericNode> probabilities_node =
+                make_shared<NumericNode>(NumericNode(probabilities));
             this->parameters.push_back(move(probabilities_node));
         }
 
         Categorical::Categorical(const Eigen::VectorXd&& probabilities) {
-            shared_ptr<ConstantNode> probabilities_node =
-                make_shared<ConstantNode>(ConstantNode(move(probabilities)));
+            shared_ptr<NumericNode> probabilities_node =
+                make_shared<NumericNode>(NumericNode(move(probabilities)));
             this->parameters.push_back(move(probabilities_node));
         }
 
@@ -167,9 +201,13 @@ namespace tomcat {
         unique_ptr<Distribution> Categorical::clone() const {
             unique_ptr<Categorical> new_distribution =
                 make_unique<Categorical>(*this);
-            new_distribution->parameters[0] =
-                new_distribution->parameters[0]->clone();
 
+            for (auto& parameter : new_distribution->parameters) {
+                // Do not clone numeric nodes to allow them to be sharable.
+                if (dynamic_pointer_cast<RandomVariableNode>(parameter)) {
+                    parameter = parameter->clone();
+                }
+            }
             return new_distribution;
         }
 
@@ -200,7 +238,7 @@ namespace tomcat {
             weighted_probabilities /= weighted_probabilities.sum();
 
             this->parameters[0] =
-                make_shared<ConstantNode>(weighted_probabilities);
+                make_shared<NumericNode>(weighted_probabilities);
         }
 
     } // namespace model

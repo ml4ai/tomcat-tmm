@@ -79,6 +79,8 @@ namespace tomcat {
 
             std::string get_timed_name() const override;
 
+            bool is_random_variable() const override;
+
             /**
              * Replaces parameter nodes in node dependent CPD templates by a
              * concrete timed-instance node in the unrolled DBN.

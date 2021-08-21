@@ -33,6 +33,22 @@ namespace tomcat {
             Geometric(std::shared_ptr<Node>&& p);
 
             /**
+             * Creates an instance of a Geometric distribution for node
+             * dependent probability of success p.
+             *
+             * @param p: node which the assignment defines the probability p
+             */
+            Geometric(const std::vector<std::shared_ptr<Node>>& p);
+
+            /**
+             * Creates an instance of a Geometric distribution for node
+             * dependent probability p.
+             *
+             * @param p: node which the assignment defines the probability p
+             */
+            Geometric(std::vector<std::shared_ptr<Node>>&& p);
+
+            /**
              * Creates an instance of a Geometric distribution by transforming
              * a numerical probability p a constant node to keep
              * static and node dependent distributions compatible.
@@ -96,8 +112,8 @@ namespace tomcat {
 
             int get_sample_size() const override;
 
-            void
-            update_from_posterior(const Eigen::VectorXd& posterior_weights) override {}
+            void update_from_posterior(
+                const Eigen::VectorXd& posterior_weights) override {}
 
           private:
             //------------------------------------------------------------------

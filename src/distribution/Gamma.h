@@ -25,8 +25,8 @@ namespace tomcat {
              * Creates an instance of a Gamma distribution for node
              * dependent parameters.
              *
-             * @param parameters: nodes which the assignments define the
-             * parameters of the distribution
+             * @param alpha: node containing the value of the parameter alpha
+             * @param beta: node containing the value of the parameter beta
              */
             Gamma(const std::shared_ptr<Node>& alpha,
                   const std::shared_ptr<Node>& beta);
@@ -35,10 +35,28 @@ namespace tomcat {
              * Creates an instance of a Gamma distribution for node
              * dependent parameters.
              *
-             * @param parameters: nodes which the assignments define the
-             * parameters of the distribution
+             * @param alpha: node containing the value of the parameter alpha
+             * @param beta: node containing the value of the parameter beta
              */
             Gamma(std::shared_ptr<Node>&& alpha, std::shared_ptr<Node>&& beta);
+
+            /**
+             * Creates an instance of a Gamma distribution for node
+             * dependent parameters.
+             *
+             * @param parameters: nodes containing the two parameters (alpha and
+             * beta) of a gamma distribution
+             */
+            Gamma(const std::vector<std::shared_ptr<Node>>& parameters);
+
+            /**
+             * Creates an instance of a Gamma distribution for node
+             * dependent parameters.
+             *
+             * @param parameters: nodes containing the two parameters (alpha and
+             * beta) of a gamma distribution
+             */
+            Gamma(std::vector<std::shared_ptr<Node>>& parameters);
 
             /**
              * Creates an instance of a Gamma distribution by transforming
@@ -106,8 +124,8 @@ namespace tomcat {
 
             int get_sample_size() const override;
 
-            void
-            update_from_posterior(const Eigen::VectorXd& posterior_weights) override {}
+            void update_from_posterior(
+                const Eigen::VectorXd& posterior_weights) override {}
 
           private:
             //------------------------------------------------------------------
