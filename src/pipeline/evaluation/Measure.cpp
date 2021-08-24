@@ -165,8 +165,10 @@ namespace tomcat {
                         }
 
                         int true_class = true_values(i, j);
-                        confusion_matrices[fixed_time_step_idx](
-                            estimated_class, true_class) += 1;
+                        if (true_class != NO_OBS) {
+                            confusion_matrices[fixed_time_step_idx](
+                                estimated_class, true_class) += 1;
+                        }
                     }
 
                     if (this->frequency_type == fixed) {

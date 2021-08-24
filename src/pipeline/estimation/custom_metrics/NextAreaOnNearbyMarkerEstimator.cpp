@@ -21,6 +21,7 @@ namespace tomcat {
 
             this->model = model;
             this->inference_horizon = json_config["horizon"];
+            this->marker_number = json_config["marker_number"];
 
             // NextAreaAfterPxMarkerPy
             this->estimates.label =
@@ -77,13 +78,12 @@ namespace tomcat {
                 this->state_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "Player1State", this->player_number + 1);
-                this->next_area_label =
+                this->next_area_m1_label =
+                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                        "NextAreaAfterP1Marker1", this->player_number + 1);
+                this->next_area_m2_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "NextAreaAfterP1Marker2", this->player_number + 1);
-                //                this->area_label =
-                //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                //                        "Player1PlayerMarkerArea",
-                //                        this->player_number + 1);
             }
             else if (this->placed_by_player_nummber == 1) {
                 this->nearby_marker_label =
@@ -98,13 +98,12 @@ namespace tomcat {
                 this->state_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "Player2State", this->player_number + 1);
-                this->next_area_label =
+                this->next_area_m1_label =
+                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                        "NextAreaAfterP2Marker1", this->player_number + 1);
+                this->next_area_m2_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "NextAreaAfterP2Marker2", this->player_number + 1);
-                //                this->area_label =
-                //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                //                        "Player2PlayerMarkerArea",
-                //                        this->player_number + 1);
             }
             else {
                 this->nearby_marker_label =
@@ -119,13 +118,12 @@ namespace tomcat {
                 this->state_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "Player3State", this->player_number + 1);
-                this->next_area_label =
+                this->next_area_m1_label =
+                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
+                        "NextAreaAfterP3Marker1", this->player_number + 1);
+                this->next_area_m2_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
                         "NextAreaAfterP3Marker2", this->player_number + 1);
-                //                this->area_label =
-                //                    ASISTMultiPlayerMessageConverter::get_player_variable_label(
-                //                        "Player3PlayerMarkerArea",
-                //                        this->player_number + 1);
             }
         }
 
@@ -153,6 +151,11 @@ namespace tomcat {
             int n = particles.get_num_data_points();
             Eigen::VectorXd areas = Eigen::VectorXd::Zero(2);
             vector<bool> out_of_marker_range(n, false);
+            int current_nearby_marker = new_data[this->nearby_marker_label].at(
+                0, data_point_idx, time_step);
+            string area_label = current_nearby_marker == 1
+                                    ? this->next_area_m1_label
+                                    : this->next_area_m2_label;
 
             for (int i = 0; i < n; i++) {
                 //                int current_intent =
@@ -162,21 +165,25 @@ namespace tomcat {
                 //                ASISTMultiPlayerMessageConverter::HALLWAY;
                 //                //                bool intent_changed = false;
                 //                // Next area
-//                int area = ASISTMultiPlayerMessageConverter::HALLWAY;
-//                bool in_marker_range = true;
-//                for (int t = 0; t < this->inference_horizon; t++) {
-//                    int area = projected_particles[this->area_label].at(0, i, t);
-//                    int a =
-//                        projected_particles[this->nearby_marker_label].at(
-//                            0, i, t);
-//                    in_marker_range = a == 1;
-//
-//                    if (!in_marker_range) {
-//                        areas[area] += 1;
-//                        break;
-//                    }
-//                }
-                int area = projected_particles[this->next_area_label].at(0, i, 0);
+                //                int area =
+                //                ASISTMultiPlayerMessageConverter::HALLWAY;
+                //                bool in_marker_range = true;
+                //                for (int t = 0; t < this->inference_horizon;
+                //                t++) {
+                //                    int area =
+                //                    projected_particles[this->area_label].at(0,
+                //                    i, t); int a =
+                //                        projected_particles[this->nearby_marker_label].at(
+                //                            0, i, t);
+                //                    in_marker_range = a == 1;
+                //
+                //                    if (!in_marker_range) {
+                //                        areas[area] += 1;
+                //                        break;
+                //                    }
+                //                }
+
+                int area = projected_particles[area_label].at(0, i, 0);
                 areas[area] += 1;
 
                 //                    //                    int next_intent =
@@ -219,12 +226,19 @@ namespace tomcat {
             int data_point, int time_step, const EvidenceSet& new_data) const {
 
             //            bool entered_marker_range = false;
+            int previous_nearby_marker =
+                ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
+            if (time_step > 0) {
+                previous_nearby_marker = new_data[this->nearby_marker_label].at(
+                    0, data_point, time_step - 1);
+            }
             int current_nearby_marker = new_data[this->nearby_marker_label].at(
                 0, data_point, time_step);
 
-//            return current_nearby_marker !=
-//                   ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
-            return current_nearby_marker == 2;
+            //            return current_nearby_marker !=
+            //                   ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
+            return previous_nearby_marker == 0 &&
+                   current_nearby_marker == this->marker_number;
             //            return current_nearby_marker == 0 ||
             //            current_nearby_marker == 1;
 

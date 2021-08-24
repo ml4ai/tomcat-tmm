@@ -766,7 +766,6 @@ void create_observations_for_next_accessed_area(const string& input_dir,
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
         vector<Eigen::MatrixXd> next_area_per_player2_m1(
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
-
         vector<Eigen::MatrixXd> next_area_per_player1_m2(
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
         vector<Eigen::MatrixXd> next_area_per_player2_m2(
@@ -784,7 +783,6 @@ void create_observations_for_next_accessed_area(const string& input_dir,
             if (player_number == 0) {
                 nearby_markers_by_1 = data[add_player_suffix(
                     P2_NEARBY_MARKER_LABEL, player_number + 1)](0, 0);
-
                 nearby_markers_by_2 = data[add_player_suffix(
                     P3_NEARBY_MARKER_LABEL, player_number + 1)](0, 0);
             }

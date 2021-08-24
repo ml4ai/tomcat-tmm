@@ -1267,33 +1267,36 @@ namespace tomcat {
                     this->area_per_player.at(player_number).at(0, 0, 0);
                 int nearby_marker = NO_NEARBY_MARKER;
                 vector<int> nearby_marker_per_player(3, nearby_marker);
-                for (int i = 0; i < this->players.size(); i++) {
-                    if (i == player_number)
-                        continue;
+                if (current_area == HALLWAY) {
+                    for (int i = 0; i < this->players.size(); i++) {
+                        if (i == player_number)
+                            continue;
 
-                    if (current_area == ROOM)
-                        continue;
+                        for (int j = 0;
+                             j < this->markers_near_door_per_player[i].size();
+                             j++) {
 
-                    for (int j = 0;
-                         j < this->markers_near_door_per_player[i].size();
-                         j++) {
-
-                        if (this->player_position[player_number].get_distance(
-                                this->markers_near_door_per_player[i][j]
-                                    .position) <= MARKER_PROXIMITY_DISTANCE) {
-                            if (this->markers_near_door_per_player[i][j].number != 3) {
-                                nearby_marker_per_player[i] =
-                                    this->markers_near_door_per_player[i][j]
-                                        .number;
-
-                                if (nearby_marker_per_player[i] !=
-                                        NO_NEARBY_MARKER &&
-                                    nearby_marker_per_player[i] !=
+                            if (this->player_position[player_number]
+                                    .get_distance(
                                         this->markers_near_door_per_player[i][j]
-                                            .number) {
-                                    // Ignore ambiguous markers. Different markers placed by the same player close to each other.
+                                            .position) <=
+                                MARKER_PROXIMITY_DISTANCE) {
+                                if (this->markers_near_door_per_player[i][j]
+                                        .number != 3) {
                                     nearby_marker_per_player[i] =
-                                        NO_NEARBY_MARKER;
+                                        this->markers_near_door_per_player[i][j]
+                                            .number;
+
+                                    if (nearby_marker_per_player[i] !=
+                                            NO_NEARBY_MARKER &&
+                                        nearby_marker_per_player[i] !=
+                                            this->markers_near_door_per_player
+                                                [i][j]
+                                                    .number) {
+                                        // Ignore ambiguous markers. Different markers placed by the same player close to each other.
+                                        nearby_marker_per_player[i] =
+                                            NO_NEARBY_MARKER;
+                                    }
                                 }
                             }
                         }

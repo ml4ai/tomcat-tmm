@@ -118,6 +118,7 @@ namespace tomcat {
 
             int player_number;
             int placed_by_player_nummber;
+            int marker_number;
 
             mutable bool within_marker_range;
             mutable int time_step_at_entrance;
@@ -127,7 +128,8 @@ namespace tomcat {
             std::string area_label;
             std::string intent_label;
             std::string state_label;
-            std::string next_area_label;
+            std::string next_area_m1_label;
+            std::string next_area_m2_label;
         };
 
     } // namespace model
