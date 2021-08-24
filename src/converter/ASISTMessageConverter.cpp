@@ -146,35 +146,16 @@ namespace tomcat {
                                 throw TomcatModelException(error_msg);
                             }
 
-                            if (json_message["topic"] != nullptr) {
-                                const string& topic = json_message["topic"];
+                            const string& timestamp =
+                                json_message["msg"]["timestamp"];
+                            messages[timestamp] = json_message;
 
-                                if (EXISTS(topic, this->get_used_topics())) {
-                                    if (topic == "trial") {
-                                        // There's an issue with the timestamp
-                                        // in the msg section of trial messages.
-                                        // The timestamp in this section is not
-                                        // being updated when the trial stops.
-                                        const string& timestamp =
-                                            json_message["header"]["timestamp"];
-                                        messages[timestamp] = json_message;
-                                    }
-                                    else {
-                                        const string& timestamp =
-                                            json_message["msg"]["timestamp"];
-                                        messages[timestamp] = json_message;
-                                    }
-
-                                    this->parse_individual_message(
-                                        json_message);
-                                }
-                            }
+                            this->parse_individual_message(json_message);
                         }
                         catch (nlohmann::detail::parse_error& exp) {
                         }
                     }
                 }
-                //                }
             }
 
             return messages;

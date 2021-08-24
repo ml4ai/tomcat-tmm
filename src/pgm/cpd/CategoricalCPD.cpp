@@ -415,8 +415,9 @@ namespace tomcat {
 
             Eigen::VectorXd pdfs(num_rows, 1);
             for (int i = initial_row; i < initial_row + num_rows; i++) {
-                pdfs[i - initial_row] = cpd_table(
-                    distribution_indices[i], cpd_owner->get_assignment()(i, 0));
+                int row = distribution_indices[i];
+                int col = cpd_owner->get_assignment()(i, 0);
+                pdfs(i - initial_row) = cpd_table(row, col);
             }
 
             scoped_lock lock(pdf_mutex);

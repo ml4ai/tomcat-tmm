@@ -1293,7 +1293,9 @@ namespace tomcat {
                                             this->markers_near_door_per_player
                                                 [i][j]
                                                     .number) {
-                                        // Ignore ambiguous markers. Different markers placed by the same player close to each other.
+                                        // Ignore ambiguous markers. Different
+                                        // markers placed by the same player
+                                        // close to each other.
                                         nearby_marker_per_player[i] =
                                             NO_NEARBY_MARKER;
                                     }
@@ -1458,7 +1460,6 @@ namespace tomcat {
                                   player_number + 1),
                               this->hallway_critical_victim_in_fov_per_player
                                   [player_number]);
-
 
                 // Only get door status in fov when the player is in a hallway
                 if (current_area == ROOM) {
