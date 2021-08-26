@@ -138,11 +138,15 @@ namespace tomcat {
             /**
              * Resample particles according to observations.
              *
+             * @param new_data: evidence
              * @param time_step: time step of the particles
+             * @param sampled_particles: indices of the particles to maintain
              *
              * @return Particles generated in the time step
              */
-            EvidenceSet resample(const EvidenceSet& new_data, int time_step);
+            EvidenceSet resample(const EvidenceSet& new_data,
+                                 int time_step,
+                                 const Eigen::VectorXi& sampled_particles);
 
             /**
              * Use observations to weigh most likely particles and sample
@@ -205,11 +209,13 @@ namespace tomcat {
              *
              * @param time_step: time step of the inference process
              * @param particles: resampled particles
+             * @param sampled_particles: indices of theparticles to maintain
              *
              * @return Marginal probabilities
              */
             EvidenceSet apply_rao_blackwellization(int time_step,
-                                                   EvidenceSet& particles);
+                                                   EvidenceSet& particles,
+                                                   const Eigen::VectorXi& sampled_particles);
 
             /**
              * Gets p (child_timer | parent) in a given time step in log scale.
@@ -327,6 +333,9 @@ namespace tomcat {
 
             // Label of the nodes that will be marginalized
             std::unordered_set<std::string> marginal_set;
+
+            // Last marginals computed per marginalizable node
+            std::unordered_map<std::string, Tensor3> previous_marginals;
 
             // Posterior weights updated per particle of nodes being
             // marginalized

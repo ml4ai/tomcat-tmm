@@ -379,6 +379,8 @@ namespace tomcat {
                 Tensor3(NO_VICTIM_IN_FOV));
             this->room_critical_victim_in_fov_per_player.push_back(
                 Tensor3(NO_VICTIM_IN_FOV));
+            this->unrescued_close_victim_in_fov_per_player.push_back(
+                Tensor3(NO_OBS));
 
             this->player1_marker1_in_fov_per_player.push_back(
                 Tensor3(NO_NEARBY_MARKER));
@@ -1047,6 +1049,7 @@ namespace tomcat {
                     int z = json_block["location"][2];
                     stringstream ss;
                     ss << x << "#" << z;
+                    Position victim_position(x, z);
                     string id = ss.str();
 
                     bool in_room;
@@ -1082,6 +1085,15 @@ namespace tomcat {
                             this->hallway_regular_victim_in_fov_per_player
                                 [player_number] = Tensor3(VICTIM_IN_FOV);
                         }
+
+                        if (victim_position.get_distance(
+                                this->player_position[player_number]) <=
+                            CLOSE_VICTIM_DISTANCE) {
+                            // This type of observation is sparse. 0 Means that
+                            // it was detected.
+                            this->unrescued_close_victim_in_fov_per_player
+                                [player_number] = Tensor3(0);
+                        }
                     }
                     else if (block_type == "block_victim_proximity") {
                         this->victim_in_fov_per_player[player_number] =
@@ -1096,6 +1108,15 @@ namespace tomcat {
                         else {
                             this->hallway_critical_victim_in_fov_per_player
                                 [player_number] = Tensor3(VICTIM_IN_FOV);
+                        }
+
+                        if (victim_position.get_distance(
+                                this->player_position[player_number]) <=
+                            CLOSE_VICTIM_DISTANCE) {
+                            // This type of observation is sparse. 0 Means that
+                            // it was detected.
+                            this->unrescued_close_victim_in_fov_per_player
+                                [player_number] = Tensor3(0);
                         }
                     }
                     else if (block_type == "block_victim_saved") {
@@ -1368,6 +1389,11 @@ namespace tomcat {
                                   player_number + 1),
                               this->room_critical_victim_in_fov_per_player
                                   [player_number]);
+                data.add_data(get_player_variable_label(
+                    PLAYER_UNRESCUED_CLOSE_VICTIM_IN_FOV,
+                    player_number + 1),
+                              this->unrescued_close_victim_in_fov_per_player
+                              [player_number]);
 
                 // Only get markers in fov when the player is in a hallway
                 if (current_area == ROOM) {
@@ -1546,6 +1572,8 @@ namespace tomcat {
                     Tensor3(NO_VICTIM_IN_FOV);
                 this->room_critical_victim_in_fov_per_player[player_number] =
                     Tensor3(NO_VICTIM_IN_FOV);
+                this->unrescued_close_victim_in_fov_per_player[player_number] =
+                    Tensor3(NO_OBS);
 
                 this->player1_marker1_in_fov_per_player[player_number] =
                     Tensor3(NO_NEARBY_MARKER);
@@ -1656,6 +1684,7 @@ namespace tomcat {
             this->room_safe_victim_in_fov_per_player.clear();
             this->room_regular_victim_in_fov_per_player.clear();
             this->room_critical_victim_in_fov_per_player.clear();
+            this->unrescued_close_victim_in_fov_per_player.clear();
 
             this->player1_marker1_in_fov_per_player.clear();
             this->player2_marker1_in_fov_per_player.clear();

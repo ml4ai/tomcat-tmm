@@ -212,7 +212,8 @@ namespace tomcat {
                                 Eigen::MatrixXd samples = samples_tensor(0, 0);
 
                                 for (int i = 0; i < samples.rows(); i++) {
-                                    probs[samples(i, t)] += 1;
+                                    int value = samples(i, t);
+                                    probs[value] += 1;
                                 }
 
                                 probs /= samples.rows();
