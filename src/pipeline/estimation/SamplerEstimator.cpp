@@ -237,7 +237,7 @@ namespace tomcat {
                         }
                         else {
                             if (time_step < metadata->get_initial_time_step()) {
-                                prob = get_prior(node)(low);
+                                prob = get_prior(node)((int) low);
                             }
                             else {
                                 const Tensor3 samples_tensor =
