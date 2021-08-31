@@ -233,7 +233,7 @@ namespace tomcat {
 
                         if (marginals.has_data_for(this->estimates.label)) {
                             prob = marginals[this->estimates.label](0, 0).col(
-                                t)(low);
+                                t)((int) low);
                         }
                         else {
                             if (time_step < metadata->get_initial_time_step()) {

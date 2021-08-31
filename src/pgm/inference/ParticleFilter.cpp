@@ -68,9 +68,12 @@ namespace tomcat {
                  this->template_dbn.get_nodes_topological_order(false)) {
                 //                if (!node->get_metadata()->is_replicable() &&
                 //                    !node->get_metadata()->is_parameter()) {
-                if (node->get_metadata()->is_multitime() &&
-                    !node->get_metadata()->is_parameter() &&
-                    !node->get_metadata()->has_multitime_child()) {
+                //                if (node->get_metadata()->is_multitime() &&
+                //                    !node->get_metadata()->is_parameter() &&
+                //                    !node->get_metadata()->has_multitime_child())
+                //                    {
+                if (!node->get_metadata()->is_replicable() &&
+                    !node->get_metadata()->is_parameter()) {
                     RVNodePtr rv_node =
                         dynamic_pointer_cast<RandomVariableNode>(node);
 
@@ -420,7 +423,10 @@ namespace tomcat {
             EvidenceSet& particles,
             const Eigen::VectorXi& sampled_particles) {
             EvidenceSet marginals;
+
+            bool any_child_timer = false;
             for (const auto& node : this->marginal_nodes) {
+                any_child_timer |= node->has_child_timer();
 
                 const auto& metadata = node->get_metadata();
                 const string& node_label = metadata->get_label();
@@ -452,7 +458,8 @@ namespace tomcat {
                     continue;
                 }
 
-                if (sampled_particles.size() == 0) {
+                if (sampled_particles.size() == 0 && !node->has_child_timer() &&
+                    !any_child_timer) {
                     // No new observation. Just repeat the last marginal.
                     if (time_step == metadata->get_initial_time_step()) {
                         Tensor3 prior(SamplerEstimator::get_prior(node));
