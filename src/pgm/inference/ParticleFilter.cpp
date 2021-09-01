@@ -111,6 +111,11 @@ namespace tomcat {
                 this->elapse(new_data, t);
                 Eigen::VectorXi sampled_particles =
                     this->weigh_and_sample_particles(t, new_data);
+                cout << "Particles: " << sampled_particles.transpose() << endl;
+                if (t == 5) {
+                    string v;
+                    cin >> v;
+                }
                 EvidenceSet resampled_particles =
                     this->resample(new_data, t, sampled_particles);
                 marginals.hstack(this->apply_rao_blackwellization(
@@ -226,6 +231,8 @@ namespace tomcat {
                     samples = node->sample(this->random_generators_per_job,
                                            this->num_particles);
                 }
+
+                cout << node_label << ": " << samples.transpose() << endl;
 
                 if (node->get_metadata()->is_timer()) {
                     dynamic_pointer_cast<TimerNode>(node)

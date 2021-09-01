@@ -210,6 +210,7 @@ namespace tomcat {
                                 // take (assuming the node's distribution is
                                 // discrete)
                                 Eigen::MatrixXd samples = samples_tensor(0, 0);
+//                                probs = Eigen::VectorXd::Constant(k, 0);
 
                                 for (int i = 0; i < samples.rows(); i++) {
                                     int value = samples(i, t);
@@ -233,11 +234,11 @@ namespace tomcat {
 
                         if (marginals.has_data_for(this->estimates.label)) {
                             prob = marginals[this->estimates.label](0, 0).col(
-                                t)((int) low);
+                                t)((int)low);
                         }
                         else {
                             if (time_step < metadata->get_initial_time_step()) {
-                                prob = get_prior(node)((int) low);
+                                prob = get_prior(node)((int)low);
                             }
                             else {
                                 const Tensor3 samples_tensor =
