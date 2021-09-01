@@ -148,13 +148,13 @@ namespace tomcat {
 
                     if (time_step - this->last_time_step - 1 == 29) {
                         if (node_label == "MarkerPlacedByPlayerP1") {
-                            cout << "(data) MarkerPlacedByPlayerP1: " << observation.transpose() << endl;
+                            cout << "(data) MarkerPlacedByPlayerP1: " << data.depth(0, time_step - this->last_time_step - 1) << endl;
                         }
                         if (node_label == "MarkerPlacedByPlayerP2") {
-                            cout << "(data) MarkerPlacedByPlayerP2: " << observation.transpose() << endl;
+                            cout << "(data) MarkerPlacedByPlayerP2: " << data.depth(0, time_step - this->last_time_step - 1) << endl;
                         }
                         if (node_label == "MarkerPlacedByPlayerP3") {
-                            cout << "(data) MarkerPlacedByPlayerP3: " << observation.transpose() << endl;
+                            cout << "(data) MarkerPlacedByPlayerP3: " << data.depth(0, time_step - this->last_time_step - 1) << endl;
                         }
                     }
 
