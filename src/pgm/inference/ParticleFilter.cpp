@@ -143,7 +143,32 @@ namespace tomcat {
                     Eigen::MatrixXd observation(1, data.get_shape()[0]);
                     observation.row(0) =
                         data.depth(0, time_step - this->last_time_step - 1);
-                    node->set_assignment(observation.replicate(this->num_particles, 1));
+                    node->set_assignment(
+                        observation.replicate(this->num_particles, 1));
+
+                    if (time_step - this->last_time_step - 1 == 580) {
+                        if (node_label == "MarkerPlacedByPlayerP1") {
+                            cout
+                                << "MarkerPlacedByPlayerP1: "
+                                << observation.replicate(this->num_particles, 1)
+                                       .transpose()
+                                << endl;
+                        }
+                        if (node_label == "MarkerPlacedByPlayerP2") {
+                            cout
+                                << "MarkerPlacedByPlayerP2: "
+                                << observation.replicate(this->num_particles, 1)
+                                       .transpose()
+                                << endl;
+                        }
+                        if (node_label == "MarkerPlacedByPlayerP3") {
+                            cout
+                                << "MarkerPlacedByPlayerP3: "
+                                << observation.replicate(this->num_particles, 1)
+                                       .transpose()
+                                << endl;
+                        }
+                    }
 
                     if (!node->get_metadata()->is_replicable()) {
                         // Freeze node to skip resampling its assignments as
@@ -496,9 +521,10 @@ namespace tomcat {
                 unordered_map<string, Eigen::MatrixXd>
                     segment_log_weights_per_timer;
 
-//                if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
-//                    cout << "-------------START-------------" << endl;
-//                }
+                if (node_label == "TeamMarkerLegendVersion" &&
+                    time_step == 580) {
+                    cout << "-------------START-------------" << endl;
+                }
                 for (const auto& child :
                      this->get_marginal_node_children(node, time_step)) {
 
@@ -522,9 +548,12 @@ namespace tomcat {
                                 child,
                                 this->random_generators_per_job.size());
 
-//                        if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
-//                            cout << "(weights)" << child->get_metadata()->get_label() << ": " << child_weights << endl;
-//                        }
+                        if (node_label == "TeamMarkerLegendVersion" &&
+                            time_step == 580) {
+                            cout << "(weights)"
+                                 << child->get_metadata()->get_label() << ": "
+                                 << child_weights << endl;
+                        }
 
                         if (child->get_metadata()->is_replicable()) {
                             repeatable_child_log_weights.array() +=
@@ -537,11 +566,10 @@ namespace tomcat {
                     }
                 }
 
-//                if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
-//                    cout << "-------------END-------------" << endl;
-//                    string v;
-//                    cin >> v;
-//                }
+                if (node_label == "TeamMarkerLegendVersion" &&
+                    time_step == 580) {
+                    cout << "-------------END-------------" << endl;
+                }
 
                 // Accumulate weights
 
@@ -665,9 +693,13 @@ namespace tomcat {
                 probabilities.array() /= probabilities.sum();
                 marginals.add_data(node_label, Tensor3(probabilities), false);
 
-//                if (node_label == "TeamMarkerLegendVersion") {
-//                    cout << time_step << ": " << probabilities.transpose() << endl;
-//                }
+                if (node_label == "TeamMarkerLegendVersion" &&
+                    time_step == 580) {
+                    cout << time_step << ": " << probabilities.transpose()
+                         << endl;
+                    string v;
+                    cin >> v;
+                }
                 this->previous_marginals[node_label] = marginals[node_label];
 
                 // We also include the particles in case it's necessary
