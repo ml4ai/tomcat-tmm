@@ -146,6 +146,18 @@ namespace tomcat {
                     observation = observation.replicate(this->num_particles, 1);
                     node->set_assignment(observation);
 
+                    if (time_step - this->last_time_step - 1 == 29) {
+                        if (node_label == "MarkerPlacedByPlayerP1") {
+                            cout << "(data) MarkerPlacedByPlayerP1: " << observation.transpose() << endl;
+                        }
+                        if (node_label == "MarkerPlacedByPlayerP2") {
+                            cout << "(data) MarkerPlacedByPlayerP2: " << observation.transpose() << endl;
+                        }
+                        if (node_label == "MarkerPlacedByPlayerP3") {
+                            cout << "(data) MarkerPlacedByPlayerP3: " << observation.transpose() << endl;
+                        }
+                    }
+
                     if (!node->get_metadata()->is_replicable()) {
                         // Freeze node to skip resampling its assignments as
                         // they are all the same and do not change over time.
