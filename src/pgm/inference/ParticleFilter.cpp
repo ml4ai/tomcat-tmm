@@ -651,6 +651,10 @@ namespace tomcat {
                 // in all the particles.
                 probabilities.array() /= probabilities.sum();
                 marginals.add_data(node_label, Tensor3(probabilities), false);
+
+                if (node_label == "TeamMarkerLegendVersion") {
+                    cout << time_step << ": " << probabilities.transpose() << endl;
+                }
                 this->previous_marginals[node_label] = marginals[node_label];
 
                 // We also include the particles in case it's necessary
