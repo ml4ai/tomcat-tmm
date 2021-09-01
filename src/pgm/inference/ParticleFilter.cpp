@@ -586,6 +586,10 @@ namespace tomcat {
                 weights_per_particle = weights_per_particle.array().colwise() /
                                        sum_per_row.array();
 
+                if (node_label == "TeamMarkerLegendVersion") {
+                    cout << time_step << ": " << weights_per_particle << endl;
+                }
+
                 // Compute posterior, calculate estimate based on the
                 // posterior of all the particles and sample a new value
                 // from that posterior.
