@@ -540,6 +540,8 @@ namespace tomcat {
 
                 if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
                     cout << "-------------END-------------" << endl;
+                    string v;
+                    cin >> v;
                 }
 
                 // Accumulate weights
