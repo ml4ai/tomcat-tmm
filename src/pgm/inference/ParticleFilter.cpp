@@ -48,7 +48,7 @@ namespace tomcat {
             // transform the list of distributions matrices of enumerated
             // probabilities in bounded discrete distributions.
             for (const auto& node : this->template_dbn.get_nodes()) {
-                cout << node->get_metadata()->get_label() << endl;
+//                cout << node->get_metadata()->get_label() << endl;
                 if (!node->get_metadata()->is_parameter()) {
                     RVNodePtr rv_node =
                         dynamic_pointer_cast<RandomVariableNode>(node);
