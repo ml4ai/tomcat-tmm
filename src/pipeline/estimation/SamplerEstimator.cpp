@@ -210,7 +210,7 @@ namespace tomcat {
                                 // take (assuming the node's distribution is
                                 // discrete)
                                 Eigen::MatrixXd samples = samples_tensor(0, 0);
-//                                probs = Eigen::VectorXd::Constant(k, 0);
+                                probs = Eigen::VectorXd::Zero(k);
 
                                 for (int i = 0; i < samples.rows(); i++) {
                                     int value = samples(i, t);
