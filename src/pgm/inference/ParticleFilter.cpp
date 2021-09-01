@@ -519,6 +519,10 @@ namespace tomcat {
                                 child,
                                 this->random_generators_per_job.size());
 
+                        if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
+                            cout << child->get_metadata()->get_label() << ": " << child_weights << endl;
+                        }
+
                         if (child->get_metadata()->is_replicable()) {
                             repeatable_child_log_weights.array() +=
                                 (child_weights.array() + EPSILON).log();
@@ -585,10 +589,6 @@ namespace tomcat {
                     weights_per_particle.rowwise().sum();
                 weights_per_particle = weights_per_particle.array().colwise() /
                                        sum_per_row.array();
-
-                if (node_label == "TeamMarkerLegendVersion") {
-                    cout << time_step << ": " << weights_per_particle << endl;
-                }
 
                 // Compute posterior, calculate estimate based on the
                 // posterior of all the particles and sample a new value
