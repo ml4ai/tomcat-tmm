@@ -704,7 +704,7 @@ namespace tomcat {
                     cout << time_step << ": " << probabilities.transpose()
                          << endl;
                     string v;
-                    cin >> v;
+//                    cin >> v;
                 }
                 this->previous_marginals[node_label] = marginals[node_label];
 
