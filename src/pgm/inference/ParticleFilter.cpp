@@ -146,29 +146,29 @@ namespace tomcat {
                     node->set_assignment(
                         observation.replicate(this->num_particles, 1));
 
-                    if (time_step - this->last_time_step - 1 == 580) {
-                        if (node_label == "MarkerPlacedByPlayerP1") {
-                            cout
-                                << "MarkerPlacedByPlayerP1: "
-                                << observation.replicate(this->num_particles, 1)
-                                       .transpose()
-                                << endl;
-                        }
-                        if (node_label == "MarkerPlacedByPlayerP2") {
-                            cout
-                                << "MarkerPlacedByPlayerP2: "
-                                << observation.replicate(this->num_particles, 1)
-                                       .transpose()
-                                << endl;
-                        }
-                        if (node_label == "MarkerPlacedByPlayerP3") {
-                            cout
-                                << "MarkerPlacedByPlayerP3: "
-                                << observation.replicate(this->num_particles, 1)
-                                       .transpose()
-                                << endl;
-                        }
-                    }
+//                    if (time_step - this->last_time_step - 1 == 580) {
+//                        if (node_label == "MarkerPlacedByPlayerP1") {
+//                            cout
+//                                << "MarkerPlacedByPlayerP1: "
+//                                << observation.replicate(this->num_particles, 1)
+//                                       .transpose()
+//                                << endl;
+//                        }
+//                        if (node_label == "MarkerPlacedByPlayerP2") {
+//                            cout
+//                                << "MarkerPlacedByPlayerP2: "
+//                                << observation.replicate(this->num_particles, 1)
+//                                       .transpose()
+//                                << endl;
+//                        }
+//                        if (node_label == "MarkerPlacedByPlayerP3") {
+//                            cout
+//                                << "MarkerPlacedByPlayerP3: "
+//                                << observation.replicate(this->num_particles, 1)
+//                                       .transpose()
+//                                << endl;
+//                        }
+//                    }
 
                     if (!node->get_metadata()->is_replicable()) {
                         // Freeze node to skip resampling its assignments as
@@ -522,7 +522,7 @@ namespace tomcat {
                     segment_log_weights_per_timer;
 
                 if (node_label == "TeamMarkerLegendVersion" &&
-                    time_step == 580) {
+                    time_step >= 579 && time_step <= 581) {
                     cout << "-------------START-------------" << endl;
                 }
                 for (const auto& child :
@@ -549,7 +549,7 @@ namespace tomcat {
                                 this->random_generators_per_job.size());
 
                         if (node_label == "TeamMarkerLegendVersion" &&
-                            time_step == 580) {
+                            time_step >= 579 && time_step <= 581) {
                             cout << "(weights)"
                                  << child->get_metadata()->get_label() << ": "
                                  << child_weights << endl;
@@ -567,7 +567,7 @@ namespace tomcat {
                 }
 
                 if (node_label == "TeamMarkerLegendVersion" &&
-                    time_step == 580) {
+                    time_step >= 579 && time_step <= 581) {
                     cout << "-------------END-------------" << endl;
                 }
 
