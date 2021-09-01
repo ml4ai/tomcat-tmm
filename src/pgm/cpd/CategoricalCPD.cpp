@@ -267,30 +267,6 @@ namespace tomcat {
             Eigen::MatrixXi binary_assignment =
                 to_categorical(assignment, distributions_table.cols());
 
-            if (assignment(0) != NO_OBS) {
-                if (cpd_owner->get_metadata()->get_label() ==
-                    "MarkerPlacedByPlayerP1") {
-                    cout << "MarkerPlacedByPlayerP1: " << assignment.transpose()
-                         << endl;
-                    cout << "MarkerPlacedByPlayerP1: " << binary_assignment
-                         << endl;
-                }
-                if (cpd_owner->get_metadata()->get_label() ==
-                    "MarkerPlacedByPlayerP2") {
-                    cout << "MarkerPlacedByPlayerP2: " << assignment.transpose()
-                         << endl;
-                    cout << "MarkerPlacedByPlayerP2: " << binary_assignment
-                         << endl;
-                }
-                if (cpd_owner->get_metadata()->get_label() ==
-                    "MarkerPlacedByPlayerP3") {
-                    cout << "MarkerPlacedByPlayerP3: " << assignment.transpose()
-                         << endl;
-                    cout << "MarkerPlacedByPlayerP3: " << binary_assignment
-                         << endl;
-                }
-            }
-
             int num_distributions = distributions_table.rows();
             Eigen::MatrixXi binary_distribution_indices =
                 Eigen::MatrixXi::Zero(num_rows, num_distributions);
@@ -335,6 +311,26 @@ namespace tomcat {
             }
 
             scoped_lock lock(weights_mutex);
+            if (assignment(0) != NO_OBS) {
+                if (cpd_owner->get_metadata()->get_label() ==
+                    "MarkerPlacedByPlayerP1") {
+                    cout << initial_row << " - (w) MarkerPlacedByPlayerP1: " << weights << endl;
+                    cout << initial_row << " - (ba) MarkerPlacedByPlayerP1: " << binary_assignment
+                         << endl;
+                }
+                if (cpd_owner->get_metadata()->get_label() ==
+                    "MarkerPlacedByPlayerP2") {
+                    cout << initial_row << " - (w) MarkerPlacedByPlayerP2: " << weights << endl;
+                    cout << initial_row << " - (ba) MarkerPlacedByPlayerP2: " << binary_assignment
+                         << endl;
+                }
+                if (cpd_owner->get_metadata()->get_label() ==
+                    "MarkerPlacedByPlayerP3") {
+                    cout << initial_row << " - (w) MarkerPlacedByPlayerP3: " << weights << endl;
+                    cout << initial_row << " - (ba) MarkerPlacedByPlayerP3: " << binary_assignment
+                         << endl;
+                }
+            }
             full_weights.block(initial_row, 0, num_rows, cardinality) = weights;
         }
 
