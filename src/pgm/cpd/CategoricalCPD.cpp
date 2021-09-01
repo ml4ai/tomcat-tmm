@@ -267,6 +267,19 @@ namespace tomcat {
             Eigen::MatrixXi binary_assignment =
                 to_categorical(assignment, distributions_table.cols());
 
+            if (cpd_owner->get_metadata()->get_label() == "MarkerPlacedByPlayerP1") {
+                cout << "MarkerPlacedByPlayerP1: " << assignment.transpose() << endl;
+                cout << "MarkerPlacedByPlayerP1: " << binary_assignment << endl;
+            }
+            if (cpd_owner->get_metadata()->get_label() == "MarkerPlacedByPlayerP2") {
+                cout << "MarkerPlacedByPlayerP2: " << assignment.transpose() << endl;
+                cout << "MarkerPlacedByPlayerP2: " << binary_assignment << endl;
+            }
+            if (cpd_owner->get_metadata()->get_label() == "MarkerPlacedByPlayerP3") {
+                cout << "MarkerPlacedByPlayerP3: " << assignment.transpose() << endl;
+                cout << "MarkerPlacedByPlayerP3: " << binary_assignment << endl;
+            }
+
             int num_distributions = distributions_table.rows();
             Eigen::MatrixXi binary_distribution_indices =
                 Eigen::MatrixXi::Zero(num_rows, num_distributions);

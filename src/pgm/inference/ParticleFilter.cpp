@@ -496,6 +496,10 @@ namespace tomcat {
                 // there's a jump) others won't.
                 unordered_map<string, Eigen::MatrixXd>
                     segment_log_weights_per_timer;
+
+                if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
+                    cout << "-------------START-------------" << endl;
+                }
                 for (const auto& child :
                      this->get_marginal_node_children(node, time_step)) {
 
@@ -520,7 +524,7 @@ namespace tomcat {
                                 this->random_generators_per_job.size());
 
                         if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
-                            cout << child->get_metadata()->get_label() << ": " << child_weights << endl;
+                            cout << "(weights)" << child->get_metadata()->get_label() << ": " << child_weights << endl;
                         }
 
                         if (child->get_metadata()->is_replicable()) {
@@ -532,6 +536,10 @@ namespace tomcat {
                                 (child_weights.array() + EPSILON).log();
                         }
                     }
+                }
+
+                if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
+                    cout << "-------------END-------------" << endl;
                 }
 
                 // Accumulate weights
