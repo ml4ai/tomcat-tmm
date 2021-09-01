@@ -627,6 +627,12 @@ namespace tomcat {
                 weights_per_particle = weights_per_particle.array().colwise() /
                                        sum_per_row.array();
 
+                if (node_label == "TeamMarkerLegendVersion" &&
+                    time_step >= 579 && time_step <= 581) {
+                    cout << "(c_weights)" << time_step << ": " << weights_per_particle
+                         << endl;
+                }
+
                 // Compute posterior, calculate estimate based on the
                 // posterior of all the particles and sample a new value
                 // from that posterior.
@@ -694,7 +700,7 @@ namespace tomcat {
                 marginals.add_data(node_label, Tensor3(probabilities), false);
 
                 if (node_label == "TeamMarkerLegendVersion" &&
-                    time_step == 580) {
+                    time_step >= 579 && time_step <= 581) {
                     cout << time_step << ": " << probabilities.transpose()
                          << endl;
                     string v;
