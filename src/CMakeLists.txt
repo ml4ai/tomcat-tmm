@@ -38,6 +38,10 @@ add_executable(convert_study2_hsr asist_study-2_2021.06.cpp)
 target_include_directories(convert_study2_hsr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(convert_study2_hsr PRIVATE ${ALL_LIBS})
 
+add_executable(random_gen random_gen.cpp)
+target_include_directories(random_gen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(random_gen PRIVATE ${ALL_LIBS})
+
 add_executable(merge evidence_merge.cpp)
 target_include_directories(merge PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(merge PRIVATE ${ALL_LIBS})
