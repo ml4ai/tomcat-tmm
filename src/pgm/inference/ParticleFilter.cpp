@@ -48,7 +48,6 @@ namespace tomcat {
             // transform the list of distributions matrices of enumerated
             // probabilities in bounded discrete distributions.
             for (const auto& node : this->template_dbn.get_nodes()) {
-//                cout << node->get_metadata()->get_label() << endl;
                 if (!node->get_metadata()->is_parameter()) {
                     RVNodePtr rv_node =
                         dynamic_pointer_cast<RandomVariableNode>(node);
@@ -112,11 +111,6 @@ namespace tomcat {
                 this->elapse(new_data, t);
                 Eigen::VectorXi sampled_particles =
                     this->weigh_and_sample_particles(t, new_data);
-                cout << "Particles: " << sampled_particles.transpose() << endl;
-                if (t == 5) {
-                    string v;
-                    cin >> v;
-                }
                 EvidenceSet resampled_particles =
                     this->resample(new_data, t, sampled_particles);
                 marginals.hstack(this->apply_rao_blackwellization(
@@ -151,30 +145,6 @@ namespace tomcat {
                         data.depth(0, time_step - this->last_time_step - 1);
                     node->set_assignment(
                         observation.replicate(this->num_particles, 1));
-
-//                    if (time_step - this->last_time_step - 1 == 580) {
-//                        if (node_label == "MarkerPlacedByPlayerP1") {
-//                            cout
-//                                << "MarkerPlacedByPlayerP1: "
-//                                << observation.replicate(this->num_particles, 1)
-//                                       .transpose()
-//                                << endl;
-//                        }
-//                        if (node_label == "MarkerPlacedByPlayerP2") {
-//                            cout
-//                                << "MarkerPlacedByPlayerP2: "
-//                                << observation.replicate(this->num_particles, 1)
-//                                       .transpose()
-//                                << endl;
-//                        }
-//                        if (node_label == "MarkerPlacedByPlayerP3") {
-//                            cout
-//                                << "MarkerPlacedByPlayerP3: "
-//                                << observation.replicate(this->num_particles, 1)
-//                                       .transpose()
-//                                << endl;
-//                        }
-//                    }
 
                     if (!node->get_metadata()->is_replicable()) {
                         // Freeze node to skip resampling its assignments as
@@ -232,8 +202,6 @@ namespace tomcat {
                     samples = node->sample(this->random_generators_per_job,
                                            this->num_particles);
                 }
-
-                cout << node_label << ": " << samples.transpose() << endl;
 
                 if (node->get_metadata()->is_timer()) {
                     dynamic_pointer_cast<TimerNode>(node)
@@ -529,10 +497,6 @@ namespace tomcat {
                 unordered_map<string, Eigen::MatrixXd>
                     segment_log_weights_per_timer;
 
-                if (node_label == "TeamMarkerLegendVersion" &&
-                    time_step >= 579 && time_step <= 581) {
-                    cout << "-------------START-------------" << endl;
-                }
                 for (const auto& child :
                      this->get_marginal_node_children(node, time_step)) {
 
@@ -556,13 +520,6 @@ namespace tomcat {
                                 child,
                                 this->random_generators_per_job.size());
 
-                        if (node_label == "TeamMarkerLegendVersion" &&
-                            time_step >= 579 && time_step <= 581) {
-                            cout << "(weights)"
-                                 << child->get_metadata()->get_label() << ": "
-                                 << child_weights << endl;
-                        }
-
                         if (child->get_metadata()->is_replicable()) {
                             repeatable_child_log_weights.array() +=
                                 (child_weights.array() + EPSILON).log();
@@ -572,11 +529,6 @@ namespace tomcat {
                                 (child_weights.array() + EPSILON).log();
                         }
                     }
-                }
-
-                if (node_label == "TeamMarkerLegendVersion" &&
-                    time_step >= 579 && time_step <= 581) {
-                    cout << "-------------END-------------" << endl;
                 }
 
                 // Accumulate weights
@@ -634,12 +586,6 @@ namespace tomcat {
                     weights_per_particle.rowwise().sum();
                 weights_per_particle = weights_per_particle.array().colwise() /
                                        sum_per_row.array();
-
-                if (node_label == "TeamMarkerLegendVersion" &&
-                    time_step >= 579 && time_step <= 581) {
-                    cout << "(c_weights)" << time_step << ": " << weights_per_particle
-                         << endl;
-                }
 
                 // Compute posterior, calculate estimate based on the
                 // posterior of all the particles and sample a new value
@@ -706,14 +652,6 @@ namespace tomcat {
                 // in all the particles.
                 probabilities.array() /= probabilities.sum();
                 marginals.add_data(node_label, Tensor3(probabilities), false);
-
-                if (node_label == "TeamMarkerLegendVersion" &&
-                    time_step >= 579 && time_step <= 581) {
-                    cout << time_step << ": " << probabilities.transpose()
-                         << endl;
-                    string v;
-//                    cin >> v;
-                }
                 this->previous_marginals[node_label] = marginals[node_label];
 
                 // We also include the particles in case it's necessary

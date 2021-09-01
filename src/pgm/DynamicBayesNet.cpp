@@ -632,7 +632,6 @@ namespace tomcat {
         DynamicBayesNet DynamicBayesNet::clone(bool unroll) const {
             DynamicBayesNet new_dbn(this->node_templates.size());
             for (const auto& node_template : this->node_templates) {
-                cout << node_template->get_metadata()->get_label() << endl;
                 new_dbn.add_node_template(node_template);
             }
 
