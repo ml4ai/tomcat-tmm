@@ -496,9 +496,9 @@ namespace tomcat {
                 unordered_map<string, Eigen::MatrixXd>
                     segment_log_weights_per_timer;
 
-                if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
-                    cout << "-------------START-------------" << endl;
-                }
+//                if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
+//                    cout << "-------------START-------------" << endl;
+//                }
                 for (const auto& child :
                      this->get_marginal_node_children(node, time_step)) {
 
@@ -522,9 +522,9 @@ namespace tomcat {
                                 child,
                                 this->random_generators_per_job.size());
 
-                        if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
-                            cout << "(weights)" << child->get_metadata()->get_label() << ": " << child_weights << endl;
-                        }
+//                        if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
+//                            cout << "(weights)" << child->get_metadata()->get_label() << ": " << child_weights << endl;
+//                        }
 
                         if (child->get_metadata()->is_replicable()) {
                             repeatable_child_log_weights.array() +=
@@ -537,11 +537,11 @@ namespace tomcat {
                     }
                 }
 
-                if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
-                    cout << "-------------END-------------" << endl;
-                    string v;
-                    cin >> v;
-                }
+//                if (node_label == "TeamMarkerLegendVersion" && time_step == 29 ) {
+//                    cout << "-------------END-------------" << endl;
+//                    string v;
+//                    cin >> v;
+//                }
 
                 // Accumulate weights
 
