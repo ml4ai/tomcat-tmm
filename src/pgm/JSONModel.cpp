@@ -247,9 +247,12 @@ namespace tomcat {
                 DynamicBayesNet dbn;
                 for (const auto& [label, node_copies] : rv_nodes) {
                     for (const auto& node : node_copies) {
+                        cout << node->get_metadata()->get_label() << endl;
                         dbn.add_node_template(node);
                     }
                 }
+
+                cout << "------------------" << endl;
 
                 return dbn;
             }
