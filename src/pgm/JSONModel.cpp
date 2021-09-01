@@ -36,7 +36,8 @@ namespace tomcat {
     namespace model {
 
         typedef unordered_map<string, vector<MetadataPtr>> MetadataMap;
-        typedef unordered_map<string, RVNodePtrVec> RVMap;
+        // Keep it sorted to preserve order of computation across machines.
+        typedef map<string, RVNodePtrVec> RVMap;
         typedef std::unordered_map<std::string, NumNodePtr> VarMap;
         typedef unordered_set<string> NodeSet;
         typedef unordered_map<string, pair<int, int>> ParamMapConfig;
