@@ -109,6 +109,10 @@ namespace tomcat {
             }
             for (int t = initial_time_step; t <= final_time_step; t++) {
                 this->elapse(new_data, t);
+                if (t >= 329 && t <= 330) {
+                    string stop;
+                    cin >> stop;
+                }
                 Eigen::VectorXi sampled_particles =
                     this->weigh_and_sample_particles(t, new_data);
                 EvidenceSet resampled_particles =
@@ -203,12 +207,8 @@ namespace tomcat {
                                            this->num_particles);
                 }
 
-                if (time_step <= 5) {
+                if (time_step >= 328 && time_step <= 330) {
                     cout << time_step << " - " << node_label << ": " << samples.transpose() << endl;
-                    if (time_step == 5) {
-                        string stop;
-                        cin >> stop;
-                    }
                 }
 
                 if (node->get_metadata()->is_timer()) {
