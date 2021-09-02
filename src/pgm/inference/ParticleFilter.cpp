@@ -203,6 +203,14 @@ namespace tomcat {
                                            this->num_particles);
                 }
 
+                if (time_step <= 5) {
+                    cout << time_step << " - " << node_label << ": " << samples.transpose() << endl;
+                    if (time_step == 5) {
+                        string stop;
+                        cin >> stop;
+                    }
+                }
+
                 if (node->get_metadata()->is_timer()) {
                     dynamic_pointer_cast<TimerNode>(node)
                         ->set_forward_assignment(samples);
