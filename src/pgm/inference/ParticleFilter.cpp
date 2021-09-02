@@ -109,7 +109,7 @@ namespace tomcat {
             }
             for (int t = initial_time_step; t <= final_time_step; t++) {
                 this->elapse(new_data, t);
-                if (t >= 329 && t <= 330) {
+                if (t == 330) {
                     string stop;
                     cin >> stop;
                 }
