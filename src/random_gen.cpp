@@ -33,4 +33,15 @@ int main(int argc, char* argv[]) {
         samples(i) = cat.sample(random_generator1, 0)(0,0);
     }
     cout << samples.transpose() << endl;
+
+
+    shared_ptr<gsl_rng> random_generator2(gsl_rng_alloc(gsl_rng_mt19937));
+    Eigen::VectorXd p2(10);
+    p2 << 0.110194, 0.110194, 0.110194, 1.15124e-08, 0.11845, 0.110194, 0.110194, 0.110194, 0.110194, 0.110194;
+    Categorical cat2(p2);
+    cout << "Samples from a quasi-uniform distribution." << endl;
+    for (int i = 0; i < 20; i++) {
+        samples(i) = cat.sample(random_generator2, 0)(0,0);
+    }
+    cout << samples.transpose() << endl;
 }
