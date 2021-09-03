@@ -109,12 +109,17 @@ namespace tomcat {
             }
             for (int t = initial_time_step; t <= final_time_step; t++) {
                 this->elapse(new_data, t);
-                if (t == 330) {
-                    string stop;
-                    cin >> stop;
-                }
                 Eigen::VectorXi sampled_particles =
                     this->weigh_and_sample_particles(t, new_data);
+                if (this->stop ) {
+                    if(t >= 328 && t <= 330) {
+                        cout << "Particles: " << sampled_particles.transpose() << endl;
+                    }
+                    if(t == 330) {
+                        string stop;
+                        cin >> stop;
+                    }
+                }
                 EvidenceSet resampled_particles =
                     this->resample(new_data, t, sampled_particles);
                 marginals.hstack(this->apply_rao_blackwellization(
@@ -207,8 +212,11 @@ namespace tomcat {
                                            this->num_particles);
                 }
 
-                if (time_step >= 328 && time_step <= 330) {
-                    cout << time_step << " - " << node_label << ": " << samples.transpose() << endl;
+                if (this->stop) {
+                    if (time_step >= 328 && time_step <= 330) {
+                        cout << time_step << " - " << node_label << ": "
+                             << samples.transpose() << endl;
+                    }
                 }
 
                 if (node->get_metadata()->is_timer()) {
