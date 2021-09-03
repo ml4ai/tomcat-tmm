@@ -25,8 +25,8 @@ namespace tomcat {
              * Creates an instance of a Gaussian distribution for node
              * dependent parameters.
              *
-             * @param parameters: nodes which the assignments define the mean
-             * and the variance of the distribution
+             * @param mean: node containing the value of the mean
+             * @param variance: node containing the value of the variance
              */
             Gaussian(const std::shared_ptr<Node>& mean,
                      const std::shared_ptr<Node>& variance);
@@ -35,11 +35,29 @@ namespace tomcat {
              * Creates an instance of a Gaussian distribution for node
              * dependent parameters.
              *
-             * @param parameters: nodes which the assignments define the mean
-             * and the variance of the distribution
+             * @param mean: node containing the value of the mean
+             * @param variance: node containing the value of the variance
              */
             Gaussian(std::shared_ptr<Node>&& mean,
                      std::shared_ptr<Node>&& variance);
+
+            /**
+             * Creates an instance of a Gaussian distribution for node
+             * dependent parameters.
+             *
+             * @param parameters: nodes containing the two parameters (mean and
+             * variance) of a Gaussian distribution
+             */
+            Gaussian(const std::vector<std::shared_ptr<Node>>& parameters);
+
+            /**
+             * Creates an instance of a Gaussian distribution for node
+             * dependent parameters.
+             *
+             * @param parameters: nodes containing the two parameters (mean and
+             * variance) of a Gaussian distribution
+             */
+            Gaussian(std::vector<std::shared_ptr<Node>>& parameters);
 
             /**
              * Creates an instance of a Gaussian distribution by embedding

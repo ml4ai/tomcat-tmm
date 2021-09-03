@@ -60,15 +60,9 @@ namespace tomcat {
                     node_aggregation.label = evaluations_per_execution[0].label;
                     node_aggregation.assignment =
                         evaluations_per_execution[0].assignment;
-                    vector<Eigen::MatrixXd> evaluation_values;
-                    evaluation_values.reserve(evaluations_per_execution.size());
-
-                    for (const auto& evaluations : evaluations_per_execution) {
-                        evaluation_values.push_back(evaluations.evaluation);
-                    }
 
                     node_aggregation.aggregated_evaluation =
-                        this->compute_aggregation(evaluation_values);
+                        this->compute_aggregation(evaluations_per_execution);
                     this->aggregations_per_measure[m] = move(node_aggregation);
                 }
                 m++;
@@ -76,19 +70,38 @@ namespace tomcat {
         }
 
         Aggregation EvaluationAggregator::compute_aggregation(
-            const vector<Eigen::MatrixXd>& evaluations) const {
+            const vector<NodeEvaluation>& evaluations) const {
 
             Aggregation aggregation;
 
             switch (this->method) {
             case METHOD::no_aggregation: {
-                aggregation.aggregated_values = evaluations;
+                for (const auto& evaluation : evaluations) {
+                    aggregation.aggregated_values.push_back(
+                        evaluation.evaluation);
+
+                    if (evaluation.confusion_matrix.size() > 0) {
+                        aggregation.aggregated_confusion_matrices.push_back(
+                            evaluation.confusion_matrix);
+                    }
+                }
                 break;
             }
             case METHOD::average: {
-                aggregation.aggregated_values = vector<Eigen::MatrixXd>(1);
-                aggregation.aggregated_values[0] = mean(evaluations);
-                aggregation.errors = standard_error(evaluations);
+                vector<Eigen::MatrixXd> values;
+                for (const auto& evaluation : evaluations) {
+                    values.push_back(evaluation.evaluation);
+
+                    // Confusion matrices ate never aggregated
+                    if (evaluation.confusion_matrix.size() > 0) {
+                        aggregation.aggregated_confusion_matrices.push_back(
+                            evaluation.confusion_matrix);
+                    }
+                }
+
+                aggregation.aggregated_values =
+                    vector<Eigen::MatrixXd>(1, mean(values));
+                aggregation.errors = standard_error(values);
                 break;
             }
             default: {
@@ -125,6 +138,14 @@ namespace tomcat {
                         to_string(aggregated_value));
                 }
 
+                json_evaluation["confusion_matrices"] = nlohmann::json::array();
+                for (const auto& confusion_matrix :
+                     aggregations.aggregated_evaluation
+                         .aggregated_confusion_matrices) {
+                    json_evaluation["confusion_matrices"].push_back(
+                        to_string(confusion_matrix));
+                }
+
                 json.push_back(json_evaluation);
             }
         }
@@ -144,6 +165,14 @@ namespace tomcat {
             }
 
             return method_name;
+        }
+
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------\
+
+        bool EvaluationAggregator::has_measures() const {
+            return !this->measures.empty();
         }
 
     } // namespace model

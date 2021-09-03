@@ -55,7 +55,7 @@ namespace tomcat {
             this->area = converter.area;
             this->task = converter.task;
             this->beep = converter.beep;
-            this->elapsed_time = converter.elapsed_time;
+            this->elapsed_seconds = converter.elapsed_seconds;
             this->map_area_configuration = converter.map_area_configuration;
         }
 
@@ -83,7 +83,7 @@ namespace tomcat {
                 json_message["msg"]["sub_type"] == "Event:MissionState") {
                 if (json_message["data"]["mission_state"] == "Start") {
                     this->mission_started = true;
-                    this->elapsed_time = this->time_step_size;
+                    this->elapsed_seconds = this->time_step_size;
 
                     if (this->training_condition.is_empty()) {
                         // In case the message for training condition arrives
@@ -186,7 +186,7 @@ namespace tomcat {
                 const string& timer = json_message["data"]["mission_timer"];
                 int elapsed_time = this->get_elapsed_time(timer);
 
-                if (elapsed_time == this->elapsed_time + this->time_step_size) {
+                if (elapsed_time == this->elapsed_seconds + this->time_step_size) {
                     // Every time there's a transition, we store the last
                     // observations collected.
 
@@ -229,8 +229,8 @@ namespace tomcat {
                         this->task = Tensor3(0);
                     }
 
-                    this->elapsed_time += this->time_step_size;
-                    if (this->elapsed_time >=
+                    this->elapsed_seconds += this->time_step_size;
+                    if (this->elapsed_seconds >=
                         this->time_steps * this->time_step_size) {
                         this->mission_finished = true;
                     }

@@ -1,12 +1,12 @@
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 #include <boost/program_options.hpp>
 #include <gsl/gsl_rng.h>
 
-#include "pgm/DynamicBayesNet.h"
 #include "experiments/Experimentation.h"
+#include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 
 using namespace tomcat::model;
@@ -26,6 +26,7 @@ void train(const string& model_json,
     EvidenceSet training_data(data_dir);
     shared_ptr<DynamicBayesNet> model = make_shared<DynamicBayesNet>(
         DynamicBayesNet ::create_from_json(model_json));
+    num_time_steps = min(num_time_steps, training_data.get_time_steps());
     model->unroll(num_time_steps, true);
 
     Experimentation experimentation(random_generator, "", model);

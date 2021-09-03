@@ -107,6 +107,9 @@ namespace tomcat {
                     random_generators_per_job,
                     node_set.parameter_nodes_per_job);
 
+                this->reset_parameter_sufficient_statistics(
+                    node_set.parameter_nodes_per_job);
+
                 if (this->show_progress) {
                     ++(*progress);
                 }
@@ -135,6 +138,8 @@ namespace tomcat {
                             // not need to be sampled.
                             continue;
                         }
+
+                        node->get_cpd()->reset_sufficient_statistics();
 
                         int job = params % this->num_jobs;
                         params++;
@@ -221,6 +226,8 @@ namespace tomcat {
             // Observable nodes are already frozen by the Gibbs sampler thus
             // there's no need to add them as data in the ancestral sampler.
             AncestralSampler initial_sampler(this->model);
+            initial_sampler.set_time_steps_per_sample(
+                this->time_steps_per_sample);
             initial_sampler.set_num_in_plate_samples(
                 this->num_in_plate_samples);
             initial_sampler.sample(random_generator, 1);
@@ -302,8 +309,8 @@ namespace tomcat {
                 dynamic_pointer_cast<RandomVariableNode>(node);
 
             if (!rv_node->is_frozen()) {
-                Eigen::MatrixXd sample =
-                    rv_node->sample_from_posterior(random_generator_per_job);
+                Eigen::MatrixXd sample = rv_node->sample_from_posterior(
+                    random_generator_per_job, this->time_steps_per_sample);
 
                 if (rv_node->get_metadata()->is_timer()) {
                     dynamic_pointer_cast<TimerNode>(rv_node)
@@ -316,15 +323,8 @@ namespace tomcat {
                 this->keep_sample(rv_node, sample);
             }
 
-            if (node->get_metadata()->is_parameter()) {
-                // As nodes are processed, the sufficient statistic
-                // table of their dependent parent parameter nodes are
-                // updated accordingly. So at this point we already have all
-                // the information needed to sample the parameter from its
-                // posterior.
-                rv_node->reset_sufficient_statistics();
-            }
-            else if (update_sufficient_statistics) {
+            if (!node->get_metadata()->is_parameter() &&
+                update_sufficient_statistics) {
                 rv_node->update_parents_sufficient_statistics();
             }
         }
@@ -348,9 +348,16 @@ namespace tomcat {
                     auto& samples_per_class =
                         this->node_label_to_samples.at(node_label)[i];
                     if (sample.rows() == 1) {
-                        samples_per_class(this->step_counter -
-                                              this->burn_in_period,
-                                          time_step) = sample(0, i);
+                        if (samples_per_class.rows() == 1) {
+                            // Data node
+                            samples_per_class(0, time_step) = sample(0, i);
+                        }
+                        else {
+                            // Parameters
+                            samples_per_class(this->step_counter -
+                                                  this->burn_in_period,
+                                              time_step) = sample(0, i);
+                        }
                     }
                     else {
                         // In-plate nodes always generate a matrix of samples
@@ -399,6 +406,19 @@ namespace tomcat {
                 const auto& timer =
                     dynamic_pointer_cast<TimerNode>(timer_nodes.at(j));
                 timer->update_backward_assignment();
+            }
+        }
+
+        void GibbsSampler::reset_parameter_sufficient_statistics(
+            const std::vector<std::vector<std::shared_ptr<Node>>>&
+                parameter_nodes_per_job) {
+            // Do it sequentially because it's a fast operation and parameters
+            // can share coefficients of some distributions
+            for (const auto& parameter_nodes : parameter_nodes_per_job) {
+                for (auto& parameter_node : parameter_nodes) {
+                    dynamic_pointer_cast<RandomVariableNode>(parameter_node)
+                        ->reset_sufficient_statistics();
+                }
             }
         }
 

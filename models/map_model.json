@@ -1,0 +1,375 @@
+{
+  "nodes": {
+    "timers": [
+    ],
+    "parameters": [
+      {
+        "label": "ThetaPlayerBuildingSection.PlayerBuildingSection.PlayerMapVersion.ObservedPlayerRole.PlanningCondition",
+        "prior": false,
+        "sample_size": 7,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1",
+            "index_nodes": []
+          }
+        ]
+      }
+    ],
+    "data": [
+      {
+        "label": "PlanningCondition",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "PlayerMapVersionP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerMapVersionP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerMapVersionP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerBuildingSectionP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 7,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0",
+            "index_nodes": [
+              "PlayerMapVersionP1",
+              "PlanningCondition"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerBuildingSection.PlayerBuildingSection.PlayerMapVersion.ObservedPlayerRole.PlanningCondition",
+            "index_nodes": [
+              "PlayerBuildingSectionP1",
+              "PlayerMapVersionP1",
+              "ObservedPlayerRoleP1",
+              "PlanningCondition"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerBuildingSectionP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 7,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0",
+            "index_nodes": [
+              "PlayerMapVersionP2",
+              "PlanningCondition"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerBuildingSection.PlayerBuildingSection.PlayerMapVersion.ObservedPlayerRole.PlanningCondition",
+            "index_nodes": [
+              "PlayerBuildingSectionP2",
+              "PlayerMapVersionP2",
+              "ObservedPlayerRoleP2",
+              "PlanningCondition"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerBuildingSectionP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 7,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0",
+            "index_nodes": [
+              "PlayerMapVersionP3",
+              "PlanningCondition"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerBuildingSection.PlayerBuildingSection.PlayerMapVersion.ObservedPlayerRole.PlanningCondition",
+            "index_nodes": [
+              "PlayerBuildingSectionP3",
+              "PlayerMapVersionP3",
+              "ObservedPlayerRoleP3",
+              "PlanningCondition"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerBuildingSectionP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 7,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "PlayerBuildingSectionP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerBuildingSectionP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 7,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "PlayerBuildingSectionP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerBuildingSectionP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 7,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "PlayerBuildingSectionP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerRoleP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,0,0",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerRoleP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,0,0",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerRoleP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,0,0",
+            "index_nodes": [
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "connections": [
+    {
+      "parent": "PlayerMapVersionP1",
+      "child": "PlayerBuildingSectionP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerBuildingSectionP1",
+      "child": "PlayerBuildingSectionP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP1",
+      "child": "PlayerBuildingSectionP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlanningCondition",
+      "child": "PlayerBuildingSectionP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerBuildingSectionP1",
+      "child": "ObservedPlayerBuildingSectionP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerMapVersionP2",
+      "child": "PlayerBuildingSectionP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP2",
+      "child": "PlayerBuildingSectionP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlanningCondition",
+      "child": "PlayerBuildingSectionP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerBuildingSectionP2",
+      "child": "PlayerBuildingSectionP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerBuildingSectionP2",
+      "child": "ObservedPlayerBuildingSectionP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerMapVersionP3",
+      "child": "PlayerBuildingSectionP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP3",
+      "child": "PlayerBuildingSectionP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlanningCondition",
+      "child": "PlayerBuildingSectionP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerBuildingSectionP3",
+      "child": "PlayerBuildingSectionP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerBuildingSectionP3",
+      "child": "ObservedPlayerBuildingSectionP3",
+      "time_crossing": false
+    }
+  ]
+}

@@ -1,0 +1,808 @@
+{
+  "nodes": {
+    "timers": [
+    ],
+    "parameters": [
+      {
+        "label": "ThetaPlayerArea.PlayerIntent",
+        "prior": false,
+        "sample_size": 2,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "ThetaPlayerIntent.PlayerIntent.PlayerMarkerMeaning",
+        "prior": false,
+        "sample_size": 4,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "ThetaNearbyMarker.PlayerIntent",
+        "prior": false,
+        "sample_size": 3,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1,1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "ThetaPlayerMarkerMeaning.PlayerMarkerMeaning",
+        "prior": false,
+        "sample_size": 2,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      }
+    ],
+    "data": [
+      {
+        "label": "Player2PlayerMarkerMeaningP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerMarkerMeaning.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player2PlayerMarkerMeaningP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player3PlayerMarkerMeaningP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerMarkerMeaning.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player3PlayerMarkerMeaningP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player1PlayerMarkerMeaningP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerMarkerMeaning.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player1PlayerMarkerMeaningP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player3PlayerMarkerMeaningP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerMarkerMeaning.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player3PlayerMarkerMeaningP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player1PlayerMarkerMeaningP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerMarkerMeaning.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player1PlayerMarkerMeaningP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player2PlayerMarkerMeaningP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerMarkerMeaning.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player2PlayerMarkerMeaningP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player2PlayerIntentP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1",
+            "index_nodes": [
+              "Player2PlayerMarkerMeaningP1"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerIntent.PlayerIntent.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player2PlayerIntentP1",
+              "Player2PlayerMarkerMeaningP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player3PlayerIntentP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1",
+            "index_nodes": [
+              "Player3PlayerMarkerMeaningP1"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerIntent.PlayerIntent.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player3PlayerIntentP1",
+              "Player3PlayerMarkerMeaningP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player1PlayerIntentP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1",
+            "index_nodes": [
+              "Player1PlayerMarkerMeaningP2"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerIntent.PlayerIntent.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player1PlayerIntentP2",
+              "Player1PlayerMarkerMeaningP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player3PlayerIntentP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1",
+            "index_nodes": [
+              "Player3PlayerMarkerMeaningP2"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerIntent.PlayerIntent.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player3PlayerIntentP2",
+              "Player3PlayerMarkerMeaningP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player1PlayerIntentP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1",
+            "index_nodes": [
+              "Player1PlayerMarkerMeaningP3"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerIntent.PlayerIntent.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player1PlayerIntentP3",
+              "Player1PlayerMarkerMeaningP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player2PlayerIntentP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1",
+            "index_nodes": [
+              "Player2PlayerMarkerMeaningP3"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerIntent.PlayerIntent.PlayerMarkerMeaning",
+            "index_nodes": [
+              "Player2PlayerIntentP3",
+              "Player2PlayerMarkerMeaningP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player2PlayerAreaP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerArea.PlayerIntent",
+            "index_nodes": [
+              "Player2PlayerIntentP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player3PlayerAreaP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerArea.PlayerIntent",
+            "index_nodes": [
+              "Player3PlayerIntentP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player1PlayerAreaP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerArea.PlayerIntent",
+            "index_nodes": [
+              "Player1PlayerIntentP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player3PlayerAreaP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerArea.PlayerIntent",
+            "index_nodes": [
+              "Player3PlayerIntentP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player1PlayerAreaP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerArea.PlayerIntent",
+            "index_nodes": [
+              "Player1PlayerIntentP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player2PlayerAreaP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerArea.PlayerIntent",
+            "index_nodes": [
+              "Player2PlayerIntentP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player2NearbyMarkerP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaNearbyMarker.PlayerIntent",
+            "index_nodes": [
+              "Player2PlayerIntentP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player3NearbyMarkerP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaNearbyMarker.PlayerIntent",
+            "index_nodes": [
+              "Player3PlayerIntentP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player1NearbyMarkerP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaNearbyMarker.PlayerIntent",
+            "index_nodes": [
+              "Player1PlayerIntentP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player3NearbyMarkerP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaNearbyMarker.PlayerIntent",
+            "index_nodes": [
+              "Player3PlayerIntentP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player1NearbyMarkerP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaNearbyMarker.PlayerIntent",
+            "index_nodes": [
+              "Player1PlayerIntentP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Player2NearbyMarkerP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaNearbyMarker.PlayerIntent",
+            "index_nodes": [
+              "Player2PlayerIntentP3"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "connections": [
+    {
+      "parent": "Player2PlayerIntentP1",
+      "child": "Player2PlayerAreaP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player3PlayerIntentP1",
+      "child": "Player3PlayerAreaP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player1PlayerIntentP2",
+      "child": "Player1PlayerAreaP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player3PlayerIntentP2",
+      "child": "Player3PlayerAreaP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player1PlayerIntentP3",
+      "child": "Player1PlayerAreaP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player2PlayerIntentP3",
+      "child": "Player2PlayerAreaP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player2PlayerIntentP1",
+      "child": "Player2PlayerIntentP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player3PlayerIntentP1",
+      "child": "Player3PlayerIntentP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player1PlayerIntentP2",
+      "child": "Player1PlayerIntentP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player3PlayerIntentP2",
+      "child": "Player3PlayerIntentP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player1PlayerIntentP3",
+      "child": "Player1PlayerIntentP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player2PlayerIntentP3",
+      "child": "Player2PlayerIntentP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player2PlayerIntentP1",
+      "child": "Player2NearbyMarkerP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player3PlayerIntentP1",
+      "child": "Player3NearbyMarkerP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player1PlayerIntentP2",
+      "child": "Player1NearbyMarkerP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player3PlayerIntentP2",
+      "child": "Player3NearbyMarkerP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player1PlayerIntentP3",
+      "child": "Player1NearbyMarkerP3",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player2PlayerIntentP3",
+      "child": "Player2NearbyMarkerP3",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player2PlayerMarkerMeaningP1",
+      "child": "Player2PlayerMarkerMeaningP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player3PlayerMarkerMeaningP1",
+      "child": "Player3PlayerMarkerMeaningP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player1PlayerMarkerMeaningP2",
+      "child": "Player1PlayerMarkerMeaningP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player3PlayerMarkerMeaningP2",
+      "child": "Player3PlayerMarkerMeaningP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player1PlayerMarkerMeaningP3",
+      "child": "Player1PlayerMarkerMeaningP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player2PlayerMarkerMeaningP3",
+      "child": "Player2PlayerMarkerMeaningP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "Player2PlayerMarkerMeaningP1",
+      "child": "Player2PlayerIntentP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player3PlayerMarkerMeaningP1",
+      "child": "Player3PlayerIntentP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player1PlayerMarkerMeaningP2",
+      "child": "Player1PlayerIntentP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player3PlayerMarkerMeaningP2",
+      "child": "Player3PlayerIntentP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player1PlayerMarkerMeaningP3",
+      "child": "Player1PlayerIntentP3",
+      "time_crossing": false
+    },
+    {
+      "parent": "Player2PlayerMarkerMeaningP3",
+      "child": "Player2PlayerIntentP3",
+      "time_crossing": false
+    }
+  ]
+}

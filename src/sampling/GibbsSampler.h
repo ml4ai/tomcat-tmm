@@ -223,6 +223,16 @@ namespace tomcat {
                 const std::vector<std::shared_ptr<Node>>& timer_nodes);
 
             /**
+             * Resets the sufficient statistics of parameter nodes.
+             *
+             * @param parameter_nodes_per_job: list of parameter nodes to
+             * process in each job
+             */
+            void reset_parameter_sufficient_statistics(
+                const std::vector<std::vector<std::shared_ptr<Node>>>&
+                    parameter_nodes_per_job);
+
+            /**
              * Update backward assignment of timer nodes.
              *
              * @param timer_nodes: timer nodes
@@ -260,7 +270,6 @@ namespace tomcat {
             // Mutex to handle race condition when multiple threads try to
             // store samples at the same time.
             std::unique_ptr<std::mutex> keep_sample_mutex;
-
         };
 
     } // namespace model

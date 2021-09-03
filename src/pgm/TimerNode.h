@@ -76,9 +76,10 @@ namespace tomcat {
              *
              * @return Timer values given controlled nodes' assignment.
              */
-            Eigen::MatrixXd
-            sample_from_posterior(const std::vector<std::shared_ptr<gsl_rng>>&
-                                      random_generator_per_job) override;
+            Eigen::MatrixXd sample_from_posterior(
+                const std::vector<std::shared_ptr<gsl_rng>>&
+                    random_generator_per_job,
+                const std::vector<int>& time_steps_per_sample = {}) override;
 
             /**
              * Gets posterior weights for the left segment of a node such

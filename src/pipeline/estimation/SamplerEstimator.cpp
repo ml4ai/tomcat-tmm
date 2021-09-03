@@ -4,7 +4,11 @@
 #include <thread>
 
 #include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
-#include "pipeline/estimation/custom_metrics/MarkerFalseBeliefEstimator.h"
+#include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/IndependentMarkerLegendVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/MarkerLegendVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -22,8 +26,10 @@ namespace tomcat {
             int inference_horizon,
             const std::string& node_label,
             const Eigen::VectorXd& low,
-            const Eigen::VectorXd& high)
-            : Estimator(model, inference_horizon, node_label, low) {
+            const Eigen::VectorXd& high,
+            FREQUENCY_TYPE frequency_type)
+            : Estimator(model, inference_horizon, node_label, low),
+              frequency_type(frequency_type) {
 
             if (low.size() == 0) {
                 int cardinality = model->get_cardinality_of(node_label);
@@ -88,15 +94,39 @@ namespace tomcat {
             return prior;
         }
 
-        SamplerEstimatorPtr
-        SamplerEstimator::create_custom_estimator(const std::string& name,
-                                                  const DBNPtr& model) {
+        SamplerEstimatorPtr SamplerEstimator::create_custom_estimator(
+            const std::string& name,
+            const DBNPtr& model,
+            const nlohmann::json& json_config,
+            FREQUENCY_TYPE frequency_type) {
+
             SamplerEstimatorPtr estimator;
-            if (name == FinalTeamScoreEstimator::LABEL) {
-                estimator = make_shared<FinalTeamScoreEstimator>(model);
+            if (name == FinalTeamScoreEstimator::NAME) {
+                estimator =
+                    make_shared<FinalTeamScoreEstimator>(model, frequency_type);
             }
-            else if (name == MarkerFalseBeliefEstimator::LABEL) {
-                estimator = make_shared<MarkerFalseBeliefEstimator>(model);
+            else if (name == MapVersionAssignmentEstimator::NAME) {
+                estimator = make_shared<MapVersionAssignmentEstimator>(
+                    model, frequency_type);
+            }
+            else if (name == IndependentMapVersionAssignmentEstimator::NAME) {
+                estimator =
+                    make_shared<IndependentMapVersionAssignmentEstimator>(
+                        model, frequency_type);
+            }
+            else if (name == MarkerLegendVersionAssignmentEstimator::NAME) {
+                estimator = make_shared<MarkerLegendVersionAssignmentEstimator>(
+                    model, frequency_type);
+            }
+            else if (name ==
+                     IndependentMarkerLegendVersionAssignmentEstimator::NAME) {
+                estimator = make_shared<
+                    IndependentMarkerLegendVersionAssignmentEstimator>(
+                    model, frequency_type);
+            }
+            else if (name == NextAreaOnNearbyMarkerEstimator::NAME) {
+                estimator = make_shared<NextAreaOnNearbyMarkerEstimator>(
+                    model, json_config);
             }
 
             return estimator;
@@ -123,7 +153,28 @@ namespace tomcat {
 
         string SamplerEstimator::get_name() const { return "sampler"; }
 
-        void SamplerEstimator::estimate(const EvidenceSet& particles,
+        bool SamplerEstimator::does_estimation_at(
+            int data_point, int time_step, const EvidenceSet& new_data) const {
+            bool temp = false;
+            if (this->frequency_type == all ||
+                EXISTS(time_step, this->fixed_steps)) {
+                temp = true;
+            }
+            else if (this->frequency_type == dynamic) {
+                temp = this->is_event_triggered_at(
+                    data_point, time_step, new_data);
+            }
+            return temp;
+        }
+
+        bool SamplerEstimator::is_event_triggered_at(
+            int data_point, int time_step, const EvidenceSet& new_data) const {
+            // It works like frequency == all for a non custom estimator
+            return true;
+        }
+
+        void SamplerEstimator::estimate(const EvidenceSet& new_data,
+                                        const EvidenceSet& particles,
                                         const EvidenceSet& projected_particles,
                                         const EvidenceSet& marginals,
                                         int data_point_idx,
@@ -159,9 +210,11 @@ namespace tomcat {
                                 // take (assuming the node's distribution is
                                 // discrete)
                                 Eigen::MatrixXd samples = samples_tensor(0, 0);
+                                probs = Eigen::VectorXd::Zero(k);
 
                                 for (int i = 0; i < samples.rows(); i++) {
-                                    probs[samples(i, t)] += 1;
+                                    int value = samples(i, t);
+                                    probs[value] += 1;
                                 }
 
                                 probs /= samples.rows();
@@ -181,11 +234,11 @@ namespace tomcat {
 
                         if (marginals.has_data_for(this->estimates.label)) {
                             prob = marginals[this->estimates.label](0, 0).col(
-                                t)(low);
+                                t)((int)low);
                         }
                         else {
                             if (time_step < metadata->get_initial_time_step()) {
-                                prob = get_prior(node)(low);
+                                prob = get_prior(node)((int)low);
                             }
                             else {
                                 const Tensor3 samples_tensor =
@@ -278,8 +331,42 @@ namespace tomcat {
             int new_rows =
                 max(data_point_idx + 1, (int)estimates_matrix.rows());
             int new_cols = max(time_step + 1, (int)estimates_matrix.cols());
-            estimates_matrix.conservativeResize(new_rows, new_cols);
+            estimates_matrix.conservativeResizeLike(
+                Eigen::MatrixXd::Constant(new_rows, new_cols, NO_OBS));
             estimates_matrix(data_point_idx, time_step) = probability;
+        }
+
+        void SamplerEstimator::update_custom_data(int estimates_idx,
+                                                  int data_point_idx,
+                                                  int time_step,
+                                                  double probability) {
+            auto& estimates_matrix =
+                this->estimates.custom_data.at(estimates_idx);
+            int new_rows =
+                max(data_point_idx + 1, (int)estimates_matrix.rows());
+            int new_cols = max(time_step + 1, (int)estimates_matrix.cols());
+            estimates_matrix.conservativeResizeLike(
+                Eigen::MatrixXd::Constant(new_rows, new_cols, NO_OBS));
+            estimates_matrix(data_point_idx, time_step) = probability;
+        }
+
+        void SamplerEstimator::prepare_for_the_next_data_point() const {
+            // No default preparation needed
+        }
+
+        bool SamplerEstimator::is_binary_on_prediction() const {
+            // A positive horizon is used in the estimates but we are not
+            // constrained to a binary problem.
+            return false;
+        }
+
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        void SamplerEstimator::set_fixed_steps(
+            const unordered_set<int>& fixed_steps) {
+            SamplerEstimator::fixed_steps = fixed_steps;
         }
 
     } // namespace model

@@ -79,6 +79,7 @@ namespace tomcat {
             // Clear estimates so they can be recalculated over the new
             // training data in the next call to the function estimate.
             this->estimates.estimates.clear();
+            this->estimates.custom_data.clear();
 
             int k = 1;
             if (this->estimates.assignment.size() == 0) {
@@ -93,16 +94,26 @@ namespace tomcat {
             for (const auto& estimate : this->estimates.estimates) {
                 this->cumulative_estimates.estimates[i].push_back(estimate);
             }
+            this->cumulative_estimates.custom_data.push_back({});
+            for (const auto& custom_data : this->estimates.custom_data) {
+                this->cumulative_estimates.custom_data[i].push_back(
+                    custom_data);
+            }
         }
 
         void Estimator::cleanup() {
             this->estimates.estimates.clear();
             this->cumulative_estimates.estimates.clear();
+            this->cumulative_estimates.custom_data.clear();
         }
 
         bool Estimator::is_computing_estimates_for(
             const std::string& node_label) const {
             return this->estimates.label == node_label;
+        }
+
+        bool Estimator::is_binary_on_prediction() const {
+            return true;
         }
 
         //----------------------------------------------------------------------

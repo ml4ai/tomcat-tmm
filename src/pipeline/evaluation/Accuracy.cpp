@@ -10,8 +10,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Accuracy::Accuracy(const shared_ptr<Estimator>& estimator,
                            double threshold,
-                           bool use_last_estimate)
-            : Measure(estimator, threshold, use_last_estimate) {}
+                           FREQUENCY_TYPE frequency_type)
+            : Measure(estimator, threshold, frequency_type) {}
 
         Accuracy::~Accuracy() {}
 
@@ -30,8 +30,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        NodeEvaluation
-        Accuracy::evaluate(const EvidenceSet& test_data) const {
+        NodeEvaluation Accuracy::evaluate(const EvidenceSet& test_data) const {
             vector<NodeEvaluation> evaluations;
 
             NodeEstimates estimates = this->estimator->get_estimates();
@@ -39,83 +38,41 @@ namespace tomcat {
             NodeEvaluation evaluation;
             evaluation.label = estimates.label;
             evaluation.assignment = estimates.assignment;
-            evaluation.evaluation =
-                Eigen::MatrixXd::Constant(1, 1, NO_OBS);
+            evaluation.evaluation = Eigen::MatrixXd::Constant(1, 1, NO_OBS);
 
             if (test_data.has_data_for(evaluation.label)) {
-                // Get matrix of true observations.
-                Tensor3 real_data_3d = test_data[evaluation.label];
-                Eigen::MatrixXd true_values = real_data_3d(0, 0);
+                vector<Eigen::MatrixXi> confusion_matrices =
+                    this->get_confusion_matrices(test_data);
 
-                double accuracy = 0;
-                if (estimates.assignment.size() == 0) {
-                    // In this case, the estimates are probabilities for each
-                    // one of the possible assignments a node can take. So we
-                    // need to get the highest probability to decide the
-                    // estimated assignment and then compare it against the true
-                    // assignment.
-                    int num_right_inferences = 0;
-                    int total_inferences = 0;
-                    int cols = estimates.estimates[0].cols();
-                    int first_valid_time_step =
-                        EvidenceSet::get_first_time_with_observation(
-                            real_data_3d);
-                    int t0 = this->use_last_estimate ? (cols - 1)
-                                                     : first_valid_time_step;
-                    for (int d = 0; d < test_data.get_num_data_points(); d++) {
-                        for (int t = t0; t < cols; t++) {
-                            // Each element of the vector estimates.estimates
-                            // represents a possible assignment a node can have
-                            // (0, 1, ..., cardinality - 1), and it contains a
-                            // matrix of estimated probability for such
-                            // assignment, where the rows index a data point and
-                            // the columns index a time step. We loop over the
-                            // elements of the vector for a given data point and
-                            // time, to compute the estimated assignment by
-                            // choosing the one with highest probability among
-                            // the other assignments' estimate for the same data
-                            // point and time step.
-                            int inferred_assignment = 0;
-                            double max_prob = 0;
-                            for (int i = 0; i < estimates.estimates.size();
-                                 i++) {
-                                double prob = estimates.estimates[i](d, t);
-                                if (prob > max_prob) {
-                                    max_prob = prob;
-                                    inferred_assignment = i;
-                                }
-                            }
+                evaluation.evaluation = Eigen::MatrixXd::Constant(
+                    1, confusion_matrices.size(), NO_OBS);
 
-                            int true_assignment = true_values(d, t);
-                            if (inferred_assignment == true_assignment) {
-                                num_right_inferences++;
-                            }
-                            total_inferences++;
-                        }
-                    }
+                // Side by side matrices
+                evaluation.confusion_matrix = Eigen::MatrixXi::Constant(
+                    confusion_matrices[0].rows(),
+                    confusion_matrices.size() * confusion_matrices[0].cols(),
+                    NO_OBS);
 
-                    accuracy =
-                        (double)num_right_inferences / (double)total_inferences;
+                for (int i = 0; i < confusion_matrices.size(); i++) {
+                    double num_correct_cases =
+                        confusion_matrices[i].diagonal().sum();
+                    double num_cases = confusion_matrices[i].sum();
+                    double accuracy = num_correct_cases / num_cases;
+
+                    evaluation.evaluation(0, i) = accuracy;
+                    evaluation.confusion_matrix.block(
+                        0,
+                        i * confusion_matrices[i].cols(),
+                        confusion_matrices[i].rows(),
+                        confusion_matrices[i].cols()) = confusion_matrices[i];
                 }
-                else {
-                    ConfusionMatrix confusion_matrix =
-                        this->get_confusion_matrix(estimates.estimates[0],
-                                                   true_values,
-                                                   estimates.assignment[0]);
-                    accuracy = (confusion_matrix.true_positives +
-                                confusion_matrix.true_negatives) /
-                               (double)confusion_matrix.get_total();
-                }
-
-                evaluation.evaluation =
-                    Eigen::MatrixXd::Constant(1, 1, accuracy);
             }
 
             return evaluation;
         }
 
         void Accuracy::get_info(nlohmann::json& json) const {
-            json["name"] = "accuracy";
+            json["name"] = NAME;
             json["threshold"] = this->threshold;
             this->estimator->get_info(json["estimator"]);
         }

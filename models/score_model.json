@@ -1,0 +1,373 @@
+{
+  "nodes": {
+    "timers": [
+    ],
+    "parameters": [
+      {
+        "label": "ThetaPlayerState.PlayerState.ObservedPlayerRole.TrialOrder",
+        "prior": false,
+        "sample_size": 6,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      }
+    ],
+    "data": [
+      {
+        "label": "TrialOrder",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerStateP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 6,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,0,0,0,0,0,1,0,0,0,0,0",
+            "index_nodes": [
+              "TrialOrder"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerState.PlayerState.ObservedPlayerRole.TrialOrder",
+            "index_nodes": [
+              "PlayerStateP1",
+              "ObservedPlayerRoleP1",
+              "TrialOrder"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerStateP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 6,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,0,0,0,0,0,1,0,0,0,0,0",
+            "index_nodes": [
+              "TrialOrder"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerState.PlayerState.ObservedPlayerRole.TrialOrder",
+            "index_nodes": [
+              "PlayerStateP2",
+              "ObservedPlayerRoleP2",
+              "TrialOrder"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerStateP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 6,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,0,0,0,0,0,1,0,0,0,0,0",
+            "index_nodes": [
+              "TrialOrder"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerState.PlayerState.ObservedPlayerRole.TrialOrder",
+            "index_nodes": [
+              "PlayerStateP3",
+              "ObservedPlayerRoleP3",
+              "TrialOrder"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerRoleP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerRoleP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerRoleP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerAreaP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5",
+            "index_nodes": [
+              "PlayerStateP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerAreaP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5",
+            "index_nodes": [
+              "PlayerStateP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerAreaP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5",
+            "index_nodes": [
+              "PlayerStateP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerTaskP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "PlayerStateP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerTaskP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "PlayerStateP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerTaskP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1",
+            "index_nodes": [
+              "PlayerStateP3"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "connections": [
+    {
+      "parent": "PlayerStateP1",
+      "child": "PlayerAreaP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP2",
+      "child": "PlayerAreaP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP3",
+      "child": "PlayerAreaP3",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP1",
+      "child": "PlayerTaskP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP2",
+      "child": "PlayerTaskP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP3",
+      "child": "PlayerTaskP3",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP1",
+      "child": "PlayerStateP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerStateP2",
+      "child": "PlayerStateP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerStateP3",
+      "child": "PlayerStateP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP1",
+      "child": "PlayerStateP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP2",
+      "child": "PlayerStateP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP3",
+      "child": "PlayerStateP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "TrialOrder",
+      "child": "PlayerStateP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "TrialOrder",
+      "child": "PlayerStateP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "TrialOrder",
+      "child": "PlayerStateP3",
+      "time_crossing": true
+    }
+  ]
+}

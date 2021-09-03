@@ -8,10 +8,11 @@ ASIST_SERVER_DIR = /data/asist
 .PHONY: all
 .PHONY: study-1_2020.08
 .PHONY: study-2_pilot-2_2021.02
+.PHONY: study-2_2021.06
 
-all: study-1_2020.08 study-2_pilot-2_2021.02
+all: study-1_2020.08 study-2_pilot-2_2021.02 study-2_2021.06
 
-study-1_2020.08 study-2_pilot-2_2021.02:
+study-1_2020.08 study-2_pilot-2_2021.02 study-2_2021.06:
 	@echo ""
 	@echo "Pulling $@ files..."
 	@mkdir -p data/asist

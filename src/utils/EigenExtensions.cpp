@@ -82,6 +82,12 @@ namespace tomcat {
             return ss.str();
         }
 
+        string to_string(const Eigen::MatrixXi& matrix) {
+            stringstream ss;
+            ss << matrix;
+            return ss.str();
+        }
+
         void matrix_vstack(Eigen::MatrixXd& original_matrix,
                            const Eigen::MatrixXd& other_matrix) {
 
@@ -122,7 +128,9 @@ namespace tomcat {
             Eigen::MatrixXi cat = Eigen::MatrixXi::Zero(rows, num_bits);
 
             for (int i = 0; i < rows; i++) {
-                cat(i, integers(i)) = 1;
+                if (integers(i) >= 0) {
+                    cat(i, integers(i)) = 1;
+                }
             }
 
             return cat;

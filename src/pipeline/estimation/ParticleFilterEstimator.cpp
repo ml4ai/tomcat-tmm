@@ -80,7 +80,9 @@ namespace tomcat {
             bool show_filter_progress = false;
             if (this->show_progress) {
                 cout << "\nEmpirically computing estimations...\n";
-                if (new_data.get_num_data_points() == 1) {
+                if (new_data.get_num_data_points() == 1 &&
+                    this->max_inference_horizon == 0 &&
+                    !this->variable_horizon) {
                     show_filter_progress = true;
                     this->show_progress = false;
                 }
@@ -100,6 +102,10 @@ namespace tomcat {
                 EvidenceSet single_point_data =
                     new_data.get_single_point_data(d);
 
+                for (const auto& base_estimator : this->base_estimators) {
+                    base_estimator->prepare_for_the_next_data_point();
+                }
+
                 if (this->max_inference_horizon == 0 &&
                     !this->variable_horizon) {
                     // Generate particles for all time steps and compute
@@ -109,7 +115,8 @@ namespace tomcat {
                     EvidenceSet projected_particles;
 
                     for (const auto& base_estimator : this->base_estimators) {
-                        base_estimator->estimate(particles,
+                        base_estimator->estimate(new_data,
+                                                 particles,
                                                  projected_particles,
                                                  marginals,
                                                  d,
@@ -117,10 +124,20 @@ namespace tomcat {
                     }
                 }
                 else {
+                    // Generate particles and projections for each time
+                    // step.
                     for (int t = 0; t < single_point_data.get_time_steps();
                          t++) {
-                        // Generate particles and projections for each time
-                        // step.
+
+                        int real_time_step = this->last_time_step + t + 1;
+
+                        if (single_point_data.is_event_based()) {
+                            // No more events for this data point
+                            if (real_time_step >
+                                single_point_data.get_num_events_for(0) - 1) {
+                                break;
+                            }
+                        }
 
                         EvidenceSet single_time_data =
                             single_point_data.get_single_time_data(t);
@@ -128,23 +145,45 @@ namespace tomcat {
                         auto [particles, marginals] =
                             filter.generate_particles(single_time_data);
 
-                        int time_steps_ahead =
-                            this->variable_horizon
-                                ? this->variable_horizon_max_time_step -
-                                      (this->last_time_step + t + 1)
-                                : this->max_inference_horizon;
+                        int time_steps_ahead = 0;
+                        for (const auto& base_estimator :
+                             this->base_estimators) {
 
-                        EvidenceSet projected_particles =
-                            filter.forward_particles(time_steps_ahead);
+                            if (base_estimator->does_estimation_at(
+                                    d, real_time_step, new_data)) {
+                                if (base_estimator->get_inference_horizon() <
+                                    0) {
+                                    time_steps_ahead =
+                                        this->variable_horizon_max_time_step -
+                                        real_time_step;
+                                    break;
+                                }
+                                else {
+                                    time_steps_ahead =
+                                        max(time_steps_ahead,
+                                            base_estimator
+                                                ->get_inference_horizon());
+                                }
+                            }
+                        }
+
+                        EvidenceSet projected_particles;
+                        if (time_steps_ahead > 0) {
+                            projected_particles =
+                                filter.forward_particles(time_steps_ahead);
+                        }
 
                         for (const auto& base_estimator :
                              this->base_estimators) {
-                            base_estimator->estimate(particles,
-                                                     projected_particles,
-                                                     marginals,
-                                                     d,
-                                                     this->last_time_step + 1 +
-                                                         t);
+                            if (base_estimator->does_estimation_at(
+                                    d, real_time_step, new_data)) {
+                                base_estimator->estimate(new_data,
+                                                         particles,
+                                                         projected_particles,
+                                                         marginals,
+                                                         d,
+                                                         real_time_step);
+                            }
                         }
                     }
                 }

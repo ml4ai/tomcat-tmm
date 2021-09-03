@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -22,6 +23,7 @@ namespace tomcat {
         class MessageConverter {
           public:
             inline static std::string LOG_FILE = "conversion_log.json";
+            inline static std::string METADATA_FILE = "metadata.json";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -85,14 +87,8 @@ namespace tomcat {
              * @param messages_dir: directory where the message files are
              * @param data_dir: directory where data must be saved
              */
-            void convert_messages(const std::string& messages_dir,
-                                  const std::string& data_dir);
-
-            /*
-             * Clears cache and prepare to process a new mission.
-             */
-            void start_new_mission();
-
+            virtual void convert_messages(const std::string& messages_dir,
+                                          const std::string& data_dir);
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -148,6 +144,11 @@ namespace tomcat {
              */
             void copy_converter(const MessageConverter& converter);
 
+            /*
+             * Clears cache and prepare to process a new mission.
+             */
+            void start_new_mission();
+
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
@@ -170,7 +171,7 @@ namespace tomcat {
              * @return Map between a timestamp and the message associated
              */
             virtual std::map<std::string, nlohmann::json>
-            filter(const std::string& messages_filepath) const = 0;
+            filter(const std::string& messages_filepath) = 0;
 
             //------------------------------------------------------------------
             // Data members
@@ -199,7 +200,7 @@ namespace tomcat {
              * @return List of message files that were not previously
              * processed.
              */
-            std::unordered_set<std::string>
+            std::set<std::string>
             get_unprocessed_message_filenames(const std::string& messages_dir,
                                               const std::string& data_dir);
         };

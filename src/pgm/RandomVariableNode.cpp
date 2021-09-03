@@ -105,6 +105,10 @@ namespace tomcat {
             return this->metadata->get_timed_name(this->time_step);
         }
 
+        bool RandomVariableNode::is_random_variable() const {
+            return true;
+        }
+
         void RandomVariableNode::update_cpd_templates_dependencies(
             const NodeMap& parameter_nodes_map) {
             for (auto& mapping : this->cpd_templates) {
@@ -114,13 +118,17 @@ namespace tomcat {
 
         Eigen::MatrixXd RandomVariableNode::sample(
             const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
-            int num_samples) const {
-            return this->cpd->sample(
-                random_generator_per_job, num_samples, shared_from_this());
+            int num_samples,
+            const std::vector<int>& time_steps_per_sample) const {
+            return this->cpd->sample(random_generator_per_job,
+                                     num_samples,
+                                     shared_from_this(),
+                                     time_steps_per_sample);
         }
 
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
-            const vector<shared_ptr<gsl_rng>>& random_generator_per_job) {
+            const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
+            const std::vector<int>& time_steps_per_sample) {
             Eigen::MatrixXd sample;
 
             if (this->metadata->is_parameter()) {
@@ -129,16 +137,20 @@ namespace tomcat {
             }
             else {
                 int num_jobs = random_generator_per_job.size();
-                Eigen::MatrixXd weights = this->get_posterior_weights(num_jobs);
-                sample = this->cpd->sample_from_posterior(
-                    random_generator_per_job, weights, shared_from_this());
+                Eigen::MatrixXd weights = this->get_posterior_weights(
+                    num_jobs, time_steps_per_sample);
+                sample =
+                    this->cpd->sample_from_posterior(random_generator_per_job,
+                                                     weights,
+                                                     shared_from_this(),
+                                                     time_steps_per_sample);
             }
 
             return sample;
         }
 
-        Eigen::MatrixXd
-        RandomVariableNode::get_posterior_weights(int num_jobs) {
+        Eigen::MatrixXd RandomVariableNode::get_posterior_weights(
+            int num_jobs, const std::vector<int>& time_steps_per_sample) {
             int rows = this->get_size();
             int cols = this->get_metadata()->get_cardinality();
             Eigen::MatrixXd log_weights = Eigen::MatrixXd::Zero(rows, cols);
@@ -158,7 +170,8 @@ namespace tomcat {
                         rv_child->get_parents(),
                         shared_from_this(),
                         rv_child,
-                        num_jobs);
+                        num_jobs,
+                        time_steps_per_sample);
 
                 Eigen::MatrixXd child_log_weights =
                     (child_weights.array() + EPSILON).log();
@@ -326,8 +339,10 @@ namespace tomcat {
                 cpd = this->cpd_templates.at(key);
             }
             else {
-                throw invalid_argument(
-                    "No CPD found associated with the parents informed.");
+                stringstream ss;
+                ss << "No CPD found associated with the parents "
+                   << key;
+                throw invalid_argument(ss.str());
             }
 
             return cpd;
@@ -450,6 +465,7 @@ namespace tomcat {
 
         void RandomVariableNode::set_parents(
             const vector<shared_ptr<Node>>& parents) {
+
             this->parents = parents;
         }
 

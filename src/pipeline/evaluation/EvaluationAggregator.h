@@ -25,6 +25,8 @@ namespace tomcat {
             // method chosen, no aggregation might be performed at all.
             std::vector<Eigen::MatrixXd> aggregated_values;
 
+            std::vector<Eigen::MatrixXi> aggregated_confusion_matrices;
+
             // The error is a single matrix because, depending on the measure
             // chosen to evaluate nodes, the results can be matrices instead of
             // a single number. In that case, if the method chosen for
@@ -121,6 +123,12 @@ namespace tomcat {
              */
             void get_info(nlohmann::json& json) const;
 
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
+
+            bool has_measures() const;
+
           private:
             //------------------------------------------------------------------
             // Member functions
@@ -137,7 +145,7 @@ namespace tomcat {
              * @return Aggregated evaluations
              */
             Aggregation compute_aggregation(
-                const std::vector<Eigen::MatrixXd>& evaluations) const;
+                const std::vector<NodeEvaluation>& evaluations) const;
 
             /**
              * Returns the name of the aggregation method used;

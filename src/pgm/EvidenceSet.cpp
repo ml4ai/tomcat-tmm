@@ -1,8 +1,10 @@
 #include "EvidenceSet.h"
 
-#include <boost/filesystem.hpp>
-#include <converter/MessageConverter.h>
+#include <iomanip>
 
+#include <boost/filesystem.hpp>
+
+#include "converter/MessageConverter.h"
 #include "utils/EigenExtensions.h"
 #include "utils/FileHandler.h"
 #include "utils/Tensor3.h"
@@ -16,9 +18,11 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        EvidenceSet::EvidenceSet() {}
+        EvidenceSet::EvidenceSet(bool event_based) : event_based(event_based) {}
 
-        EvidenceSet::EvidenceSet(const string& data_folder_path) {
+        EvidenceSet::EvidenceSet(const string& data_folder_path,
+                                 bool event_based)
+            : event_based(event_based) {
             this->init_from_folder(data_folder_path);
         }
 
@@ -132,12 +136,34 @@ namespace tomcat {
             for (const auto& file : fs::directory_iterator(data_folder_path)) {
                 string filename = file.path().filename().string();
                 if (fs::is_regular_file(file)) {
-                    if (filename == MessageConverter::LOG_FILE) {
+                    if (filename == MessageConverter::METADATA_FILE) {
                         fstream log_file;
                         log_file.open(file.path().string());
                         if (log_file.is_open()) {
-                            this->metadata = nlohmann::json::parse(
-                                log_file)["files_converted"];
+                            this->metadata = nlohmann::json::parse(log_file);
+                            log_file.close();
+                        }
+                    }
+                    else if (filename == TIME_2_EVENT_MAP_FILE) {
+                        this->event_based = true;
+                        fstream mapping_file;
+                        mapping_file.open(file.path().string());
+                        if (mapping_file.is_open()) {
+                            nlohmann::json map_per_point =
+                                nlohmann::json::parse(mapping_file);
+
+                            for (const auto& mappings : map_per_point) {
+                                set<pair<int, int>> time_2_event;
+                                for (const auto& mapping : mappings) {
+                                    int time_step = mapping["time_step"];
+                                    int event_idx = mapping["event"];
+                                    time_2_event.insert(
+                                        {-time_step, event_idx});
+                                }
+                                this->time_2_event_per_data_point.push_back(
+                                    time_2_event);
+                            }
+                            mapping_file.close();
                         }
                     }
                     else if (file.path().extension() == "") {
@@ -227,6 +253,9 @@ namespace tomcat {
         }
 
         void EvidenceSet::shrink_up_to(int time_step) {
+            if (this->get_time_steps() <= time_step + 1)
+                return;
+
             for (auto& [node_label, data] : this->node_label_to_data) {
                 data = data.slice(0, time_step + 1, 2);
             }
@@ -245,6 +274,40 @@ namespace tomcat {
                 string filename = node_label;
                 string filepath = get_filepath(output_dir, filename);
                 save_tensor_to_file(filepath, data);
+            }
+
+            // Save metadata
+            if (!this->metadata.empty()) {
+                string metadata_filepath =
+                    get_filepath(output_dir, MessageConverter::METADATA_FILE);
+                ofstream mmetadata_file;
+                mmetadata_file.open(metadata_filepath);
+                mmetadata_file << setw(4) << this->metadata;
+                mmetadata_file.close();
+            }
+
+            // Save event mapping
+            if (this->event_based) {
+                nlohmann::json map_per_point = nlohmann::json::array();
+                for (const auto& time_2_events :
+                     this->time_2_event_per_data_point) {
+                    nlohmann::json mappings = nlohmann::json::array();
+                    for (const auto [neg_time_step, event_idx] :
+                         time_2_events) {
+                        nlohmann::json mapping;
+                        mapping["time_step"] = -neg_time_step;
+                        mapping["event"] = event_idx;
+                        mappings.push_back(mapping);
+                    }
+                    map_per_point.push_back(mappings);
+                }
+
+                string mapping_filepath =
+                    get_filepath(output_dir, TIME_2_EVENT_MAP_FILE);
+                ofstream mapping_file;
+                mapping_file.open(mapping_filepath);
+                mapping_file << setw(4) << map_per_point;
+                mapping_file.close();
             }
         }
 
@@ -295,6 +358,12 @@ namespace tomcat {
                 new_set.add_data(node_label, data.row(data_point_idx));
             }
 
+            new_set.event_based = this->event_based;
+            if (!this->time_2_event_per_data_point.empty()) {
+                new_set.time_2_event_per_data_point =
+                    vector<set<pair<int, int>>>(
+                        1, this->time_2_event_per_data_point[data_point_idx]);
+            }
             return new_set;
         }
 
@@ -305,6 +374,42 @@ namespace tomcat {
             }
 
             return new_set;
+        }
+
+        int EvidenceSet::get_column_index_for(int data_point,
+                                              int time_step) const {
+            int col_idx = time_step;
+
+            if (this->event_based) {
+                auto it =
+                    this->time_2_event_per_data_point[data_point].lower_bound(
+                        {-time_step, 0});
+                if (it == this->time_2_event_per_data_point[data_point].end()) {
+                    col_idx = 0;
+                }
+                else {
+                    col_idx = it->second;
+                }
+            }
+
+            return col_idx;
+        }
+
+        int EvidenceSet::get_num_events_for(int data_point) const {
+            int num_events = this->get_time_steps();
+            if (this->event_based) {
+                num_events =
+                    this->time_2_event_per_data_point[data_point].size();
+            }
+
+            return num_events;
+        }
+
+        void EvidenceSet::merge(const EvidenceSet& other_set) {
+            this->metadata.insert(this->metadata.end(),
+                                  other_set.get_metadata().begin(),
+                                  other_set.get_metadata().end());
+            this->vstack(other_set);
         }
 
         //----------------------------------------------------------------------
@@ -321,6 +426,25 @@ namespace tomcat {
         const nlohmann::json& EvidenceSet::get_metadata() const {
             return metadata;
         }
+
+        void EvidenceSet::set_time_2_event_per_data_point(
+            const vector<vector<pair<int, int>>>& time_2_event_per_data_point) {
+
+            this->time_2_event_per_data_point.resize(
+                time_2_event_per_data_point.size());
+            for (int d = 0; d < this->time_2_event_per_data_point.size(); d++) {
+                for (auto [time_step, event_idx] :
+                     time_2_event_per_data_point[d]) {
+                    // We insert the negative of the time step so we can use the
+                    // lower_bound function of the set data structure to get the
+                    // least time step.
+                    this->time_2_event_per_data_point[d].insert(
+                        {-time_step, event_idx});
+                }
+            }
+        }
+
+        bool EvidenceSet::is_event_based() const { return event_based; }
 
     } // namespace model
 } // namespace tomcat

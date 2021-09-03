@@ -165,5 +165,14 @@ namespace tomcat {
                 samples;
         }
 
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        const vector<std::shared_ptr<Node>>&
+        Distribution::get_parameters() const {
+            return parameters;
+        }
+
     } // namespace model
 } // namespace tomcat

@@ -1,9 +1,9 @@
 #include "Gamma.h"
 
+#include <gsl/gsl_cdf.h>
 #include <gsl/gsl_randist.h>
-#include <gsl//gsl_cdf.h>
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 
 namespace tomcat {
     namespace model {
@@ -20,14 +20,33 @@ namespace tomcat {
         Gamma::Gamma(shared_ptr<Node>&& alpha, shared_ptr<Node>&& beta)
             : Distribution({move(alpha), move(beta)}) {}
 
+        Gamma::Gamma(const vector<shared_ptr<Node>>& parameters)
+            : Distribution(parameters) {
+            // The vector is here just to maintain the same interface
+            // for all distributions, but a gamma distribution cannot have
+            // more than two parameters.
+            if (parameters.size() > 1) {
+                throw TomcatModelException(
+                    "A gamma distribution must have two parameter nodes.");
+            }
+        }
+
+        Gamma::Gamma(vector<shared_ptr<Node>>& parameters)
+            : Distribution(move(parameters)) {
+            if (parameters.size() > 1) {
+                throw TomcatModelException(
+                    "A gamma distribution must have two parameter nodes.");
+            }
+        }
+
         Gamma::Gamma(unsigned int alpha, unsigned int beta) {
-            ConstantNode alpha_node(alpha);
-            ConstantNode beta_node(beta);
+            NumericNode alpha_node(alpha);
+            NumericNode beta_node(beta);
 
             this->parameters.push_back(
-                make_shared<ConstantNode>(move(alpha_node)));
+                make_shared<NumericNode>(move(alpha_node)));
             this->parameters.push_back(
-                make_shared<ConstantNode>(move(beta_node)));
+                make_shared<NumericNode>(move(beta_node)));
         }
 
         Gamma::~Gamma() {}
@@ -35,9 +54,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        Gamma::Gamma(const Gamma& gamma) {
-            this->copy(gamma);
-        }
+        Gamma::Gamma(const Gamma& gamma) { this->copy(gamma); }
 
         Gamma& Gamma::operator=(const Gamma& gamma) {
             this->copy(gamma);
@@ -105,8 +122,8 @@ namespace tomcat {
 
         Eigen::VectorXd
         Gamma::sample(const std::shared_ptr<gsl_rng>& random_generator,
-                          const Eigen::VectorXd& weights,
-                          double replace_by_weight) const {
+                      const Eigen::VectorXd& weights,
+                      double replace_by_weight) const {
             throw TomcatModelException("Not defined for continuous "
                                        "distributions.");
         }
@@ -119,13 +136,12 @@ namespace tomcat {
             int sum_durations = sufficient_statistics(0);
             int num_intervals = sufficient_statistics(1);
 
-            Eigen::VectorXd parameters =
-                this->get_parameters(parameter_idx);
+            Eigen::VectorXd parameters = this->get_parameters(parameter_idx);
             double alpha = parameters(PARAMETER_INDEX::alpha);
             double beta = parameters(PARAMETER_INDEX::beta);
 
             double new_alpha = alpha + sum_durations;
-            double new_beta = beta/(beta*num_intervals + 1);
+            double new_beta = beta / (beta * num_intervals + 1);
 
             return this->sample_from_gsl(random_generator, new_alpha, new_beta);
         }
@@ -147,11 +163,11 @@ namespace tomcat {
             double alpha = parameters(PARAMETER_INDEX::alpha);
             double beta = parameters(PARAMETER_INDEX::beta);
 
-            double cdf = this->get_pdf(Eigen::VectorXd::Constant(1,1,value));
-//                gsl_cdf_gamma_P(value, alpha, beta);
-//            if (reverse) {
-//                cdf = 1 - cdf;
-//            }
+            double cdf = this->get_pdf(Eigen::VectorXd::Constant(1, 1, value));
+            //                gsl_cdf_gamma_P(value, alpha, beta);
+            //            if (reverse) {
+            //                cdf = 1 - cdf;
+            //            }
 
             return cdf;
         }
@@ -160,7 +176,10 @@ namespace tomcat {
             unique_ptr<Gamma> new_distribution = make_unique<Gamma>(*this);
 
             for (auto& parameter : new_distribution->parameters) {
-                parameter = parameter->clone();
+                // Do not clone numeric nodes to allow them to be sharable.
+                if (parameter->is_random_variable()) {
+                    parameter = parameter->clone();
+                }
             }
 
             return new_distribution;

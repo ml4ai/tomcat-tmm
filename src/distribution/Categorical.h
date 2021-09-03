@@ -36,6 +36,24 @@ namespace tomcat {
             Categorical(std::shared_ptr<Node>&& probabilities);
 
             /**
+             * Creates an instance of a categorical distribution for node
+             * dependent probabilities.
+             *
+             * @param probabilities: node which the assignment defines the set
+             * of probabilities of the distribution
+             */
+            Categorical(const std::vector<std::shared_ptr<Node>>& probabilities);
+
+            /**
+             * Creates an instance of a categorical distribution for node
+             * dependent probabilities.
+             *
+             * @param probabilities: node which the assignment defines the set
+             * of probabilities of the distribution
+             */
+            Categorical(std::vector<std::shared_ptr<Node>>&& probabilities);
+
+            /**
              * Creates an instance of a categorical distribution by transforming
              * a numerical vector of probabilities into a constant node to keep
              * static and node dependent distributions compatible.

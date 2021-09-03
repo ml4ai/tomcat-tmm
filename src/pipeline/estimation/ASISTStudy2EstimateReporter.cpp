@@ -4,10 +4,8 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <fmt/format.h>
-#include <pipeline/estimation/custom_metrics/MarkerFalseBeliefEstimator.h>
 
 #include "converter/ASISTMultiPlayerMessageConverter.h"
-#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -35,6 +33,168 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+
+        vector<nlohmann::json>
+        ASISTStudy2EstimateReporter::translate_estimates_to_messages(
+            const AgentPtr& agent, int time_step) const {
+            vector<nlohmann::json> messages;
+
+            nlohmann::json state_message;
+            nlohmann::json prediction_message;
+            state_message["header"] = this->get_header_section(agent);
+            prediction_message["header"] = this->get_header_section(agent);
+
+            int num_data_points = agent->get_evidence_metadata().size();
+
+            for (int d = 0; d < num_data_points; d++) {
+                state_message["msg"] = this->get_common_msg_section(agent, d);
+                state_message["msg"]["sub_type"] = "Prediction:State";
+
+                prediction_message["msg"] =
+                    this->get_common_msg_section(agent, d);
+                prediction_message["msg"]["sub_type"] = "Prediction:Action";
+
+                vector<nlohmann::json> predictions;
+                for (const auto& estimator : agent->get_estimators()) {
+                    for (const auto& base_estimator :
+                         estimator->get_base_estimators()) {
+                        if (const auto& score_estimator =
+                                dynamic_pointer_cast<FinalTeamScoreEstimator>(
+                                    base_estimator)) {
+
+                            predictions =
+                                this->get_final_team_score_predictions(
+                                    agent, score_estimator, time_step, d);
+
+                            for (const auto& prediction : predictions) {
+                                state_message["data"] = prediction["data"];
+                                state_message["data"]["group"]["explanation"] =
+                                    "The final score is estimated by "
+                                    "simulating "
+                                    "actions until the end of the mission "
+                                    "based on "
+                                    "a "
+                                    "Markov process. The average number of "
+                                    "actions "
+                                    "consistent with regular and critical "
+                                    "victim "
+                                    "rescues per player is used to estimate "
+                                    "the "
+                                    "most "
+                                    "likely score to be achieved by the team.";
+                                messages.push_back(state_message);
+                            }
+                        }
+                        else if (
+                            const auto& map_estimator = dynamic_pointer_cast<
+                                IndependentMapVersionAssignmentEstimator>(
+                                base_estimator)) {
+
+                            predictions = this->get_map_info_predictions(
+                                agent, map_estimator, time_step, d);
+
+                            for (const auto& prediction : predictions) {
+                                state_message["data"] = prediction["data"];
+                                state_message["data"]["group"]["explanation"] =
+                                    "The map version assignment is estimated "
+                                    "by "
+                                    "the "
+                                    "most likely visible section per player "
+                                    "based "
+                                    "on "
+                                    "transitions from one section to another "
+                                    "and "
+                                    "how "
+                                    "long the players stay on a given area of "
+                                    "the "
+                                    "building. Different planning conditions "
+                                    "and "
+                                    "roles "
+                                    "affect how the player favors areas of the "
+                                    "map "
+                                    "and "
+                                    "are also taken into consideration in the "
+                                    "inference. The final assignment is given "
+                                    "by "
+                                    "the "
+                                    "most likely valid combination of "
+                                    "independent "
+                                    "visible sections per player.";
+                                messages.push_back(state_message);
+                            }
+                        }
+                        else if (
+                            const auto& marker_estimator = dynamic_pointer_cast<
+                                IndependentMarkerLegendVersionAssignmentEstimator>(
+                                base_estimator)) {
+
+                            predictions = this->get_marker_legend_predictions(
+                                agent, marker_estimator, time_step, d);
+
+                            for (const auto& prediction : predictions) {
+                                state_message["data"] = prediction["data"];
+                                state_message["data"]["group"]["explanation"] =
+                                    "The legend version is estimated based a "
+                                    "Markov "
+                                    "process over player's belief about two "
+                                    "main "
+                                    "actions: rescuing victims in a room or "
+                                    "leaving "
+                                    "victims in a room. Marker placements and "
+                                    "victim "
+                                    "rescues are "
+                                    "some of the variables that help to update "
+                                    "this "
+                                    "belief. The change of marker meaning is "
+                                    "also "
+                                    "taking into consideration as a dependent "
+                                    "Markov "
+                                    "chain that gets updated throughout the "
+                                    "mission.";
+                                messages.push_back(state_message);
+                            }
+                        }
+                        else if (const auto& next_action_estimator =
+                                     dynamic_pointer_cast<
+                                         NextAreaOnNearbyMarkerEstimator>(
+                                         base_estimator)) {
+
+                            predictions = this->get_next_area_predictions(
+                                agent, next_action_estimator, time_step, d);
+
+                            for (const auto& prediction : predictions) {
+                                prediction_message["data"] = prediction["data"];
+                                prediction_message["data"]["group"]["explanatio"
+                                                                    "n"] =
+                                    "The next action taken in face of a marker "
+                                    "block "
+                                    "is estimated by computing the probability "
+                                    "that the player will be in a room within "
+                                    "5 minutes after seeing a marker block. "
+                                    "The model keeps two coupled Markov "
+                                    "chains: one representing the player's "
+                                    "intent and another one representing his "
+                                    "belief about the meaning of the markers "
+                                    "over time. Markers and next areas are "
+                                    "observations emitted from the player's "
+                                    "intent.";
+                                messages.push_back(prediction_message);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return messages;
+        }
+
+        nlohmann::json ASISTStudy2EstimateReporter::build_log_message(
+            const AgentPtr& agent, const string& log) const {
+            // No predefined format for the ASIST program
+            nlohmann::json message;
+            return message;
+        }
+
         nlohmann::json ASISTStudy2EstimateReporter::get_header_section(
             const AgentPtr& agent) const {
             nlohmann::json header;
@@ -45,327 +205,380 @@ namespace tomcat {
             return header;
         }
 
-        pair<nlohmann::json, nlohmann::json>
-        ASISTStudy2EstimateReporter::get_msg_section(const AgentPtr& agent,
-                                                     int data_point) const {
-            nlohmann::json msg_state;
-            nlohmann::json msg_prediction;
-            msg_state["trial_id"] =
-                agent->get_evidence_metadata()[data_point]["trial_id"];
-            msg_state["experiment_id"] =
+        nlohmann::json ASISTStudy2EstimateReporter::get_common_msg_section(
+            const AgentPtr& agent, int data_point) const {
+            nlohmann::json msg_common;
+            msg_common["trial_id"] =
+                agent->get_evidence_metadata()[data_point]["trial_unique_id"];
+            msg_common["experiment_id"] =
                 agent->get_evidence_metadata()[data_point]["experiment_id"];
-            msg_state["timestamp"] = this->get_current_timestamp();
-            msg_state["source"] = agent->get_id();
-            msg_state["sub_type"] = "prediction:state";
-            msg_state["version"] = "1.0";
+            msg_common["timestamp"] = this->get_current_timestamp();
+            msg_common["source"] = agent->get_id();
+            msg_common["version"] = "1.0";
+            msg_common["trial_number"] =
+                agent->get_evidence_metadata()[data_point]["trial_id"];
 
-            msg_prediction = msg_state;
-            msg_prediction["sub_type"] = "prediction:action";
-
-            return {msg_state, msg_prediction};
+            return msg_common;
         }
 
-        pair<nlohmann::json, nlohmann::json>
-        ASISTStudy2EstimateReporter::get_data_section(const AgentPtr& agent,
-                                                      int time_step,
-                                                      int data_point) const {
+        nlohmann::json ASISTStudy2EstimateReporter::get_common_data_section(
+            const AgentPtr& agent, int data_point) const {
+            nlohmann::json msg_common;
+            msg_common["group"]["start_elapsed_time"] = nullptr;
+            msg_common["group"]["duration"] =
+                agent->get_evidence_metadata()[data_point]["step_size"];
+            ;
+            msg_common["predictions"] = nlohmann::json::array();
 
-            nlohmann::json msg_state;
-            nlohmann::json msg_prediction;
+            return msg_common;
+        }
 
-            // Common fields
-            msg_state["created"] =
-                this->get_timestamp_at(agent, time_step, data_point);
-            msg_state["predictions"] = nlohmann::json::array();
-            msg_prediction = msg_state;
+        vector<nlohmann::json>
+        ASISTStudy2EstimateReporter::get_final_team_score_predictions(
+            const AgentPtr& agent,
+            const shared_ptr<FinalTeamScoreEstimator>& estimator,
+            int time_step,
+            int data_point) const {
 
-            for (const auto& estimator : agent->get_estimators()) {
-                for (const auto& base_estimator :
-                     estimator->get_base_estimators()) {
+            vector<nlohmann::json> predictions;
 
-                    if (base_estimator->get_estimates().label ==
-                        FinalTeamScoreEstimator::LABEL) {
-                        this->add_final_team_score_prediction(
-                            msg_state["predictions"],
-                            agent,
-                            base_estimator,
-                            time_step,
-                            data_point);
-                    }
-                    else if (base_estimator->get_estimates().label ==
-                             MarkerFalseBeliefEstimator::LABEL) {
-                        this->add_marker_false_belief_prediction(
-                            msg_prediction["predictions"],
-                            agent,
-                            base_estimator,
-                            time_step,
-                            data_point);
-                    }
-                    else if (base_estimator->get_estimates().label ==
-                             ASISTMultiPlayerMessageConverter::
-                                 MAP_VERSION_ASSIGNMENT) {
-                        this->add_map_info_prediction(msg_state["predictions"],
-                                                      agent,
-                                                      base_estimator,
-                                                      time_step,
-                                                      data_point);
-                    }
-                    else if (base_estimator->get_estimates().label ==
-                             ASISTMultiPlayerMessageConverter::
-                                 MARKER_LEGEND_ASSIGNMENT) {
-                        this->add_marker_legend_prediction(
-                            msg_state["predictions"],
-                            agent,
-                            base_estimator,
-                            time_step,
-                            data_point);
-                    }
+            if (time_step == NO_OBS) {
+                // Batch processing
+                for (int t : {240, 540, 840}) {
+                    nlohmann::json json_data =
+                        this->get_common_data_section(agent, data_point);
+                    json_data["data"]["created_elapsed_time"] =
+                        get_milliseconds_at(agent, t, data_point);
+
+                    nlohmann::json json_predictions = nlohmann::json::array();
+                    double score =
+                        estimator->get_estimates().estimates[0](data_point, t);
+                    double avg_regular =
+                        estimator->get_estimates().custom_data[0](data_point,
+                                                                  t);
+                    double std_regular =
+                        estimator->get_estimates().custom_data[1](data_point,
+                                                                  t);
+                    double avg_critical =
+                        estimator->get_estimates().custom_data[2](data_point,
+                                                                  t);
+                    double std_critical =
+                        estimator->get_estimates().custom_data[3](data_point,
+                                                                  t);
+
+                    nlohmann::json json_prediction;
+                    boost::uuids::uuid u = boost::uuids::random_generator()();
+                    json_prediction["unique_id"] = boost::uuids::to_string(u);
+                    json_prediction["start_elapsed_time"] =
+                        this->get_milliseconds_at(agent, t, data_point);
+                    json_prediction["duration"] =
+                        agent->get_evidence_metadata()[data_point]["step_size"];
+                    json_prediction["subject_type"] = "team";
+                    json_prediction["subject"] =
+                        agent->get_evidence_metadata()[data_point]["team_id"];
+                    json_prediction["predicted_property"] =
+                        "M1:team_performance";
+                    json_prediction["prediction"] = score;
+                    json_prediction["probability_type"] = "";
+                    json_prediction["probability"] = "";
+                    json_prediction["confidence_type"] = "";
+                    json_prediction["confidence"] = "";
+                    json_prediction["explanation"]["regular_victim"]
+                                   ["avg_number_rescues"] = avg_regular;
+                    json_prediction["explanation"]["regular_victim"]
+                                   ["std_number_rescues"] = std_regular;
+                    json_prediction["explanation"]["critical_victim"]
+                                   ["avg_number_rescues"] = avg_critical;
+                    json_prediction["explanation"]["critical_victim"]
+                                   ["std_number_rescues"] = std_critical;
+                    json_predictions.push_back(json_prediction);
+
+                    json_data["data"]["predictions"] = json_predictions;
+                    predictions.push_back(json_data);
                 }
             }
+            else {
+                // Online processing
+            }
 
-            if (msg_state["predictions"].empty())
-                msg_state.clear();
-            if (msg_prediction["predictions"].empty())
-                msg_prediction.clear();
-
-            return {msg_state, msg_prediction};
+            return predictions;
         }
 
-        void ASISTStudy2EstimateReporter::add_final_team_score_prediction(
-            nlohmann::json& json_predictions,
+        vector<nlohmann::json>
+        ASISTStudy2EstimateReporter::get_map_info_predictions(
             const AgentPtr& agent,
-            const EstimatorPtr& estimator,
+            const shared_ptr<IndependentMapVersionAssignmentEstimator>&
+                estimator,
             int time_step,
             int data_point) const {
 
-            double score =
-                estimator->get_estimates().estimates[0](data_point, time_step);
+            vector<nlohmann::json> predictions;
 
-            nlohmann::json prediction;
-            boost::uuids::uuid u = boost::uuids::random_generator()();
-            prediction["unique_id"] = boost::uuids::to_string(u);
-            prediction["start"] =
-                this->get_timestamp_at(agent, time_step, data_point);
-            prediction["duration"] =
-                agent->get_evidence_metadata()[data_point]["step_size"];
-            prediction["subject"] =
-                agent->get_evidence_metadata()[data_point]["team_id"];
-            prediction["predicted_property"] = "team_performance";
-            prediction["prediction"] = score;
-            prediction["probability_type"] = "";
-            prediction["probability"] = "";
-            prediction["confidence_type"] = "";
-            prediction["confidence"] = "";
-            prediction["explanation"] =
-                "Calculated by the number of predicted regular and critical "
-                "victim rescues until the end of the mission, estimated by "
-                "sampling future PlayerState variables (using the transition "
-                "distribution) given observations up to the current "
-                "time.";
+            if (time_step == NO_OBS) {
+                // Batch processing
+                for (int t : {120, 420, 720}) {
+                    nlohmann::json json_data =
+                        this->get_common_data_section(agent, data_point);
+                    json_data["data"]["created_elapsed_time"] =
+                        get_milliseconds_at(agent, t, data_point);
 
-            json_predictions.push_back(prediction);
-        }
+                    double probability = -1;
+                    int assignment = -1;
+                    for (const auto& probabilities :
+                         estimator->get_estimates().estimates) {
+                        if (probabilities(data_point, t) > probability) {
+                            probability = probabilities(data_point, t);
+                            assignment++;
+                        }
+                    }
 
-        void ASISTStudy2EstimateReporter::add_map_info_prediction(
-            nlohmann::json& json_predictions,
-            const AgentPtr& agent,
-            const EstimatorPtr& estimator,
-            int time_step,
-            int data_point) const {
+                    vector<string> map_assignment;
+                    switch (assignment) {
+                    case 0:
+                        map_assignment = {
+                            "SaturnA_24", "SaturnA_34", "SaturnA_64"};
+                        break;
 
-            nlohmann::json prediction;
-            boost::uuids::uuid u = boost::uuids::random_generator()();
-            prediction["unique_id"] = boost::uuids::to_string(u);
-            prediction["start"] =
-                this->get_timestamp_at(agent, time_step, data_point);
-            prediction["duration"] =
-                agent->get_evidence_metadata()[data_point]["step_size"];
+                    case 1:
+                        map_assignment = {
+                            "SaturnA_34", "SaturnA_24", "SaturnA_64"};
+                        break;
 
-            double probability = 0;
-            int assignment = 0;
-            for (const auto& probabilities :
-                 estimator->get_estimates().estimates) {
-                if (probabilities(data_point, time_step) > probability) {
-                    probability = probabilities(data_point, time_step);
-                    assignment++;
+                    case 2:
+                        map_assignment = {
+                            "SaturnA_34", "SaturnA_24", "SaturnA_64"};
+                        break;
+
+                    case 3:
+                        map_assignment = {
+                            "SaturnA_34", "SaturnA_64", "SaturnA_24"};
+                        break;
+
+                    case 4:
+                        map_assignment = {
+                            "SaturnA_64", "SaturnA_24", "SaturnA_34"};
+                        break;
+
+                    case 5:
+                        map_assignment = {
+                            "SaturnA_64", "SaturnA_34", "SaturnA_24"};
+                        break;
+                    }
+
+                    nlohmann::json json_predictions = nlohmann::json::array();
+                    int i = 0;
+                    for (const auto& json_player :
+                         agent
+                             ->get_evidence_metadata()[data_point]["players"]) {
+                        nlohmann::json prediction;
+                        boost::uuids::uuid u =
+                            boost::uuids::random_generator()();
+                        prediction["unique_id"] = boost::uuids::to_string(u);
+                        prediction["start_elapsed_time"] =
+                            this->get_milliseconds_at(agent, t, data_point);
+                        prediction["duration"] =
+                            agent->get_evidence_metadata()[data_point]
+                                                          ["step_size"];
+                        prediction["subject_type"] = "individual";
+                        prediction["subject"] = json_player["id"];
+                        prediction["predicted_property"] = "M3:participant_map";
+                        prediction["prediction"] = map_assignment[i];
+                        prediction["probability_type"] = "float";
+                        prediction["probability"] = probability;
+                        prediction["confidence_type"] = "";
+                        prediction["confidence"] = "";
+                        prediction["explanation"] = nullptr;
+                        json_predictions.push_back(prediction);
+                        i++;
+                    }
+
+                    json_data["data"]["predictions"] = json_predictions;
+                    predictions.push_back(json_data);
                 }
             }
-
-            prediction["predicted_property"] = "participant_map";
-            prediction["probability_type"] = "float";
-            prediction["probability"] = probability;
-            prediction["confidence_type"] = "";
-            prediction["confidence"] = "";
-            prediction["explanation"] = fmt::format(
-                "Assignment of the variable {} (which determines which "
-                "player was assigned to which map) with highest inferred "
-                "probability.",
-                ASISTMultiPlayerMessageConverter::MAP_VERSION_ASSIGNMENT);
-
-            vector<string> map_assignment;
-            switch (assignment) {
-            case 0:
-                map_assignment = {"SaturnA_14", "SaturnA_15", "SaturnA_16"};
-                break;
-
-            case 1:
-                map_assignment = {"SaturnA_14", "SaturnA_16", "SaturnA_15"};
-                break;
-
-            case 2:
-                map_assignment = {"SaturnA_15", "SaturnA_14", "SaturnA_16"};
-                break;
-
-            case 3:
-                map_assignment = {"SaturnA_15", "SaturnA_16", "SaturnA_14"};
-                break;
-
-            case 4:
-                map_assignment = {"SaturnA_16", "SaturnA_14", "SaturnA_15"};
-                break;
-
-            case 5:
-                map_assignment = {"SaturnA_16", "SaturnA_15", "SaturnA_14"};
-                break;
+            else {
+                // Online processing
             }
 
-            prediction["prediction"] = nlohmann::json::array();
-            int i = 0;
-            for (const auto& json_player :
-                 agent->get_evidence_metadata()[data_point]["players"]) {
-                nlohmann::json marker_assignment;
-                marker_assignment["participant_id"] = json_player["id"];
-                marker_assignment["map"] = map_assignment[i];
-                prediction["prediction"].push_back(marker_assignment);
-                i++;
-            }
-            json_predictions.push_back(prediction);
+            return predictions;
         }
 
-        void ASISTStudy2EstimateReporter::add_marker_legend_prediction(
-            nlohmann::json& json_predictions,
+        vector<nlohmann::json>
+        ASISTStudy2EstimateReporter::get_marker_legend_predictions(
             const AgentPtr& agent,
-            const EstimatorPtr& estimator,
+            const shared_ptr<IndependentMarkerLegendVersionAssignmentEstimator>&
+                estimator,
             int time_step,
             int data_point) const {
 
-            nlohmann::json prediction;
-            boost::uuids::uuid u = boost::uuids::random_generator()();
-            prediction["unique_id"] = boost::uuids::to_string(u);
-            prediction["start"] =
-                this->get_timestamp_at(agent, time_step, data_point);
-            prediction["duration"] =
-                agent->get_evidence_metadata()[data_point]["step_size"];
+            vector<nlohmann::json> predictions;
 
-            double probability = 0;
-            int assignment = 0;
-            for (const auto& probabilities :
-                 estimator->get_estimates().estimates) {
-                if (probabilities(data_point, time_step) > probability) {
-                    probability = probabilities(data_point, time_step);
-                    assignment++;
+            if (time_step == NO_OBS) {
+                // Batch processing
+                for (int t : {180, 480, 780}) {
+                    nlohmann::json json_data =
+                        this->get_common_data_section(agent, data_point);
+                    json_data["data"]["created_elapsed_time"] =
+                        get_milliseconds_at(agent, t, data_point);
+
+                    double probability = -1;
+                    int assignment = -1;
+                    for (const auto& probabilities :
+                         estimator->get_estimates().estimates) {
+                        if (probabilities(data_point, t) > probability) {
+                            probability = probabilities(data_point, t);
+                            assignment++;
+                        }
+                    }
+
+                    nlohmann::json json_predictions = nlohmann::json::array();
+                    int i = 0;
+                    for (const auto& json_player :
+                         agent
+                             ->get_evidence_metadata()[data_point]["players"]) {
+                        nlohmann::json prediction;
+                        boost::uuids::uuid u =
+                            boost::uuids::random_generator()();
+                        prediction["unique_id"] = boost::uuids::to_string(u);
+                        prediction["start_elapsed_time"] =
+                            this->get_milliseconds_at(agent, t, data_point);
+                        prediction["duration"] =
+                            agent->get_evidence_metadata()[data_point]
+                                                          ["step_size"];
+                        prediction["subject_type"] = "individual";
+                        prediction["subject"] = json_player["id"];
+                        prediction["predicted_property"] =
+                            "M6:participant_block_legend";
+                        prediction["prediction"] =
+                            assignment == i ? "B_Sally" : "A_Anne";
+                        prediction["probability_type"] = "float";
+                        prediction["probability"] = probability;
+                        prediction["confidence_type"] = "";
+                        prediction["confidence"] = "";
+                        prediction["explanation"] = nullptr;
+                        json_predictions.push_back(prediction);
+                        i++;
+                    }
+
+                    json_data["data"]["predictions"] = json_predictions;
+                    predictions.push_back(json_data);
                 }
             }
-
-            prediction["prediction"] = nlohmann::json::array();
-            prediction["predicted_property"] = "participant_blocks";
-            prediction["probability_type"] = "float";
-            prediction["probability"] = probability;
-            prediction["confidence_type"] = "";
-            prediction["confidence"] = "";
-            prediction["explanation"] = fmt::format(
-                "Assignment of the variable {} "
-                "(which determines which player was assigned to which marker "
-                "legend version) with highest inferred probability.",
-                ASISTMultiPlayerMessageConverter::MARKER_LEGEND_ASSIGNMENT);
-
-            int i = 0;
-            for (const auto& json_player :
-                 agent->get_evidence_metadata()[data_point]["players"]) {
-                nlohmann::json marker_assignment;
-                marker_assignment["participant_id"] = json_player["id"];
-                marker_assignment["markerblocks"] = assignment == i ? "B" : "A";
-                prediction["prediction"].push_back(marker_assignment);
-                i++;
+            else {
+                // Online processing
             }
-            json_predictions.push_back(prediction);
+
+            return predictions;
         }
 
-        void ASISTStudy2EstimateReporter::add_marker_false_belief_prediction(
-            nlohmann::json& json_predictions,
+        vector<nlohmann::json>
+        ASISTStudy2EstimateReporter::get_next_area_predictions(
             const AgentPtr& agent,
-            const EstimatorPtr& estimator,
+            const shared_ptr<NextAreaOnNearbyMarkerEstimator>& estimator,
             int time_step,
             int data_point) const {
 
-            nlohmann::json prediction;
-            boost::uuids::uuid u = boost::uuids::random_generator()();
-            prediction["unique_id"] = boost::uuids::to_string(u);
-            prediction["start"] = this->get_timestamp_at(agent, time_step, data_point);
-            prediction["duration"] =
-                agent->get_evidence_metadata()[data_point]["step_size"];
-            prediction["probability_type"] = "float";
-            prediction["confidence_type"] = "";
-            prediction["confidence"] = "";
+            vector<nlohmann::json> predictions;
 
-            int i = 0;
-            for (const auto& json_player :
-                 agent->get_evidence_metadata()[data_point]["players"]) {
+            if (time_step == NO_OBS) {
+                // Batch processing
+                const auto& json_events =
+                    agent->get_evidence_metadata()[data_point]["m7_events"];
 
-                // Get it by player
-                double probability = 0.4;
-                int assignment = 0;
+                for (const auto& json_m7_event : json_events) {
+                    int subject_number = json_m7_event["subject_number"];
+                    int placed_by_number = json_m7_event["placed_by_number"];
 
-                prediction["action"] =
-                    assignment == 0 ? "will not enter room" : "will enter room";
-                prediction["subject"] = json_player["id"];
-                prediction["probability"] = probability;
+                    if (estimator->get_player_number() != subject_number ||
+                        estimator->get_placed_by_player_nummber() !=
+                            placed_by_number)
+                        continue;
 
-                // TODO - get from data
-                nlohmann::json json_marker;
-                json_marker["location"]["x"] = 1000;
-                json_marker["location"]["z"] = 2000;
-                json_marker["color"] = "Green";
-                json_marker["label"] = "A";
-                prediction["using"][""] = json_marker;
+                    int t = json_m7_event["time_step"];
 
-                // TODO - closest door
-                prediction["object"] = 1;
+                    nlohmann::json json_data =
+                        this->get_common_data_section(agent, data_point);
+                    json_data["data"]["created_elapsed_time"] =
+                        json_m7_event["start_elapsed_time"];
 
-                int block_seen = 1;
-                int marker_legend = 0;
-                if (block_seen == 1) {
-                    if (marker_legend == 0) {
-                        prediction["explanation"] =
-                            "The probability of Intent be EnterRoom is larger "
-                            "than StayInHallway, given that the player saw a "
-                            "block 1 and received marker legend info A.";
+                    nlohmann::json json_predictions = nlohmann::json::array();
+                    nlohmann::json prediction;
+                    boost::uuids::uuid u = boost::uuids::random_generator()();
+                    prediction["unique_id"] = boost::uuids::to_string(u);
+                    prediction["duration"] = 5;
+                    prediction["predicted_property"] = "M7:room_enter";
+                    prediction["probability_type"] = "float";
+                    prediction["confidence_type"] = "";
+                    prediction["confidence"] = "";
+
+                    prediction["start_elapsed_time"] =
+                        json_m7_event["start_elapsed_time"];
+
+                    double probability_hallway =
+                        estimator->get_estimates().estimates[0](data_point, t);
+                    if (probability_hallway >= 0.5) {
+                        prediction["action"] = "will_not_enter_room";
+                        prediction["probability"] = probability_hallway;
                     }
                     else {
-                        prediction["explanation"] =
-                            "The probability of Intent be StayInHallway is "
-                            "larger than EnterRoom, given that the player saw "
-                            "a block 1 and received marker legend info B.";
+                        prediction["action"] = "will_enter_room";
+                        prediction["probability"] = 1 - probability_hallway;
                     }
+
+                    nlohmann::json json_using;
+                    json_using["location"]["x"] = json_m7_event["marker_x"];
+                    json_using["location"]["y"] = 60;
+                    json_using["location"]["z"] = json_m7_event["marker_z"];
+                    json_using["callsign"] = json_m7_event["placed_by"];
+                    json_using["type"] =
+                        json_m7_event["marker_number"] == 1 ? "Marker Block 1" : "Marker Block 2";
+                    prediction["using"] = json_using;
+                    prediction["subject"] = json_m7_event["subject_id"];
+                    prediction["object"] = json_m7_event["door_id"];
+
+                    double prop_valid_scenarios =
+                        estimator->get_estimates().custom_data[0](data_point,
+                                                                  t);
+                    prediction["explanation"]["prop_valid_scenarios"] =
+                        prop_valid_scenarios;
+
+                    json_predictions.push_back(prediction);
+
+                    json_data["data"]["predictions"] = json_predictions;
+                    predictions.push_back(json_data);
                 }
-                else {
-                    if (marker_legend == 0) {
-                        prediction["explanation"] =
-                            "The probability of Intent be StayInHallway is "
-                            "larger than EnterRoom, given that the player saw "
-                            "a block 2 and received marker legend info A.";
+            }
+            else {
+                // Online processing
+            }
+
+            return predictions;
+        }
+
+        void ASISTStudy2EstimateReporter::initialize_m7(
+            const nlohmann::json& evidence_metadata) const {
+            this->m7_time_steps_per_data_point =
+                vector<unordered_map<int, vector<nlohmann::json>>>(
+                    evidence_metadata.size());
+            int d = 0;
+            for (const auto& json_data_point : evidence_metadata) {
+                unordered_map<int, vector<nlohmann::json>>
+                    events_info_per_time_step;
+                for (const auto& json_m7_event : json_data_point["m7_events"]) {
+                    int time_step = json_m7_event["time_step"];
+                    if (EXISTS(time_step, events_info_per_time_step)) {
+                        events_info_per_time_step[time_step].push_back(
+                            json_m7_event);
                     }
                     else {
-                        prediction["explanation"] =
-                            "The probability of Intent be EnterRoom is larger "
-                            "than StayInHallway, given that the player saw a "
-                            "block 2 and received marker legend info B.";
+                        events_info_per_time_step[time_step] = {json_m7_event};
                     }
                 }
-
-                json_predictions.push_back(prediction);
-                i++;
+                this->m7_time_steps_per_data_point[d] =
+                    events_info_per_time_step;
+                d++;
             }
+            this->m7_initialized = true;
         }
 
         string ASISTStudy2EstimateReporter::get_timestamp_at(
@@ -377,6 +590,13 @@ namespace tomcat {
                 (int)agent->get_evidence_metadata()[data_point]["step_size"];
 
             return this->get_elapsed_timestamp(initial_timestamp, elapsed_time);
+        }
+
+        int ASISTStudy2EstimateReporter::get_milliseconds_at(
+            const AgentPtr& agent, int time_step, int data_point) const {
+            int step_size =
+                agent->get_evidence_metadata()[data_point]["step_size"];
+            return time_step * step_size * 1000;
         }
 
     } // namespace model

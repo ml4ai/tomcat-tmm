@@ -1,8 +1,9 @@
 #include "pgm/cpd/CategoricalCPD.h"
 
 #include <thread>
+#include <unordered_set>
 
-#include "pgm/ConstantNode.h"
+#include "pgm/NumericNode.h"
 #include "pgm/TimerNode.h"
 #include "utils/EigenExtensions.h"
 #include "utils/Multithreading.h"
@@ -116,7 +117,8 @@ namespace tomcat {
             const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
             const std::shared_ptr<const RandomVariableNode>& cpd_owner,
-            int num_jobs) const {
+            int num_jobs,
+            const std::vector<int>& num_events_per_data_point) const {
 
             int data_size = cpd_owner->get_size();
             int cardinality = sampled_node->get_metadata()->get_cardinality();
@@ -130,6 +132,21 @@ namespace tomcat {
                 this->get_indexed_distribution_indices(index_nodes, data_size);
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
+
+            // For rows in which the node time step is bigger than it's supposed
+            // to be, we do not sample.
+            if (!num_events_per_data_point.empty()) {
+                int node_time_step = cpd_owner->get_time_step();
+                for (int i = 0; i < distribution_indices.size(); i++) {
+                    if (i >= num_events_per_data_point.size())
+                        break;
+
+                    int max_time = num_events_per_data_point[i] - 1;
+                    if (node_time_step > max_time) {
+                        distribution_indices[i] = NO_OBS;
+                    }
+                }
+            }
 
             Eigen::MatrixXd distributions_table = this->get_table(0);
             //            if (sampled_node->has_timer() &&
@@ -254,24 +271,31 @@ namespace tomcat {
             Eigen::MatrixXi binary_distribution_indices =
                 Eigen::MatrixXi::Zero(num_rows, num_distributions);
             Eigen::MatrixXd weights(num_rows, cardinality);
+            unordered_set<int> ignore_rows;
             for (int j = 0; j < cardinality; j++) {
                 // Get the index for the next value of the indexing node
                 // in binary format.
                 for (int i = initial_row; i < initial_row + num_rows; i++) {
                     int distribution_idx = distribution_indices[i];
 
-                    if (j > 0) {
-                        // Zero the previous j
-                        int prev_val_idx = distribution_idx +
-                                           (j - 1) * distribution_index_offset;
-                        binary_distribution_indices(i - initial_row,
-                                                    prev_val_idx) = 0;
+                    if (distribution_idx == NO_OBS) {
+                        ignore_rows.insert(i - initial_row);
                     }
+                    else {
+                        if (j > 0) {
+                            // Zero the previous j
+                            int prev_val_idx =
+                                distribution_idx +
+                                (j - 1) * distribution_index_offset;
+                            binary_distribution_indices(i - initial_row,
+                                                        prev_val_idx) = 0;
+                        }
 
-                    int curr_val_idx =
-                        distribution_idx + j * distribution_index_offset;
-                    binary_distribution_indices(i - initial_row, curr_val_idx) =
-                        1;
+                        int curr_val_idx =
+                            distribution_idx + j * distribution_index_offset;
+                        binary_distribution_indices(i - initial_row,
+                                                    curr_val_idx) = 1;
+                    }
                 }
 
                 weights.col(j) = ((binary_distribution_indices.cast<double>() *
@@ -280,6 +304,10 @@ namespace tomcat {
                                   binary_assignment.cast<double>().array())
                                      .rowwise()
                                      .sum();
+            }
+
+            for (int i : ignore_rows) {
+                weights.row(i) = Eigen::VectorXd::Ones(weights.cols());
             }
 
             scoped_lock lock(weights_mutex);
@@ -387,8 +415,9 @@ namespace tomcat {
 
             Eigen::VectorXd pdfs(num_rows, 1);
             for (int i = initial_row; i < initial_row + num_rows; i++) {
-                pdfs[i - initial_row] = cpd_table(
-                    distribution_indices[i], cpd_owner->get_assignment()(i, 0));
+                int row = distribution_indices[i];
+                int col = cpd_owner->get_assignment()(i, 0);
+                pdfs(i - initial_row) = cpd_table(row, col);
             }
 
             scoped_lock lock(pdf_mutex);

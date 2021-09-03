@@ -129,6 +129,9 @@ namespace tomcat {
             this->replicable_parameter_parent |=
                 parent_node->parameter && parent_node->replicable;
 
+            parent_node->multitime_child |=
+                this->is_multitime();
+
             this->self_transition |= this->label == parent_node->label;
 
             ParentLink link{parent_node, time_crossing};
@@ -225,6 +228,10 @@ namespace tomcat {
 
             // Mark timer metadata so it cannot be used to control another node.
             metadata->set_connected(true);
+        }
+
+        bool NodeMetadata::has_multitime_child() const {
+            return multitime_child;
         }
     } // namespace model
 } // namespace tomcat

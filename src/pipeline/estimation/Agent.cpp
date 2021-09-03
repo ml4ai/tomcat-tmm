@@ -13,7 +13,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Agent::Agent(const string& id, const string& version) : id(id), version(version) {}
+        Agent::Agent(const string& id, const string& version)
+            : id(id), version(version) {}
 
         Agent::~Agent() {}
 
@@ -89,6 +90,7 @@ namespace tomcat {
                         to_string(cumulative_estimates.assignment);
                     json_estimator["executions"] = nlohmann::json::array();
 
+                    // Estimates
                     for (const auto& estimates_matrix_per_execution :
                          cumulative_estimates.estimates) {
 
@@ -99,6 +101,22 @@ namespace tomcat {
                              estimates_matrix_per_execution) {
                             json_execution["estimates"].push_back(
                                 to_string(estimates_matrix));
+                        }
+
+                        json_estimator["executions"].push_back(json_execution);
+                    }
+
+                    // Custom data
+                    for (const auto& custom_data_matrix_per_execution :
+                         cumulative_estimates.custom_data) {
+
+                        nlohmann::json json_execution;
+                        json_execution["custom_data"] = nlohmann::json::array();
+
+                        for (const auto& custom_data_matrix :
+                             custom_data_matrix_per_execution) {
+                            json_execution["custom_data"].push_back(
+                                to_string(custom_data_matrix));
                         }
 
                         json_estimator["executions"].push_back(json_execution);

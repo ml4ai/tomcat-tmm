@@ -1,7 +1,9 @@
 #pragma once
 
+#include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include <nlohmann/json.hpp>
 
@@ -24,16 +26,22 @@ namespace tomcat {
 
             /**
              * Creates a blank DBNData object.
+             *
+             * @param event_based: whether the data is based on events or time
+             * steps.
              */
-            EvidenceSet();
+            EvidenceSet(bool event_based = false);
 
             /**
              * Creates an DBNData object with data from files in a given folder.
              *
              * @param data_folder_path: folder where files with nodes'
              * values are stored.
+             * @param event_based: whether the data is based on events or time
+             * steps.
              */
-            EvidenceSet(const std::string& data_folder_path);
+            EvidenceSet(const std::string& data_folder_path,
+                        bool event_based = false);
 
             ~EvidenceSet();
 
@@ -254,6 +262,35 @@ namespace tomcat {
              */
             EvidenceSet get_single_time_data(int time_step) const;
 
+            /**
+             * Returns the index of the column related to a specific time step.
+             * If the evidence set contains time-based data, the column index is
+             * the time step itself, otherwise, the column index is the most
+             * recent event before or at the same time step informed
+             *
+             * @param data_point: index of the data point
+             * @param time_step: time step
+             * @return
+             */
+            int get_column_index_for(int data_point, int time_step) const;
+
+            /**
+             * For a given data point, returns the number of valid events. If
+             * the set is not event based, the number corresponds to the number
+             * of time steps in the whole set.
+             *
+             * @param data_point: data point index
+             * @return
+             */
+            int get_num_events_for(int data_point) const;
+
+            /**
+             * Adds the content of another evidence set to the current set.
+             *
+             * @param other_set: set to add contents from
+             */
+            void merge(const EvidenceSet& other_set);
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
@@ -265,7 +302,16 @@ namespace tomcat {
 
             const nlohmann::json& get_metadata() const;
 
+            void set_time_2_event_per_data_point(
+                const std::vector<std::vector<std::pair<int, int>>>&
+                    time_2_event_per_data_point);
+
+            bool is_event_based() const;
+
           private:
+            inline static std::string TIME_2_EVENT_MAP_FILE =
+                "time_2_event_map.json";
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -289,6 +335,11 @@ namespace tomcat {
             // Any relevant information regarding the evidence can be added
             // here
             nlohmann::json metadata;
+
+            bool event_based;
+
+            std::vector<std::set<std::pair<int, int>>>
+                time_2_event_per_data_point;
         };
 
     } // namespace model

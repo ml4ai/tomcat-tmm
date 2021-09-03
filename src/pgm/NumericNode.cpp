@@ -1,4 +1,4 @@
-#include "ConstantNode.h"
+#include "NumericNode.h"
 
 #include <fmt/format.h>
 
@@ -10,37 +10,37 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        ConstantNode::ConstantNode(double value, const string& label) {
+        NumericNode::NumericNode(double value, const string& label) {
             this->assignment = Eigen::MatrixXd(1, 1);
             this->assignment(0, 0) = value;
             this->create_default_metadata(label, 1);
         }
 
-        ConstantNode::ConstantNode(const Eigen::VectorXd& values,
+        NumericNode::NumericNode(const Eigen::VectorXd& values,
                                    const string& label) {
             this->assignment = Eigen::MatrixXd(1, values.size());
             this->assignment.row(0) = values;
             this->create_default_metadata(label, values.size());
         }
 
-        ConstantNode::ConstantNode(const Eigen::VectorXd&& values,
+        NumericNode::NumericNode(const Eigen::VectorXd&& values,
                                    const string& label) {
             this->assignment = Eigen::MatrixXd(1, values.size());
             this->assignment.row(0) = move(values);
             this->create_default_metadata(label, this->assignment.size());
         }
 
-        ConstantNode::~ConstantNode() {}
+        NumericNode::~NumericNode() {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        ConstantNode::ConstantNode(const ConstantNode& node) {
+        NumericNode::NumericNode(const NumericNode& node) {
             this->metadata = node.metadata;
             this->assignment = node.assignment;
         }
 
-        ConstantNode& ConstantNode::operator=(const ConstantNode& node) {
+        NumericNode& NumericNode::operator=(const NumericNode& node) {
             this->metadata = node.metadata;
             this->assignment = node.assignment;
             return *this;
@@ -49,7 +49,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void ConstantNode::create_default_metadata(const string& label,
+        void NumericNode::create_default_metadata(const string& label,
                                                    int sample_size) {
             NodeMetadata metadata =
                 NodeMetadata::create_single_time_link_metadata(
@@ -57,18 +57,18 @@ namespace tomcat {
             this->metadata = make_shared<NodeMetadata>(move(metadata));
         }
 
-        unique_ptr<Node> ConstantNode::clone() const {
-            unique_ptr<ConstantNode> new_node =
-                make_unique<ConstantNode>(*this);
+        unique_ptr<Node> NumericNode::clone() const {
+            unique_ptr<NumericNode> new_node =
+                make_unique<NumericNode>(*this);
             new_node->metadata = make_shared<NodeMetadata>(*this->metadata);
             return new_node;
         }
 
-        string ConstantNode::get_timed_name() const {
+        string NumericNode::get_timed_name() const {
             return this->metadata->get_label();
         }
 
-        string ConstantNode::get_description() const {
+        string NumericNode::get_description() const {
             if (this->assignment.size() == 1) {
                 stringstream assignment_string;
                 assignment_string << this->assignment;

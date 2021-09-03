@@ -54,6 +54,9 @@ namespace tomcat {
             // Member functions
             //------------------------------------------------------------------
 
+            void convert_messages(const std::string& messages_dir,
+                                          const std::string& data_dir) override;
+
             EvidenceSet
             get_data_from_message(const nlohmann::json& json_message,
                                   nlohmann::json& json_mission_log) override;
@@ -111,11 +114,23 @@ namespace tomcat {
             virtual void prepare_for_new_mission() = 0;
 
             //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
+            /**
+             * As messages are filtered and ordered by timestamp, this function
+             * can be implemented by any subclass to perform additional
+             * processing.
+             */
+            virtual void
+            parse_individual_message(const nlohmann::json& json_message);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
             std::map<std::string, nlohmann::json>
-            filter(const std::string& messages_filepath) const override;
+            filter(const std::string& messages_filepath) override;
 
             /**
              * Copies attributes from another converter.
@@ -143,13 +158,16 @@ namespace tomcat {
             // ignored.
             bool mission_started = false;
 
-            int elapsed_time = 0;
+            int elapsed_seconds = 0;
 
             time_t mission_initial_timestamp;
 
             int mission_trial_number = -1;
 
             std::string experiment_id;
+
+            std::unordered_map<std::string, std::string> fov_filepaths;
+
         };
 
     } // namespace model

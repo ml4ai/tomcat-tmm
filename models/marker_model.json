@@ -1,0 +1,717 @@
+{
+  "nodes": {
+    "timers": [
+    ],
+    "parameters": [
+      {
+        "label": "ThetaPlayerState.PlayerState.PlayerRole",
+        "prior": false,
+        "sample_size": 3,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "ThetaPlayerTask.PlayerState",
+        "prior": false,
+        "sample_size": 5,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "ThetaPlayerArea.PlayerState",
+        "prior": false,
+        "sample_size": 2,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "ThetaPlayerPlacedMarker.PlayerState.PlayerMarkerLegendVersion.PlayerMarkerLegendVersionUsage",
+        "prior": false,
+        "sample_size": 4,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "ThetaPlayerRole.PlayerRole",
+        "prior": false,
+        "sample_size": 3,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1,1,1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      },
+      {
+        "label": "ThetaPlayerMarkerLegendVersionUsage.PlayerMarkerLegendVersionUsage",
+        "prior": false,
+        "sample_size": 2,
+        "cpds": [
+          {
+            "distribution": "dirichlet",
+            "constant": true,
+            "parameters": "1,1,1,1",
+            "index_nodes": []
+          }
+        ]
+      }
+    ],
+    "data": [
+      {
+        "label": "PlayerMarkerLegendVersionP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerMarkerLegendVersionP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerMarkerLegendVersionP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": false,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerStateP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerState.PlayerState.PlayerRole",
+            "index_nodes": [
+              "PlayerStateP1",
+              "ObservedPlayerRoleP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerStateP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerState.PlayerState.PlayerRole",
+            "index_nodes": [
+              "PlayerStateP2",
+              "ObservedPlayerRoleP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerStateP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerState.PlayerState.PlayerRole",
+            "index_nodes": [
+              "PlayerStateP3",
+              "ObservedPlayerRoleP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerRoleP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerRole.PlayerRole",
+            "index_nodes": [
+              "ObservedPlayerRoleP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerRoleP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerRole.PlayerRole",
+            "index_nodes": [
+              "ObservedPlayerRoleP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ObservedPlayerRoleP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerRole.PlayerRole",
+            "index_nodes": [
+              "ObservedPlayerRoleP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerAreaP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerArea.PlayerState",
+            "index_nodes": [
+              "PlayerStateP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerAreaP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerArea.PlayerState",
+            "index_nodes": [
+              "PlayerStateP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerAreaP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerArea.PlayerState",
+            "index_nodes": [
+              "PlayerStateP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerTaskP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerTask.PlayerState",
+            "index_nodes": [
+              "PlayerStateP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerTaskP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerTask.PlayerState",
+            "index_nodes": [
+              "PlayerStateP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerTaskP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 5,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerTask.PlayerState",
+            "index_nodes": [
+              "PlayerStateP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerPlacedMarkerP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,0,0,0,1,0,0,0",
+            "index_nodes": [
+              "PlayerMarkerLegendVersionP1"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerPlacedMarker.PlayerState.PlayerMarkerLegendVersion.PlayerMarkerLegendVersionUsage",
+            "index_nodes": [
+              "PlayerStateP1",
+              "PlayerMarkerLegendVersionP1",
+              "PlayerMarkerLegendVersionUsageP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerPlacedMarkerP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,0,0,0,1,0,0,0",
+            "index_nodes": [
+              "PlayerMarkerLegendVersionP2"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerPlacedMarker.PlayerState.PlayerMarkerLegendVersion.PlayerMarkerLegendVersionUsage",
+            "index_nodes": [
+              "PlayerStateP2",
+              "PlayerMarkerLegendVersionP2",
+              "PlayerMarkerLegendVersionUsageP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerPlacedMarkerP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 4,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,0,0,0,1,0,0,0",
+            "index_nodes": [
+              "PlayerMarkerLegendVersionP3"
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerPlacedMarker.PlayerState.PlayerMarkerLegendVersion.PlayerMarkerLegendVersionUsage",
+            "index_nodes": [
+              "PlayerStateP3",
+              "PlayerMarkerLegendVersionP3",
+              "PlayerMarkerLegendVersionUsageP3"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerMarkerLegendVersionUsageP1",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerMarkerLegendVersionUsage.PlayerMarkerLegendVersionUsage",
+            "index_nodes": [
+              "PlayerMarkerLegendVersionUsageP1"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerMarkerLegendVersionUsageP2",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerMarkerLegendVersionUsage.PlayerMarkerLegendVersionUsage",
+            "index_nodes": [
+              "PlayerMarkerLegendVersionUsageP2"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "PlayerMarkerLegendVersionUsageP3",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 2,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "1,1",
+            "index_nodes": [
+            ]
+          },
+          {
+            "distribution": "categorical",
+            "constant": false,
+            "parameters": "ThetaPlayerMarkerLegendVersionUsage.PlayerMarkerLegendVersionUsage",
+            "index_nodes": [
+              "PlayerMarkerLegendVersionUsageP3"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "connections": [
+    {
+      "parent": "PlayerMarkerLegendVersionP1",
+      "child": "PlayerPlacedMarkerP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerMarkerLegendVersionP2",
+      "child": "PlayerPlacedMarkerP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerMarkerLegendVersionP3",
+      "child": "PlayerPlacedMarkerP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerStateP1",
+      "child": "PlayerAreaP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP2",
+      "child": "PlayerAreaP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP3",
+      "child": "PlayerAreaP3",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP1",
+      "child": "PlayerTaskP1",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP2",
+      "child": "PlayerTaskP2",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP3",
+      "child": "PlayerTaskP3",
+      "time_crossing": false
+    },
+    {
+      "parent": "PlayerStateP1",
+      "child": "PlayerStateP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerStateP2",
+      "child": "PlayerStateP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerStateP3",
+      "child": "PlayerStateP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerStateP1",
+      "child": "PlayerPlacedMarkerP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerStateP2",
+      "child": "PlayerPlacedMarkerP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerStateP3",
+      "child": "PlayerPlacedMarkerP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP1",
+      "child": "PlayerStateP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP2",
+      "child": "PlayerStateP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP3",
+      "child": "PlayerStateP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP1",
+      "child": "ObservedPlayerRoleP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP2",
+      "child": "ObservedPlayerRoleP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "ObservedPlayerRoleP3",
+      "child": "ObservedPlayerRoleP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerMarkerLegendVersionUsageP1",
+      "child": "PlayerMarkerLegendVersionUsageP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerMarkerLegendVersionUsageP2",
+      "child": "PlayerMarkerLegendVersionUsageP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerMarkerLegendVersionUsageP3",
+      "child": "PlayerMarkerLegendVersionUsageP3",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerMarkerLegendVersionUsageP1",
+      "child": "PlayerPlacedMarkerP1",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerMarkerLegendVersionUsageP2",
+      "child": "PlayerPlacedMarkerP2",
+      "time_crossing": true
+    },
+    {
+      "parent": "PlayerMarkerLegendVersionUsageP3",
+      "child": "PlayerPlacedMarkerP3",
+      "time_crossing": true
+    }
+  ]
+}

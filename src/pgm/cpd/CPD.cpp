@@ -111,14 +111,30 @@ namespace tomcat {
             }
         }
 
-        Eigen::MatrixXd CPD::sample(
-            const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
-            int num_samples,
-            const std::shared_ptr<const RandomVariableNode>& cpd_owner) const {
+        Eigen::MatrixXd
+        CPD::sample(const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
+                    int num_samples,
+                    const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                    const std::vector<int>& time_steps_per_sample) const {
 
             Eigen::VectorXi distribution_indices =
                 this->get_indexed_distribution_indices(cpd_owner->get_parents(),
                                                        num_samples);
+
+            // For rows in which the node time step is bigger than it's supposed
+            // to be, we do not sample.
+            if (!time_steps_per_sample.empty()) {
+                int node_time_step = cpd_owner->get_time_step();
+                for (int i = 0; i < distribution_indices.size(); i++) {
+                    if (i >= time_steps_per_sample.size())
+                        break;
+
+                    int max_time = time_steps_per_sample[i] - 1;
+                    if (node_time_step > max_time) {
+                        distribution_indices[i] = NO_OBS;
+                    }
+                }
+            }
 
             int num_jobs = random_generator_per_job.size();
             int sample_size = this->distributions[0]->get_sample_size();
@@ -175,49 +191,58 @@ namespace tomcat {
             Eigen::MatrixXd samples(num_rows, full_samples.cols());
             for (int i = initial_row; i < initial_row + num_rows; i++) {
                 int distribution_idx = distribution_indices[i];
-
                 Eigen::VectorXd sample;
 
-                if (cpd_owner->get_metadata()->is_timer()) {
-                    bool decrement_sample = false;
-
-                    if (previous) {
-                        if (previous->get_assignment()(i, 0) > 0) {
-                            decrement_sample = true;
-                        }
-                    }
-
-                    if (decrement_sample) {
-                        sample = previous->get_assignment().row(i).array() - 1;
-                    }
-                    else {
-                        sample = this->distributions[distribution_idx]->sample(
-                            random_generator, i);
-                    }
+                if (distribution_idx == NO_OBS) {
+                    sample = Eigen::VectorXd::Constant(
+                        cpd_owner->get_metadata()->get_sample_size(), NO_OBS);
                 }
                 else {
-                    bool repeat_sample = false;
+                    if (cpd_owner->get_metadata()->is_timer()) {
+                        bool decrement_sample = false;
 
-                    if (cpd_owner->get_timer()) {
-                        const auto& previous_timer =
-                            dynamic_pointer_cast<RandomVariableNode>(
-                                cpd_owner->get_timer())
-                                ->get_previous();
-                        if (previous_timer) {
-                            if (previous_timer->get_assignment()(i, 0) > 0) {
-                                // Node is controlled by a timer and previous
-                                // count value did not reach 0 yet.
-                                repeat_sample = true;
+                        if (previous) {
+                            if (previous->get_assignment()(i, 0) > 0) {
+                                decrement_sample = true;
                             }
                         }
-                    }
 
-                    if (repeat_sample) {
-                        sample = previous->get_assignment().row(i);
+                        if (decrement_sample) {
+                            sample =
+                                previous->get_assignment().row(i).array() - 1;
+                        }
+                        else {
+                            sample =
+                                this->distributions[distribution_idx]->sample(
+                                    random_generator, i);
+                        }
                     }
                     else {
-                        sample = this->distributions[distribution_idx]->sample(
-                            random_generator, i);
+                        bool repeat_sample = false;
+
+                        if (cpd_owner->get_timer()) {
+                            const auto& previous_timer =
+                                dynamic_pointer_cast<RandomVariableNode>(
+                                    cpd_owner->get_timer())
+                                    ->get_previous();
+                            if (previous_timer) {
+                                if (previous_timer->get_assignment()(i, 0) >
+                                    0) {
+                                    // Node is controlled by a timer and
+                                    // previous count value did not reach 0 yet.
+                                    repeat_sample = true;
+                                }
+                            }
+                        }
+
+                        if (repeat_sample) {
+                            sample = previous->get_assignment().row(i);
+                        }
+                        else {
+                            sample =
+                                this->distributions[distribution_idx]->sample(
+                                    random_generator, i);
+                        }
                     }
                 }
 
@@ -232,12 +257,28 @@ namespace tomcat {
         Eigen::MatrixXd CPD::sample_from_posterior(
             const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
             const Eigen::MatrixXd& posterior_weights,
-            const std::shared_ptr<const RandomVariableNode>& cpd_owner) const {
+            const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+            const std::vector<int>& time_steps_per_sample) const {
 
             int num_indices = posterior_weights.rows();
             Eigen::VectorXi distribution_indices =
                 this->get_indexed_distribution_indices(cpd_owner->get_parents(),
                                                        num_indices);
+
+            // For rows in which the node time step is bigger than it's supposed
+            // to be, we do not sample.
+            if (!time_steps_per_sample.empty()) {
+                int node_time_step = cpd_owner->get_time_step();
+                for (int i = 0; i < distribution_indices.size(); i++) {
+                    if (i >= time_steps_per_sample.size())
+                        break;
+
+                    int max_time = time_steps_per_sample[i] - 1;
+                    if (node_time_step > max_time) {
+                        distribution_indices[i] = NO_OBS;
+                    }
+                }
+            }
 
             int num_jobs = random_generator_per_job.size();
             int sample_size = this->distributions[0]->get_sample_size();
@@ -299,33 +340,43 @@ namespace tomcat {
             Eigen::MatrixXd samples(num_rows, full_samples.cols());
             for (int i = initial_row; i < initial_row + num_rows; i++) {
                 int distribution_idx = distribution_indices[i];
-                const auto& distribution =
-                    this->distributions[distribution_idx];
-                const auto& weights = posterior_weights.row(i);
 
-                if (cpd_owner->has_timer() && previous) {
-                    // If the node that owns this CPD is controlled by a timer,
-                    // P(node|Parents(node)) is calculated according to its left
-                    // and right segments. If node(t-1) == node(t), we
-                    // must ignore the transition probability from the
-                    // transition matrix as there's no transition to a
-                    // different state. This would affect only the duration of
-                    // the previous segment (or the full segment if node(t+1)
-                    // == node(t) as well) which will be increased by one. To
-                    // avoid returning 0 (or whatever value defined in the
-                    // transition matrix when node(t) == node(t-1)) we pass the
-                    // previous state to the sampling method so that P(node
-                    // (t)|node (t-1)) s.t. node(t-1) == node(t) equals 1. The
-                    // actual probability of this "transition", regarding the
-                    // duration of the left and right segments, is embedded in
-                    // the weights passed to the sampling method.
-                    double previous_value = previous->get_assignment()(i, 0);
-                    samples.row(i - initial_row) = distribution->sample(
-                        random_generator, weights, previous_value);
+                if (distribution_idx == NO_OBS) {
+                    samples.row(i - initial_row) = Eigen::VectorXd::Constant(
+                        cpd_owner->get_metadata()->get_sample_size(), NO_OBS);
                 }
                 else {
-                    samples.row(i - initial_row) =
-                        distribution->sample(random_generator, weights);
+                    const auto& distribution =
+                        this->distributions[distribution_idx];
+                    const auto& weights = posterior_weights.row(i);
+
+                    if (cpd_owner->has_timer() && previous) {
+                        // If the node that owns this CPD is controlled by a
+                        // timer, P(node|Parents(node)) is calculated according
+                        // to its left and right segments. If node(t-1) ==
+                        // node(t), we must ignore the transition probability
+                        // from the transition matrix as there's no transition
+                        // to a different state. This would affect only the
+                        // duration of the previous segment (or the full segment
+                        // if node(t+1)
+                        // == node(t) as well) which will be increased by one.
+                        // To avoid returning 0 (or whatever value defined in
+                        // the transition matrix when node(t) == node(t-1)) we
+                        // pass the previous state to the sampling method so
+                        // that P(node (t)|node (t-1)) s.t. node(t-1) == node(t)
+                        // equals 1. The actual probability of this
+                        // "transition", regarding the duration of the left and
+                        // right segments, is embedded in the weights passed to
+                        // the sampling method.
+                        double previous_value =
+                            previous->get_assignment()(i, 0);
+                        samples.row(i - initial_row) = distribution->sample(
+                            random_generator, weights, previous_value);
+                    }
+                    else {
+                        samples.row(i - initial_row) =
+                            distribution->sample(random_generator, weights);
+                    }
                 }
             }
 
@@ -375,7 +426,8 @@ namespace tomcat {
             const vector<shared_ptr<Node>>& index_nodes,
             const shared_ptr<RandomVariableNode>& sampled_node,
             const shared_ptr<const RandomVariableNode>& cpd_owner,
-            int num_jobs) const {
+            int num_jobs,
+            const std::vector<int>& time_steps_per_sample) const {
 
             if (sampled_node->has_timer() &&
                 cpd_owner->get_previous() == sampled_node) {
@@ -401,6 +453,21 @@ namespace tomcat {
                 this->get_indexed_distribution_indices(index_nodes, data_size);
             // Restore the sampled node's assignment to its original state.
             sampled_node->set_assignment(saved_assignment);
+
+            // For rows in which the node time step is bigger than it's supposed
+            // to be, we do not sample.
+            if (!time_steps_per_sample.empty()) {
+                int node_time_step = cpd_owner->get_time_step();
+                for (int i = 0; i < distribution_indices.size(); i++) {
+                    if (i >= time_steps_per_sample.size())
+                        break;
+
+                    int max_time = time_steps_per_sample[i] - 1;
+                    if (node_time_step > max_time) {
+                        distribution_indices[i] = NO_OBS;
+                    }
+                }
+            }
 
             const string& sampled_node_label =
                 sampled_node->get_metadata()->get_label();
@@ -467,42 +534,49 @@ namespace tomcat {
             for (int i = initial_row; i < initial_row + num_rows; i++) {
                 int distribution_idx = distribution_indices[i];
 
-                bool use_cdf = false;
-                if (cpd_owner->get_metadata()->is_timer()) {
-                    // If the node to which we are computing the weights is
-                    // parent of a timer node, we ignore weights in the
-                    // middle of a segment and only care for the ones in the
-                    // beginning of a new segment.
-                    const auto& timer =
-                        dynamic_pointer_cast<const TimerNode>(cpd_owner);
-                    int timer_value = timer->get_forward_assignment()(i, 0);
-                    if (timer_value != 0) {
-                        // Middle of a segment
-                        continue;
-                    }
-
-                    int segment_duration =
-                        timer->get_backward_assignment()(i, 0);
-                    if (!timer->get_next(segment_duration + 1)) {
-                        // If the timer is the last right segment. We use the
-                        // CDF instead.
-                        use_cdf = true;
-                    }
+                if (distribution_idx == NO_OBS ||
+                    cpd_owner->get_assignment()(i, 0) == NO_OBS) {
+                    weights.row(i - initial_row) =
+                        Eigen::VectorXd::Ones(cardinality);
                 }
+                else {
+                    bool use_cdf = false;
+                    if (cpd_owner->get_metadata()->is_timer()) {
+                        // If the node to which we are computing the weights is
+                        // parent of a timer node, we ignore weights in the
+                        // middle of a segment and only care for the ones in the
+                        // beginning of a new segment.
+                        const auto& timer =
+                            dynamic_pointer_cast<const TimerNode>(cpd_owner);
+                        int timer_value = timer->get_forward_assignment()(i, 0);
+                        if (timer_value != 0) {
+                            // Middle of a segment
+                            continue;
+                        }
 
-                for (int j = 0; j < cardinality; j++) {
-                    const auto& distribution =
-                        this->distributions[distribution_idx +
-                                            j * distribution_index_offset];
-
-                    if (use_cdf) {
-                        // p(x >= val)
-                        weights(i - initial_row, j) = distribution->get_cdf(
-                            cpd_owner->get_assignment()(i, 0) - 1, true);
+                        int segment_duration =
+                            timer->get_backward_assignment()(i, 0);
+                        if (!timer->get_next(segment_duration + 1)) {
+                            // If the timer is the last right segment. We use
+                            // the CDF instead.
+                            use_cdf = true;
+                        }
                     }
-                    else {
-                        weights(i - initial_row, j) = distribution->get_pdf(
-                            cpd_owner->get_assignment().row(i));
+
+                    for (int j = 0; j < cardinality; j++) {
+                        const auto& distribution =
+                            this->distributions[distribution_idx +
+                                                j * distribution_index_offset];
+
+                        if (use_cdf) {
+                            // p(x >= val)
+                            weights(i - initial_row, j) = distribution->get_cdf(
+                                cpd_owner->get_assignment()(i, 0) - 1, true);
+                        }
+                        else {
+                            weights(i - initial_row, j) = distribution->get_pdf(
+                                cpd_owner->get_assignment().row(i));
+                        }
                     }
                 }
             }
@@ -1407,43 +1481,49 @@ namespace tomcat {
             for (int i = 0; i < data_size; i++) {
                 int distribution_idx = distribution_indices[i];
 
+                // TODO - this needs to be adapted for multivariate variables
                 double value = values(i, 0);
                 bool add_to_list = false;
-                if (cpd_owner->get_metadata()->is_timer()) {
-                    // Only add to the sufficient statistics, when the timer
-                    // starts over which is the moment when a transition
-                    // between different states occur.
-                    if (const auto& next_timer =
-                            dynamic_pointer_cast<TimerNode>(
-                                cpd_owner->get_next())) {
-                        // The next timer starts a new segment
-                        if (next_timer->get_forward_assignment()(i, 0) == 0) {
-                            add_to_list = true;
-                        }
-                    }
-                }
-                else {
-                    if (cpd_owner->has_timer()) {
-                        const auto& previous = cpd_owner->get_previous();
-                        if (!previous ||
-                            previous->get_assignment()(i, 0) != value) {
-                            // If a node is controlled by a timer, only add to
-                            // the sufficient statistics if there was a
-                            // a state transition or when t = 0 (there's no
-                            // previous node in time);
-                            add_to_list = true;
+                if (value != NO_OBS) {
+                    if (cpd_owner->get_metadata()->is_timer()) {
+                        // Only add to the sufficient statistics, when the timer
+                        // starts over which is the moment when a transition
+                        // between different states occur.
+                        if (const auto& next_timer =
+                                dynamic_pointer_cast<TimerNode>(
+                                    cpd_owner->get_next())) {
+                            // The next timer starts a new segment
+                            if (next_timer->get_forward_assignment()(i, 0) ==
+                                0) {
+                                add_to_list = true;
+                            }
                         }
                     }
                     else {
-                        add_to_list = true;
+                        if (cpd_owner->has_timer()) {
+                            const auto& previous = cpd_owner->get_previous();
+                            if (!previous ||
+                                previous->get_assignment()(i, 0) != value) {
+                                // If a node is controlled by a timer, only add
+                                // to the sufficient statistics if there was a
+                                // a state transition or when t = 0 (there's no
+                                // previous node in time);
+                                add_to_list = true;
+                            }
+                        }
+                        else {
+                            add_to_list = true;
+                        }
                     }
-                }
 
-                if (add_to_list) {
-                    if (!EXISTS(distribution_idx, values_per_distribution)) {
-                        values_per_distribution[distribution_idx] = {};
+                    if (add_to_list) {
+                        if (!EXISTS(distribution_idx,
+                                    values_per_distribution)) {
+                            values_per_distribution[distribution_idx] = {};
+                        }
+                        values_per_distribution[distribution_idx].push_back(
+                            value);
                     }
-                    values_per_distribution[distribution_idx].push_back(value);
                 }
             }
 

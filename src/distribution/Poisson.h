@@ -33,6 +33,22 @@ namespace tomcat {
             Poisson(std::shared_ptr<Node>&& lambda);
 
             /**
+             * Creates an instance of a Poisson distribution for node
+             * dependent mean lambda.
+             *
+             * @param lambda: node which the assignment defines the mean lambda
+             */
+            Poisson(const std::vector<std::shared_ptr<Node>>& lambda);
+
+            /**
+             * Creates an instance of a Poisson distribution for node
+             * dependent mean lambda.
+             *
+             * @param lambda: node which the assignment defines the mean lambda
+             */
+            Poisson(std::vector<std::shared_ptr<Node>>&& lambda);
+
+            /**
              * Creates an instance of a Poisson distribution by transforming
              * a numerical mean lambda a constant node to keep
              * static and node dependent distributions compatible.

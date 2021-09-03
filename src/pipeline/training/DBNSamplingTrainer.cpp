@@ -42,14 +42,23 @@ namespace tomcat {
             this->param_label_to_samples = trainer.param_label_to_samples;
         }
 
-        void DBNSamplingTrainer::prepare() {
-            this->sampler->prepare();
-        }
+        void DBNSamplingTrainer::prepare() { this->sampler->prepare(); }
 
         void DBNSamplingTrainer::fit(const EvidenceSet& training_data) {
             this->sampler->set_num_in_plate_samples(
                 training_data.get_num_data_points());
             this->sampler->add_data(training_data);
+
+            if (training_data.is_event_based()) {
+                vector<int> time_steps_per_sample(
+                    training_data.get_num_data_points());
+                for (int d = 0; d < time_steps_per_sample.size(); d++) {
+                    time_steps_per_sample[d] =
+                        training_data.get_num_events_for(d);
+                }
+                this->sampler->set_time_steps_per_sample(time_steps_per_sample);
+            }
+
             this->sampler->sample(this->random_generator, this->num_samples);
 
             shared_ptr<DynamicBayesNet> model = this->sampler->get_model();
