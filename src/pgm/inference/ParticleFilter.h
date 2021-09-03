@@ -23,8 +23,6 @@ namespace tomcat {
          */
         class ParticleFilter {
           public:
-
-            bool stop = false;
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------

@@ -98,7 +98,6 @@ namespace tomcat {
                                       this->random_generator,
                                       this->num_jobs);
                 filter.set_show_progress(show_filter_progress);
-                filter.stop = (d == 9);
 
                 EvidenceSet single_point_data =
                     new_data.get_single_point_data(d);

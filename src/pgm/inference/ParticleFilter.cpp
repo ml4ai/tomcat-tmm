@@ -111,15 +111,6 @@ namespace tomcat {
                 this->elapse(new_data, t);
                 Eigen::VectorXi sampled_particles =
                     this->weigh_and_sample_particles(t, new_data);
-                if (this->stop ) {
-                    if(t >= 328 && t <= 330) {
-                        cout << "Particles: " << sampled_particles.transpose() << endl;
-                    }
-                    if(t == 330) {
-                        string stop;
-                        cin >> stop;
-                    }
-                }
                 EvidenceSet resampled_particles =
                     this->resample(new_data, t, sampled_particles);
                 marginals.hstack(this->apply_rao_blackwellization(
@@ -210,13 +201,6 @@ namespace tomcat {
                 else {
                     samples = node->sample(this->random_generators_per_job,
                                            this->num_particles);
-                }
-
-                if (this->stop) {
-                    if (time_step >= 328 && time_step <= 330) {
-                        cout << time_step << " - " << node_label << ": "
-                             << samples.transpose() << endl;
-                    }
                 }
 
                 if (node->get_metadata()->is_timer()) {
@@ -347,10 +331,6 @@ namespace tomcat {
                         log_weights.array() - log_weights.maxCoeff();
                     probabilities = probabilities.array().exp();
                     probabilities = probabilities.array() / probabilities.sum();
-
-                    if (stop && time_step == 330) {
-                        cout << "Particle Weights: " << setprecision(20) << probabilities.transpose() << endl;
-                    }
 
                     sampled_particles =
                         Categorical(move(probabilities))

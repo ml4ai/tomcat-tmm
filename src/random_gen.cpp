@@ -33,13 +33,26 @@ int main(int argc, char* argv[]) {
     }
     cout << samples.transpose() << endl;
 
-    shared_ptr<gsl_rng> random_generator2(gsl_rng_alloc(gsl_rng_mt19937));
-    Eigen::VectorXd p2(10);
-    p2 << 0.110194, 0.110194, 0.110194, 1.15124e-08, 0.11845, 0.110194,
-        0.110194, 0.110194, 0.110194, 0.110194;
-    Categorical cat2(p2);
-    cout << "Samples from a quasi-uniform distribution." << endl;
+    shared_ptr<gsl_rng> random_generator_mac(gsl_rng_alloc(gsl_rng_mt19937));
+    Eigen::VectorXd pmac(10);
+    pmac << 0.11019378383213408734, 0.11019378383213408734,
+        0.11019378383213408734, 1.151238009480141500e-08,
+        0.11844971783054725201, 0.11019378383213408734, 0.11019378383213408734,
+        0.11019378383213408734, 0.11019378383213408734, 0.11019378383213408734;
+    Categorical catmac(pmac);
+    cout << "Samples from a quasi-uniform distribution (local)." << endl;
     Eigen::VectorXd samples2(10);
-    samples2 = cat.sample_many({random_generator2}, 10, 0).col(0);
+    samples2 = catmac.sample_many({random_generator_mac}, 10, 0).col(0);
+    cout << samples2.transpose() << endl;
+
+    shared_ptr<gsl_rng> random_generator_server(gsl_rng_alloc(gsl_rng_mt19937));
+    Eigen::VectorXd pserver(10);
+    pserver << 0.11019378383213405959, 0.11019378383213405959,
+        0.11019378383213405959, 1.1512380094801422488e-08,
+        0.1184497178305473214, 0.11019378383213405959, 0.11019378383213405959,
+        0.11019378383213405959, 0.11019378383213405959, 0.11019378383213405959;
+    Categorical catserver(pserver);
+    cout << "Samples from a quasi-uniform distribution (server)." << endl;
+    samples2 = catserver.sample_many({random_generator_server}, 10, 0).col(0);
     cout << samples2.transpose() << endl;
 }
