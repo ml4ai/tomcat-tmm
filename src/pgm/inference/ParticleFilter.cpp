@@ -348,6 +348,10 @@ namespace tomcat {
                     probabilities = probabilities.array().exp();
                     probabilities = probabilities.array() / probabilities.sum();
 
+                    if (stop && time_step == 330) {
+                        cout << "Particle Weights: " << probabilities.transpose() << endl;
+                    }
+
                     sampled_particles =
                         Categorical(move(probabilities))
                             .sample_many(this->random_generators_per_job,
