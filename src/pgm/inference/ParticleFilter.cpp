@@ -349,7 +349,7 @@ namespace tomcat {
                     probabilities = probabilities.array() / probabilities.sum();
 
                     if (stop && time_step == 330) {
-                        cout << "Particle Weights: " << probabilities.transpose() << endl;
+                        cout << "Particle Weights: " << setprecision(20) << probabilities.transpose() << endl;
                     }
 
                     sampled_particles =
