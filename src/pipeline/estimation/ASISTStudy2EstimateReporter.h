@@ -10,7 +10,6 @@
 #include "pipeline/estimation/EstimateReporter.h"
 #include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
 #include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/IndependentMarkerLegendVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
 
 namespace tomcat {
@@ -117,9 +116,7 @@ namespace tomcat {
              */
             std::vector<nlohmann::json> get_marker_legend_predictions(
                 const AgentPtr& agent,
-                const std::shared_ptr<
-                    IndependentMarkerLegendVersionAssignmentEstimator>&
-                    estimator,
+                const EstimatorPtr& estimator,
                 int time_step,
                 int data_point) const;
 

@@ -111,6 +111,8 @@ namespace tomcat {
 
             int get_placed_by_player_nummber() const;
 
+            int get_marker_number() const;
+
           private:
             //------------------------------------------------------------------
             // Data members

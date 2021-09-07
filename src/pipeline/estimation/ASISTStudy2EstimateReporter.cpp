@@ -123,34 +123,19 @@ namespace tomcat {
                                 messages.push_back(state_message);
                             }
                         }
-                        else if (
-                            const auto& marker_estimator = dynamic_pointer_cast<
-                                IndependentMarkerLegendVersionAssignmentEstimator>(
-                                base_estimator)) {
+                        else if (base_estimator->get_estimates().label ==
+                                 "MarkerLegendVersionAssignment") {
 
                             predictions = this->get_marker_legend_predictions(
-                                agent, marker_estimator, time_step, d);
+                                agent, base_estimator, time_step, d);
 
                             for (const auto& prediction : predictions) {
                                 state_message["data"] = prediction["data"];
                                 state_message["data"]["group"]["explanation"] =
-                                    "The legend version is estimated based a "
-                                    "Markov "
-                                    "process over player's belief about two "
-                                    "main "
-                                    "actions: rescuing victims in a room or "
-                                    "leaving "
-                                    "victims in a room. Marker placements and "
-                                    "victim "
-                                    "rescues are "
-                                    "some of the variables that help to update "
-                                    "this "
-                                    "belief. The change of marker meaning is "
-                                    "also "
-                                    "taking into consideration as a dependent "
-                                    "Markov "
-                                    "chain that gets updated throughout the "
-                                    "mission.";
+                                    "The legend version is estimated based on "
+                                    "the victim's perception by the players "
+                                    "and the agent's belief about the meaning "
+                                    "the team adopted for the markers.";
                                 messages.push_back(state_message);
                             }
                         }
@@ -169,9 +154,10 @@ namespace tomcat {
                                     "The next action taken in face of a marker "
                                     "block "
                                     "is estimated by computing the probability "
-                                    "that the player will be in a room within "
-                                    "5 minutes after seeing a marker block. "
-                                    "The model keeps two coupled Markov "
+                                    "that the player will be in a room in the "
+                                    "next second after leaving the range of a "
+                                    "marker block. "
+                                    "The model keeps two Markov "
                                     "chains: one representing the player's "
                                     "intent and another one representing his "
                                     "belief about the meaning of the markers "
@@ -406,8 +392,7 @@ namespace tomcat {
         vector<nlohmann::json>
         ASISTStudy2EstimateReporter::get_marker_legend_predictions(
             const AgentPtr& agent,
-            const shared_ptr<IndependentMarkerLegendVersionAssignmentEstimator>&
-                estimator,
+            const EstimatorPtr& estimator,
             int time_step,
             int data_point) const {
 
@@ -485,7 +470,15 @@ namespace tomcat {
                 const auto& json_events =
                     agent->get_evidence_metadata()[data_point]["m7_events"];
 
+                Eigen::MatrixXd hallway_probabilities =
+                    estimator->get_estimates().estimates[0];
+
                 for (const auto& json_m7_event : json_events) {
+                    if (json_m7_event["marker_number"] !=
+                        estimator->get_marker_number()) {
+                        continue;
+                    }
+
                     int subject_number = json_m7_event["subject_number"];
                     int placed_by_number = json_m7_event["placed_by_number"];
 
@@ -505,7 +498,7 @@ namespace tomcat {
                     nlohmann::json prediction;
                     boost::uuids::uuid u = boost::uuids::random_generator()();
                     prediction["unique_id"] = boost::uuids::to_string(u);
-                    prediction["duration"] = 5;
+                    prediction["duration"] = 1;
                     prediction["predicted_property"] = "M7:room_enter";
                     prediction["probability_type"] = "float";
                     prediction["confidence_type"] = "";
@@ -515,8 +508,8 @@ namespace tomcat {
                         json_m7_event["start_elapsed_time"];
 
                     double probability_hallway =
-                        estimator->get_estimates().estimates[0](data_point, t);
-                    if (probability_hallway >= 0.5) {
+                        hallway_probabilities(data_point, t);
+                    if (probability_hallway > 0.5) {
                         prediction["action"] = "will_not_enter_room";
                         prediction["probability"] = probability_hallway;
                     }
@@ -530,8 +523,9 @@ namespace tomcat {
                     json_using["location"]["y"] = 60;
                     json_using["location"]["z"] = json_m7_event["marker_z"];
                     json_using["callsign"] = json_m7_event["placed_by"];
-                    json_using["type"] =
-                        json_m7_event["marker_number"] == 1 ? "Marker Block 1" : "Marker Block 2";
+                    json_using["type"] = json_m7_event["marker_number"] == 1
+                                             ? "Marker Block 1"
+                                             : "Marker Block 2";
                     prediction["using"] = json_using;
                     prediction["subject"] = json_m7_event["subject_id"];
                     prediction["object"] = json_m7_event["door_id"];

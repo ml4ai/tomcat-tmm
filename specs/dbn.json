@@ -1,0 +1,275 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "title": "Dynamic Bayes Net Schema",
+  "description": ".",
+  "default": {},
+  "required": [
+    "nodes",
+    "connections"
+  ],
+  "properties": {
+    "variables": {
+      "$id": "#/properties/variables",
+      "type": "array",
+      "title": "Variables",
+      "description": "A variable is translated to a constant node object in the unrolled DBN. If variables are used as coefficients of trainable parameters, they will be shared among them. This is particularly interesting if we need symmetric binary distributions in CPDs, for instance. If used in constant parameters, the only benefit is memory saving, as only one constant node will need to be created.",
+      "default": [],
+      "examples": [
+        [
+          {
+            "name": "x",
+            "default_value": 5
+          }
+        ]
+      ],
+      "items": {
+        "$ref": "#/definitions/variable"
+      }
+    },
+    "nodes": {
+      "$id": "#/properties/nodes",
+      "type": "object",
+      "title": "Random variables in the DBN.",
+      "default": {},
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "timers": {
+          "type": "array",
+          "title": "Timer node.",
+          "description": "This node controls the duration of states in a transition distributions from a semi-Markov model.",
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/data_node"
+          }
+        },
+        "parameters": {
+          "type": "array",
+          "title": "Parameter node.",
+          "description": "This node represents the paremeters of a given CPD.",
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/parameter_node"
+          }
+        },
+        "data": {
+          "type": "array",
+          "title": "Data node.",
+          "description": "This node represents either a latent or observed random variable in the DBN.",
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/data_node"
+          }
+        }
+      }
+    },
+    "connections": {
+      "type": "array",
+      "title": "Connections between pairs of non-parameter nodes in the DBN.",
+      "default": [],
+      "examples": [
+        [
+          {
+            "parent": "A",
+            "child": "B",
+            "time_crossing": false
+          }
+        ]
+      ],
+      "items": {
+        "$ref": "#/definitions/connection"
+      }
+    }
+  },
+  "definitions": {
+    "variable": {
+      "$id": "#/definitions/variable",
+      "type": "object",
+      "title": "Variable schema",
+      "required": [
+        "name",
+        "default_value"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Variable name",
+          "default": ""
+        },
+        "default_value": {
+          "type": "number",
+          "title": "Default value for the variable",
+          "default": 1,
+          "minimum": 0
+        }
+      }
+    },
+    "data_node": {
+      "$id": "#/definitions/data_node",
+      "type": "object",
+      "title": "Random variable schema",
+      "required": [
+        "label",
+        "first_time_step",
+        "in_plate",
+        "cardinality",
+        "sample_size",
+        "replicable",
+        "cpds"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "title": "Node label",
+          "default": ""
+        },
+        "first_time_step": {
+          "type": "integer",
+          "title": "Time step where the node appears for the first time.",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 1
+        },
+        "in_plate": {
+          "type": "boolean",
+          "title": "Whether the node can have multiple assignments (one for each data point) during training.",
+          "default": "true"
+        },
+        "cardinality": {
+          "type": "integer",
+          "title": "Cardinality of the random variable. 0 if continuous.",
+          "default": 2,
+          "minimum": 0
+        },
+        "sample_size": {
+          "type": "integer",
+          "title": "Dimensionality of a sample from the node.",
+          "default": 1,
+          "minimum": 1
+        },
+        "replicable": {
+          "type": "boolean",
+          "title": "Whether the node has copies at each time step of the unrolled DBN.",
+          "default": "false"
+        },
+        "timer": {
+          "type": "string",
+          "title": "Name of the timer node that controls the transition of this state node.",
+          "default": "false"
+        },
+        "prior": {
+          "type": "boolean",
+          "title": "Whether ths node is a prior of another node in the DBN.",
+          "default": "false"
+        },
+        "cpds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/cpd"
+          }
+        }
+      }
+    },
+    "parameter_node": {
+      "$id": "#/definitions/parameter_node",
+      "type": "object",
+      "title": "Parameter node schema",
+      "required": [
+        "label",
+        "prior",
+        "sample_size",
+        "cpds"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "title": "Node label",
+          "default": ""
+        },
+        "prior": {
+          "type": "boolean",
+          "title": "Whether the parameter node is associated to a prior distribution.",
+          "default": "false"
+        },
+        "sample_size": {
+          "type": "integer",
+          "title": "Dimensionality of a sample from the node.",
+          "default": 1,
+          "minimum": 1
+        },
+        "cpds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/cpd"
+          }
+        }
+      }
+    },
+    "cpd": {
+      "$id": "#/definitions/cpd",
+      "type": "object",
+      "title": "CPD schema",
+      "required": [
+        "distribution",
+        "constant",
+        "parameters",
+        "index_nodes"
+      ],
+      "properties": {
+        "distribution": {
+          "type": "string",
+          "title": "Name of a distribution.",
+          "default": "",
+          "enum": ["categorical", "dirichlet", "poisson", "gamma"]
+        },
+        "constant": {
+          "type": "boolean",
+          "title": "Whether the CPD contains constant parameters or not.",
+          "default": "false"
+        },
+        "parameters": {
+          "type": "string",
+          "title": "Comma separated values for the parameters of the CPD if it is constant or the name of a parameter node otherwise.",
+          "default": ""
+        },
+        "index_nodes": {
+          "type": "array",
+          "title": "Names of the nodes that index the CPD in the correct order.",
+          "description": "For p(A|B,C), the index nodes must be B, C",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "connection": {
+      "$id": "#/definitions/connection",
+      "type": "object",
+      "title": "Connection schema",
+      "required": [
+        "parent",
+        "child",
+        "time_crossing"
+      ],
+      "properties": {
+        "parent": {
+          "type": "string",
+          "title": "Name of the parent timer or data node.",
+          "default": ""
+        },
+        "child": {
+          "type": "string",
+          "title": "Name of the child data or timer node.",
+          "default": "false"
+        },
+        "time_crossing": {
+          "type": "boolean",
+          "title": "Whether the connection is from one time step to the next.",
+          "default": "false"
+        }
+      }
+    }
+  }
+}
