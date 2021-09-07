@@ -60,11 +60,6 @@ namespace tomcat {
         //----------------------------------------------------------------------
 
         void NextAreaOnNearbyMarkerEstimator::store_labels() {
-            //            this->area_label =
-            //                ASISTMultiPlayerMessageConverter::get_player_variable_label(
-            //                    ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL,
-            //                    this->player_number + 1);
-
             if (this->placed_by_player_nummber == 0) {
                 this->nearby_marker_label =
                     ASISTMultiPlayerMessageConverter::get_player_variable_label(
@@ -150,7 +145,6 @@ namespace tomcat {
 
             int n = particles.get_num_data_points();
             Eigen::VectorXd areas = Eigen::VectorXd::Zero(2);
-            vector<bool> out_of_marker_range(n, false);
             int current_nearby_marker = new_data[this->nearby_marker_label].at(
                 0, data_point_idx, time_step);
             string area_label = current_nearby_marker == 1
@@ -158,56 +152,8 @@ namespace tomcat {
                                     : this->next_area_m2_label;
 
             for (int i = 0; i < n; i++) {
-                //                int current_intent =
-                //                    particles[this->intent_label].at(0, i, 0);
-
-                //                int area =
-                //                ASISTMultiPlayerMessageConverter::HALLWAY;
-                //                //                bool intent_changed = false;
-                //                // Next area
-                //                int area =
-                //                ASISTMultiPlayerMessageConverter::HALLWAY;
-                //                bool in_marker_range = true;
-                //                for (int t = 0; t < this->inference_horizon;
-                //                t++) {
-                //                    int area =
-                //                    projected_particles[this->area_label].at(0,
-                //                    i, t); int a =
-                //                        projected_particles[this->nearby_marker_label].at(
-                //                            0, i, t);
-                //                    in_marker_range = a == 1;
-                //
-                //                    if (!in_marker_range) {
-                //                        areas[area] += 1;
-                //                        break;
-                //                    }
-                //                }
-
                 int area = projected_particles[area_label].at(0, i, 0);
                 areas[area] += 1;
-
-                //                    //                    int next_intent =
-                //                    //
-                //                    projected_particles[this->intent_label].at(
-                //                    //                            0,
-                //                    data_point_idx, t-1);
-                //
-                //                    area =
-                //                    projected_particles[this->area_label].at(0,
-                //                    i, t); if (area ==
-                //                    ASISTMultiPlayerMessageConverter::ROOM) {
-                //                        break;
-                //                    }
-                //                    //                    if (next_intent !=
-                //                    current_intent) {
-                //                    //                        intent_changed =
-                //                    true;
-                //                    //                        break;
-                //                    //                    }
-                //                }
-                //
-                //                //                if (intent_changed) {
-                //                areas[area] += 1;                }
             }
 
             double num_valid_particles = areas.sum();
@@ -225,53 +171,16 @@ namespace tomcat {
         bool NextAreaOnNearbyMarkerEstimator::is_event_triggered_at(
             int data_point, int time_step, const EvidenceSet& new_data) const {
 
-            //            bool entered_marker_range = false;
-            int previous_nearby_marker =
-                ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
-            if (time_step > 0) {
-                previous_nearby_marker = new_data[this->nearby_marker_label].at(
-                    0, data_point, time_step - 1);
-            }
+//            int previous_nearby_marker =
+//                ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
+//            if (time_step > 0) {
+//                previous_nearby_marker = new_data[this->nearby_marker_label].at(
+//                    0, data_point, time_step - 1);
+//            }
             int current_nearby_marker = new_data[this->nearby_marker_label].at(
                 0, data_point, time_step);
 
-            //            return current_nearby_marker !=
-            //                   ASISTMultiPlayerMessageConverter::NO_NEARBY_MARKER;
-            return previous_nearby_marker == 0 &&
-                   current_nearby_marker == this->marker_number;
-            //            return current_nearby_marker == 0 ||
-            //            current_nearby_marker == 1;
-
-            //            if (this->within_marker_range) {
-            //                if (time_step == this->time_step_at_entrance) {
-            //                    entered_marker_range = true;
-            //                }
-            //                else if (current_nearby_marker != 1 &&
-            //                         current_nearby_marker != 2) {
-            //                    this->within_marker_range = false;
-            //                }
-            //            }
-            //
-            //            // It can enter in a range of a different marker
-            //            if (!this->within_marker_range) {
-            //                int current_area =
-            //                    new_data[this->area_label].at(0, data_point,
-            //                    time_step);
-            //                if (current_area ==
-            //                ASISTMultiPlayerMessageConverter::HALLWAY) {
-            //                    if (current_nearby_marker == 1 ||
-            //                        current_nearby_marker == 2) {
-            //
-            //                        entered_marker_range = true;
-            //                        this->within_marker_range = true;
-            //                        this->time_step_at_entrance = time_step;
-            //                        this->marker_at_entrance =
-            //                        current_nearby_marker;
-            //                    }
-            //                }
-            //            }
-
-            //            return entered_marker_range;
+            return current_nearby_marker == this->marker_number;
         }
 
         bool NextAreaOnNearbyMarkerEstimator::is_binary_on_prediction() const {
@@ -298,6 +207,10 @@ namespace tomcat {
         int
         NextAreaOnNearbyMarkerEstimator::get_placed_by_player_nummber() const {
             return placed_by_player_nummber;
+        }
+
+        int NextAreaOnNearbyMarkerEstimator::get_marker_number() const {
+            return marker_number;
         }
 
     } // namespace model

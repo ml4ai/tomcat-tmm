@@ -2548,7 +2548,7 @@ BOOST_AUTO_TEST_CASE(semi_markov_dbn2_particle_filter) {
     int T = 50;
     int D = 1;
     double tolerance = 0.1;
-    int num_particles = 1000;
+    int num_particles = 2000;
 
     // Data
     Eigen::MatrixXd z1(D, T);

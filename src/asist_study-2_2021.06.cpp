@@ -71,187 +71,6 @@ const inline string PLAYER3_PLAYER_MARKER_AREA_LABEL =
 
 enum Event { within_range, out_of_range };
 
-// Auxiliary function
-void fill_next_area(Eigen::MatrixXd& next_areas,
-                    int data_point,
-                    int time_step,
-                    int other_player_idx,
-                    int marker,
-                    int area,
-                    vector<int>& event,
-                    vector<int>& event_start) {
-    if (event[other_player_idx] == Event::out_of_range && marker != NO_MARKER) {
-        event[other_player_idx] = Event::within_range;
-        event_start[other_player_idx] = time_step;
-
-        // Temporary. This will be overridden when the player leaves the
-        // marker's proximity.
-        next_areas(data_point, time_step) = area;
-    }
-    else if (event[other_player_idx] == Event::within_range &&
-             marker == NO_MARKER) {
-        int start_time = event_start[other_player_idx];
-        next_areas(data_point, start_time) = area;
-        event[other_player_idx] = Event::out_of_range;
-    }
-}
-
-void create_next_area_on_nearby_marker_data(const string& input_dir,
-                                            const string& output_dir) {
-    EvidenceSet data(input_dir);
-
-    // Markers placed by others label
-    string player_2_nearby_marker_p1_label = add_player_suffix(
-        ASISTMultiPlayerMessageConverter::PLAYER2_NEARBY_MARKER_LABEL, 1);
-    string player_3_nearby_marker_p1_label = add_player_suffix(
-        ASISTMultiPlayerMessageConverter::PLAYER3_NEARBY_MARKER_LABEL, 1);
-    string player_1_nearby_marker_p2_label = add_player_suffix(
-        ASISTMultiPlayerMessageConverter::PLAYER1_NEARBY_MARKER_LABEL, 2);
-    string player_3_nearby_marker_p2_label = add_player_suffix(
-        ASISTMultiPlayerMessageConverter::PLAYER3_NEARBY_MARKER_LABEL, 2);
-    string player_1_nearby_marker_p3_label = add_player_suffix(
-        ASISTMultiPlayerMessageConverter::PLAYER1_NEARBY_MARKER_LABEL, 3);
-    string player_2_nearby_marker_p3_label = add_player_suffix(
-        ASISTMultiPlayerMessageConverter::PLAYER2_NEARBY_MARKER_LABEL, 3);
-
-    // Areas accessed by the players label
-    string area_p1_label = add_player_suffix(
-        ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL, 1);
-    string area_p2_label = add_player_suffix(
-        ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL, 2);
-    string area_p3_label = add_player_suffix(
-        ASISTMultiPlayerMessageConverter::PLAYER_AREA_LABEL, 3);
-
-    Eigen::MatrixXd next_area_after_p2_marker_p1 = Eigen::MatrixXd::Constant(
-        data.get_num_data_points(), data.get_time_steps(), NO_OBS);
-    Eigen::MatrixXd next_area_after_p3_marker_p1 = Eigen::MatrixXd::Constant(
-        data.get_num_data_points(), data.get_time_steps(), NO_OBS);
-    Eigen::MatrixXd next_area_after_p1_marker_p2 = Eigen::MatrixXd::Constant(
-        data.get_num_data_points(), data.get_time_steps(), NO_OBS);
-    Eigen::MatrixXd next_area_after_p3_marker_p2 = Eigen::MatrixXd::Constant(
-        data.get_num_data_points(), data.get_time_steps(), NO_OBS);
-    Eigen::MatrixXd next_area_after_p1_marker_p3 = Eigen::MatrixXd::Constant(
-        data.get_num_data_points(), data.get_time_steps(), NO_OBS);
-    Eigen::MatrixXd next_area_after_p2_marker_p3 = Eigen::MatrixXd::Constant(
-        data.get_num_data_points(), data.get_time_steps(), NO_OBS);
-
-    // Whether the player is withing the range of detection of markers places by
-    // the two other players.
-    vector<int> player_1_marker_event(2, Event::out_of_range);
-    vector<int> player_2_marker_event(2, Event::out_of_range);
-    vector<int> player_3_marker_event(2, Event::out_of_range);
-
-    // Time when an an active event is triggered
-    vector<int> player_1_marker_event_start(2, 0);
-    vector<int> player_2_marker_event_start(2, 0);
-    vector<int> player_3_marker_event_start(2, 0);
-
-    for (int d = 0; d < data.get_num_data_points(); d++) {
-        for (int t = 0; t < data.get_time_steps(); t++) {
-            // Player 1
-            int area_p1 = data[area_p1_label].at(0, d, t);
-            int marker_placed_by_p2 =
-                data[player_2_nearby_marker_p1_label].at(0, d, t);
-            fill_next_area(next_area_after_p2_marker_p1,
-                           d,
-                           t,
-                           0,
-                           marker_placed_by_p2,
-                           area_p1,
-                           player_1_marker_event,
-                           player_1_marker_event_start);
-
-            int marker_placed_by_p3 =
-                data[player_3_nearby_marker_p1_label].at(0, d, t);
-            fill_next_area(next_area_after_p3_marker_p1,
-                           d,
-                           t,
-                           1,
-                           marker_placed_by_p3,
-                           area_p1,
-                           player_1_marker_event,
-                           player_1_marker_event_start);
-
-            // Player 2
-            int area_p2 = data[area_p2_label].at(0, d, t);
-            int marker_placed_by_p1 =
-                data[player_1_nearby_marker_p2_label].at(0, d, t);
-            fill_next_area(next_area_after_p1_marker_p2,
-                           d,
-                           t,
-                           0,
-                           marker_placed_by_p1,
-                           area_p2,
-                           player_2_marker_event,
-                           player_2_marker_event_start);
-
-            marker_placed_by_p3 =
-                data[player_3_nearby_marker_p2_label].at(0, d, t);
-            fill_next_area(next_area_after_p3_marker_p2,
-                           d,
-                           t,
-                           1,
-                           marker_placed_by_p3,
-                           area_p2,
-                           player_2_marker_event,
-                           player_2_marker_event_start);
-
-            // Player 3
-            int area_p3 = data[area_p3_label].at(0, d, t);
-            marker_placed_by_p1 =
-                data[player_1_nearby_marker_p3_label].at(0, d, t);
-            fill_next_area(next_area_after_p1_marker_p3,
-                           d,
-                           t,
-                           0,
-                           marker_placed_by_p1,
-                           area_p3,
-                           player_3_marker_event,
-                           player_3_marker_event_start);
-
-            marker_placed_by_p2 =
-                data[player_2_nearby_marker_p3_label].at(0, d, t);
-            fill_next_area(next_area_after_p2_marker_p3,
-                           d,
-                           t,
-                           1,
-                           marker_placed_by_p2,
-                           area_p3,
-                           player_3_marker_event,
-                           player_3_marker_event_start);
-        }
-    }
-
-    string player_2_nearby_marker_p1_next_area_label =
-        add_player_suffix("NextAreaAfterP2Marker", 1);
-    string player_3_nearby_marker_p1_next_area_label =
-        add_player_suffix("NextAreaAfterP3Marker", 1);
-    string player_1_nearby_marker_p2_next_area_label =
-        add_player_suffix("NextAreaAfterP1Marker", 2);
-    string player_3_nearby_marker_p2_next_area_label =
-        add_player_suffix("NextAreaAfterP3Marker", 2);
-    string player_1_nearby_marker_p3_next_area_label =
-        add_player_suffix("NextAreaAfterP1Marker", 3);
-    string player_2_nearby_marker_p3_next_area_label =
-        add_player_suffix("NextAreaAfterP2Marker", 3);
-
-    EvidenceSet next_areas;
-    next_areas.add_data(player_2_nearby_marker_p1_next_area_label,
-                        next_area_after_p2_marker_p1);
-    next_areas.add_data(player_3_nearby_marker_p1_next_area_label,
-                        next_area_after_p3_marker_p1);
-    next_areas.add_data(player_1_nearby_marker_p2_next_area_label,
-                        next_area_after_p1_marker_p2);
-    next_areas.add_data(player_3_nearby_marker_p2_next_area_label,
-                        next_area_after_p3_marker_p2);
-    next_areas.add_data(player_1_nearby_marker_p3_next_area_label,
-                        next_area_after_p1_marker_p3);
-    next_areas.add_data(player_2_nearby_marker_p3_next_area_label,
-                        next_area_after_p2_marker_p3);
-
-    next_areas.save(output_dir);
-}
-
 void create_trial_period_data(const string& input_dir,
                               const string& output_dir,
                               int num_periods) {
@@ -460,20 +279,6 @@ void create_m7_data_from_external_source(const string& input_dir,
         vector<Eigen::MatrixXd> nearby_marker2_per_player2(
             3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_MARKER));
 
-        vector<Eigen::MatrixXd> area_per_player(3);
-
-        vector<Eigen::MatrixXd> marker_area_per_player1(
-            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
-        vector<Eigen::MatrixXd> marker_area_per_player2(
-            3, Eigen::MatrixXd::Constant(num_rows, num_cols, NO_OBS));
-
-        area_per_player[0] =
-            data[add_player_suffix(PLAYER_AREA_LABEL, 1)](0, 0);
-        area_per_player[1] =
-            data[add_player_suffix(PLAYER_AREA_LABEL, 2)](0, 0);
-        area_per_player[2] =
-            data[add_player_suffix(PLAYER_AREA_LABEL, 3)](0, 0);
-
         nlohmann::json json_new_metadata = data.get_metadata();
 
         for (int d = 0; d < num_rows; d++) {
@@ -513,103 +318,36 @@ void create_m7_data_from_external_source(const string& input_dir,
                     (int)json_file["initial_elapsed_milliseconds"];
                 int time_step =
                     min(start_elapsed_milliseconds / 1000, num_cols - 1);
-                int final_time_step =
-                    min(resolved_elapsed_milliseconds / 1000, num_cols - 1);
-                if (resolved_elapsed_milliseconds < 0) {
-                    // Estimate the player is going to be around the marker for
-                    // 2 seconds. This is necessary so we can capture the right
-                    // player next area in the test set. The event might stop
-                    // before the player enters the room.
-                    final_time_step = time_step + 2;
-                }
-                else if (final_time_step == time_step) {
-                    final_time_step = time_step + 1;
-                }
-
-                final_time_step = min(final_time_step, num_cols);
-
-                // Make the area where the player is consistent with the event.
-                // It always happens when the player is in the hallway.
-                for (int t = time_step; t < final_time_step; t++) {
-                    area_per_player[player_number](d, t) = HALLWAY;
-                }
-
-                if (final_time_step < num_cols) {
-                    if (m7_event.next_area == NO_OBS) {
-                        // Area is not given in the test file. We just try
-                        // no make observations from the game more
-                        // synchronized with the events given because they
-                        // are measured in different time scales. Accurate
-                        // observations are important because of the belief
-                        // update over time. The model has to use
-                        // information about what happened to improve its
-                        // future predictions.
-                        if (area_per_player[player_number](
-                                d, final_time_step - 1) == ROOM) {
-                            // The measurements are taken in milliseconds
-                            // and the data in seconds. Therefore, if the
-                            // player is in a room at the second of a
-                            // measurement, this means this is his next
-                            // area should be in the room.
-                            area_per_player[player_number](d, final_time_step) =
-                                ROOM;
-                            area_per_player[player_number](
-                                d, final_time_step - 1) = HALLWAY;
-                        }
-                    }
-                    else {
-                        // Area is given in the training file. We just use
-                        // it.
-                        area_per_player[player_number](d, final_time_step) =
-                            m7_event.next_area;
-                    }
-                }
 
                 // Include the new event
+                int t = time_step;
                 if ((player_number == 0 && other_player_number == 1) ||
                     (player_number == 1 && other_player_number == 0) ||
                     (player_number == 2 && other_player_number == 0)) {
 
-                    for (int t = time_step; t < final_time_step; t++) {
-                        nearby_marker_per_player1[player_number](d, t) =
-                            m7_event.marker_number;
-                        next_area_per_player1[player_number](d, t) =
-                            m7_event.next_area;
+                    nearby_marker_per_player1[player_number](d, t) =
+                        m7_event.marker_number;
+                    next_area_per_player1[player_number](d, t) =
+                        m7_event.next_area;
 
-                        if (m7_event.marker_number == 1) {
-                            nearby_marker1_per_player1[player_number](d, t) = 1;
-                        }
-                        else {
-                            nearby_marker2_per_player1[player_number](d, t) = 1;
-                        }
+                    if (m7_event.marker_number == 1) {
+                        nearby_marker1_per_player1[player_number](d, t) = 1;
                     }
-
-                    if (final_time_step < num_cols) {
-                        marker_area_per_player1[player_number](
-                            d, final_time_step) =
-                            area_per_player[player_number](d, final_time_step);
+                    else {
+                        nearby_marker2_per_player1[player_number](d, t) = 1;
                     }
                 }
                 else {
-                    for (int t = time_step; t < final_time_step; t++) {
-                        nearby_marker_per_player2[player_number](d, t) =
-                            m7_event.marker_number;
-                        next_area_per_player2[player_number](d, t) =
-                            m7_event.next_area;
+                    nearby_marker_per_player2[player_number](d, t) =
+                        m7_event.marker_number;
+                    next_area_per_player2[player_number](d, t) =
+                        m7_event.next_area;
 
-                        if (m7_event.marker_number == 1) {
-                            nearby_marker1_per_player2[player_number](d, t) = 1;
-                        }
-                        else {
-                            nearby_marker2_per_player2[player_number](d, t) = 1;
-                        }
-
-                        if (final_time_step < num_cols) {
-                            marker_area_per_player2[player_number](
-                                d, final_time_step) =
-                                area_per_player[player_number](d,
-                                                               final_time_step);
-                        }
+                    if (m7_event.marker_number == 1) {
+                        nearby_marker1_per_player2[player_number](d, t) = 1;
+                    }
+                    else {
+                        nearby_marker2_per_player2[player_number](d, t) = 1;
                     }
                 }
 
@@ -649,13 +387,6 @@ void create_m7_data_from_external_source(const string& input_dir,
         new_data.add_data(
             add_player_suffix(PLAYER_MARKER_LEGEND_VERSION_LABEL, 3),
             marker_legend_version_per_player[2]);
-
-        new_data.add_data(add_player_suffix(PLAYER_AREA_LABEL, 1),
-                          area_per_player[0]);
-        new_data.add_data(add_player_suffix(PLAYER_AREA_LABEL, 2),
-                          area_per_player[1]);
-        new_data.add_data(add_player_suffix(PLAYER_AREA_LABEL, 3),
-                          area_per_player[2]);
 
         new_data.add_data(add_player_suffix(NEXT_AREA_AFTER_P2_MARKER_LABEL, 1),
                           next_area_per_player1[0]);
@@ -708,25 +439,6 @@ void create_m7_data_from_external_source(const string& input_dir,
                           nearby_marker2_per_player1[2]);
         new_data.add_data(add_player_suffix(P2_NEARBY_MARKER2_LABEL, 3),
                           nearby_marker2_per_player2[2]);
-
-        new_data.add_data(
-            add_player_suffix(PLAYER2_PLAYER_MARKER_AREA_LABEL, 1),
-            marker_area_per_player1[0]);
-        new_data.add_data(
-            add_player_suffix(PLAYER3_PLAYER_MARKER_AREA_LABEL, 1),
-            marker_area_per_player2[0]);
-        new_data.add_data(
-            add_player_suffix(PLAYER1_PLAYER_MARKER_AREA_LABEL, 2),
-            marker_area_per_player1[1]);
-        new_data.add_data(
-            add_player_suffix(PLAYER3_PLAYER_MARKER_AREA_LABEL, 2),
-            marker_area_per_player2[1]);
-        new_data.add_data(
-            add_player_suffix(PLAYER1_PLAYER_MARKER_AREA_LABEL, 3),
-            marker_area_per_player1[2]);
-        new_data.add_data(
-            add_player_suffix(PLAYER2_PLAYER_MARKER_AREA_LABEL, 3),
-            marker_area_per_player2[2]);
 
         new_data.save(output_dir);
     }
@@ -941,24 +653,18 @@ void create_observations_for_next_accessed_area(const string& input_dir,
             add_player_suffix(NEXT_AREA_AFTER_P2_MARKER2_LABEL, 3),
             next_area_per_player2_m2[2]);
 
-        new_data.add_data(
-            add_player_suffix(P2_MARKER_RANGE_LABEL, 1),
-            marker_range_player1[0]);
-        new_data.add_data(
-            add_player_suffix(P3_MARKER_RANGE_LABEL, 1),
-            marker_range_player2[0]);
-        new_data.add_data(
-            add_player_suffix(P1_MARKER_RANGE_LABEL, 2),
-            marker_range_player1[1]);
-        new_data.add_data(
-            add_player_suffix(P3_MARKER_RANGE_LABEL, 2),
-            marker_range_player2[1]);
-        new_data.add_data(
-            add_player_suffix(P1_MARKER_RANGE_LABEL, 3),
-            marker_range_player1[2]);
-        new_data.add_data(
-            add_player_suffix(P2_MARKER_RANGE_LABEL, 3),
-            marker_range_player2[2]);
+        new_data.add_data(add_player_suffix(P2_MARKER_RANGE_LABEL, 1),
+                          marker_range_player1[0]);
+        new_data.add_data(add_player_suffix(P3_MARKER_RANGE_LABEL, 1),
+                          marker_range_player2[0]);
+        new_data.add_data(add_player_suffix(P1_MARKER_RANGE_LABEL, 2),
+                          marker_range_player1[1]);
+        new_data.add_data(add_player_suffix(P3_MARKER_RANGE_LABEL, 2),
+                          marker_range_player2[1]);
+        new_data.add_data(add_player_suffix(P1_MARKER_RANGE_LABEL, 3),
+                          marker_range_player1[2]);
+        new_data.add_data(add_player_suffix(P2_MARKER_RANGE_LABEL, 3),
+                          marker_range_player2[2]);
 
         new_data.save(output_dir);
     }
@@ -1021,8 +727,6 @@ int main(int argc, char* argv[]) {
         "This program creates extra data for the study-2_2021.06 evaluation.")(
         "option",
         po::value<unsigned int>(&option),
-        "0 - Create observations for the next area after a nearby marker event "
-        "detection.\n"
         "1 - Create TrialPeriod data.\n"
         "2 - Create PlanningBeforeTrial data.\n"
         "3 - Create data for M7 evaluation based on external source. file.\n"
@@ -1053,9 +757,6 @@ int main(int argc, char* argv[]) {
     }
 
     switch (option) {
-    case 0:
-        create_next_area_on_nearby_marker_data(input_dir, output_dir);
-        break;
     case 1:
         create_trial_period_data(input_dir, output_dir, num_periods);
         break;
@@ -1076,14 +777,4 @@ int main(int argc, char* argv[]) {
         split_report_per_trial(external_filepath, output_dir);
         break;
     }
-
-    //        EvidenceSet evidence(
-    //            "../../data/asist/study-2_2021.06/evidence/val", false);
-    //        evidence.keep_only(4);
-    //        evidence.save("../../data/asist/study-2_2021.06/evidence/val_single");
-    //
-    //        EvidenceSet evidence2(
-    //            "../../data/asist/study-2_2021.06/evidence/val", false);
-    //        evidence2.keep_only(4);
-    //        evidence2.save("../../data/asist/study-2_2021.06/evidence/train_single");
 }

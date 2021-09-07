@@ -5,9 +5,7 @@
 
 #include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
 #include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/IndependentMarkerLegendVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/MarkerLegendVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
 #include "utils/EigenExtensions.h"
 
@@ -113,18 +111,7 @@ namespace tomcat {
                 estimator =
                     make_shared<IndependentMapVersionAssignmentEstimator>(
                         model, frequency_type);
-            }
-            else if (name == MarkerLegendVersionAssignmentEstimator::NAME) {
-                estimator = make_shared<MarkerLegendVersionAssignmentEstimator>(
-                    model, frequency_type);
-            }
-            else if (name ==
-                     IndependentMarkerLegendVersionAssignmentEstimator::NAME) {
-                estimator = make_shared<
-                    IndependentMarkerLegendVersionAssignmentEstimator>(
-                    model, frequency_type);
-            }
-            else if (name == NextAreaOnNearbyMarkerEstimator::NAME) {
+            }else if (name == NextAreaOnNearbyMarkerEstimator::NAME) {
                 estimator = make_shared<NextAreaOnNearbyMarkerEstimator>(
                     model, json_config);
             }
@@ -327,7 +314,7 @@ namespace tomcat {
                                                 int time_step,
                                                 double probability) {
             auto& estimates_matrix =
-                this->estimates.estimates.at(estimates_idx);
+                this->estimates.estimates[estimates_idx];
             int new_rows =
                 max(data_point_idx + 1, (int)estimates_matrix.rows());
             int new_cols = max(time_step + 1, (int)estimates_matrix.cols());
