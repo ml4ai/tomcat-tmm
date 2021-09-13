@@ -56,7 +56,7 @@ namespace tomcat {
              * @param parameters: nodes containing the two parameters (alpha and
              * beta) of a gamma distribution
              */
-            Gamma(std::vector<std::shared_ptr<Node>>& parameters);
+            Gamma(std::vector<std::shared_ptr<Node>>&& parameters);
 
             /**
              * Creates an instance of a Gamma distribution by transforming
@@ -125,9 +125,26 @@ namespace tomcat {
             int get_sample_size() const override;
 
             void update_from_posterior(
-                const Eigen::VectorXd& posterior_weights) override {}
+                const Eigen::VectorXd& posterior_weights) override;
 
-          private:
+          protected:
+            //------------------------------------------------------------------
+            // Virtual functions
+            //------------------------------------------------------------------
+
+            /**
+             * Generate a sample using the GSL library.
+             *
+             * @param random_generator: random number generator
+             * @param alpha: alpha or weighted alpha
+             * @param beta: beta or weighted beta
+             * @return A sample from a Gamma distribution.
+             */
+            virtual Eigen::VectorXd
+            sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
+                            double alpha,
+                            double beta) const;
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -146,18 +163,6 @@ namespace tomcat {
              */
             Eigen::VectorXd get_parameters(int parameter_idx) const;
 
-            /**
-             * Generate a sample using the GSL library.
-             *
-             * @param random_generator: random number generator
-             * @param alpha: alpha or weighted alpha
-             * @param beta: beta or weighted beta
-             * @return A sample from a Gamma distribution.
-             */
-            Eigen::VectorXd
-            sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,
-                            double alpha,
-                            double beta) const;
         };
 
     } // namespace model

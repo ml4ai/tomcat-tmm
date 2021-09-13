@@ -189,5 +189,10 @@ namespace tomcat {
 
         int Gaussian::get_sample_size() const { return 1; }
 
+        void Gaussian::update_from_posterior(
+            const Eigen::VectorXd& posterior_weights) {
+            // Not implemented
+        }
+
     } // namespace model
 } // namespace tomcat
