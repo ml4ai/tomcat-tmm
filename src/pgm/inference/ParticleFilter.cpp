@@ -469,7 +469,7 @@ namespace tomcat {
                     }
                     else {
                         marginals.add_data(
-                            node_label, this->previous_marginals[node_label]);
+                            node_label, this->previous_marginals[node_label], false);
                     }
                     particles.add_data(node_label, node->get_assignment());
                     continue;

@@ -1565,13 +1565,16 @@ namespace tomcat {
                 for (const auto& distribution : this->distributions) {
                     Eigen::VectorXd parameters =
                         distribution->get_values(parameter_idx);
-                    if (table.size() == 0) {
-                        table = Eigen::MatrixXd(this->distributions.size(),
-                                                parameters.size());
-                        table.row(row) = parameters;
-                    }
-                    else {
-                        table.row(row) = parameters;
+                    // Parameter might not be provided.
+                    if (parameters.size() > 0) {
+                        if (table.size() == 0) {
+                            table = Eigen::MatrixXd::Zero(
+                                this->distributions.size(), parameters.size());
+                            table.row(row) = parameters;
+                        }
+                        else {
+                            table.row(row) = parameters;
+                        }
                     }
                     row++;
                 }

@@ -85,41 +85,24 @@ namespace tomcat {
                                 messages.push_back(state_message);
                             }
                         }
-                        else if (
-                            const auto& map_estimator = dynamic_pointer_cast<
-                                IndependentMapVersionAssignmentEstimator>(
-                                base_estimator)) {
+                        else if (base_estimator->get_estimates().label ==
+                                 "MapVersionAssignment") {
 
                             predictions = this->get_map_info_predictions(
-                                agent, map_estimator, time_step, d);
+                                agent, base_estimator, time_step, d);
 
                             for (const auto& prediction : predictions) {
                                 state_message["data"] = prediction["data"];
                                 state_message["data"]["group"]["explanation"] =
                                     "The map version assignment is estimated "
-                                    "by "
-                                    "the "
-                                    "most likely visible section per player "
-                                    "based "
-                                    "on "
-                                    "transitions from one section to another "
-                                    "and "
-                                    "how "
-                                    "long the players stay on a given area of "
-                                    "the "
-                                    "building. Different planning conditions "
-                                    "and "
-                                    "roles "
-                                    "affect how the player favors areas of the "
-                                    "map "
-                                    "and "
-                                    "are also taken into consideration in the "
-                                    "inference. The final assignment is given "
-                                    "by "
-                                    "the "
-                                    "most likely valid combination of "
-                                    "independent "
-                                    "visible sections per player.";
+                                    "by looking at the areas of the map "
+                                    "accessed by the players. We hypothesize "
+                                    "that these areas are determined by the "
+                                    "players role and map version they have "
+                                    "access to. Given observed areas and "
+                                    "roles, the map version is estimated by "
+                                    "doing inference over the described "
+                                    "generative model.";
                                 messages.push_back(state_message);
                             }
                         }
@@ -293,8 +276,7 @@ namespace tomcat {
         vector<nlohmann::json>
         ASISTStudy2EstimateReporter::get_map_info_predictions(
             const AgentPtr& agent,
-            const shared_ptr<IndependentMapVersionAssignmentEstimator>&
-                estimator,
+            const EstimatorPtr& estimator,
             int time_step,
             int data_point) const {
 
@@ -310,11 +292,14 @@ namespace tomcat {
 
                     double probability = -1;
                     int assignment = -1;
-                    for (const auto& probabilities :
-                         estimator->get_estimates().estimates) {
-                        if (probabilities(data_point, t) > probability) {
-                            probability = probabilities(data_point, t);
-                            assignment++;
+                    for (int i = 0;
+                         i < estimator->get_estimates().estimates.size();
+                         i++) {
+                        double temp = estimator->get_estimates().estimates[i](
+                            data_point, t);
+                        if (temp > probability) {
+                            probability = temp;
+                            assignment = i;
                         }
                     }
 
@@ -327,7 +312,7 @@ namespace tomcat {
 
                     case 1:
                         map_assignment = {
-                            "SaturnA_34", "SaturnA_24", "SaturnA_64"};
+                            "SaturnA_24", "SaturnA_64", "SaturnA_34"};
                         break;
 
                     case 2:
@@ -408,11 +393,14 @@ namespace tomcat {
 
                     double probability = -1;
                     int assignment = -1;
-                    for (const auto& probabilities :
-                         estimator->get_estimates().estimates) {
-                        if (probabilities(data_point, t) > probability) {
-                            probability = probabilities(data_point, t);
-                            assignment++;
+                    for (int i = 0;
+                         i < estimator->get_estimates().estimates.size();
+                         i++) {
+                        double temp = estimator->get_estimates().estimates[i](
+                            data_point, t);
+                        if (temp > probability) {
+                            probability = temp;
+                            assignment = i;
                         }
                     }
 

@@ -97,12 +97,11 @@ namespace tomcat {
              * @param data_point: mission trial index (if multiple missions are
              * being processed at the same time)
              */
-            std::vector<nlohmann::json> get_map_info_predictions(
-                const AgentPtr& agent,
-                const std::shared_ptr<IndependentMapVersionAssignmentEstimator>&
-                    estimator,
-                int time_step,
-                int data_point) const;
+            std::vector<nlohmann::json>
+            get_map_info_predictions(const AgentPtr& agent,
+                                     const EstimatorPtr& estimator,
+                                     int time_step,
+                                     int data_point) const;
 
             /**
              * Adds information about the prediction of the knowledge about the
@@ -114,11 +113,11 @@ namespace tomcat {
              * @param data_point: mission trial index (if multiple missions are
              * being processed at the same time)
              */
-            std::vector<nlohmann::json> get_marker_legend_predictions(
-                const AgentPtr& agent,
-                const EstimatorPtr& estimator,
-                int time_step,
-                int data_point) const;
+            std::vector<nlohmann::json>
+            get_marker_legend_predictions(const AgentPtr& agent,
+                                          const EstimatorPtr& estimator,
+                                          int time_step,
+                                          int data_point) const;
 
             /**
              * Adds information about the prediction of action taken in face of

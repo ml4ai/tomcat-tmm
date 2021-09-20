@@ -25,7 +25,7 @@ namespace tomcat {
             // The vector is here just to maintain the same interface
             // for all distributions, but a gamma distribution cannot have
             // more than two parameters.
-            if (parameters.size() > 1) {
+            if (parameters.size() > 2) {
                 throw TomcatModelException(
                     "A gamma distribution must have two parameter nodes.");
             }
