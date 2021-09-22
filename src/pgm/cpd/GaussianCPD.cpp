@@ -91,9 +91,7 @@ namespace tomcat {
             }
         }
 
-        string GaussianCPD::get_name() const {
-            return "Gaussian";
-        }
+        string GaussianCPD::get_name() const { return "Gaussian"; }
 
         void GaussianCPD::add_to_sufficient_statistics(
             const vector<double>& values) {
@@ -111,8 +109,54 @@ namespace tomcat {
             throw invalid_argument("Not implemented yet.");
         }
 
-        bool GaussianCPD::is_continuous() const {
-            return false;
+        bool GaussianCPD::is_continuous() const { return false; }
+
+        void GaussianCPD::update_sufficient_statistics(
+            const shared_ptr<RandomVariableNode>& cpd_owner) {
+
+            int data_size = cpd_owner->get_size();
+            Eigen::VectorXi distribution_indices =
+                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
+                                                       data_size);
+            unordered_map<int, vector<double>> values_per_distribution;
+
+            // No need to check if the CPD owner is a timer because a timer
+            // cannot have a gaussian distribution since this implementation
+            // only works with discrete time.
+            const Eigen::MatrixXd& values = cpd_owner->get_assignment();
+
+            for (int i = 0; i < data_size; i++) {
+                int distribution_idx = distribution_indices[i];
+
+                // TODO - this needs to be adapted for multivariate gaussian
+                double value = values(i, 0);
+                if (value != NO_OBS) {
+                    const auto& gaussian = dynamic_pointer_cast<Gaussian>(
+                        this->distributions[distribution_idx]);
+                    if (gaussian->has_known_mean()) {
+                        // The conjugate prior is an inverse gamma. The
+                        // sufficient statistics of the posterior needs the sum
+                        // of the squares of x - mu.
+                        value -= this->distributions[distribution_idx]
+                                     ->get_parameters()[0]
+                                     ->get_assignment()(0, 0);
+                    }
+                    else if (gaussian->has_known_variance()) {
+                        // Not implemented yet
+                    }
+                    else {
+                        // Not implemented yet
+                    }
+
+                    values_per_distribution[distribution_idx].push_back(value);
+                }
+            }
+
+            for (auto& [distribution_idx, values] : values_per_distribution) {
+                const shared_ptr<Distribution>& distribution =
+                    this->distributions[distribution_idx];
+                distribution->update_sufficient_statistics(values);
+            }
         }
 
     } // namespace model

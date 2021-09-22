@@ -1,6 +1,6 @@
 #pragma once
 
-#include "distribution/Gaussian.h"
+#include "distribution/InverseGamma.h"
 #include "pgm/cpd/CPD.h"
 #include "utils/Definitions.h"
 
@@ -8,7 +8,7 @@ namespace tomcat {
     namespace model {
 
         /**
-         * A Gaussian CPD consists of a table containing a list of Gaussian
+         * An InverseGamma CPD consists of a table containing a list of InverseGamma
          * distributions. The number of rows is given by the product of the
          * cardinalities of the parent nodes of the node that owns this CPD.
          * Each row represents a combination of possible assignments of these
@@ -23,94 +23,94 @@ namespace tomcat {
          * A -> C, B -> C
          *
          * Suppose A, B have cardinalities 2, 3 respectively and C is sampled
-         * from a Gaussian distribution with parameters mean and var.
+         * from a InverseGamma distribution with parameter \f$\alpha\f$.
          *
          * A CPD for C will be as follows,
-         * ______________________________________________________
-         * |///|                       C                        |
-         * |----------------------------------------------------|
-         * | A | B |////////////////////////////////////////////|
-         * |----------------------------------------------------|
-         * | 0 | 0 |     Gaussian(\f$mean_{00}, var_{00}\f$)    |
-         * |----------------------------------------------------|
-         * | 0 | 1 |     Gaussian(\f$mean_{01}, var_{01}\f$)    |
-         * |----------------------------------------------------|
-         * | 0 | 2 |     Gaussian(\f$mean_{02}, var_{02}\f$)    |
-         * |----------------------------------------------------|
-         * | 1 | 0 |     Gaussian(\f$mean_{10}, var_{10}\f$)    |
-         * |----------------------------------------------------|
-         * | 1 | 1 |     Gaussian(\f$mean_{11}, var_{11}\f$)    |
-         * |----------------------------------------------------|
-         * | 1 | 2 |     Gaussian(\f$mean_{12}, var_{12}\f$)    |
-         * |----------------------------------------------------|
+         * _________________________________________________
+         * |///|                      C                    |
+         * |-----------------------------------------------|
+         * | A | B |///////////////////////////////////////|
+         * |-----------------------------------------------|
+         * | 0 | 0 |     InverseGamma(a_{00},b_{00})       |
+         * |-----------------------------------------------|
+         * | 0 | 1 |     InverseGamma(a_{01},b_{01})       |
+         * |-----------------------------------------------|
+         * | 0 | 2 |     InverseGamma(a_{02},b_{02})       |
+         * |-----------------------------------------------|
+         * | 1 | 0 |     InverseGamma(a_{10},b_{10})       |
+         * |-----------------------------------------------|
+         * | 1 | 1 |     InverseGamma(a_{11},b_{11})       |
+         * |-----------------------------------------------|
+         * | 1 | 2 |     InverseGamma(a_{12},b_{12})       |
+         * |-----------------------------------------------|
          */
-        class GaussianCPD : public CPD {
+        class InverseGammaCPD : public CPD {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Creates an instance of a Gaussian CPD.
+             * Creates an instance of a InverseGamma CPD.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param distributions: list of Gaussian distributions
+             * @param distributions: list of InverseGamma distributions
              */
-            GaussianCPD(
+            InverseGammaCPD(
                 const std::vector<std::shared_ptr<NodeMetadata>>&
                     parent_node_order,
-                const std::vector<std::shared_ptr<Gaussian>>& distributions);
+                const std::vector<std::shared_ptr<InverseGamma>>& distributions);
 
             /**
-             * Creates an instance of a Gaussian CPD.
+             * Creates an instance of a InverseGamma CPD.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param distributions: list of Gaussian distributions
+             * @param distributions: list of InverseGamma distributions
              */
-            GaussianCPD(
+            InverseGammaCPD(
                 std::vector<std::shared_ptr<NodeMetadata>>&& parent_node_order,
-                std::vector<std::shared_ptr<Gaussian>>&& distributions);
+                const std::vector<std::shared_ptr<InverseGamma>>& distributions);
 
             /**
-             * Creates an instance of a Gaussian CPD table by transforming a
-             * table of parameter values to a list of Gaussian distributions
-             * with constant mean and variance.
+             * Creates an instance of a InverseGamma CPD table by transforming a
+             * table of parameter values to a list of InverseGamma distributions
+             * with constant parameters.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param cpd_table: matrix containing the means and variances
+             * @param cpd_table: matrix containing the parameters a and b
              */
-            GaussianCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
-                            parent_node_order,
-                        const Eigen::MatrixXd& parameters);
+            InverseGammaCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+                             parent_node_order,
+                         const Eigen::MatrixXd& parameters);
 
             /**
-             * Creates an instance of a Gaussian CPD table by transforming a
-             * table of parameter values to a list of Gaussian distributions
-             * with constant mean and variance.
+             * Creates an instance of a InverseGamma CPD table by transforming a
+             * table of parameter values to a list of InverseGamma distributions
+             * with constant parameters.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param cpd_table: matrix containing the means and variances
+             * @param cpd_table: matrix containing the parameters a and b
              */
-            GaussianCPD(
+            InverseGammaCPD(
                 std::vector<std::shared_ptr<NodeMetadata>>&& parent_node_order,
                 const Eigen::MatrixXd& parameters);
 
-            ~GaussianCPD();
+            ~InverseGammaCPD();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            GaussianCPD(const GaussianCPD& cpd);
+            InverseGammaCPD(const InverseGammaCPD& cpd);
 
-            GaussianCPD& operator=(const GaussianCPD& cpd);
+            InverseGammaCPD& operator=(const InverseGammaCPD& cpd);
 
-            GaussianCPD(GaussianCPD&& cpd) = default;
+            InverseGammaCPD(InverseGammaCPD&& cpd) = default;
 
-            GaussianCPD& operator=(GaussianCPD&& cpd) = default;
+            InverseGammaCPD& operator=(InverseGammaCPD&& cpd) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -132,9 +132,6 @@ namespace tomcat {
 
             bool is_continuous() const override;
 
-            void update_sufficient_statistics(
-                const std::shared_ptr<RandomVariableNode>& cpd_owner) override;
-
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -147,12 +144,20 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
+             * Initialized the CPD from a list of distributions.
+             *
+             * @param distributions: list of InverseGamma distributions.
+             */
+            void init_from_distributions(
+                const std::vector<std::shared_ptr<InverseGamma>>& distributions);
+
+            /**
              * Uses the values in the matrix to create a list of constant
-             * Gaussian distributions.
+             * InverseGamma distributions.
              *
              * @param matrix: matrix of \f$\alpha\f$s
              */
-            virtual void init_from_matrix(const Eigen::MatrixXd& matrix);
+            void init_from_matrix(const Eigen::MatrixXd& matrix);
         };
 
     } // namespace model

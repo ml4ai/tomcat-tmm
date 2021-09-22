@@ -194,5 +194,15 @@ namespace tomcat {
             // Not implemented
         }
 
+        bool Gaussian::has_known_mean() const {
+            return this->parameters[PARAMETER_INDEX::mean]
+                ->is_random_variable();
+        }
+
+        bool Gaussian::has_known_variance() const {
+            return this->parameters [PARAMETER_INDEX::variance]
+                ->is_random_variable();
+        }
+
     } // namespace model
 } // namespace tomcat

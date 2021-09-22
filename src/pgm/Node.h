@@ -97,6 +97,11 @@ namespace tomcat {
              */
             void pop_assignment();
 
+            /**
+             * Inverts the nodes assignment 1 / assignment;
+             */
+            void invert_assignment();
+
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------

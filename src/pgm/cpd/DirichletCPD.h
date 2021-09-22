@@ -159,15 +159,6 @@ namespace tomcat {
              */
             void init_from_matrix(const Eigen::MatrixXd& matrix);
 
-            //------------------------------------------------------------------
-            // Data members
-            //------------------------------------------------------------------
-
-            /**
-             * Sufficient statistics used for CPDs owned by parameter nodes.
-             * It's used to compute the posterior of a conjugate prior.
-             */
-            Eigen::VectorXd sufficient_statistics;
         };
 
     } // namespace model

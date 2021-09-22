@@ -3,7 +3,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/graph/topological_sort.hpp>
 
-#include "pgm/JSONModel.h"
+#include "pgm/JSONModelParser.h"
 #include "pgm/TimerNode.h"
 #include "utils/FileHandler.h"
 

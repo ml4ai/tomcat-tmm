@@ -100,7 +100,6 @@ namespace tomcat {
 
         void
         GammaCPD::add_to_sufficient_statistics(const vector<double>& values) {
-
             scoped_lock lock(*this->sufficient_statistics_mutex);
             unsigned int sum = 0;
             for (int value : values) {

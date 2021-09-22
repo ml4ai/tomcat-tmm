@@ -224,15 +224,6 @@ namespace tomcat {
                 int num_indices) const;
 
             /**
-             * Update the sufficient statistics of parameter nodes the cpd
-             * depend on with assignments of the cpd's owner.
-             *
-             * @param cpd_owner: Node that owns this CPD
-             */
-            void update_sufficient_statistics(
-                const std::shared_ptr<RandomVariableNode>& cpd_owner);
-
-            /**
              * Prints a short description of the distribution.
              *
              * @param os: output stream
@@ -411,6 +402,15 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
+
+            /**
+             * Update the sufficient statistics of parameter nodes the cpd
+             * depend on with assignments of the cpd's owner.
+             *
+             * @param cpd_owner: Node that owns this CPD
+             */
+            virtual void update_sufficient_statistics(
+                const std::shared_ptr<RandomVariableNode>& cpd_owner);
 
             /**
              * Returns p(cpd_owner_assignments | sampled_node)

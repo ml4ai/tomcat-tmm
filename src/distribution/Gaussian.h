@@ -127,6 +127,20 @@ namespace tomcat {
             void
             update_from_posterior(const Eigen::VectorXd& posterior_weights) override;
 
+            /**
+             * Whether the mean is a constant variable and known.
+             *
+             * @return The mean is fixed.
+             */
+            bool has_known_mean() const;
+
+            /**
+             * Whether the variance is a constant variable and known.
+             *
+             * @return The Variance is fixed.
+             */
+            bool has_known_variance() const;
+
           private:
             //------------------------------------------------------------------
             // Member functions

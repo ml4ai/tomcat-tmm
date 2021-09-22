@@ -83,14 +83,14 @@ namespace tomcat {
             const Eigen::VectorXd& sufficient_statistics) const {
 
             int n = sufficient_statistics.size();
-            int sum = sufficient_statistics.sum();
+            int sum_squares = sufficient_statistics.array().square().sum();
 
             Eigen::VectorXd parameters = this->get_parameters(parameter_idx);
             double alpha = parameters(PARAMETER_INDEX::alpha);
             double beta = parameters(PARAMETER_INDEX::beta);
 
             double new_alpha = alpha + n / 2;
-            double new_beta = 1 / (1 / beta + sum);
+            double new_beta = 1 / (1 / beta + sum_squares / 2);
 
             return this->sample_from_gsl(random_generator, new_alpha, new_beta);
         }

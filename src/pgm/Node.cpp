@@ -47,6 +47,10 @@ namespace tomcat {
             this->stacked_assignment = Eigen::MatrixXd(0, 0);
         }
 
+        void Node::invert_assignment() {
+            this->assignment.array() = 1 / this->assignment.array();
+        }
+
         bool Node::is_random_variable() const {
             return false;
         }
