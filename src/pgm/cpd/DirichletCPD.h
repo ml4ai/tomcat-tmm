@@ -120,6 +120,7 @@ namespace tomcat {
             std::string get_name() const override;
 
             void add_to_sufficient_statistics(
+                const std::shared_ptr<const Distribution>& distribution,
                 const std::vector<double>& values) override;
 
             Eigen::MatrixXd sample_from_conjugacy(
@@ -159,15 +160,6 @@ namespace tomcat {
              */
             void init_from_matrix(const Eigen::MatrixXd& matrix);
 
-            //------------------------------------------------------------------
-            // Data members
-            //------------------------------------------------------------------
-
-            /**
-             * Sufficient statistics used for CPDs owned by parameter nodes.
-             * It's used to compute the posterior of a conjugate prior.
-             */
-            Eigen::VectorXd sufficient_statistics;
         };
 
     } // namespace model

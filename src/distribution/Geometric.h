@@ -113,7 +113,7 @@ namespace tomcat {
             int get_sample_size() const override;
 
             void update_from_posterior(
-                const Eigen::VectorXd& posterior_weights) override {}
+                const Eigen::VectorXd& posterior_weights) override;
 
           private:
             //------------------------------------------------------------------

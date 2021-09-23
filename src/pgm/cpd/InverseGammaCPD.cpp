@@ -1,7 +1,8 @@
-#include "pgm/cpd/DirichletCPD.h"
+#include "pgm/cpd/InverseGammaCPD.h"
 
 #include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
+#include "distribution/Gaussian.h"
 
 namespace tomcat {
     namespace model {
@@ -11,46 +12,47 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        DirichletCPD::DirichletCPD(
+        InverseGammaCPD::InverseGammaCPD(
             const vector<shared_ptr<NodeMetadata>>& parent_node_order,
-            const vector<shared_ptr<Dirichlet>>& distributions)
+            const vector<shared_ptr<InverseGamma>>& distributions)
             : CPD(parent_node_order) {
 
             this->init_from_distributions(distributions);
         }
 
-        DirichletCPD::DirichletCPD(
+        InverseGammaCPD::InverseGammaCPD(
             vector<shared_ptr<NodeMetadata>>&& parent_node_order,
-            const vector<shared_ptr<Dirichlet>>& distributions)
+            const vector<shared_ptr<InverseGamma>>& distributions)
             : CPD(parent_node_order) {
 
             this->init_from_distributions(distributions);
         }
 
-        DirichletCPD::DirichletCPD(
+        InverseGammaCPD::InverseGammaCPD(
             const vector<shared_ptr<NodeMetadata>>& parent_node_order,
-            const Eigen::MatrixXd& alphas)
+            const Eigen::MatrixXd& parameters)
             : CPD(parent_node_order) {
-            this->init_from_matrix(alphas);
+            this->init_from_matrix(parameters);
         }
 
-        DirichletCPD::DirichletCPD(
+        InverseGammaCPD::InverseGammaCPD(
             vector<shared_ptr<NodeMetadata>>&& parent_node_order,
-            const Eigen::MatrixXd& alphas)
+            const Eigen::MatrixXd& parameters)
             : CPD(parent_node_order) {
-            this->init_from_matrix(alphas);
+            this->init_from_matrix(parameters);
         }
 
-        DirichletCPD::~DirichletCPD() {}
+        InverseGammaCPD::~InverseGammaCPD() {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        DirichletCPD::DirichletCPD(const DirichletCPD& cpd) {
+        InverseGammaCPD::InverseGammaCPD(const InverseGammaCPD& cpd) {
             this->copy_cpd(cpd);
         }
 
-        DirichletCPD& DirichletCPD::operator=(const DirichletCPD& cpd) {
+        InverseGammaCPD&
+        InverseGammaCPD::operator=(const InverseGammaCPD& cpd) {
             this->copy_cpd(cpd);
             return *this;
         }
@@ -58,58 +60,83 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void DirichletCPD::init_from_distributions(
-            const vector<shared_ptr<Dirichlet>>& distributions) {
+        void InverseGammaCPD::init_from_distributions(
+            const vector<shared_ptr<InverseGamma>>& distributions) {
             this->distributions.reserve(distributions.size());
             for (const auto& distribution : distributions) {
                 this->distributions.push_back(distribution);
             }
         }
 
-        void DirichletCPD::init_from_matrix(const Eigen::MatrixXd& matrix) {
-            for (int i = 0; i < matrix.rows(); i++) {
-                shared_ptr<Dirichlet> distribution_ptr =
-                    make_shared<Dirichlet>(Dirichlet(matrix.row(i)));
-                this->distributions.push_back(distribution_ptr);
+        void InverseGammaCPD::init_from_matrix(const Eigen::MatrixXd& matrix) {
+            for (int row = 0; row < matrix.rows(); row++) {
+                for (int i = 0; i < matrix.rows(); i++) {
+                    double alpha = matrix(i, Gamma::PARAMETER_INDEX::alpha);
+                    double beta = matrix(i, Gamma::PARAMETER_INDEX::beta);
+                    shared_ptr<InverseGamma> distribution_ptr =
+                        make_shared<InverseGamma>(alpha, beta);
+                    this->distributions.push_back(distribution_ptr);
+                }
             }
             this->freeze_distributions(0);
         }
 
-        unique_ptr<CPD> DirichletCPD::clone() const {
-            unique_ptr<DirichletCPD> new_cpd = make_unique<DirichletCPD>(*this);
+        unique_ptr<CPD> InverseGammaCPD::clone() const {
+            unique_ptr<InverseGammaCPD> new_cpd =
+                make_unique<InverseGammaCPD>(*this);
             new_cpd->clone_distributions();
             return new_cpd;
         }
 
-        void DirichletCPD::clone_distributions() {
+        void InverseGammaCPD::clone_distributions() {
             for (auto& distribution : this->distributions) {
                 shared_ptr<Distribution> temp = distribution->clone();
-                distribution = dynamic_pointer_cast<Dirichlet>(temp);
+                distribution = dynamic_pointer_cast<InverseGamma>(temp);
             }
         }
 
-        string DirichletCPD::get_name() const { return "Dirichlet"; }
+        string InverseGammaCPD::get_name() const { return "InverseGamma"; }
 
-        void DirichletCPD::add_to_sufficient_statistics(
+        void InverseGammaCPD::add_to_sufficient_statistics(
             const shared_ptr<const Distribution>& distribution,
             const vector<double>& values) {
 
-            // The dirichlet distribution works by incrementing the value of a
-            // parameter to allow coefficient sharing among different
-            // distributions.
+            // The InverseGamma as a conjugate prior of a Gaussian distribution
+            // with known mean, has a closed-form posterior. Given by another
+            // InverseGamma with the parameters defined as below.
 
             // TODO - Fix this if we need a parameter to depend on another node.
             int distribution_idx = 0;
-            const auto& prior_distribution = this->distributions[distribution_idx];
+            const auto& prior_distribution =
+                this->distributions[distribution_idx];
             scoped_lock lock(*this->sufficient_statistics_mutex);
 
-            for (int value : values) {
-                const auto& parameter = prior_distribution->get_parameters()[value];
-                parameter->increment_assignment(1);
-            }
+            const auto& alpha_node =
+                prior_distribution
+                    ->get_parameters()[InverseGamma::PARAMETER_INDEX::alpha];
+
+            auto& beta_node =
+                prior_distribution
+                    ->get_parameters()[InverseGamma::PARAMETER_INDEX::beta];
+
+            double beta_prior = beta_node->get_assignment()(0, 0);
+            // An inverse gamma is a conjugate prior of a Gaussian
+            double mean =
+                distribution->get_parameters()[Gaussian::PARAMETER_INDEX::mean]
+                    ->get_assignment()(0, 0);
+            double squared_sum =
+                (Eigen::VectorXd::Map(values.data(), values.size()).array() -
+                 mean)
+                    .square()
+                    .sum();
+
+            alpha_node->increment_assignment(values.size() / 2.0);
+            beta_node->invert_assignment();
+            beta_node->increment_assignment(squared_sum / 2);
+            beta_node->invert_assignment();
         }
 
-        Eigen::MatrixXd DirichletCPD::sample_from_conjugacy(
+        Eigen::MatrixXd InverseGammaCPD::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int num_samples,
             const shared_ptr<const RandomVariableNode>& cpd_owner) const {
@@ -133,7 +160,7 @@ namespace tomcat {
             return samples;
         }
 
-        void DirichletCPD::reset_sufficient_statistics() {
+        void InverseGammaCPD::reset_sufficient_statistics() {
             int distribution_idx = 0;
             const auto& distribution = this->distributions[distribution_idx];
             for (const auto& parameter : distribution->get_parameters()) {
@@ -142,7 +169,7 @@ namespace tomcat {
             }
         }
 
-        bool DirichletCPD::is_continuous() const { return false; }
+        bool InverseGammaCPD::is_continuous() const { return true; }
 
     } // namespace model
 } // namespace tomcat

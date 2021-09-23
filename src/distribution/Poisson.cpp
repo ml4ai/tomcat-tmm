@@ -152,5 +152,10 @@ namespace tomcat {
 
         int Poisson::get_sample_size() const { return 1; }
 
+        void Poisson::update_from_posterior(
+            const Eigen::VectorXd& posterior_weights) {
+            // Not implemented
+        }
+
     } // namespace model
 } // namespace tomcat

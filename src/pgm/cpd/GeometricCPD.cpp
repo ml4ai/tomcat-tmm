@@ -91,10 +91,12 @@ namespace tomcat {
         string GeometricCPD::get_name() const { return "Geometric"; }
 
         void GeometricCPD::add_to_sufficient_statistics(
+            const shared_ptr<const Distribution>& distribution,
             const vector<double>& values) {
 
             throw invalid_argument(
-                "No conjugate prior with a Geometric distribution.");
+                "A geometric distribution is not a conjugate prior of any "
+                "other distribution.");
         }
 
         Eigen::MatrixXd GeometricCPD::sample_from_conjugacy(
@@ -103,7 +105,8 @@ namespace tomcat {
             const shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
             throw invalid_argument(
-                "No conjugate prior with a Geometric distribution.");
+                "A geometric distribution is not a conjugate prior of any "
+                "other distribution.");
         }
 
         void GeometricCPD::reset_sufficient_statistics() {

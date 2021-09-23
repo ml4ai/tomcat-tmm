@@ -224,15 +224,6 @@ namespace tomcat {
                 int num_indices) const;
 
             /**
-             * Update the sufficient statistics of parameter nodes the cpd
-             * depend on with assignments of the cpd's owner.
-             *
-             * @param cpd_owner: Node that owns this CPD
-             */
-            void update_sufficient_statistics(
-                const std::shared_ptr<RandomVariableNode>& cpd_owner);
-
-            /**
              * Prints a short description of the distribution.
              *
              * @param os: output stream
@@ -413,6 +404,15 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
+             * Update the sufficient statistics of parameter nodes the cpd
+             * depend on with assignments of the cpd's owner.
+             *
+             * @param cpd_owner: Node that owns this CPD
+             */
+            virtual void update_sufficient_statistics(
+                const std::shared_ptr<RandomVariableNode>& cpd_owner);
+
+            /**
              * Returns p(cpd_owner_assignments | sampled_node)
              *
              * @param index_nodes: concrete objects of the nodes used to
@@ -532,10 +532,13 @@ namespace tomcat {
             /**
              * Adds a set of values to the sufficient statistics of this CPD.
              *
+             * @param distribution: distribution defined by the parameter node
+             * that is adding the sufficient statistics to its conjugate prior
              * @param sample: Sample to add to the sufficient statistics.
              */
-            virtual void
-            add_to_sufficient_statistics(const std::vector<double>& values) = 0;
+            virtual void add_to_sufficient_statistics(
+                const std::shared_ptr<const Distribution>& distribution,
+                const std::vector<double>& values) = 0;
 
             /**
              * Samples using conjugacy properties and sufficient statistics

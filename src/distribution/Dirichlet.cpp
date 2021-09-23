@@ -189,5 +189,10 @@ namespace tomcat {
             return this->parameters.size();
         }
 
+        void
+        Dirichlet::update_from_posterior(const Eigen::VectorXd& posterior_weights) {
+            // Not implemented
+        }
+
     } // namespace model
 } // namespace tomcat

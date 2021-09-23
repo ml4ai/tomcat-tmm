@@ -122,6 +122,7 @@ namespace tomcat {
             std::string get_name() const override;
 
             void add_to_sufficient_statistics(
+                const std::shared_ptr<const Distribution>& distribution,
                 const std::vector<double>& values) override;
 
             Eigen::MatrixXd sample_from_conjugacy(

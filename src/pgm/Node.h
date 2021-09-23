@@ -97,6 +97,11 @@ namespace tomcat {
              */
             void pop_assignment();
 
+            /**
+             * Inverts the nodes assignment 1 / assignment;
+             */
+            void invert_assignment();
+
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
@@ -134,6 +139,8 @@ namespace tomcat {
             const std::shared_ptr<NodeMetadata>& get_metadata() const;
 
             const Eigen::MatrixXd& get_assignment() const;
+
+            virtual void set_assignment(const Eigen::MatrixXd& assignment);
 
           protected:
             //------------------------------------------------------------------

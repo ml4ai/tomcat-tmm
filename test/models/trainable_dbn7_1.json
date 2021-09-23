@@ -1,0 +1,79 @@
+{
+  "nodes": {
+    "timers": [
+    ],
+    "parameters": [
+      {
+        "label": "MuZ.X",
+        "prior": false,
+        "sample_size": 1,
+        "cpds": [
+          {
+            "distribution": "gaussian",
+            "constant": true,
+            "parameters": "0,1,0,1,0,1",
+            "index_nodes": []
+          }
+        ]
+      }
+    ],
+    "data": [
+      {
+        "label": "X",
+        "first_time_step": 0,
+        "in_plate": true,
+        "cardinality": 3,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.3, 0.5, 0.2",
+            "index_nodes": []
+          },
+          {
+            "distribution": "categorical",
+            "constant": true,
+            "parameters": "0.8, 0.1, 0.1, 0.1, 0.8, 0.1, 0.1, 0.1, 0.8",
+            "index_nodes": [
+              "X"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Z",
+        "first_time_step": 1,
+        "in_plate": true,
+        "cardinality": 1,
+        "sample_size": 1,
+        "replicable": true,
+        "timer": "",
+        "cpds": [
+          {
+            "distribution": "gaussian",
+            "constant": false,
+            "parameters": "MuZ.X, 2",
+            "index_nodes": [
+              "X"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "connections": [
+    {
+      "parent": "X",
+      "child": "X",
+      "time_crossing": true
+    },
+    {
+      "parent": "X",
+      "child": "Z",
+      "time_crossing": false
+    }
+  ]
+}

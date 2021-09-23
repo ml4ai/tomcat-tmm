@@ -217,21 +217,21 @@ namespace tomcat {
             this->building_sections.push_back(section5);
             this->building_sections.push_back(section6);
 
-            auto [upper_section2, section7] = section2.get_horizontal_split();
-            auto [left_section3, section8] = section3.get_vertical_split();
-            auto [left_section4, section9] = section4.get_vertical_split();
-            auto [left_section6, section10] = section6.get_vertical_split();
+            auto [upper_section2, lower_section2] = section2.get_horizontal_split();
+            auto [left_section3, right_section3] = section3.get_vertical_split();
+            auto [left_section4, right_section4] = section4.get_vertical_split();
+            auto [left_section6, right_section6] = section6.get_vertical_split();
 
             this->expanded_building_sections.push_back(section1);
             this->expanded_building_sections.push_back(upper_section2);
+            this->expanded_building_sections.push_back(lower_section2);
             this->expanded_building_sections.push_back(left_section3);
+            this->expanded_building_sections.push_back(right_section3);
             this->expanded_building_sections.push_back(left_section4);
+            this->expanded_building_sections.push_back(right_section4);
+            this->expanded_building_sections.push_back(section5);
             this->expanded_building_sections.push_back(left_section6);
-            this->expanded_building_sections.push_back(section6);
-            this->expanded_building_sections.push_back(section7);
-            this->expanded_building_sections.push_back(section8);
-            this->expanded_building_sections.push_back(section9);
-            this->expanded_building_sections.push_back(section10);
+            this->expanded_building_sections.push_back(right_section6);
         }
 
         unordered_set<string>

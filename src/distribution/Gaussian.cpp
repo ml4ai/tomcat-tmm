@@ -22,20 +22,31 @@ namespace tomcat {
 
         Gaussian::Gaussian(const vector<shared_ptr<Node>>& parameters)
             : Distribution(parameters) {
-            // The vector is here just to maintain the same interface
-            // for all distributions, but a Gaussian distribution cannot have
-            // more than two parameters.
-            if (parameters.size() > 1) {
+            if (parameters.size() != 1 && parameters.size() != 2) {
                 throw TomcatModelException(
-                    "A Gaussian distribution must have two parameter nodes.");
+                    "A Gaussian distribution must have two parameter nodes or "
+                    "a single parameter node with sample size equals to two.");
+            }
+            else if (parameters.size() == 1 &&
+                     parameters[0]->get_metadata()->get_sample_size() != 2) {
+                throw TomcatModelException(
+                    "The single parameter node of a Gaussian distribution must "
+                    "have sample size equals to 2.");
             }
         }
 
-        Gaussian::Gaussian(vector<shared_ptr<Node>>& parameters)
+        Gaussian::Gaussian(vector<shared_ptr<Node>>&& parameters)
             : Distribution(move(parameters)) {
-            if (parameters.size() > 1) {
+            if (parameters.size() != 1 && parameters.size() != 2) {
                 throw TomcatModelException(
-                    "A Gaussian distribution must have two parameter nodes.");
+                    "A Gaussian distribution must have two parameter nodes or "
+                    "a single parameter node with sample size equals to two.");
+            }
+            else if (parameters.size() == 1 &&
+                     parameters[0]->get_metadata()->get_sample_size() != 2) {
+                throw TomcatModelException(
+                    "The single parameter node of a Gaussian distribution must "
+                    "have sample size equals to 2.");
             }
         }
 
@@ -146,7 +157,7 @@ namespace tomcat {
             double mean = parameters(PARAMETER_INDEX::mean);
             double variance = parameters(PARAMETER_INDEX::variance);
 
-            return gsl_ran_gaussian_pdf(value - mean, sqrt(variance));
+            return gsl_ran_gaussian_pdf(value - mean, variance);
         }
 
         double Gaussian::get_cdf(double value, bool reverse) const {
@@ -188,6 +199,21 @@ namespace tomcat {
         }
 
         int Gaussian::get_sample_size() const { return 1; }
+
+        void Gaussian::update_from_posterior(
+            const Eigen::VectorXd& posterior_weights) {
+            // Not implemented
+        }
+
+        bool Gaussian::has_known_mean() const {
+            return !this->parameters[PARAMETER_INDEX::mean]
+                ->is_random_variable();
+        }
+
+        bool Gaussian::has_known_variance() const {
+            return !this->parameters[PARAMETER_INDEX::variance]
+                ->is_random_variable();
+        }
 
     } // namespace model
 } // namespace tomcat

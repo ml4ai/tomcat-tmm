@@ -25,13 +25,13 @@ namespace tomcat {
             // The vector is here just to maintain the same interface
             // for all distributions, but a gamma distribution cannot have
             // more than two parameters.
-            if (parameters.size() > 1) {
+            if (parameters.size() > 2) {
                 throw TomcatModelException(
                     "A gamma distribution must have two parameter nodes.");
             }
         }
 
-        Gamma::Gamma(vector<shared_ptr<Node>>& parameters)
+        Gamma::Gamma(vector<shared_ptr<Node>>&& parameters)
             : Distribution(move(parameters)) {
             if (parameters.size() > 1) {
                 throw TomcatModelException(
@@ -163,11 +163,10 @@ namespace tomcat {
             double alpha = parameters(PARAMETER_INDEX::alpha);
             double beta = parameters(PARAMETER_INDEX::beta);
 
-            double cdf = this->get_pdf(Eigen::VectorXd::Constant(1, 1, value));
-            //                gsl_cdf_gamma_P(value, alpha, beta);
-            //            if (reverse) {
-            //                cdf = 1 - cdf;
-            //            }
+            double cdf = gsl_cdf_gamma_P(value, alpha, beta);
+            if (reverse) {
+                cdf = 1 - cdf;
+            }
 
             return cdf;
         }
@@ -197,6 +196,11 @@ namespace tomcat {
         }
 
         int Gamma::get_sample_size() const { return 1; }
+
+        void
+        Gamma::update_from_posterior(const Eigen::VectorXd& posterior_weights) {
+            // Not implemented
+        }
 
     } // namespace model
 } // namespace tomcat

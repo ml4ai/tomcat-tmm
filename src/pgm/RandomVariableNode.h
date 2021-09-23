@@ -81,6 +81,8 @@ namespace tomcat {
 
             bool is_random_variable() const override;
 
+            void set_assignment(const Eigen::MatrixXd& assignment) override;
+
             /**
              * Replaces parameter nodes in node dependent CPD templates by a
              * concrete timed-instance node in the unrolled DBN.
@@ -179,12 +181,15 @@ namespace tomcat {
              * Adds a set of values to the sufficient statistics of a
              * parameter node's CPD.
              *
+             * @param distribution: distribution defined by the parameter node
+             * that is adding the sufficient statistics to its conjugate prior
              * @param values: Values to add to the sufficient statistics. The
              * update_parents_sufficient_statistics will call this function for
              * parameter nodes at some point.
              */
-            void
-            add_to_sufficient_statistics(const std::vector<double>& values);
+            void add_to_sufficient_statistics(
+                const std::shared_ptr<const Distribution>& distribution,
+                const std::vector<double>& values);
 
             /**
              * Clears the values stored as sufficient statistics in the
@@ -340,8 +345,6 @@ namespace tomcat {
             int get_time_step() const;
 
             void set_time_step(int time_step);
-
-            void set_assignment(const Eigen::MatrixXd& assignment);
 
             bool is_frozen() const;
 
