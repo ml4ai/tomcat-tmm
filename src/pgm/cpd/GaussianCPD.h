@@ -120,6 +120,7 @@ namespace tomcat {
             std::string get_name() const override;
 
             void add_to_sufficient_statistics(
+                const std::shared_ptr<const Distribution>& distribution,
                 const std::vector<double>& values) override;
 
             Eigen::MatrixXd sample_from_conjugacy(
@@ -153,6 +154,21 @@ namespace tomcat {
              * @param matrix: matrix of \f$\alpha\f$s
              */
             virtual void init_from_matrix(const Eigen::MatrixXd& matrix);
+
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+
+            // Fixed variance of the gaussian distribution in which the mean
+            // node has this CPD as a prior. The variance has to be known
+            // because only then a Gaussian can be the conjugate prior of
+            // another Gaussian.
+            double variance_for_posterior;
+
+            // We store the sufficient statistics from all the nodes sampled
+            // from the gaussian that has this CPD as prior to compute the
+            // closed form posterior only when we sample from conjugacy.
+            std::vector<double> sufficient_statistics;
         };
 
     } // namespace model

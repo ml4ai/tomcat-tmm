@@ -51,9 +51,7 @@ namespace tomcat {
             this->assignment.array() = 1 / this->assignment.array();
         }
 
-        bool Node::is_random_variable() const {
-            return false;
-        }
+        bool Node::is_random_variable() const { return false; }
 
         //----------------------------------------------------------------------
         // Getters & Setters
@@ -64,6 +62,10 @@ namespace tomcat {
 
         const Eigen::MatrixXd& Node::get_assignment() const {
             return assignment;
+        }
+
+        void Node::set_assignment(const Eigen::MatrixXd& assignment) {
+            this->assignment = assignment;
         }
 
     } // namespace model

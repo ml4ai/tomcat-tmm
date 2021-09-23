@@ -29,7 +29,8 @@ namespace tomcat {
 
         DynamicBayesNet
         DynamicBayesNet::create_from_json(const string& filepath) {
-            return create_model_from_json(filepath);
+            JSONModelParser parser(filepath);
+            return parser.create_model();
         }
 
         //----------------------------------------------------------------------
@@ -705,7 +706,9 @@ namespace tomcat {
         }
 
         RVNodePtrVec DynamicBayesNet::get_data_nodes(int time_step) const {
-            if (time_step < 0 || this->data_nodes_per_time_step.size() <= time_step) return {};
+            if (time_step < 0 ||
+                this->data_nodes_per_time_step.size() <= time_step)
+                return {};
             return this->data_nodes_per_time_step.at(time_step);
         }
 

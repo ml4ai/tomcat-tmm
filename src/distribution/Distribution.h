@@ -15,7 +15,7 @@ namespace tomcat {
         /**
          * Abstract probability distribution.
          */
-        class Distribution {
+        class Distribution : public std::enable_shared_from_this<Distribution> {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor

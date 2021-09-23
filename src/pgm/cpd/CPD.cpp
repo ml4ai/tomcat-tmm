@@ -1653,8 +1653,10 @@ namespace tomcat {
 
             Eigen::VectorXd pdfs(num_rows, 1);
             for (int i = initial_row; i < initial_row + num_rows; i++) {
-                pdfs[i] = this->distributions[i]->get_pdf(
-                    cpd_owner->get_assignment().row(i));
+                const auto& distribution =
+                    this->distributions[distribution_indices[i]];
+                pdfs[i] =
+                    distribution->get_pdf(cpd_owner->get_assignment().row(i));
             }
 
             scoped_lock lock(pdf_mutex);

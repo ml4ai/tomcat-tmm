@@ -86,15 +86,15 @@ namespace tomcat {
             }
         }
 
-        string PoissonCPD::get_name() const {
-            return "Poisson";
-        }
+        string PoissonCPD::get_name() const { return "Poisson"; }
 
-        void
-        PoissonCPD::add_to_sufficient_statistics(const vector<double>& values) {
+        void PoissonCPD::add_to_sufficient_statistics(
+            const shared_ptr<const Distribution>& distribution,
+            const vector<double>& values) {
 
             throw invalid_argument(
-                "No conjugate prior with a Poisson distribution.");
+                "A Poisson distribution is not a conjugate prior of any "
+                "other distribution.");
         }
 
         Eigen::MatrixXd PoissonCPD::sample_from_conjugacy(
@@ -103,16 +103,15 @@ namespace tomcat {
             const shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
             throw invalid_argument(
-                "No conjugate prior with a Poisson distribution.");
+                "A Poisson distribution is not a conjugate prior of any "
+                "other distribution.");
         }
 
         void PoissonCPD::reset_sufficient_statistics() {
             // Nothing to reset
         }
 
-        bool PoissonCPD::is_continuous() const {
-            return false;
-        }
+        bool PoissonCPD::is_continuous() const { return false; }
 
     } // namespace model
 } // namespace tomcat

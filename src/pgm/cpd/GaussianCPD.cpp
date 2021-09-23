@@ -94,19 +94,90 @@ namespace tomcat {
         string GaussianCPD::get_name() const { return "Gaussian"; }
 
         void GaussianCPD::add_to_sufficient_statistics(
+            const std::shared_ptr<const Distribution>& distribution,
             const vector<double>& values) {
-            throw invalid_argument("Not implemented yet.");
+
+            scoped_lock lock(*this->sufficient_statistics_mutex);
+
+            this->variance_for_posterior =
+                distribution
+                    ->get_parameters()[Gaussian::PARAMETER_INDEX::variance]
+                    ->get_assignment()(0, 0);
+            this->sufficient_statistics.insert(
+                this->sufficient_statistics.end(),
+                values.begin(),
+                values.end());
         }
 
         Eigen::MatrixXd GaussianCPD::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int num_samples,
             const shared_ptr<const RandomVariableNode>& cpd_owner) const {
-            throw invalid_argument("Not implemented yet.");
+
+            // TODO - Fix this if we need a parameter to depend on another node.
+            int distribution_idx = 0;
+            const auto& prior_distribution =
+                this->distributions[distribution_idx];
+
+            int n = this->sufficient_statistics.size();
+            int sum =
+                Eigen::VectorXd::Map(this->sufficient_statistics.data(), n)
+                    .array()
+                    .sum();
+
+            const auto& mean_node =
+                prior_distribution
+                    ->get_parameters()[Gaussian::PARAMETER_INDEX::mean];
+            const auto& variance_node =
+                prior_distribution
+                    ->get_parameters()[Gaussian::PARAMETER_INDEX::variance];
+
+            double mean_prior = mean_node->get_assignment()(0, 0);
+            double variance_prior = variance_node->get_assignment()(0, 0);
+
+            double new_mean =
+                (1 / (pow(variance_prior, -2) +
+                      n * pow(this->variance_for_posterior, -2))) *
+                (mean_prior * pow(variance_prior, -2) +
+                 sum * pow(this->variance_for_posterior, -2));
+            double new_variance =
+                1 / (pow(variance_prior, -2) +
+                     n * pow(this->variance_for_posterior, 2));
+
+            mean_node->set_assignment(
+                Eigen::MatrixXd::Constant(1, 1, new_mean));
+            variance_node->set_assignment(
+                Eigen::MatrixXd::Constant(1, 1, new_variance));
+
+            // TODO - remove this later as prior of parameter nodes do not
+            //  depend on other nodes for now.
+            Eigen::VectorXi distribution_indices =
+                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
+                                                       num_samples);
+
+            int sample_size = this->distributions[0]->get_sample_size();
+
+            Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
+            for (int i = 0; i < distribution_indices.size(); i++) {
+                int distribution_idx = distribution_indices(i);
+                const auto& distribution =
+                    this->distributions[distribution_idx];
+                Eigen::VectorXd assignment =
+                    distribution->sample(random_generator);
+                samples.row(i) = move(assignment);
+            }
+
+            return samples;
         }
 
         void GaussianCPD::reset_sufficient_statistics() {
-            throw invalid_argument("Not implemented yet.");
+            int distribution_idx = 0;
+            const auto& distribution = this->distributions[distribution_idx];
+            for (const auto& parameter : distribution->get_parameters()) {
+                parameter->pop_assignment();
+                parameter->stack_assignment();
+            }
+            this->sufficient_statistics.clear();
         }
 
         bool GaussianCPD::is_continuous() const { return false; }
@@ -131,23 +202,6 @@ namespace tomcat {
                 // TODO - this needs to be adapted for multivariate gaussian
                 double value = values(i, 0);
                 if (value != NO_OBS) {
-                    const auto& gaussian = dynamic_pointer_cast<Gaussian>(
-                        this->distributions[distribution_idx]);
-                    if (gaussian->has_known_mean()) {
-                        // The conjugate prior is an inverse gamma. The
-                        // sufficient statistics of the posterior needs the sum
-                        // of the squares of x - mu.
-                        value -= this->distributions[distribution_idx]
-                                     ->get_parameters()[0]
-                                     ->get_assignment()(0, 0);
-                    }
-                    else if (gaussian->has_known_variance()) {
-                        // Not implemented yet
-                    }
-                    else {
-                        // Not implemented yet
-                    }
-
                     values_per_distribution[distribution_idx].push_back(value);
                 }
             }

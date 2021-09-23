@@ -85,8 +85,8 @@ namespace tomcat {
              * Geometric distributions
              */
             GeometricCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
-                           parent_node_order,
-                       const Eigen::VectorXd& ps);
+                             parent_node_order,
+                         const Eigen::VectorXd& ps);
 
             /**
              * Creates an instance of a Geometric CPD by transforming a
@@ -123,6 +123,7 @@ namespace tomcat {
             std::string get_name() const override;
 
             void add_to_sufficient_statistics(
+                const std::shared_ptr<const Distribution>& distribution,
                 const std::vector<double>& values) override;
 
             Eigen::MatrixXd sample_from_conjugacy(

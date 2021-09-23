@@ -96,17 +96,22 @@ namespace tomcat {
         string CategoricalCPD::get_name() const { return "Categorical"; }
 
         void CategoricalCPD::add_to_sufficient_statistics(
+            const std::shared_ptr<const Distribution>& distribution,
             const vector<double>& values) {
+
             throw invalid_argument(
-                "No conjugate prior with a categorical distribution.");
+                "A categorical distribution is not a conjugate prior of any "
+                "other distribution.");
         }
 
         Eigen::MatrixXd CategoricalCPD::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int num_samples,
             const shared_ptr<const RandomVariableNode>& cpd_owner) const {
+
             throw invalid_argument(
-                "No conjugate prior with a categorical distribution.");
+                "A categorical distribution is not a conjugate prior of any "
+                "other distribution.");
         }
 
         void CategoricalCPD::reset_sufficient_statistics() {

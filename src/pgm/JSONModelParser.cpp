@@ -196,13 +196,14 @@ namespace tomcat {
                     for (int i = 0; i < num_copies; i++) {
                         stringstream derived_label;
                         derived_label << label << "_" << i;
-                        this->metadatas[label].push_back(make_shared<NodeMetadata>(
-                            NodeMetadata::create_single_time_link_metadata(
-                                derived_label.str(),
-                                true,
-                                false,
-                                time_step,
-                                node["sample_size"])));
+                        this->metadatas[label].push_back(
+                            make_shared<NodeMetadata>(
+                                NodeMetadata::create_single_time_link_metadata(
+                                    derived_label.str(),
+                                    true,
+                                    false,
+                                    time_step,
+                                    node["sample_size"])));
                     }
                 }
                 else {
@@ -210,7 +211,8 @@ namespace tomcat {
                         stringstream derived_label;
                         derived_label << label << "_" << i;
 
-                        this->metadatas[label].push_back(make_shared<NodeMetadata>(
+                        this->metadatas[label].push_back(make_shared<
+                                                         NodeMetadata>(
                             NodeMetadata::create_multiple_time_link_metadata(
                                 derived_label.str(),
                                 false,
@@ -259,7 +261,8 @@ namespace tomcat {
             ParamMapConfig param_config;
             unordered_set<string> parameter_labels;
 
-            for (const auto& json_parameter : this->json_model["parameters"]) {
+            for (const auto& json_parameter :
+                 this->json_model["nodes"]["parameters"]) {
                 parameter_labels.insert((string)json_parameter["label"]);
             }
 
@@ -298,18 +301,20 @@ namespace tomcat {
                     for (const string& index_node : cpd["index_nodes"]) {
                         transition_cpd =
                             transition_cpd || cpd_owner_label == index_node;
-                        int cardinality =
-                            this->metadatas.at(index_node).at(0)->get_cardinality();
+                        int cardinality = this->metadatas.at(index_node)
+                                              .at(0)
+                                              ->get_cardinality();
                         num_copies *= cardinality;
                     }
 
-                    vector<string> parameter_tokens;
-                    boost::split(parameter_tokens,
-                                 cpd["parameters"],
+                    vector<string> tokens;
+                    boost::split(tokens,
+                                 (string)cpd["parameters"],
                                  boost::is_any_of(","));
 
-                    for (const string& parameter_token : parameter_tokens) {
-                        if (EXISTS(parameter_token, parameter_labels)) {
+                    for (string token : tokens) {
+                        boost::trim(token);
+                        if (EXISTS(token, parameter_labels)) {
                             // The parameter is a random node
                             int time_step = this->metadatas.at(cpd_owner_label)
                                                 .at(0)
@@ -320,7 +325,7 @@ namespace tomcat {
                                 time_step += 1;
                             }
 
-                            param_config[parameter_token] =
+                            param_config[token] =
                                 make_pair(num_copies, time_step);
                         }
                     }
@@ -439,12 +444,12 @@ namespace tomcat {
                                           ->get_cardinality();
                     rows *= cardinality;
                 }
-            }           
+            }
 
             // Each row of the matrix comprises the CPD of one of the
             // node copies
             if (this->rv_nodes.at(cpd_owner_label).size() == 1) {
-                // A single cop comprised of several distributions
+                // A single cpd comprised of several distributions
                 vector<shared_ptr<D>> distributions;
                 int i = 0;
                 for (int row = 0; row < rows; row++) {
@@ -460,7 +465,8 @@ namespace tomcat {
                 }
 
                 CPDPtr cpd = make_shared<C>(index_metadatas, distributions);
-                const auto& cpd_owner = this->rv_nodes.at(cpd_owner_label).at(0);
+                const auto& cpd_owner =
+                    this->rv_nodes.at(cpd_owner_label).at(0);
                 cpd_owner->add_cpd_template(move(cpd));
             }
             else {
@@ -485,8 +491,9 @@ namespace tomcat {
             }
         }
 
-        NumNodePtrVec JSONModelParser::split_constant_parameters(
-            string str, string delimiter) {
+        NumNodePtrVec
+        JSONModelParser::split_constant_parameters(const string& str,
+                                                   const string& delimiter) {
             NumNodePtrVec values;
             vector<string> tokens;
             boost::split(tokens, str, boost::is_any_of(delimiter));
@@ -520,21 +527,60 @@ namespace tomcat {
                     this->rv_nodes.at(index_node_label).at(0)->get_metadata());
             }
 
-            const string& parameter_label = json_cpd["parameters"];
+            // There can be a mixture of constants and random variables
+            vector<string> tokens;
+            boost::split(
+                tokens, (string)json_cpd["parameters"], boost::is_any_of(","));
+
+            int num_distributions = 1;
+            for (string& token : tokens) {
+                boost::trim(token);
+                if (EXISTS(token, this->rv_nodes)) {
+                    num_distributions = this->rv_nodes.at(token).size();
+                    break;
+                }
+            }
+
             vector<shared_ptr<D>> distributions;
-            for (const auto& parameter_node : this->rv_nodes.at(parameter_label)) {
-                shared_ptr<Node> node = parameter_node;
-                shared_ptr<D> distribution = make_shared<D>(parameter_node);
+            for (int i = 0; i < num_distributions; i++) {
+                NodePtrVec parameters;
+                for (const string& token : tokens) {
+                    if (EXISTS(token, this->rv_nodes)) {
+                        const auto& parameter_node =
+                            this->rv_nodes.at(token)[i];
+                        parameters.push_back(parameter_node);
+
+                        // Add parameter as a parent of the cpd owner
+                        const auto& cpd_owner_metadata =
+                            this->rv_nodes.at(cpd_owner_label)
+                                .at(0)
+                                ->get_metadata();
+                        const auto& parameter_metadata =
+                            parameter_node->get_metadata();
+                        bool time_crossing =
+                            !parameter_metadata->is_single_time_link();
+                        cpd_owner_metadata->add_parent_link(parameter_metadata,
+                                                            time_crossing);
+                    }
+                    else {
+                        if (EXISTS(token, this->variables)) {
+                            parameters.push_back(this->variables.at(token));
+                        }
+                        else {
+                            double value = stod(token);
+                            if (value == 0) {
+                                value = EPSILON; // For numerical stability with
+                                                 // logs.
+                            }
+                            parameters.push_back(
+                                make_shared<NumericNode>(value));
+                        }
+                    }
+                }
+
+                // Create a distribution with the parameter nodes declared
+                shared_ptr<D> distribution = make_shared<D>(parameters);
                 distributions.push_back(distribution);
-
-                // Add parameter as a parent of the cpd owner
-
-                const auto& cpd_owner_metadata =
-                    this->rv_nodes.at(cpd_owner_label).at(0)->get_metadata();
-                const auto& parameter_metadata = parameter_node->get_metadata();
-                bool time_crossing = !parameter_metadata->is_single_time_link();
-                cpd_owner_metadata->add_parent_link(parameter_metadata,
-                                                    time_crossing);
             }
 
             CPDPtr cpd = make_shared<C>(index_metadatas, distributions);

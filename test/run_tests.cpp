@@ -13,6 +13,7 @@
 #include "converter/ASISTMultiPlayerMessageConverter.h"
 #include "distribution/Distribution.h"
 #include "distribution/Gamma.h"
+#include "distribution/Gaussian.h"
 #include "distribution/Poisson.h"
 #include "pgm/EvidenceSet.h"
 #include "pgm/inference/MarginalizationFactorNode.h"
@@ -430,6 +431,109 @@ BOOST_AUTO_TEST_CASE(dbn) {
         check = check_matrix_eq(estimated_obs2_given_state,
                                 expected_obs2_given_state.row(i),
                                 tolerance);
+        BOOST_TEST(check.first, check.second);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(dbn7) {
+    /**
+     * This test case checks if the model can learn the variance of a gaussian
+     * CPD of observations given discrete states.
+     */
+
+    DBNPtr oracle = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn7.json"));
+    oracle->unroll(10, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Generate a bunch of samples to train a model from the scratch.
+    AncestralSampler sampler(oracle);
+    sampler.sample(gen, 2000);
+
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/trainable_dbn7.json"));
+    model->unroll(10, true);
+
+    shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
+    shared_ptr<GibbsSampler> gibbs_sampler =
+        make_shared<GibbsSampler>(model, 200, 1);
+    gibbs_sampler->set_show_progress(false);
+    DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
+
+    double tolerance = 0.5;
+
+    // Check parameter learning when full data is provided. X is also provided
+    // just to avoid permutation.
+    EvidenceSet data;
+    data.add_data("Z", sampler.get_samples("Z"));
+    data.add_data("X", sampler.get_samples("X"));
+
+    trainer.prepare();
+    trainer.fit(data);
+
+    // Check trained variance values
+    MatrixXd expected_z_given_x = get_cpd_table(oracle, "Z", false)
+                                      .col(Gaussian::PARAMETER_INDEX::variance);
+    for (int i = 0; i < 3; i++) {
+        stringstream label;
+        label << "SigmaZ.X_" << i;
+
+        MatrixXd estimated_z_given_x =
+            model->get_nodes_by_label(label.str())[0]->get_assignment();
+        auto check = check_matrix_eq(
+            estimated_z_given_x, expected_z_given_x.row(i), tolerance);
+        BOOST_TEST(check.first, check.second);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(dbn7_1) {
+    /**
+     * This test case checks if the model can learn the mean of a gaussian
+     * CPD of observations given discrete states.
+     */
+
+    DBNPtr oracle = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn7_1.json"));
+    oracle->unroll(10, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Generate a bunch of samples to train a model from the scratch.
+    AncestralSampler sampler(oracle);
+    sampler.sample(gen, 2000);
+
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/trainable_dbn7_1.json"));
+    model->unroll(10, true);
+
+    shared_ptr<gsl_rng> gen_training(gsl_rng_alloc(gsl_rng_mt19937));
+    shared_ptr<GibbsSampler> gibbs_sampler =
+        make_shared<GibbsSampler>(model, 200, 1);
+    gibbs_sampler->set_show_progress(false);
+    DBNSamplingTrainer trainer(gen_training, gibbs_sampler, 200);
+
+    double tolerance = 0.5;
+
+    // Check parameter learning when full data is provided. X is also provided
+    // just to avoid permutation.
+    EvidenceSet data;
+    data.add_data("Z", sampler.get_samples("Z"));
+    data.add_data("X", sampler.get_samples("X"));
+
+    trainer.prepare();
+    trainer.fit(data);
+
+    // Check trained variance values
+    MatrixXd expected_z_given_x =
+        get_cpd_table(oracle, "Z", false).col(Gaussian::PARAMETER_INDEX::mean);
+    for (int i = 0; i < 3; i++) {
+        stringstream label;
+        label << "MuZ.X_" << i;
+
+        MatrixXd estimated_z_given_x =
+            model->get_nodes_by_label(label.str())[0]->get_assignment();
+        cout << estimated_z_given_x << endl;
+        auto check = check_matrix_eq(
+            estimated_z_given_x, expected_z_given_x.row(i), tolerance);
         BOOST_TEST(check.first, check.second);
     }
 }
@@ -1692,6 +1796,59 @@ BOOST_AUTO_TEST_CASE(dbn6_particle_filter) {
         Tensor3(a_estimator->get_estimates().estimates);
     BOOST_TEST(check_tensor_eq(
         estimated_a_inference, expected_a_inference, tolerance));
+}
+
+BOOST_AUTO_TEST_CASE(dbn7_particle_filter) {
+    /**
+     * This test case tries to infer a discrete state given observations from a
+     * continuous node.
+     */
+
+    int T = 10;
+    int D = 1;
+    double tolerance = 0.1;
+    int num_particles = 2000;
+
+    // Data
+    Eigen::MatrixXd z(D, T);
+    z << NO_OBS, 0.5, 0.2, 3, 10, 2, 4, 0.5, 8, 6;
+
+    EvidenceSet data;
+    data.add_data("Z", Tensor3(z));
+
+    // Model
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn7.json"));
+
+    model->unroll(3, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Inference
+    auto x_estimator = make_shared<SamplerEstimator>(model, 0, "X");
+
+    ParticleFilterEstimator particle_estimator(model, num_particles, gen, 1);
+    particle_estimator.add_base_estimator(x_estimator);
+    particle_estimator.set_show_progress(false);
+
+    particle_estimator.prepare();
+    particle_estimator.estimate(data);
+
+    Eigen::MatrixXd expected_x_inference1(D, T);
+    expected_x_inference1 << 0.3, 0.36085, 0.30278, 0.49841, 4.1913e-13,
+        0.31484, 0.22337, 0.31269, 1.0771e-07, 0.00026292;
+    Eigen::MatrixXd expected_x_inference2(D, T);
+    expected_x_inference2 << 0.5, 0.47462, 0.5222, 0.38669, 0.26023, 0.29612,
+        0.42252, 0.4374, 0.40639, 0.41294;
+    Eigen::MatrixXd expected_x_inference3(D, T);
+    expected_x_inference3 << 0.2, 0.16453, 0.17502, 0.11491, 0.73977, 0.38904,
+        0.35412, 0.2499, 0.59361, 0.5868;
+    Tensor3 expected_x_inference((vector<Eigen::MatrixXd>){
+        expected_x_inference1, expected_x_inference2, expected_x_inference3});
+    Tensor3 estimated_x_inference =
+        Tensor3(x_estimator->get_estimates().estimates);
+    cout << estimated_x_inference << endl;
+    BOOST_TEST(check_tensor_eq(
+        estimated_x_inference, expected_x_inference, tolerance));
 }
 
 BOOST_AUTO_TEST_CASE(segment_extension_factor) {

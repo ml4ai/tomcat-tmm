@@ -57,7 +57,7 @@ namespace tomcat {
              * @param parameters: nodes containing the two parameters (mean and
              * variance) of a Gaussian distribution
              */
-            Gaussian(std::vector<std::shared_ptr<Node>>& parameters);
+            Gaussian(std::vector<std::shared_ptr<Node>>&& parameters);
 
             /**
              * Creates an instance of a Gaussian distribution by embedding

@@ -57,7 +57,11 @@ namespace tomcat {
                     if (RandomVariableNode* rv_node =
                             dynamic_cast<RandomVariableNode*>(
                                 parameter.get())) {
-                        rv_node->add_to_sufficient_statistics(values);
+                        // Adds the sufficient statistics to the prior
+                        // distribution of the parameter node that has this
+                        // distribution as one of the lines in its CPD.
+                        rv_node->add_to_sufficient_statistics(
+                            shared_from_this(), values);
                     }
                 }
             }
@@ -73,7 +77,8 @@ namespace tomcat {
                 }
             }
             else {
-                parameter_vector = Eigen::VectorXd::Zero(this->parameters.size());
+                parameter_vector =
+                    Eigen::VectorXd::Zero(this->parameters.size());
 
                 int col = 0;
                 for (const auto& parameter_node : this->parameters) {
@@ -137,12 +142,12 @@ namespace tomcat {
             return samples;
         }
 
-        void Distribution::run_sample_thread(
-            shared_ptr<gsl_rng> random_generator,
-            int parameter_idx,
-            Eigen::MatrixXd& full_samples,
-            const pair<int, int>& processing_block,
-            mutex& samples_mutex) const {
+        void
+        Distribution::run_sample_thread(shared_ptr<gsl_rng> random_generator,
+                                        int parameter_idx,
+                                        Eigen::MatrixXd& full_samples,
+                                        const pair<int, int>& processing_block,
+                                        mutex& samples_mutex) const {
 
             int initial_row = processing_block.first;
             int num_rows = processing_block.second;

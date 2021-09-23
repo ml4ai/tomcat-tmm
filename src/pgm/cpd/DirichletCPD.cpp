@@ -91,6 +91,7 @@ namespace tomcat {
         string DirichletCPD::get_name() const { return "Dirichlet"; }
 
         void DirichletCPD::add_to_sufficient_statistics(
+            const shared_ptr<const Distribution>& distribution,
             const vector<double>& values) {
 
             // The dirichlet distribution works by incrementing the value of a
@@ -99,10 +100,11 @@ namespace tomcat {
 
             // TODO - Fix this if we need a parameter to depend on another node.
             int distribution_idx = 0;
-            const auto& distribution = this->distributions[distribution_idx];
+            const auto& prior_distribution = this->distributions[distribution_idx];
             scoped_lock lock(*this->sufficient_statistics_mutex);
+
             for (int value : values) {
-                const auto& parameter = distribution->get_parameters()[value];
+                const auto& parameter = prior_distribution->get_parameters()[value];
                 parameter->increment_assignment(1);
             }
         }

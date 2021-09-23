@@ -94,18 +94,16 @@ namespace tomcat {
             }
         }
 
-        string GammaCPD::get_name() const {
-            return "Gamma";
-        }
+        string GammaCPD::get_name() const { return "Gamma"; }
 
-        void
-        GammaCPD::add_to_sufficient_statistics(const vector<double>& values) {
+        void GammaCPD::add_to_sufficient_statistics(
+            const shared_ptr<const Distribution>& distribution,
+            const vector<double>& values) {
             scoped_lock lock(*this->sufficient_statistics_mutex);
-            unsigned int sum = 0;
-            for (int value : values) {
-                sum += value;
-            }
 
+            int sum = Eigen::VectorXd::Map(values.data(), values.size())
+                          .array()
+                          .sum();
             this->sufficient_statistics(0) += sum;
             this->sufficient_statistics(1) += values.size();
         }
@@ -115,6 +113,30 @@ namespace tomcat {
             int num_samples,
             const shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
+            // TODO - Fix this if we need a parameter to depend on another node.
+            int distribution_idx = 0;
+            const auto& prior_distribution =
+                this->distributions[distribution_idx];
+
+            const auto& alpha_node =
+                prior_distribution
+                    ->get_parameters()[Gamma::PARAMETER_INDEX::alpha];
+
+            auto& beta_node =
+                prior_distribution
+                    ->get_parameters()[Gamma::PARAMETER_INDEX::beta];
+
+            int sum_durations = this->sufficient_statistics(0);
+            int num_intervals = this->sufficient_statistics(1);
+
+            alpha_node->increment_assignment(sum_durations);
+            double old_beta = beta_node->get_assignment()(0, 0);
+            double new_beta = old_beta / (old_beta * num_intervals + 1);
+            beta_node->set_assignment(
+                Eigen::MatrixXd::Constant(1, 1, new_beta));
+
+            // TODO - remove this later as prior of parameter nodes do not
+            //  depend on other nodes for now.
             Eigen::VectorXi distribution_indices =
                 this->get_indexed_distribution_indices(cpd_owner->get_parents(),
                                                        num_samples);
@@ -124,25 +146,26 @@ namespace tomcat {
             Eigen::MatrixXd samples(distribution_indices.size(), sample_size);
             for (int i = 0; i < distribution_indices.size(); i++) {
                 int distribution_idx = distribution_indices(i);
+                const auto& distribution =
+                    this->distributions[distribution_idx];
                 Eigen::VectorXd assignment =
-                    this->distributions[distribution_idx]
-                        ->sample_from_conjugacy(random_generator,
-                                                distribution_idx,
-                                                this->sufficient_statistics);
+                    distribution->sample(random_generator);
                 samples.row(i) = move(assignment);
             }
-
             return samples;
         }
 
         void GammaCPD::reset_sufficient_statistics() {
-            this->sufficient_statistics =
-                Eigen::VectorXd::Zero(this->sufficient_statistics.size());
+            int distribution_idx = 0;
+            const auto& distribution = this->distributions[distribution_idx];
+            for (const auto& parameter : distribution->get_parameters()) {
+                parameter->pop_assignment();
+                parameter->stack_assignment();
+            }
+            this->sufficient_statistics.fill(0);
         }
 
-        bool GammaCPD::is_continuous() const {
-            return false;
-        }
+        bool GammaCPD::is_continuous() const { return false; }
 
     } // namespace model
 } // namespace tomcat

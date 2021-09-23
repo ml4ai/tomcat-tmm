@@ -2,6 +2,7 @@
 
 #include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
+#include "distribution/Gaussian.h"
 
 namespace tomcat {
     namespace model {
@@ -97,6 +98,7 @@ namespace tomcat {
         string InverseGammaCPD::get_name() const { return "InverseGamma"; }
 
         void InverseGammaCPD::add_to_sufficient_statistics(
+            const shared_ptr<const Distribution>& distribution,
             const vector<double>& values) {
 
             // The InverseGamma as a conjugate prior of a Gaussian distribution
@@ -105,24 +107,30 @@ namespace tomcat {
 
             // TODO - Fix this if we need a parameter to depend on another node.
             int distribution_idx = 0;
-            const auto& distribution = this->distributions[distribution_idx];
+            const auto& prior_distribution =
+                this->distributions[distribution_idx];
             scoped_lock lock(*this->sufficient_statistics_mutex);
 
             const auto& alpha_node =
-                distribution
+                prior_distribution
                     ->get_parameters()[InverseGamma::PARAMETER_INDEX::alpha];
-            alpha_node->increment_assignment(values.size() / 2.0);
 
             auto& beta_node =
-                distribution
+                prior_distribution
                     ->get_parameters()[InverseGamma::PARAMETER_INDEX::beta];
-            double old_beta = beta_node->get_assignment()(0, 0);
+
+            double beta_prior = beta_node->get_assignment()(0, 0);
+            // An inverse gamma is a conjugate prior of a Gaussian
+            double mean =
+                distribution->get_parameters()[Gaussian::PARAMETER_INDEX::mean]
+                    ->get_assignment()(0, 0);
             double squared_sum =
-                Eigen::VectorXd::Map(values.data(), values.size())
-                    .array()
+                (Eigen::VectorXd::Map(values.data(), values.size()).array() -
+                 mean)
                     .square()
                     .sum();
 
+            alpha_node->increment_assignment(values.size() / 2.0);
             beta_node->invert_assignment();
             beta_node->increment_assignment(squared_sum / 2);
             beta_node->invert_assignment();

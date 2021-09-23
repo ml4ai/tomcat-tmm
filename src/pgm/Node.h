@@ -140,6 +140,8 @@ namespace tomcat {
 
             const Eigen::MatrixXd& get_assignment() const;
 
+            virtual void set_assignment(const Eigen::MatrixXd& assignment);
+
           protected:
             //------------------------------------------------------------------
             // Pure virtual functions

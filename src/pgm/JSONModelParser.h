@@ -153,8 +153,8 @@ namespace tomcat {
              * @return list of tokens
              */
             NumNodePtrVec
-            split_constant_parameters(std::string str,
-                                       std::string delimiter = ",");
+            split_constant_parameters(const std::string& str,
+                                      const std::string& delimiter = ",");
 
             /**
              * Creates a CPD that depend on other nodes (parameter nodes) and

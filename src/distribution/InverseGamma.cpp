@@ -27,7 +27,7 @@ namespace tomcat {
             // The vector is here just to maintain the same interface
             // for all distributions, but an InverseGamma distribution cannot
             // have more than two parameters.
-            if (parameters.size() > 1) {
+            if (parameters.size() != 2) {
                 throw TomcatModelException("An InverseGamma distribution must "
                                            "have two parameter nodes.");
             }
@@ -35,7 +35,7 @@ namespace tomcat {
 
         InverseGamma::InverseGamma(vector<shared_ptr<Node>>&& parameters)
             : Gamma(parameters) {
-            if (parameters.size() > 1) {
+            if (parameters.size() != 2) {
                 throw TomcatModelException("An InverseGamma distribution must "
                                            "have two parameter nodes.");
             }
@@ -104,7 +104,7 @@ namespace tomcat {
                    exp(-beta / value);
         }
 
-        double Gamma::get_cdf(double value, bool reverse) const {
+        double InverseGamma::get_cdf(double value, bool reverse) const {
             Eigen::VectorXd parameters = this->get_parameters(0);
             double alpha = parameters(PARAMETER_INDEX::alpha);
             double beta = parameters(PARAMETER_INDEX::beta);

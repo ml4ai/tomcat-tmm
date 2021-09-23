@@ -105,9 +105,7 @@ namespace tomcat {
             return this->metadata->get_timed_name(this->time_step);
         }
 
-        bool RandomVariableNode::is_random_variable() const {
-            return true;
-        }
+        bool RandomVariableNode::is_random_variable() const { return true; }
 
         void RandomVariableNode::update_cpd_templates_dependencies(
             const NodeMap& parameter_nodes_map) {
@@ -293,8 +291,9 @@ namespace tomcat {
         }
 
         void RandomVariableNode::add_to_sufficient_statistics(
+            const shared_ptr<const Distribution>& distribution,
             const vector<double>& values) {
-            this->cpd->add_to_sufficient_statistics(values);
+            this->cpd->add_to_sufficient_statistics(distribution, values);
         }
 
         void RandomVariableNode::reset_sufficient_statistics() {
@@ -340,8 +339,7 @@ namespace tomcat {
             }
             else {
                 stringstream ss;
-                ss << "No CPD found associated with the parents "
-                   << key;
+                ss << "No CPD found associated with the parents " << key;
                 throw invalid_argument(ss.str());
             }
 
