@@ -211,6 +211,54 @@ void eval_full_filter(bool col_major_storage, int n) {
     }
 }
 
+void complete_elapse(const pair<int, int>& block, int T) {
+    for (int t = 0; t < T; t++) {
+        elapse(block);
+    }
+}
+
+void eval_without_pool(bool col_major_storage, int n) {
+    int jobs = 10;
+    int T = 1000;
+
+    if (col_major_storage) {
+        big_matrix = Eigen::MatrixXd::Random(n, 1);
+        weights = Eigen::MatrixXd ::Zero(n, 1);
+    }
+    else {
+        big_matrix = Eigen::Matrix<double,
+            Eigen::Dynamic,
+            Eigen::Dynamic,
+            Eigen::RowMajor>::Random(n, 1);
+        weights = Eigen::Matrix<double,
+            Eigen::Dynamic,
+            Eigen::Dynamic,
+            Eigen::RowMajor>::Zero(n, 1);
+    }
+
+    for (int j = 1; j <= 10; j++) {
+        cout << j << " thread(s): ";
+        auto blocks = get_parallel_processing_blocks(j, n);
+        Timer t;
+
+        if (j == 1) {
+            complete_elapse(blocks[0], T);
+        } else {
+            vector<thread> threads(j);
+            for (int i = 0; i < j; i++) {
+                threads[i] = thread(complete_elapse, blocks[i], T);
+            }
+
+            for (auto& thread : threads) {
+                if (thread.joinable()) {
+                    thread.join();
+                }
+            }
+        }
+    }
+}
+
 int main(int argc, char* argv[]) {
-    eval_full_filter(true, 100000);
+//    eval_full_filter(true, 100000);
+    eval_without_pool(true, 100000);
 }
