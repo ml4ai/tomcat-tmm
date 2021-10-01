@@ -143,12 +143,12 @@ void resample(const pair<int, int>& block, shared_ptr<gsl_rng>& gen) {
     auto patch = big_matrix.block(initial_row, 0, num_rows, 1);
 
     for (int i = 0; i < num_rows; i++) {
-        patch(i, 0) = gsl_ran_discrete(gen.get(), ptable);
+        int p = gsl_ran_discrete(gen.get(), ptable);
+        patch(i, 0) = big_matrix(p, 0);
     }
 }
 
-void eval_full_filter(bool col_major_storage) {
-    int n = 100000;
+void eval_full_filter(bool col_major_storage, int n) {
     int jobs = 10;
     int T = 1000;
 
@@ -212,14 +212,5 @@ void eval_full_filter(bool col_major_storage) {
 }
 
 int main(int argc, char* argv[]) {
-    eval_full_filter(false);
-    //    int n = 100000;
-    //    int jobs = 10;
-    //
-    //    big_matrix = Eigen::MatrixXd::Random(n, 1);
-    //    weights = Eigen::MatrixXd ::Zero(n, 1);
-    //
-    //    auto blocks = get_parallel_processing_blocks(1, n);
-    //    auto f = bind(elapse, blocks[0]);
-    //    f();
+    eval_full_filter(true, 100000);
 }

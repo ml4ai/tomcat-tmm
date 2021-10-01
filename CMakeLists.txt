@@ -47,6 +47,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
 
 find_package(Mosquitto 1.5 REQUIRED)
 
+#set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+#set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+#find_package(Threads REQUIRED)
+
 set(EXTERNAL_LIBS
         ${Boost_LIBRARIES}
         Eigen3::Eigen
@@ -54,8 +58,8 @@ set(EXTERNAL_LIBS
         GSL::gslcblas
         fmt::fmt
         nlohmann_json::nlohmann_json
-        ${Mosquitto_LIBRARIES}
-        )
+        ${Mosquitto_LIBRARIES})
+#        Threads)
 
 enable_testing()
 
