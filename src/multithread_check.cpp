@@ -142,10 +142,21 @@ void resample(const pair<int, int>& block, shared_ptr<gsl_rng>& gen) {
 
     auto patch = big_matrix.block(initial_row, 0, num_rows, 1);
 
+    //    int k = weights.size();
+    //    const double* parameters_ptr = weights.col(0).data();
+    //    unsigned int* sample_ptr = new unsigned int[k];
+    gsl_ran_discrete_t* ptable2 =
+        gsl_ran_discrete_preproc(weights.rows(), weights.col(0).data());
+
     for (int i = 0; i < num_rows; i++) {
-        int p = gsl_ran_discrete(gen.get(), ptable);
-        patch(i, 0) = big_matrix(p, 0);
+        //        gsl_ran_multinomial(gen.get(), k, 1, parameters_ptr,
+        //        sample_ptr); int p = distance(sample_ptr, find(sample_ptr,
+        //        sample_ptr + k, 1));
+        int p = gsl_ran_discrete(gen.get(), ptable2);
+        //        patch(i, 0) = big_matrix(p, 0);
     }
+
+    //    delete[] sample_ptr;
 }
 
 void eval_full_filter(bool col_major_storage, int n) {
@@ -262,5 +273,5 @@ void eval_without_pool(bool col_major_storage, int n) {
 
 int main(int argc, char* argv[]) {
     eval_full_filter(true, 100000);
-    //    eval_without_pool(true, 100000);
+    //        eval_without_pool(true, 100000);
 }
