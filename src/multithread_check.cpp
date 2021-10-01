@@ -105,7 +105,6 @@ class ThreadPool {
 };
 
 vector<double> pdfs = {0.2, 0.1, 0.3, 0.15, 0.25};
-gsl_ran_discrete_t* ptable;
 
 Eigen::MatrixXd big_matrix;
 Eigen::MatrixXd weights;
@@ -136,7 +135,9 @@ void elapse(const pair<int, int>& block) {
 }
 
 // Resample particles
-void resample(const pair<int, int>& block, shared_ptr<gsl_rng>& gen) {
+void resample(const pair<int, int>& block,
+              shared_ptr<gsl_rng>& gen,
+              shared_ptr<gsl_ran_discrete_t> ptable) {
     int initial_row = block.first;
     int num_rows = block.second;
 
@@ -145,14 +146,14 @@ void resample(const pair<int, int>& block, shared_ptr<gsl_rng>& gen) {
     //    int k = weights.size();
     //    const double* parameters_ptr = weights.col(0).data();
     //    unsigned int* sample_ptr = new unsigned int[k];
-    gsl_ran_discrete_t* ptable2 =
-        gsl_ran_discrete_preproc(weights.rows(), weights.col(0).data());
+    //    gsl_ran_discrete_t* ptable2 =
+    //        gsl_ran_discrete_preproc(weights.rows(), weights.col(0).data());
 
     for (int i = 0; i < num_rows; i++) {
         //        gsl_ran_multinomial(gen.get(), k, 1, parameters_ptr,
         //        sample_ptr); int p = distance(sample_ptr, find(sample_ptr,
         //        sample_ptr + k, 1));
-        int p = gsl_ran_discrete(gen.get(), ptable2);
+        int p = gsl_ran_discrete(gen.get(), ptable.get());
         //        patch(i, 0) = big_matrix(p, 0);
     }
 
@@ -187,9 +188,9 @@ void eval_full_filter(bool col_major_storage, int n) {
         if (j == 1) {
             for (int t = 0; t < T; t++) {
                 elapse(blocks[0]);
-                ptable = gsl_ran_discrete_preproc(weights.rows(),
-                                                  weights.col(0).data());
-                resample(blocks[0], gen);
+                shared_ptr<gsl_ran_discrete_t> ptable(gsl_ran_discrete_preproc(
+                    weights.rows(), weights.col(0).data()));
+                resample(blocks[0], gen, ptable);
             }
         }
         else {
@@ -207,12 +208,12 @@ void eval_full_filter(bool col_major_storage, int n) {
                 }
 
                 // Prepare the discrete distribution to be sampled.
-                ptable = gsl_ran_discrete_preproc(weights.rows(),
-                                                  weights.col(0).data());
+                shared_ptr<gsl_ran_discrete_t> ptable(gsl_ran_discrete_preproc(
+                    weights.rows(), weights.col(0).data()));
 
                 for (int i = 0; i < blocks.size(); i++) {
                     futures[i] =
-                        pool.submit(bind(resample, blocks[i], gens[i]));
+                        pool.submit(bind(resample, blocks[i], gens[i], ptable));
                 }
             }
 
