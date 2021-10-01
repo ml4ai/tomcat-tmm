@@ -129,7 +129,7 @@ void elapse(const pair<int, int>& block) {
     auto patch = big_matrix.block(initial_row, 0, num_rows, 1);
 
     for (int i = 0; i < num_rows; i++) {
-        patch(i, 0) = rand() % 5;
+        patch(i, 0) = i % 5;
     }
 
     weigh(block);
@@ -200,7 +200,8 @@ void eval_full_filter(bool col_major_storage, int n) {
                                                   weights.col(0).data());
 
                 for (int i = 0; i < blocks.size(); i++) {
-                    futures[i] = pool.submit(bind(resample, blocks[i], gens[i]));
+                    futures[i] =
+                        pool.submit(bind(resample, blocks[i], gens[i]));
                 }
             }
 
@@ -227,13 +228,13 @@ void eval_without_pool(bool col_major_storage, int n) {
     }
     else {
         big_matrix = Eigen::Matrix<double,
-            Eigen::Dynamic,
-            Eigen::Dynamic,
-            Eigen::RowMajor>::Random(n, 1);
+                                   Eigen::Dynamic,
+                                   Eigen::Dynamic,
+                                   Eigen::RowMajor>::Random(n, 1);
         weights = Eigen::Matrix<double,
-            Eigen::Dynamic,
-            Eigen::Dynamic,
-            Eigen::RowMajor>::Zero(n, 1);
+                                Eigen::Dynamic,
+                                Eigen::Dynamic,
+                                Eigen::RowMajor>::Zero(n, 1);
     }
 
     for (int j = 1; j <= 10; j++) {
@@ -243,7 +244,8 @@ void eval_without_pool(bool col_major_storage, int n) {
 
         if (j == 1) {
             complete_elapse(blocks[0], T);
-        } else {
+        }
+        else {
             vector<thread> threads(j);
             for (int i = 0; i < j; i++) {
                 threads[i] = thread(complete_elapse, blocks[i], T);
@@ -259,6 +261,6 @@ void eval_without_pool(bool col_major_storage, int n) {
 }
 
 int main(int argc, char* argv[]) {
-//    eval_full_filter(true, 100000);
-    eval_without_pool(true, 100000);
+    eval_full_filter(true, 100000);
+    //    eval_without_pool(true, 100000);
 }
