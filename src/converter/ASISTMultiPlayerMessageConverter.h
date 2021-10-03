@@ -91,8 +91,16 @@ namespace tomcat {
             inline const static std::string PLAYER_MARKER2_IN_FOV_LABEL =
                 "PlayerMarker2InFoV";
             inline const static std::string
-                PLAYER_UNRESCUED_CLOSE_VICTIM_IN_FOV =
-                "VictimInPlayerFoV";
+                PLAYER_UNRESCUED_CLOSE_VICTIM_IN_FOV = "VictimInPlayerFoV";
+            inline const static std::string
+                PLAYER_VICTIM_DIST_IN_FOV_LABEL =
+                "PlayerVictimDistInFoV";
+            inline const static std::string
+                PLAYER_REGULAR_VICTIM_DIST_IN_FOV_LABEL =
+                    "PlayerRegularVictimDistInFoV";
+            inline const static std::string
+                PLAYER_CRITICAL_VICTIM_DIST_IN_FOV_LABEL =
+                    "PlayerCriticalVictimDistInFoV";
 
             inline const static std::string
                 PLAYER1_PLAYER_MARKER1_IN_FOV_LABEL =
@@ -655,6 +663,9 @@ namespace tomcat {
             std::vector<Tensor3> room_regular_victim_in_fov_per_player;
             std::vector<Tensor3> room_critical_victim_in_fov_per_player;
             std::vector<Tensor3> unrescued_close_victim_in_fov_per_player;
+            std::vector<Tensor3> victim_dist_in_fov_per_player;
+            std::vector<Tensor3> regular_victim_dist_in_fov_per_player;
+            std::vector<Tensor3> critical_victim_dist_in_fov_per_player;
 
             std::vector<Tensor3> player1_marker1_in_fov_per_player;
             std::vector<Tensor3> player2_marker1_in_fov_per_player;

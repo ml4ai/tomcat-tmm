@@ -217,10 +217,14 @@ namespace tomcat {
             this->building_sections.push_back(section5);
             this->building_sections.push_back(section6);
 
-            auto [upper_section2, lower_section2] = section2.get_horizontal_split();
-            auto [left_section3, right_section3] = section3.get_vertical_split();
-            auto [left_section4, right_section4] = section4.get_vertical_split();
-            auto [left_section6, right_section6] = section6.get_vertical_split();
+            auto [upper_section2, lower_section2] =
+                section2.get_horizontal_split();
+            auto [left_section3, right_section3] =
+                section3.get_vertical_split();
+            auto [left_section4, right_section4] =
+                section4.get_vertical_split();
+            auto [left_section6, right_section6] =
+                section6.get_vertical_split();
 
             this->expanded_building_sections.push_back(section1);
             this->expanded_building_sections.push_back(upper_section2);
@@ -380,6 +384,11 @@ namespace tomcat {
             this->room_critical_victim_in_fov_per_player.push_back(
                 Tensor3(NO_VICTIM_IN_FOV));
             this->unrescued_close_victim_in_fov_per_player.push_back(
+                Tensor3(NO_OBS));
+            this->victim_dist_in_fov_per_player.push_back(Tensor3(NO_OBS));
+            this->regular_victim_dist_in_fov_per_player.push_back(
+                Tensor3(NO_OBS));
+            this->critical_victim_dist_in_fov_per_player.push_back(
                 Tensor3(NO_OBS));
 
             this->player1_marker1_in_fov_per_player.push_back(
@@ -1071,11 +1080,34 @@ namespace tomcat {
                     // steps are bigger than the frequency of the
                     // messages.
 
+                    double dist_to_player = victim_position.get_distance(
+                        this->player_position[player_number]);
+
                     if (block_type == "block_victim_1") {
                         this->victim_in_fov_per_player[player_number] =
                             Tensor3(REGULAR_VICTIM_IN_FOV);
                         this->regular_victim_in_fov_per_player[player_number] =
                             Tensor3(VICTIM_IN_FOV);
+                        double curr_distance =
+                            this->regular_victim_dist_in_fov_per_player
+                                [player_number]
+                                    .at(0, 0, 0);
+                        if (curr_distance == NO_OBS ||
+                            curr_distance > dist_to_player) {
+                            // Keep the distance to the closest victim
+                            this->regular_victim_dist_in_fov_per_player
+                                [player_number] = Tensor3(dist_to_player);
+                        }
+                        // Regular or critical
+                        curr_distance =
+                            this->victim_dist_in_fov_per_player[player_number]
+                                .at(0, 0, 0);
+                        if (curr_distance == NO_OBS ||
+                            curr_distance > dist_to_player) {
+                            // Keep the distance to the closest victim
+                            this->victim_dist_in_fov_per_player[player_number] =
+                                Tensor3(dist_to_player);
+                        }
 
                         if (in_room) {
                             this->room_regular_victim_in_fov_per_player
@@ -1100,6 +1132,26 @@ namespace tomcat {
                             Tensor3(CRITICAL_VICTIM_IN_FOV);
                         this->critical_victim_in_fov_per_player[player_number] =
                             Tensor3(VICTIM_IN_FOV);
+                        double curr_distance =
+                            this->critical_victim_dist_in_fov_per_player
+                                [player_number]
+                                    .at(0, 0, 0);
+                        if (curr_distance == NO_OBS ||
+                            curr_distance > dist_to_player) {
+                            // Keep the distance to the closest victim
+                            this->critical_victim_dist_in_fov_per_player
+                                [player_number] = Tensor3(dist_to_player);
+                        }
+                        // Regular or critical
+                        curr_distance =
+                            this->victim_dist_in_fov_per_player[player_number]
+                                .at(0, 0, 0);
+                        if (curr_distance == NO_OBS ||
+                            curr_distance > dist_to_player) {
+                            // Keep the distance to the closest victim
+                            this->victim_dist_in_fov_per_player[player_number] =
+                                Tensor3(dist_to_player);
+                        }
 
                         if (in_room) {
                             this->room_critical_victim_in_fov_per_player
@@ -1390,10 +1442,24 @@ namespace tomcat {
                               this->room_critical_victim_in_fov_per_player
                                   [player_number]);
                 data.add_data(get_player_variable_label(
-                    PLAYER_UNRESCUED_CLOSE_VICTIM_IN_FOV,
-                    player_number + 1),
+                                  PLAYER_UNRESCUED_CLOSE_VICTIM_IN_FOV,
+                                  player_number + 1),
                               this->unrescued_close_victim_in_fov_per_player
-                              [player_number]);
+                                  [player_number]);
+                data.add_data(
+                    get_player_variable_label(PLAYER_VICTIM_DIST_IN_FOV_LABEL,
+                                              player_number + 1),
+                    this->victim_dist_in_fov_per_player[player_number]);
+                data.add_data(
+                    get_player_variable_label(
+                        PLAYER_REGULAR_VICTIM_DIST_IN_FOV_LABEL,
+                        player_number + 1),
+                    this->regular_victim_dist_in_fov_per_player[player_number]);
+                data.add_data(get_player_variable_label(
+                                  PLAYER_CRITICAL_VICTIM_DIST_IN_FOV_LABEL,
+                                  player_number + 1),
+                              this->critical_victim_dist_in_fov_per_player
+                                  [player_number]);
 
                 // Only get markers in fov when the player is in a hallway
                 if (current_area == ROOM) {
@@ -1574,6 +1640,12 @@ namespace tomcat {
                     Tensor3(NO_VICTIM_IN_FOV);
                 this->unrescued_close_victim_in_fov_per_player[player_number] =
                     Tensor3(NO_OBS);
+                this->victim_dist_in_fov_per_player[player_number] =
+                    Tensor3(NO_OBS);
+                this->regular_victim_dist_in_fov_per_player[player_number] =
+                    Tensor3(NO_OBS);
+                this->critical_victim_dist_in_fov_per_player[player_number] =
+                    Tensor3(NO_OBS);
 
                 this->player1_marker1_in_fov_per_player[player_number] =
                     Tensor3(NO_NEARBY_MARKER);
@@ -1685,6 +1757,9 @@ namespace tomcat {
             this->room_regular_victim_in_fov_per_player.clear();
             this->room_critical_victim_in_fov_per_player.clear();
             this->unrescued_close_victim_in_fov_per_player.clear();
+            this->victim_dist_in_fov_per_player.clear();
+            this->regular_victim_dist_in_fov_per_player.clear();
+            this->critical_victim_dist_in_fov_per_player.clear();
 
             this->player1_marker1_in_fov_per_player.clear();
             this->player2_marker1_in_fov_per_player.clear();
