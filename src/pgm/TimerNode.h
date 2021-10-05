@@ -116,13 +116,31 @@ namespace tomcat {
             // -----------------------------------------------------------------
             const Eigen::MatrixXd& get_forward_assignment() const;
 
+            Eigen::MatrixXd get_forward_assignment(
+                const ProcessingBlock& processing_block) const;
+
+            double get_forward_assignment(int i, int j) const;
+
             void
             set_forward_assignment(const Eigen::MatrixXd& forward_assignment);
 
+            void
+            set_forward_assignment(const Eigen::MatrixXd& forward_assignment,
+                                   const ProcessingBlock& processing_block);
+
             const Eigen::MatrixXd& get_backward_assignment() const;
+
+            Eigen::MatrixXd get_backward_assignment(
+                const ProcessingBlock& processing_block) const;
+
+            double get_backward_assignment(int i, int j) const;
 
             void
             set_backward_assignment(const Eigen::MatrixXd& backward_assignment);
+
+            void
+            set_backward_assignment(const Eigen::MatrixXd& backward_assignment,
+                                    const ProcessingBlock& processing_block);
 
             const std::shared_ptr<RandomVariableNode>&
             get_controlled_node() const;

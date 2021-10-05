@@ -124,6 +124,99 @@ namespace tomcat {
                                      time_steps_per_sample);
         }
 
+        Eigen::MatrixXd RandomVariableNode::sample(
+            shared_ptr<gsl_rng>& random_generator,
+            const ProcessingBlock& processing_block,
+            const std::vector<int>& time_steps_per_sample) const {
+            return this->cpd->sample(random_generator,
+                                     processing_block,
+                                     shared_from_this(),
+                                     time_steps_per_sample);
+        }
+
+        Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
+            const shared_ptr<gsl_rng>& random_generator,
+            const ProcessingBlock& processing_block,
+            const vector<int>& time_steps_per_sample) {
+
+            Eigen::MatrixXd sample;
+
+            if (this->metadata->is_parameter()) {
+                sample = this->sample_from_conjugacy(random_generator,
+                                                     this->get_size());
+            }
+            else {
+                Eigen::MatrixXd weights = this->get_posterior_weights(
+                    processing_block, time_steps_per_sample);
+                sample =
+                    this->cpd->sample_from_posterior(random_generator,
+                                                     weights,
+                                                     shared_from_this(),
+                                                     processing_block,
+                                                     time_steps_per_sample);
+            }
+
+            return sample;
+        }
+
+        Eigen::MatrixXd RandomVariableNode::get_posterior_weights(
+            const ProcessingBlock& processing_block,
+            const std::vector<int>& time_steps_per_sample) {
+
+            int rows = processing_block.second;
+            int cols = this->get_metadata()->get_cardinality();
+            Eigen::MatrixXd log_weights = Eigen::MatrixXd::Zero(rows, cols);
+
+            for (auto& child : this->children) {
+                if (child == this->timer) {
+                    // The timer that controls this node will have posterior
+                    // weights processed next, ut segment posteriors.
+                    continue;
+                }
+
+                shared_ptr<RandomVariableNode> rv_child =
+                    dynamic_pointer_cast<RandomVariableNode>(child);
+
+                Eigen::MatrixXd child_weights =
+                    rv_child->get_cpd()->get_posterior_weights(
+                        rv_child->get_parents(),
+                        shared_from_this(),
+                        rv_child,
+                        processing_block,
+                        time_steps_per_sample);
+
+                Eigen::MatrixXd child_log_weights =
+                    (child_weights.array() + EPSILON).log();
+
+                if (!this->get_metadata()->is_in_plate()) {
+                    // Multiply the weights of each one of the assignments of
+                    // the child node. When an off-plate node is
+                    // parent of an in-plate node, all of the in-plate
+                    // instances of the child node are also considered
+                    // children of the off-plate node, and, therefore, their
+                    // weights must be multiplied together.
+                    child_log_weights = child_log_weights.rowwise().sum();
+                }
+
+                log_weights = (log_weights.array() + child_log_weights.array());
+            }
+
+            // Include posterior weights of immediate segments for nodes
+            // that are time controlled.
+            Eigen::MatrixXd segment_log_weights =
+                this->get_segments_log_posterior_weights(processing_block);
+            if (segment_log_weights.size() > 0) {
+                log_weights =
+                    (log_weights.array() + segment_log_weights.array());
+            }
+
+            // Unlog and normalize the weights
+            log_weights.colwise() -= log_weights.rowwise().maxCoeff();
+            log_weights = log_weights.array().exp();
+            Eigen::VectorXd sum_per_row = log_weights.rowwise().sum();
+            return (log_weights.array().colwise() / sum_per_row.array());
+        }
+
         Eigen::MatrixXd RandomVariableNode::sample_from_posterior(
             const vector<shared_ptr<gsl_rng>>& random_generator_per_job,
             const std::vector<int>& time_steps_per_sample) {
@@ -201,6 +294,78 @@ namespace tomcat {
             log_weights = log_weights.array().exp();
             Eigen::VectorXd sum_per_row = log_weights.rowwise().sum();
             return (log_weights.array().colwise() / sum_per_row.array());
+        }
+
+        Eigen::MatrixXd RandomVariableNode::get_segments_log_posterior_weights(
+            const ProcessingBlock& processing_block) {
+
+            Eigen::MatrixXd segments_weights(0, 0);
+
+            if (!this->has_timer()) {
+                // No weights if the node is not controlled by a timer
+                return segments_weights;
+            }
+
+            const auto& left_state = this->get_previous();
+            const auto& right_state = this->get_next();
+
+            const auto& central_timer = this->get_timer();
+            const auto& left_last_timer =
+                left_state ? left_state->get_timer() : nullptr;
+            const auto& right_first_timer =
+                right_state ? right_state->get_timer() : nullptr;
+
+            // Last time step being sampled. This will be used to deal with
+            // right segment truncation in the computation of the segment
+            // posteriors.
+            int last_time_step = this->timed_copies->size() - 1;
+
+            // Left segment
+            if (left_state) {
+                // Left segment
+                Eigen::MatrixXd left_seg_weights =
+                    left_last_timer->get_cpd()
+                        ->get_left_segment_posterior_weights(
+                            left_last_timer,
+                            right_state,
+                            this->get_time_step(),
+                            last_time_step,
+                            processing_block);
+                segments_weights = (left_seg_weights.array() + EPSILON).log();
+            }
+
+            // Central segment
+            Eigen::MatrixXd central_seg_weights =
+                this->timer->get_cpd()->get_central_segment_posterior_weights(
+                    left_state,
+                    central_timer,
+                    right_state,
+                    last_time_step,
+                    processing_block);
+            if (segments_weights.size() > 0) {
+                segments_weights =
+                    (segments_weights.array() +
+                     (central_seg_weights.array() + EPSILON).log());
+            }
+            else {
+                segments_weights =
+                    (central_seg_weights.array() + EPSILON).log();
+            }
+
+            // Right segment
+            if (right_state) {
+                Eigen::MatrixXd right_seg_weights =
+                    right_first_timer->get_cpd()
+                        ->get_right_segment_posterior_weights(right_first_timer,
+                                                              last_time_step,
+                                                              processing_block);
+
+                segments_weights =
+                    (segments_weights.array() +
+                     (right_seg_weights.array() + EPSILON).log());
+            }
+
+            return segments_weights;
         }
 
         Eigen::MatrixXd
@@ -443,7 +608,15 @@ namespace tomcat {
         void
         RandomVariableNode::set_assignment(const Eigen::MatrixXd& assignment) {
             if (!this->frozen) {
-                this->assignment = assignment;
+                Node::set_assignment(assignment);
+            }
+        }
+
+        void RandomVariableNode::set_assignment(
+            const Eigen::MatrixXd& assignment,
+            const ProcessingBlock& processing_block) {
+            if (!this->frozen) {
+                Node::set_assignment(assignment, processing_block);
             }
         }
 

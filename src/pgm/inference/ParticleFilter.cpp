@@ -15,22 +15,26 @@ namespace tomcat {
     namespace model {
 
         using namespace std;
+        using namespace multithread;
 
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        ParticleFilter::ParticleFilter() {}
+        //        ParticleFilter::ParticleFilter() {}
 
         ParticleFilter::ParticleFilter(
             const DynamicBayesNet& dbn,
             int num_particles,
             const std::shared_ptr<gsl_rng>& random_generator,
             int num_jobs)
-            : original_dbn(dbn), num_particles(num_particles) {
+            : original_dbn(dbn), num_particles(num_particles),
+              thread_pool(num_jobs) {
 
             this->create_template_dbn();
             this->random_generators_per_job =
                 split_random_generator(random_generator, num_jobs);
+            this->processing_blocks =
+                get_parallel_processing_blocks(num_jobs, num_particles);
         }
 
         ParticleFilter::~ParticleFilter() {}
@@ -44,21 +48,26 @@ namespace tomcat {
             this->template_dbn.unroll(LAST_TEMPLATE_TIME_STEP + 1, true);
             this->template_dbn.mirror_parameter_nodes_from(this->original_dbn);
 
-            // We freeze the distributions to optimize computations. This will
-            // transform the list of distributions matrices of enumerated
-            // probabilities in bounded discrete distributions.
             for (const auto& node : this->template_dbn.get_nodes()) {
                 if (!node->get_metadata()->is_parameter()) {
                     RVNodePtr rv_node =
                         dynamic_pointer_cast<RandomVariableNode>(node);
+
+                    // This will speed sampling
                     rv_node->get_cpd()->freeze_distributions(0);
+
                     data_node_labels.insert(
                         rv_node->get_metadata()->get_label());
-
                     if (rv_node->has_timer()) {
                         this->time_controlled_node_set.insert(
                             rv_node->get_metadata()->get_label());
                     }
+
+                    // Initialize nodes' assignment
+                    int sample_size =
+                        rv_node->get_metadata()->get_sample_size();
+                    rv_node->set_assignment(Eigen::MatrixXd::Zero(
+                        this->num_particles, sample_size));
                 }
             }
 
@@ -66,12 +75,6 @@ namespace tomcat {
             // top.
             for (const auto& node :
                  this->template_dbn.get_nodes_topological_order(false)) {
-                //                if (!node->get_metadata()->is_replicable() &&
-                //                    !node->get_metadata()->is_parameter()) {
-                //                if (node->get_metadata()->is_multitime() &&
-                //                    !node->get_metadata()->is_parameter() &&
-                //                    !node->get_metadata()->has_multitime_child())
-                //                    {
                 if (!node->get_metadata()->is_replicable() &&
                     !node->get_metadata()->is_parameter()) {
                     RVNodePtr rv_node =
@@ -107,21 +110,60 @@ namespace tomcat {
                 final_time_step =
                     min(final_time_step, new_data.get_num_events_for(0) - 1);
             }
+
+            vector<future<void>> futures(this->processing_blocks.size());
             for (int t = initial_time_step; t <= final_time_step; t++) {
-                this->elapse(new_data, t);
-                Eigen::VectorXi sampled_particles =
-                    this->weigh_and_sample_particles(t, new_data);
-                EvidenceSet resampled_particles =
-                    this->resample(new_data, t, sampled_particles);
-                marginals.hstack(this->apply_rao_blackwellization(
-                    t, resampled_particles, sampled_particles));
-                particles.hstack(resampled_particles);
-                this->update_left_segment_distribution_indices(t);
-                this->move_particles_back_in_time(t);
+                for (int i = 0; i < this->processing_blocks.size(); i++) {
+                    futures[i] = this->thread_pool.submit(
+                        bind(&ParticleFilter::predict,
+                             this,
+                             ref(new_data),
+                             t,
+                             ref(this->processing_blocks[i]),
+                             ref(this->random_generators_per_job[i])));
+                }
+
+                // Wait for all the threads to elapse and weigh particles
+                for (auto& future : futures) {
+                    future.get();
+                }
+
+                // Prepare the discrete distribution of particles.
+                shared_ptr<gsl_ran_discrete_t> ptable(gsl_ran_discrete_preproc(
+                    weights.rows(), weights.col(0).data()));
+
+                for (int i = 0; i < this->processing_blocks.size(); i++) {
+                    // This will resample and compute RBW
+                    futures[i] = this->thread_pool.submit(
+                        bind(&ParticleFilter::resample,
+                             this,
+                             ref(new_data),
+                             t,
+                             ref(this->processing_blocks[i])));
+                }
+
+                //                this->elapse(new_data, t);
+                //                Eigen::VectorXi sampled_particles =
+                //                    this->weigh_and_sample_particles(t,
+                //                    new_data);
+                //                EvidenceSet resampled_particles =
+                //                    this->resample(new_data, t,
+                //                    sampled_particles);
+                //                marginals.hstack(this->apply_rao_blackwellization(
+                //                    t, resampled_particles,
+                //                    sampled_particles));
+                //                particles.hstack(resampled_particles);
+                //                this->update_left_segment_distribution_indices(t);
+                //                this->move_particles_back_in_time(t);
 
                 if (this->show_progress) {
                     ++(*progress);
                 }
+            }
+
+            // Wait for all blocks to be processed
+            for (auto& future : futures) {
+                future.get();
             }
 
             this->last_time_step = final_time_step;
@@ -129,90 +171,84 @@ namespace tomcat {
             return make_pair(particles, marginals);
         }
 
-        void ParticleFilter::elapse(const EvidenceSet& new_data,
-                                    int time_step) {
+        void
+        ParticleFilter::predict(const EvidenceSet& new_data,
+                                int time_step,
+                                const ProcessingBlock& processing_block,
+                                std::shared_ptr<gsl_rng>& random_generator) {
 
             int template_time_step = min(time_step, LAST_TEMPLATE_TIME_STEP);
 
-            // Fill nodes with data
-            for (const string& node_label : new_data.get_node_labels()) {
-                if (RVNodePtr node = this->template_dbn.get_node(
-                        node_label, template_time_step)) {
-
-                    const auto& data = new_data[node_label];
-                    Eigen::MatrixXd observation(1, data.get_shape()[0]);
-                    observation.row(0) =
-                        data.depth(0, time_step - this->last_time_step - 1);
-                    node->set_assignment(
-                        observation.replicate(this->num_particles, 1));
-
-                    if (!node->get_metadata()->is_replicable()) {
-                        // Freeze node to skip resampling its assignments as
-                        // they are all the same and do not change over time.
-                        node->freeze();
-                    }
-
-                    //                    for (const auto& parent :
-                    //                    node->get_parents()) {
-                    //                        elapse_from_posterior.insert(
-                    //                            parent->get_metadata()->get_label());
-                    //                    }
-                }
-            }
-
-            for (const auto& node :
+            for (auto& node :
                  this->template_dbn.get_data_nodes_in_topological_order_at(
                      template_time_step)) {
                 const string& node_label = node->get_metadata()->get_label();
 
-                if (new_data.has_data_for(node_label))
-                    continue;
-
-                Eigen::MatrixXd samples;
-                if (node->has_timer() && time_step > 0) {
-                    // Sample from the joint distribution of timed
-                    // controlled node and duration
-                    const auto& left_timer = dynamic_pointer_cast<TimerNode>(
-                        node->get_timer()->get_previous());
-                    Eigen::MatrixXd duration_weights =
-                        left_timer->get_cpd()
-                            ->get_left_segment_posterior_weights(
-                                left_timer,
-                                this->last_left_segment_distribution_indices
-                                    [node_label],
-                                nullptr,
-                                time_step,
-                                time_step,
-                                this->random_generators_per_job.size());
-
-                    samples = node->get_cpd()->sample_from_posterior(
-                        this->random_generators_per_job,
-                        duration_weights,
-                        node);
-                }
-                else if (node->get_metadata()->is_timer()) {
-                    // This will increment the timer by one time step if the
-                    // new sampled state is the same as the one sampled in
-                    // the previous time step. Otherwise, the timer will be
-                    // set to zero.
-                    samples = node->sample_from_posterior(
-                        this->random_generators_per_job);
+                if (new_data.has_data_for(node_label)) {
+                    Eigen::MatrixXd data = new_data[node_label].depth(
+                        0, time_step - this->last_time_step - 1);
+                    this->fix_evidence(node, data, processing_block);
                 }
                 else {
-                    samples = node->sample(this->random_generators_per_job,
-                                           this->num_particles);
-                }
+                    Eigen::MatrixXd samples;
+                    if (node->has_timer() && time_step > 0) {
+                        // Sample from the joint distribution of timed
+                        // controlled node and duration
+                        const auto& left_timer =
+                            dynamic_pointer_cast<TimerNode>(
+                                node->get_timer()->get_previous());
+                        Eigen::MatrixXd duration_weights =
+                            left_timer->get_cpd()
+                                ->get_left_segment_posterior_weights(
+                                    left_timer,
+                                    this->last_left_segment_distribution_indices
+                                        [node_label],
+                                    nullptr,
+                                    time_step,
+                                    time_step,
+                                    processing_block);
 
-                if (node->get_metadata()->is_timer()) {
-                    dynamic_pointer_cast<TimerNode>(node)
-                        ->set_forward_assignment(samples);
-                }
-                else {
-                    // TODO - improve proposal by sampling nodes parents of
-                    //  observed nodes from their posterior.
-                    node->set_assignment(samples);
+                        samples = node->get_cpd()->sample_from_posterior(
+                            random_generator,
+                            duration_weights,
+                            node,
+                            processing_block);
+                    }
+                    else if (node->get_metadata()->is_timer()) {
+                        // This will increment the timer by one time step if the
+                        // new sampled state is the same as the one sampled in
+                        // the previous time step. Otherwise, the timer will be
+                        // set to zero.
+                        samples = node->sample_from_posterior(random_generator,
+                                                              processing_block);
+                    }
+                    else {
+                        samples =
+                            node->sample(random_generator, processing_block);
+                    }
+
+                    if (node->get_metadata()->is_timer()) {
+                        dynamic_pointer_cast<TimerNode>(node)
+                            ->set_forward_assignment(samples, processing_block);
+                    }
+                    else {
+                        node->set_assignment(samples, processing_block);
+                    }
                 }
             }
+        }
+
+        void
+        ParticleFilter::fix_evidence(const RVNodePtr& node,
+                                     const Eigen::MatrixXd& data,
+                                     const ProcessingBlock& processing_block) {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
+            Eigen::MatrixXd observation = data;
+            node.set_assignment(observation.replicate(num_rows, 1),
+                                processing_block);
         }
 
         EvidenceSet
@@ -468,8 +504,9 @@ namespace tomcat {
                             marginals[node_label];
                     }
                     else {
-                        marginals.add_data(
-                            node_label, this->previous_marginals[node_label], false);
+                        marginals.add_data(node_label,
+                                           this->previous_marginals[node_label],
+                                           false);
                     }
                     particles.add_data(node_label, node->get_assignment());
                     continue;

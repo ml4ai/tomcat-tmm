@@ -6,6 +6,7 @@
 
 #include "pgm/NodeMetadata.h"
 #include "utils/Definitions.h"
+#include "utils/Multithreading.h"
 
 namespace tomcat {
     namespace model {
@@ -93,7 +94,8 @@ namespace tomcat {
 
             /**
              * Sets as the node's assignment a previously stacked assignment. If
-             * there's no assignment stacked, the node's assignment is preserved.
+             * there's no assignment stacked, the node's assignment is
+             * preserved.
              */
             void pop_assignment();
 
@@ -133,6 +135,21 @@ namespace tomcat {
              */
             virtual std::string get_timed_name() const = 0;
 
+            /**
+             * Return non-const reference to the node's assignment
+             *
+             * @return Reference to the node's assignment
+             */
+            Eigen::MatrixXd& get_modifiable_assignment();
+
+            /**
+             * Return non-const reference to a block of the node's assignment
+             *
+             * @return Reference to the node's assignment block
+             */
+            Eigen::Block<Eigen::MatrixXd>
+            get_modifiable_assignment(const ProcessingBlock& processing_block);
+
             // --------------------------------------------------------
             // Getters & Setters
             // --------------------------------------------------------
@@ -140,7 +157,16 @@ namespace tomcat {
 
             const Eigen::MatrixXd& get_assignment() const;
 
+            Eigen::MatrixXd
+            get_assignment(const ProcessingBlock& processing_block) const;
+
+            double get_assignment(int row, int col) const;
+
             virtual void set_assignment(const Eigen::MatrixXd& assignment);
+
+            virtual void
+            set_assignment(const Eigen::MatrixXd& assignment,
+                           const ProcessingBlock& processing_block);
 
           protected:
             //------------------------------------------------------------------

@@ -204,6 +204,129 @@ namespace tomcat {
             return weights;
         }
 
+        Eigen::MatrixXd CategoricalCPD::get_posterior_weights(
+            const vector<shared_ptr<Node>>& index_nodes,
+            const shared_ptr<RandomVariableNode>& sampled_node,
+            const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+            const ProcessingBlock& processing_block,
+            const std::vector<int>& num_events_per_data_point) const {
+
+            auto [initial_row, num_rows] = processing_block;
+            int cardinality = sampled_node->get_metadata()->get_cardinality();
+
+            // Set sampled node's assignment equals to zero so we can get the
+            // index of the first distribution indexed by this node and the
+            // other parent nodes that the child (owner of this CPD) may have.
+            Eigen::MatrixXd saved_assignment =
+                sampled_node->get_assignment(processing_block);
+            sampled_node->set_assignment(Eigen::MatrixXd::Zero(num_rows, 1));
+            Eigen::VectorXi distribution_indices =
+                this->get_indexed_distribution_indices(index_nodes,
+                                                       processing_block);
+            // Restore the sampled node's assignment to its original state.
+            sampled_node->set_assignment(saved_assignment);
+
+            // For rows in which the node time step is bigger than it's supposed
+            // to be, we do not sample.
+            if (!num_events_per_data_point.empty()) {
+                int node_time_step = cpd_owner->get_time_step();
+                for (int i = 0; i < num_rows; i++) {
+                    if (i >= num_events_per_data_point.size())
+                        break;
+
+                    int max_time = num_events_per_data_point[i] - 1;
+                    if (node_time_step > max_time) {
+                        distribution_indices[i] = NO_OBS;
+                    }
+                }
+            }
+
+            Eigen::MatrixXd distributions_table = this->get_table(0);
+            if (cpd_owner->get_previous() && cpd_owner->has_timer()) {
+                // We ignore the probability of staying in the same state as
+                // this will be embedded in the segment posterior weights.
+                int cpd_owner_cardinality =
+                    cpd_owner->get_metadata()->get_cardinality();
+                if (cpd_owner_cardinality == distributions_table.rows()) {
+                    // Node only depends on a past copy of itself
+                    distributions_table.diagonal() =
+                        Eigen::VectorXd::Ones(distributions_table.rows());
+                }
+                else {
+                    // Node depends on a past copy of itself plus other nodes
+                    // . When defining a CPD, this implementation requires
+                    // that the replicable node is defined as the first one in
+                    // the index node of the CPD, which guarantees that the
+                    // following modifications will always change the
+                    // elements of the table that represent p(node(t-1)
+                    // == node(t)).
+                    int right_cum_cardinality =
+                        distributions_table.rows() / cpd_owner_cardinality;
+                    for (int i = 0; i < cpd_owner_cardinality; i++) {
+                        distributions_table.block(i * right_cum_cardinality,
+                                                  i,
+                                                  right_cum_cardinality,
+                                                  1) =
+                            Eigen::VectorXd::Ones(right_cum_cardinality);
+                    }
+                }
+            }
+
+            const string& sampled_node_label =
+                sampled_node->get_metadata()->get_label();
+            // For every possible value of sampled_node, the offset indicates
+            // how many distributions ahead we need to advance to get the
+            // distribution indexes by the index nodes of this CPD.
+            int offset = this->parent_label_to_indexing.at(sampled_node_label)
+                             .right_cumulative_cardinality;
+
+            const Eigen::VectorXi& assignment =
+                cpd_owner->get_assignment(processing_block).cast<int>();
+            Eigen::MatrixXi binary_assignment =
+                to_categorical(assignment, distributions_table.cols());
+
+            int num_distributions = distributions_table.rows();
+            Eigen::MatrixXi binary_distribution_indices =
+                Eigen::MatrixXi::Zero(num_rows, num_distributions);
+            Eigen::MatrixXd weights(num_rows, cardinality);
+            unordered_set<int> ignore_rows;
+            for (int j = 0; j < cardinality; j++) {
+                // Get the index for the next value of the indexing node
+                // in binary format.
+                for (int i = 0; i < num_rows; i++) {
+                    int distribution_idx = distribution_indices[i];
+
+                    if (distribution_idx == NO_OBS) {
+                        ignore_rows.insert(i);
+                    }
+                    else {
+                        if (j > 0) {
+                            // Zero the previous j
+                            int prev_val_idx =
+                                distribution_idx + (j - 1) * offset;
+                            binary_distribution_indices(i, prev_val_idx) = 0;
+                        }
+
+                        int curr_val_idx = distribution_idx + j * offset;
+                        binary_distribution_indices(i, curr_val_idx) = 1;
+                    }
+                }
+
+                weights.col(j) = ((binary_distribution_indices.cast<double>() *
+                                   distributions_table)
+                                      .array() *
+                                  binary_assignment.cast<double>().array())
+                                     .rowwise()
+                                     .sum();
+            }
+
+            for (int i : ignore_rows) {
+                weights.row(i) = Eigen::VectorXd::Ones(weights.cols());
+            }
+
+            return weights;
+        }
+
         Eigen::MatrixXd CategoricalCPD::compute_posterior_weights(
             const shared_ptr<const RandomVariableNode>& cpd_owner,
             const Eigen::VectorXi& distribution_indices,

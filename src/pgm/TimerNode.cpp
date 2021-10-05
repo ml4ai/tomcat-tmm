@@ -136,18 +136,56 @@ namespace tomcat {
             return forward_assignment;
         }
 
+        Eigen::MatrixXd TimerNode::get_forward_assignment(
+            const ProcessingBlock& processing_block) const {
+            return this->forward_assignment.block(
+                processing_block.first,
+                0,
+                processing_block.second,
+                this->forward_assignment.cols());
+        }
+
+        double TimerNode::get_forward_assignment(int i, int j) const {
+            return this->forward_assignment(i, j);
+        }
+
         void TimerNode::set_forward_assignment(
             const Eigen::MatrixXd& forward_assignment) {
             this->forward_assignment = forward_assignment;
+        }
+
+        void TimerNode::set_forward_assignment(
+            const Eigen::MatrixXd& forward_assignment,
+            const ProcessingBlock& processing_block) {
+            this->forward_assignment.block(processing_block.first,
+                                           0,
+                                           processing_block.second,
+                                           this->forward_assignment.cols()) =
+                forward_assignment;
         }
 
         const Eigen::MatrixXd& TimerNode::get_backward_assignment() const {
             return assignment;
         }
 
+        Eigen::MatrixXd TimerNode::get_backward_assignment(
+            const ProcessingBlock& processing_block) const {
+            return Node::get_assignment(processing_block);
+        }
+
+        double TimerNode::get_backward_assignment(int i, int j) const {
+            return Node::get_assignment(i, j);
+        }
+
         void TimerNode::set_backward_assignment(
             const Eigen::MatrixXd& backward_assignment) {
             this->assignment = backward_assignment;
+        }
+
+        void TimerNode::set_backward_assignment(
+            const Eigen::MatrixXd& backward_assignment,
+            const ProcessingBlock& processing_block) {
+            Node::set_assignment(backward_assignment, processing_block);
         }
 
         const shared_ptr<RandomVariableNode>&

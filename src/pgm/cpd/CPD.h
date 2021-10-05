@@ -16,6 +16,7 @@
 #include "pgm/EvidenceSet.h"
 #include "pgm/Node.h"
 #include "utils/Definitions.h"
+#include "utils/Multithreading.h"
 
 namespace tomcat {
     namespace model {
@@ -161,6 +162,29 @@ namespace tomcat {
              * Draws a sample from the distribution associated with the parent
              * nodes' assignments.
              *
+             * @param random_generator: random number generator
+             * @param processing_block: rows to process
+             * @param cpd_owner: node to which sample is being generated,
+             * which is also the owner of this CPD.
+             * @param time_steps_per_sample: number of events per data
+             * point. It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point. If empty, nodes in all the time
+             * steps in the enrolled DBN will have all of its assignment rows
+             * processed.
+             *
+             * @return A sample from one of the distributions in the CPD.
+             */
+            Eigen::MatrixXd
+            sample(std::shared_ptr<gsl_rng>& random_generator,
+                   const ProcessingBlock& processing_block,
+                   const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                   const std::vector<int>& time_steps_per_sample = {}) const;
+
+            /**
+             * Draws a sample from the distribution associated with the parent
+             * nodes' assignments.
+             *
              * @param random_generator_per_job: random number
              * random_generator per thread
              * @param num_samples: number of samples to generate.
@@ -175,12 +199,37 @@ namespace tomcat {
              *
              * @return A sample from one of the distributions in the CPD.
              */
+            // TODO - Remove
             Eigen::MatrixXd
             sample(const std::vector<std::shared_ptr<gsl_rng>>&
                        random_generator_per_job,
                    int num_samples,
                    const std::shared_ptr<const RandomVariableNode>& cpd_owner,
                    const std::vector<int>& time_steps_per_sample = {}) const;
+
+            /**
+             * Generates a sample for the node that owns this CPD from its
+             * posterior distribution.
+             *
+             * @param random_generator: random number generator
+             * @param posterior_weights: posterior weights given by the product
+             * of p(children(node)|node)
+             * @param processing_block: rows to process
+             * @param time_steps_per_sample: number of events per data
+             * point. It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point. If empty, nodes in all the time
+             * steps in the enrolled DBN will have all of its assignment rows
+             * processed.
+             *
+             * @return Sample from the node's posterior.
+             */
+            Eigen::MatrixXd sample_from_posterior(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const Eigen::MatrixXd& posterior_weights,
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const ProcessingBlock& processing_block,
+                const std::vector<int>& time_steps_per_sample = {}) const;
 
             /**
              * Generates a sample for the node that owns this CPD from its
@@ -200,6 +249,7 @@ namespace tomcat {
              *
              * @return Sample from the node's posterior.
              */
+            // TODO - Remove
             Eigen::MatrixXd sample_from_posterior(
                 const std::vector<std::shared_ptr<gsl_rng>>&
                     random_generator_per_job,
@@ -213,12 +263,28 @@ namespace tomcat {
              *
              * @param index_nodes: concrete objects of the nodes used to
              * index the CPD
+             * @param processing_block: rows to process
+             *
+             * @return Indices of the distributions indexed by the current
+             * indexing nodes' assignments.
+             */
+            Eigen::VectorXi get_indexed_distribution_indices(
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                const ProcessingBlock& processing_block) const;
+
+            /**
+             * Returns the indices of the distributions indexed by the current
+             * indexing nodes' assignments.
+             *
+             * @param index_nodes: concrete objects of the nodes used to
+             * index the CPD
              * @param num_indices: number of assignments of the indexing
              * nodes to consider.
              *
              * @return Indices of the distributions indexed by the current
              * indexing nodes' assignments.
              */
+            // TODO - Remove
             Eigen::VectorXi get_indexed_distribution_indices(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 int num_indices) const;
@@ -260,11 +326,44 @@ namespace tomcat {
              * segment
              * @param last_time_step: time step of the last timer being
              * sampled in the unrolled DBN
+             * @param processing_block: rows to process
+             *
+             * @return Posterior weights for the left segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_left_segment_posterior_weights(
+                const std::shared_ptr<TimerNode>& left_segment_timer,
+                const Eigen::VectorXi& left_segment_distribution_indices,
+                const std::shared_ptr<RandomVariableNode>& right_segment_state,
+                int central_segment_time_step,
+                int last_time_step,
+                const ProcessingBlock& processing_block) const;
+
+            /**
+             * Returns p(sampled node| left segments).
+             * The probabilities change according to the value of the
+             * controlled nodes in the central and right segments. For
+             * instance, suppose the left segment is formed by controlled
+             * nodes with values 0, 0, 0, this means that the duration of the
+             * left segment is 3. If the central controlled node is also 0,
+             * the duration of the left segment is now 4, if the right
+             * segment controlled nodes have values 0, 1, 2, the left segment
+             * now has duration 5.
+             *
+             * @param left_segment_timer: last timer node of the last segment
+             * @param left_segment_distribution_indices: indices of the timer
+             * distributions in the beginning of the left segment
+             * @param right_segment_state: first state of the right segment
+             * @param central_segment_time_step: time step of the central
+             * segment
+             * @param last_time_step: time step of the last timer being
+             * sampled in the unrolled DBN
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the left segment of a time
              * controlled node.
              */
+            // TODO - Remove
             Eigen::MatrixXd get_left_segment_posterior_weights(
                 const std::shared_ptr<TimerNode>& left_segment_timer,
                 const Eigen::VectorXi& left_segment_distribution_indices,
@@ -297,11 +396,48 @@ namespace tomcat {
              * segment
              * @param last_time_step: time step of the last timer being
              * sampled in the unrolled DBN
+             * @param processing_block: rows to process
+             *
+             * @return Posterior weights for the left segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_left_segment_posterior_weights(
+                const std::shared_ptr<TimerNode>& left_segment_timer,
+                const std::shared_ptr<RandomVariableNode>& right_segment_state,
+                int central_segment_time_step,
+                int last_time_step,
+                const ProcessingBlock& processing_block) const;
+
+            /**
+             * Returns p(sampled node| left segments).
+             * The probabilities change according to the value of the
+             * controlled nodes in the central and right segments. For
+             * instance, suppose the left segment is formed by controlled
+             * nodes with values 0, 0, 0, this means that the duration of the
+             * left segment is 3. If the central controlled node is also 0,
+             * the duration of the left segment is now 4, if the right
+             * segment controlled nodes have values 0, 1, 2, the left segment
+             * now has duration 5.
+             *
+             * @param left_segment_timer: last timer node of the last segment
+             * @param left_segment_end: whether the left segment timer is the
+             * last timer before the central segment or a timer in the beginning
+             * of the last left segment. If it is the former, we need to find
+             * the beginning of the left segment for each assignment the node
+             * has, else, we assume all of the assignments in the timer and
+             * dependent nodes in the CPD are values obtained in the beginning
+             * of the left segment
+             * @param right_segment_state: first state of the right segment
+             * @param central_segment_time_step: time step of the central
+             * segment
+             * @param last_time_step: time step of the last timer being
+             * sampled in the unrolled DBN
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the left segment of a time
              * controlled node.
              */
+            // TODO - Remove
             Eigen::MatrixXd get_left_segment_posterior_weights(
                 const std::shared_ptr<TimerNode>& left_segment_timer,
                 const std::shared_ptr<RandomVariableNode>& right_segment_state,
@@ -330,6 +466,7 @@ namespace tomcat {
              * @return Posterior weights for the left segment of a time
              * controlled node.
              */
+            // TODO - Review
             Eigen::VectorXd get_single_left_segment_posterior_weights(
                 const std::shared_ptr<const TimerNode>&
                     left_segment_first_timer,
@@ -350,11 +487,35 @@ namespace tomcat {
              * @param right_segment_state: first state of the right segment
              * @param last_time_step: time step of the last timer being
              * sampled in the unrolled DBN
+             * @param processing_block: rows to process
+             *
+             * @return Posterior weights for the central segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_central_segment_posterior_weights(
+                const std::shared_ptr<RandomVariableNode>& left_segment_state,
+                const std::shared_ptr<TimerNode>& central_segment_timer,
+                const std::shared_ptr<RandomVariableNode>& right_segment_state,
+                int last_time_step,
+                const ProcessingBlock& processing_block) const;
+
+            /**
+             * Returns p(sampled node | central segment).
+             * Similar to get_left_segment_posterior_weights but for cases
+             * where values from the left segment are different of the value
+             * in the central segment.
+             *
+             * @param left_segment_state: last state of the left segment
+             * @param central_segment_timer: timer in the central segment
+             * @param right_segment_state: first state of the right segment
+             * @param last_time_step: time step of the last timer being
+             * sampled in the unrolled DBN
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the central segment of a time
              * controlled node.
              */
+            // TODO - Remove
             Eigen::MatrixXd get_central_segment_posterior_weights(
                 const std::shared_ptr<RandomVariableNode>& left_segment_state,
                 const std::shared_ptr<TimerNode>& central_segment_timer,
@@ -374,11 +535,34 @@ namespace tomcat {
              * segment
              * @param last_time_step: time step of the last timer being
              * sampled in the unrolled DBN
+             * @param processing_block: rows to process
+             *
+             * @return Posterior weights for the right segment of a time
+             * controlled node.
+             */
+            Eigen::MatrixXd get_right_segment_posterior_weights(
+                const std::shared_ptr<TimerNode>& right_segment_first_timer,
+                int last_time_step,
+                const ProcessingBlock& processing_block) const;
+
+            /**
+             * Returns p(right segment | left and central segments).
+             * Similar to get_left_segment_posterior_weights but for cases
+             * where values from the left and central segments are different of
+             * the values in the right segment.
+             *
+             * @param central_segment_state: state values at the central
+             * segment
+             * @param right_segment_first_timer: first timer of the right
+             * segment
+             * @param last_time_step: time step of the last timer being
+             * sampled in the unrolled DBN
              * @param num_jobs: number of threads used in the computation
              *
              * @return Posterior weights for the right segment of a time
              * controlled node.
              */
+            // TODO - Remove
             Eigen::MatrixXd get_right_segment_posterior_weights(
                 const std::shared_ptr<TimerNode>& right_segment_first_timer,
                 int last_time_step,
@@ -420,6 +604,32 @@ namespace tomcat {
              * @param sampled_node: random variable for with the posterior is
              * being computed
              * @param cpd_owner: node that owns this CPD
+             * @param processing_block: rows to process
+             * @param time_steps_per_sample: number of events per sample
+             * It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point/sample. If empty, nodes in all
+             * the time steps in the enrolled DBN will have all of its
+             * assignment rows processed.
+             *
+             * @return Posterior weights of the node that owns this CPD for one
+             * of its parent nodes.
+             */
+            virtual Eigen::MatrixXd get_posterior_weights(
+                const std::vector<std::shared_ptr<Node>>& index_nodes,
+                const std::shared_ptr<RandomVariableNode>& sampled_node,
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const ProcessingBlock& processing_block,
+                const std::vector<int>& time_steps_per_sample = {}) const;
+
+            /**
+             * Returns p(cpd_owner_assignments | sampled_node)
+             *
+             * @param index_nodes: concrete objects of the nodes used to
+             * index the CPD
+             * @param sampled_node: random variable for with the posterior is
+             * being computed
+             * @param cpd_owner: node that owns this CPD
              * @param num_jobs: number of threads to perform vertical
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
@@ -434,6 +644,7 @@ namespace tomcat {
              * @return Posterior weights of the node that owns this CPD for one
              * of its parent nodes.
              */
+            // TODO - Remove
             virtual Eigen::MatrixXd get_posterior_weights(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 const std::shared_ptr<RandomVariableNode>& sampled_node,
@@ -665,6 +876,7 @@ namespace tomcat {
              *
              * @return Index of a distribution from this CPD
              */
+            // TODO - review
             int get_indexed_distribution_idx(
                 const std::vector<std::shared_ptr<Node>>& index_nodes,
                 int sample_idx) const;

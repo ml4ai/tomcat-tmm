@@ -4,6 +4,7 @@
 
 #include "pgm/cpd/CPD.h"
 #include "utils/Definitions.h"
+#include "utils/Multithreading.h"
 
 namespace tomcat {
     namespace model {
@@ -83,6 +84,10 @@ namespace tomcat {
 
             void set_assignment(const Eigen::MatrixXd& assignment) override;
 
+            void
+            set_assignment(const Eigen::MatrixXd& assignment,
+                           const ProcessingBlock& processing_block) override;
+
             /**
              * Replaces parameter nodes in node dependent CPD templates by a
              * concrete timed-instance node in the unrolled DBN.
@@ -102,6 +107,27 @@ namespace tomcat {
              * Generates samples from this node's CPD given its parents'
              * assignments.
              *
+             * @param random_generator: random number generator
+             * @param processing_block: rows to process
+             * @param time_steps_per_sample: number of events per sample
+             * It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point/sample. If empty, nodes in all
+             * the time steps in the enrolled DBN will have all of its
+             * assignment rows processed.
+             *
+             * @return Samples from the node's CPD.
+             */
+            Eigen::MatrixXd
+            sample(std::shared_ptr<gsl_rng>&
+                       random_generator,
+                   const ProcessingBlock& processing_block,
+                   const std::vector<int>& time_steps_per_sample = {}) const;
+
+            /**
+             * Generates samples from this node's CPD given its parents'
+             * assignments.
+             *
              * @param random_generator_per_job: random number generator per
              * thread
              * @param num_samples: number of samples to generate
@@ -114,11 +140,35 @@ namespace tomcat {
              *
              * @return Samples from the node's CPD.
              */
+            // TODO - Remove
             Eigen::MatrixXd
             sample(const std::vector<std::shared_ptr<gsl_rng>>&
                        random_generator_per_job,
                    int num_samples,
                    const std::vector<int>& time_steps_per_sample = {}) const;
+
+            /**
+             * Returns p(children(node)|node). The posterior of a node is
+             * given by p(node|parents(node)) * p(children(node)|node). We
+             * call the second term, the posterior weights here.
+             *
+             * Note: This method changes this node assignment temporarily while
+             * calculating the weights, therefore it's not const. The final
+             * state of the this object is unchanged though.
+             *
+             * @param processing_block: rows to process
+             * @param time_steps_per_sample: number of events per sample
+             * It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point/sample. If empty, nodes in all
+             * the time steps in the enrolled DBN will have all of its
+             * assignment rows processed.
+             *
+             * @return Posterior weights
+             */
+            Eigen::MatrixXd get_posterior_weights(
+                const ProcessingBlock& processing_block,
+                const std::vector<int>& time_steps_per_sample = {});
 
             /**
              * Returns p(children(node)|node). The posterior of a node is
@@ -142,6 +192,7 @@ namespace tomcat {
              *
              * @return Posterior weights
              */
+            // TODO - Remove
             Eigen::MatrixXd get_posterior_weights(
                 int num_jobs,
                 const std::vector<int>& time_steps_per_sample = {});
@@ -283,36 +334,6 @@ namespace tomcat {
              */
             void print_cpds(std::ostream& output_stream) const;
 
-            // -----------------------------------------------------------------
-            // Virtual functions
-            // -----------------------------------------------------------------
-
-            /**
-             * Generates a sample for the node from its posterior distribution.
-             * If the node is an in-plate node, multiple samples will be
-             * generated for the node (one per row). The number of total
-             * samples are defined by the number of elements in-plate.
-             *
-             * Note: This method changes this node assignment temporarily while
-             * calculating the weights, therefore it's not const. The final
-             * state of the this object is unchanged though.
-             *
-             * @param random_generator_per_job: random number generator per
-             * thread
-             * @param time_steps_per_sample: number of events per sample
-             * It's used if observations have a different number of time
-             * steps. Each entry in the vector must indicate how many events
-             * must be processed per data point/sample. If empty, nodes in all
-             * the time steps in the enrolled DBN will have all of its
-             * assignment rows processed.
-             *
-             * @return Sample for the node from its posterior
-             */
-            virtual Eigen::MatrixXd sample_from_posterior(
-                const std::vector<std::shared_ptr<gsl_rng>>&
-                    random_generator_per_job,
-                const std::vector<int>& time_steps_per_sample = {});
-
             /**
              * Checks whether the node is a parent of a timer node or a
              * parent of a time controlled node.
@@ -338,6 +359,63 @@ namespace tomcat {
              * @param value: value
              */
             void set_assignment(int i, int j, double value);
+
+            // -----------------------------------------------------------------
+            // Virtual functions
+            // -----------------------------------------------------------------
+
+            /**
+             * Generates a sample for the node from its posterior distribution.
+             * If the node is an in-plate node, multiple samples will be
+             * generated for the node (one per row). The number of total
+             * samples are defined by the number of elements in-plate.
+             *
+             * Note: This method changes this node assignment temporarily while
+             * calculating the weights, therefore it's not const. The final
+             * state of the this object is unchanged though.
+             *
+             * @param random_generator: random number generator
+             * @param processing_block: rows to process
+             * @param time_steps_per_sample: number of events per sample
+             * It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point/sample. If empty, nodes in all
+             * the time steps in the enrolled DBN will have all of its
+             * assignment rows processed.
+             *
+             * @return Sample for the node from its posterior
+             */
+            virtual Eigen::MatrixXd sample_from_posterior(
+                const std::shared_ptr<gsl_rng>& random_generator,
+                const ProcessingBlock& processing_block,
+                const std::vector<int>& time_steps_per_sample = {});
+
+            /**
+             * Generates a sample for the node from its posterior distribution.
+             * If the node is an in-plate node, multiple samples will be
+             * generated for the node (one per row). The number of total
+             * samples are defined by the number of elements in-plate.
+             *
+             * Note: This method changes this node assignment temporarily while
+             * calculating the weights, therefore it's not const. The final
+             * state of the this object is unchanged though.
+             *
+             * @param random_generator_per_job: random number generator per
+             * thread
+             * @param time_steps_per_sample: number of events per sample
+             * It's used if observations have a different number of time
+             * steps. Each entry in the vector must indicate how many events
+             * must be processed per data point/sample. If empty, nodes in all
+             * the time steps in the enrolled DBN will have all of its
+             * assignment rows processed.
+             *
+             * @return Sample for the node from its posterior
+             */
+            // TODO - Remove
+            virtual Eigen::MatrixXd sample_from_posterior(
+                const std::vector<std::shared_ptr<gsl_rng>>&
+                    random_generator_per_job,
+                const std::vector<int>& time_steps_per_sample = {});
 
             // -----------------------------------------------------------------
             // Getters & Setters
@@ -482,6 +560,34 @@ namespace tomcat {
              *  p(duration central == 1)p(right seg. value | node value)
              *  p(duration right)
              *
+             * @param processing_block: rows to process
+             *
+             * @return Posterior weights for the left, central and right
+             * segments combined
+             */
+            Eigen::MatrixXd get_segments_log_posterior_weights(
+                const ProcessingBlock& processing_block);
+
+            /**
+             * Computes posterior weights from the left, central and right
+             * segments of a time controlled node.
+             *
+             *  1. If node == left seg. values and node == right seg. values
+             *  p(duration left + 1 + duration right)
+             *
+             *  2. If node == left seg. values and node != right seg. values
+             *  p(duration left + 1)p(right seg. value | node value)
+             *  p(duration right)
+             *
+             *  3. If node != left seg. values and node == right seg. values
+             *  p(duration left)p(left seg. value | node)
+             *  p(duration right + 1)
+             *
+             *  4. If node != left seg. values and node != right seg. values
+             *  p(duration left)p(left seg. value | node)
+             *  p(duration central == 1)p(right seg. value | node value)
+             *  p(duration right)
+             *
              * @param num_jobs: number of threads to perform vertical
              * parallelization (split the computation over the
              * observations/data points provided). If 1, the computations are
@@ -490,6 +596,7 @@ namespace tomcat {
              * @return Posterior weights for the left, central and right
              * segments combined
              */
+            // TODO - Remove
             Eigen::MatrixXd get_segments_log_posterior_weights(int num_jobs);
 
             //------------------------------------------------------------------

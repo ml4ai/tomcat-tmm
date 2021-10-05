@@ -14,6 +14,9 @@
 #include "pgm/EvidenceSet.h"
 #include "utils/Definitions.h"
 
+#include "multithread/ThreadPool.h"
+#include "utils/Multithreading.h"
+
 namespace tomcat {
     namespace model {
 
@@ -48,9 +51,9 @@ namespace tomcat {
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
 
-            ParticleFilter(const ParticleFilter&) = default;
+            ParticleFilter(const ParticleFilter&) = delete;
 
-            ParticleFilter& operator=(const ParticleFilter&) = default;
+            ParticleFilter& operator=(const ParticleFilter&) = delete;
 
             ParticleFilter(ParticleFilter&&) = default;
 
@@ -131,9 +134,26 @@ namespace tomcat {
             /**
              * Move particles to the next time step by the underlying process.
              *
+             * @param new_data: evidence
              * @param time_step: time step of the particles
+             * @param processing_block: block of particles to process
+             * @param random_generator: random number generator
              */
-            void elapse(const EvidenceSet& new_data, int time_step);
+            void predict(const EvidenceSet& new_data,
+                         int time_step,
+                         const ProcessingBlock& processing_block,
+                         std::shared_ptr<gsl_rng>& random_generator);
+
+            /**
+             * Populate nodes in the evidence set with corresponding values.
+             *
+             * @param node: node
+             * @param data: evidence
+             * @param processing_block: rows to process
+             */
+            void fix_evidence(const RVNodePtr& node,
+                              const Eigen::MatrixXd& data,
+                              const ProcessingBlock& processing_block);
 
             /**
              * Resample particles according to observations.
@@ -213,9 +233,10 @@ namespace tomcat {
              *
              * @return Marginal probabilities
              */
-            EvidenceSet apply_rao_blackwellization(int time_step,
-                                                   EvidenceSet& particles,
-                                                   const Eigen::VectorXi& sampled_particles);
+            EvidenceSet apply_rao_blackwellization(
+                int time_step,
+                EvidenceSet& particles,
+                const Eigen::VectorXi& sampled_particles);
 
             /**
              * Gets p (child_timer | parent) in a given time step in log scale.
@@ -310,6 +331,10 @@ namespace tomcat {
             // Data members
             //------------------------------------------------------------------
             static inline int LAST_TEMPLATE_TIME_STEP = 2;
+
+            multithread::ThreadPool thread_pool;
+
+            ProcessingBlocks processing_blocks;
 
             DynamicBayesNet original_dbn;
 

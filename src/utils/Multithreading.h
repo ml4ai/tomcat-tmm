@@ -7,6 +7,9 @@
 
 namespace tomcat {
     namespace model {
+
+        typedef std::pair<int, int> ProcessingBlock;
+        typedef std::vector<ProcessingBlock> ProcessingBlocks;
         /**
          * Gets initial row and the number of rows to process per
          * thread.
@@ -18,7 +21,7 @@ namespace tomcat {
          * @return list of row indices and size of sub-matrices to be
          * processed in parallel
          */
-        inline std::vector<std::pair<int, int>>
+        inline ProcessingBlocks
         get_parallel_processing_blocks(int num_jobs, int data_size) {
             std::vector<std::pair<int, int>> processing_blocks;
 

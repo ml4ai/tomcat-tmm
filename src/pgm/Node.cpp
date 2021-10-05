@@ -53,6 +53,18 @@ namespace tomcat {
 
         bool Node::is_random_variable() const { return false; }
 
+        Eigen::MatrixXd& Node::get_modifiable_assignment() {
+            return assignment;
+        }
+
+        Eigen::Block<Eigen::MatrixXd> Node::get_modifiable_assignment(
+            const ProcessingBlock& processing_block) {
+            return assignment.block(processing_block.first,
+                                    0,
+                                    processing_block.second,
+                                    assignment.cols());
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
@@ -64,8 +76,28 @@ namespace tomcat {
             return assignment;
         }
 
+        Eigen::MatrixXd
+        Node::get_assignment(const ProcessingBlock& processing_block) const {
+            return assignment.block(processing_block.first,
+                                    0,
+                                    processing_block.second,
+                                    assignment.cols());
+        }
+
+        double Node::get_assignment(int i, int j) const {
+            return assignment(i, j);
+        }
+
         void Node::set_assignment(const Eigen::MatrixXd& assignment) {
             this->assignment = assignment;
+        }
+
+        void Node::set_assignment(const Eigen::MatrixXd& assignment,
+                                  const ProcessingBlock& processing_block) {
+            this->assignment.block(processing_block.first,
+                                   0,
+                                   processing_block.second,
+                                   this->assignment.cols()) = assignment;
         }
 
     } // namespace model
