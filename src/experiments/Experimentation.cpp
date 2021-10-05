@@ -64,10 +64,16 @@ namespace tomcat {
                 final_params_dir = params_dir;
             }
             else {
-                splitter =
-                    DataSplitter(data, num_folds, this->random_generator);
                 final_params_dir = fmt::format("{}/fold{{}}", params_dir);
-                splitter.save_indices(params_dir);
+                try {
+                    // Tries to load pre-existent indices from the params folder.
+                    splitter =
+                        DataSplitter(data, params_dir);
+                } catch (TomcatModelException e) {
+                    splitter =
+                        DataSplitter(data, num_folds, this->random_generator);
+                    splitter.save_indices(params_dir);
+                }
             }
 
             DBNSaver model_saver(

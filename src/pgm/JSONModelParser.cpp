@@ -544,7 +544,8 @@ namespace tomcat {
             vector<shared_ptr<D>> distributions;
             for (int i = 0; i < num_distributions; i++) {
                 NodePtrVec parameters;
-                for (const string& token : tokens) {
+                for (string& token : tokens) {
+                    boost::trim(token);
                     if (EXISTS(token, this->rv_nodes)) {
                         const auto& parameter_node =
                             this->rv_nodes.at(token)[i];
