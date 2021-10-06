@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h>
 
 #include "pgm/DynamicBayesNet.h"
@@ -109,11 +110,6 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Empty constructor to be called by the clone function.
-             */
-            ParticleFilter();
-
-            /**
              * If the time step is bigger than the number of time steps in the
              * template DBN, we move the particles to the nodes in the before
              * last time step of the template DBN so that in the next time step
@@ -130,6 +126,15 @@ namespace tomcat {
              *
              */
             void create_template_dbn();
+
+            /**
+             * Checks whether there's any valid observation for any node in a
+             * given time step and set data member variable accordingly.
+             *
+             * @param new_data: data
+             * @param time_step: time step
+             */
+            void check_evidence(const EvidenceSet& new_data, int time_step);
 
             /**
              * Move particles to the next time step by the underlying process.
@@ -156,11 +161,128 @@ namespace tomcat {
                               const ProcessingBlock& processing_block);
 
             /**
+             * Update the weights for particles from a given processing block.
+             *
+             * @param new_data: evidence
+             * @param time_step: time step of the particles
+             * @param processing_block: rows to process
+             */
+            void
+            update_particle_weights(const EvidenceSet& new_data,
+                                    int time_step,
+                                    const ProcessingBlock& processing_block);
+
+            /**
+             * Updates table to be queried by the categorical distribution over
+             * particle weights.
+             */
+            void prepare_particle_resampling();
+
+            /**
+             * Create a set of particles for all nodes in the DBN. This will be
+             * filled with actual numbers sampled from the nodes in the
+             * shuffling step.
+             *
+             * @return Particle set.
+             */
+            EvidenceSet create_template_particle_set();
+
+            /**
+             * Resample particles according to observations and apply
+             * rao-blackwellization to single time nodes.
+             *
+             * @param new_data: evidence
+             * @param time_step: time step of the particles
+             * @param random_generator: random number generator
+             * @param processing_block: rows to process
+             *
+             * @return Particles generated in the time step
+             */
+            void resample(const EvidenceSet& new_data,
+                          int time_step,
+                          std::shared_ptr<gsl_rng>& random_generator,
+                          const ProcessingBlock& processing_block);
+
+            /**
+             * Sample particles from the discrete distribution of particle
+             * weights.
+             *
+             * @param random_generator: random number generator
+             * @param processing_block: rows to process
+             *
+             * @return Resampled particles
+             */
+            std::vector<int> resample_particle_indices(
+                std::shared_ptr<gsl_rng>& random_generator,
+                const ProcessingBlock& processing_block) const;
+
+            /**
+             * Shuffles posterior weights accumulated for marginal nodes.
+             * Marginal samples do not need to be shuffled because they will be
+             * re-sampled from their posterior in the rao-blackwellization
+             * phase. We need, however, to shuffle posterior weights because
+             * they determine the marginal node's posterior.
+             *
+             * @param node: marginal node
+             * @param particle_indices: indices of particles to select
+             * @param processing_block: rows to process
+             */
+            void shuffle_marginal_posterior_weights(
+                const RVNodePtr& node,
+                const std::vector<int>& particle_indices,
+                const ProcessingBlock& processing_block);
+
+            /**
+             * Shuffles node's samples and the samples from its previous copies
+             * as well. Sampling the copy of the node in the previous time step
+             * is necessary for correct execution of the rao-blackwellization
+             * process. Because transition distributions depend on samples from
+             * the previous time step to be correctly addressed.
+             *
+             * @param node: node
+             * @param particle_indices: indices of particles to select
+             * @param processing_block: rows to process
+             */
+            void
+            shuffle_node_and_previous(const RVNodePtr& node,
+                                      const std::vector<int>& particle_indices,
+                                      const ProcessingBlock& processing_block);
+
+            /**
+             * Shuffles posterior weights of the last left segment for a node
+             * that is controlled by a timer.
+             *
+             * @param node: time controlled node
+             * @param particle_indices: indices of particles to select
+             * @param processing_block: rows to process
+             */
+            void shuffle_timed_node_left_segment_distributions(
+                const RVNodePtr& node,
+                const std::vector<int>& particle_indices,
+                const ProcessingBlock& processing_block);
+
+            /**
+             * Updates the particles with samples from marginal nodes'
+             * posterior distribution and stores updated posterior weights. This
+             * is called Rao-Blackwellization process, commonly used in SLAM for
+             * map estimation.
+             *
+             * @param time_step: time step of the inference process
+             * @param processing_block: rows to process
+             *
+             * @return Marginal probabilities
+             */
+            EvidenceSet
+            apply_rao_blackwellization(int time_step,
+                                       const ProcessingBlock& processing_block);
+
+            /**
              * Resample particles according to observations.
              *
              * @param new_data: evidence
              * @param time_step: time step of the particles
-             * @param sampled_particles: indices of the particles to maintain
+             * @param sampled_particles: indices of the particles to
+             * maintain
              *
              * @return Particles generated in the time step
              */
@@ -332,10 +454,6 @@ namespace tomcat {
             //------------------------------------------------------------------
             static inline int LAST_TEMPLATE_TIME_STEP = 2;
 
-            multithread::ThreadPool thread_pool;
-
-            ProcessingBlocks processing_blocks;
-
             DynamicBayesNet original_dbn;
 
             DynamicBayesNet template_dbn;
@@ -379,6 +497,30 @@ namespace tomcat {
                 last_left_segment_marginal_nodes_distribution_indices;
 
             std::unordered_set<std::string> time_controlled_node_set;
+
+            multithread::ThreadPool thread_pool;
+
+            // Rows to be processed per thread
+            ProcessingBlocks processing_blocks;
+
+            Eigen::VectorXd particle_log_weights;
+
+            std::unique_ptr<gsl_ran_discrete_t> sampling_query_table;
+
+            bool evidence_in_time_step;
+
+            std::vector<RVNodePtrVec> nodes_to_resample_per_time_step;
+
+            // Staged content.
+            // Posterior weights updated per particle of nodes being
+            // marginalized
+            std::unordered_map<std::string, Eigen::MatrixXd>
+                staged_cum_marginal_posterior_log_weights;
+            std::unordered_map<std::string,
+                               std::unordered_map<std::string, Eigen::VectorXi>>
+                staged_last_left_segment_marginal_nodes_distribution_indices;
+            std::unordered_map<std::string, Eigen::VectorXi>
+                staged_last_left_segment_distribution_indices;
         };
 
     } // namespace model

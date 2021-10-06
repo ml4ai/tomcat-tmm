@@ -198,5 +198,19 @@ namespace tomcat {
             this->controlled_node = controlled_node;
         }
 
+        void TimerNode::retain_forward_assignment(
+            const Eigen::MatrixXd& assignment,
+            const ProcessingBlock& processing_block) {
+            this->staged_forward_assignment.block(
+                processing_block.first,
+                0,
+                processing_block.second,
+                this->staged_forward_assignment.cols()) = assignment;
+        }
+
+        void TimerNode::unstage_forward_assignment() {
+            this->set_forward_assignment(this->staged_forward_assignment);
+        }
+
     } // namespace model
 } // namespace tomcat

@@ -2304,6 +2304,26 @@ namespace tomcat {
             return pdfs;
         }
 
+        Eigen::VectorXd
+        CPD::get_pdfs(const shared_ptr<const RandomVariableNode>& cpd_owner,
+                      const ProcessingBlock& processing_block,
+                      int parameter_idx) const {
+
+            auto [initial_row, num_rows] = processing_block;
+            Eigen::VectorXi distribution_indices =
+                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
+                                                       processing_block);
+            Eigen::VectorXd pdfs(num_rows);
+            for (int i = 0; i < num_rows; i++) {
+                const auto& distribution =
+                    this->distributions[distribution_indices[i]];
+                pdfs[i] = distribution->get_pdf(
+                    cpd_owner->get_assignment().row(i + initial_row));
+            }
+
+            return pdfs;
+        }
+
         void CPD::run_pdf_thread(
             const shared_ptr<const RandomVariableNode>& cpd_owner,
             const Eigen::VectorXi& distribution_indices,

@@ -35,6 +35,9 @@ namespace tomcat {
                 split_random_generator(random_generator, num_jobs);
             this->processing_blocks =
                 get_parallel_processing_blocks(num_jobs, num_particles);
+            this->particle_log_weights = Eigen::VectorXd::Zero(num_particles);
+            this->particles = vector<int>(num_particles);
+            this->staged_particles = vector<int>(num_particles);
         }
 
         ParticleFilter::~ParticleFilter() {}
@@ -68,6 +71,20 @@ namespace tomcat {
                         rv_node->get_metadata()->get_sample_size();
                     rv_node->set_assignment(Eigen::MatrixXd::Zero(
                         this->num_particles, sample_size));
+
+                    int time_step = rv_node->get_time_step();
+                    this->nodes_to_resample_per_time_step[time_step].push_back(
+                        rv_node);
+                    if (!rv_node->get_metadata()->is_replicable()) {
+                        // This node is marginalized but we also compute
+                        // particles over time for it
+                        for (int t = time_step + 1;
+                             t <= LAST_TEMPLATE_TIME_STEP;
+                             t++) {
+                            this->nodes_to_resample_per_time_step[t].push_back(
+                                rv_node);
+                        }
+                    }
                 }
             }
 
@@ -113,6 +130,8 @@ namespace tomcat {
 
             vector<future<void>> futures(this->processing_blocks.size());
             for (int t = initial_time_step; t <= final_time_step; t++) {
+                this->check_evidence(t, new_data);
+
                 for (int i = 0; i < this->processing_blocks.size(); i++) {
                     futures[i] = this->thread_pool.submit(
                         bind(&ParticleFilter::predict,
@@ -123,14 +142,16 @@ namespace tomcat {
                              ref(this->random_generators_per_job[i])));
                 }
 
-                // Wait for all the threads to elapse and weigh particles
+                // Wait for all the threads to finish prediction step and
+                // particle weight computation
                 for (auto& future : futures) {
                     future.get();
                 }
 
-                // Prepare the discrete distribution of particles.
-                shared_ptr<gsl_ran_discrete_t> ptable(gsl_ran_discrete_preproc(
-                    weights.rows(), weights.col(0).data()));
+                // TODO - Freeze data nodes
+
+                // Construct table to be queried during particle resampling
+                this->prepare_particle_resampling();
 
                 for (int i = 0; i < this->processing_blocks.size(); i++) {
                     // This will resample and compute RBW
@@ -139,6 +160,7 @@ namespace tomcat {
                              this,
                              ref(new_data),
                              t,
+                             ref(this->random_generators_per_job[i]),
                              ref(this->processing_blocks[i])));
                 }
 
@@ -154,7 +176,15 @@ namespace tomcat {
                 //                    sampled_particles));
                 //                particles.hstack(resampled_particles);
                 //                this->update_left_segment_distribution_indices(t);
-                //                this->move_particles_back_in_time(t);
+                //
+
+                // Wait for all blocks to be processed
+                for (auto& future : futures) {
+                    future.get();
+                }
+
+                // TODO - Stack particle set
+                // TODO - Unfreeze data nodes
 
                 if (this->show_progress) {
                     ++(*progress);
@@ -169,6 +199,27 @@ namespace tomcat {
             this->last_time_step = final_time_step;
 
             return make_pair(particles, marginals);
+        }
+
+        void ParticleFilter::check_evidence(const EvidenceSet& new_data,
+                                            int time_step) {
+            int template_time_step = min(time_step, LAST_TEMPLATE_TIME_STEP);
+            this->evidence_in_time_step = false;
+
+            for (const auto& node_label : new_data.get_node_labels()) {
+                if (this->template_dbn.has_node_with_label(node_label)) {
+                    const auto& node = this->template_dbn.get_node(
+                        node_label, template_time_step);
+                    const auto& data = new_data[node_label];
+                    double value = data.depth(
+                        0, time_step - this->last_time_step - 1)(0, 0);
+
+                    if (node) {
+                        this->evidence_in_time_step = true;
+                        break;
+                    }
+                }
+            }
         }
 
         void
@@ -236,6 +287,9 @@ namespace tomcat {
                     }
                 }
             }
+
+            this->update_particle_weights(
+                new_data, time_step, processing_block);
         }
 
         void
@@ -249,6 +303,574 @@ namespace tomcat {
             Eigen::MatrixXd observation = data;
             node.set_assignment(observation.replicate(num_rows, 1),
                                 processing_block);
+        }
+
+        void ParticleFilter::update_particle_weights(
+            const EvidenceSet& new_data,
+            int time_step,
+            const ProcessingBlock& processing_block) {
+
+            if (!this->evidence_in_time_step)
+                return;
+
+            auto [initial_row, num_rows] = processing_block;
+
+            int template_time_step = min(time_step, LAST_TEMPLATE_TIME_STEP);
+            Eigen::VectorXd log_weights = Eigen::VectorXd::Zero(num_rows);
+            bool has_data_at_time_step = false;
+
+            for (const auto& node_label : new_data.get_node_labels()) {
+                if (this->template_dbn.has_node_with_label(node_label)) {
+                    const auto& node = this->template_dbn.get_node(
+                        node_label, template_time_step);
+                    const auto& data = new_data[node_label];
+                    double value = data.depth(
+                        0, time_step - this->last_time_step - 1)(0, 0);
+                    if (value == NO_OBS) {
+                        // No observation for the node at this time step
+                        continue;
+                    }
+                    if (node) {
+                        log_weights.array() +=
+                            (node->get_pdfs(processing_block).array() + EPSILON)
+                                .log();
+                        has_data_at_time_step = true;
+                    }
+                }
+            }
+
+            if (has_data_at_time_step) {
+                auto block = this->particle_log_weights.block(
+                    initial_row, 0, num_rows, 1);
+                block = log_weights;
+
+                //                Eigen::VectorXd probabilities =
+                //                    log_weights.array() -
+                //                    log_weights.maxCoeff();
+                //                probabilities = probabilities.array().exp();
+                //                probabilities = probabilities.array() /
+                //                probabilities.sum();
+                //
+                //                sampled_particles =
+                //                    Categorical(move(probabilities))
+                //                        .sample_many(this->random_generators_per_job,
+                //                                     this->num_particles,
+                //                                     0)
+                //                        .col(0)
+                //                        .cast<int>();
+            }
+        }
+
+        void ParticleFilter::prepare_particle_resampling() {
+            if (!this->evidence_in_time_step)
+                return;
+
+            Eigen::VectorXd unlog_weights =
+                this->particle_log_weights.array() -
+                this->particle_log_weights.maxCoeff();
+            unlog_weights = unlog_weights.array().exp();
+
+            this->sampling_query_table =
+                unique_ptr<gsl_ran_discrete_t>(gsl_ran_discrete_preproc(
+                    this->num_particles, unlog_weights.data()));
+        }
+
+        EvidenceSet ParticleFilter::create_template_particle_set() {
+            // Prepare set of estimates with the label of the nodes in the DBN
+            EvidenceSet particle_set;
+            for (const auto& node_label : this->data_node_labels) {
+                particle_set.add_data(
+                    node_label,
+                    Tensor3::constant(1, this->num_particles, 1, NO_OBS));
+            }
+
+            return particle_set;
+        }
+
+        void ParticleFilter::resample(const EvidenceSet& new_data,
+                                      int time_step,
+                                      shared_ptr<gsl_rng>& random_generator,
+                                      const ProcessingBlock& processing_block) {
+
+            if (!this->evidence_in_time_step)
+                return;
+
+            int template_time_step = min(time_step, LAST_TEMPLATE_TIME_STEP);
+
+            vector<int> particle_indices = this->resample_particle_indices(
+                random_generator, processing_block);
+
+            for (const auto& node :
+                 this->nodes_to_resample_per_time_step[template_time_step]) {
+                const string& node_label = node->get_metadata()->get_label();
+
+                this->shuffle_node_and_previous(
+                    node, particle_indices, processing_block);
+
+                if (EXISTS(node_label, this->marginal_set)) {
+                    // The estimates for these nodes are computed in an exact
+                    // manner at a later stage.
+                    this->shuffle_marginal_posterior_weights(
+                        node, particle_indices, processing_block);
+                    continue;
+                }
+
+                if (node->has_timer() && time_step > 0) {
+                    this->shuffle_timed_node_left_segment_distributions(
+                        node, particle_indices, processing_block);
+                }
+
+                //                Eigen::MatrixXd filtered_samples;
+                //                if (node->get_metadata()->is_timer()) {
+                //                    filtered_samples =
+                //                        dynamic_pointer_cast<TimerNode>(node)
+                //                            ->get_forward_assignment(processing_block);
+                //                }
+                //                else {
+                //                    filtered_samples =
+                //                    node->get_assignment(processing_block);
+                //                }
+                //
+                //                // Save particles
+                //                Tensor3
+                //                filtered_samples_tensor(filtered_samples); if
+                //                (filtered_samples.cols() > 1) {
+                //                    // If the sample has more than one
+                //                    dimension, we
+                //                    // move the dimension to the depth axis of
+                //                    the
+                //                    // tensor because the column is reserved
+                //                    for the
+                //                    // time dimension.
+                //                    filtered_samples_tensor.reshape(
+                //                        filtered_samples.cols(),
+                //                        filtered_samples.rows(), 1);
+                //                }
+                //
+                //                particle_set.update_data(
+                //                    node_label, filtered_samples_tensor,
+                //                    processing_block);
+            }
+
+            this->apply_rao_blackwellization(
+                time_step, processing_block);
+        }
+
+        void ParticleFilter::apply_rao_blackwellization(
+            int time_step,
+            const ProcessingBlock& processing_block) {
+
+            EvidenceSet marginals;
+
+            bool any_child_timer = false;
+            for (const auto& node : this->marginal_nodes) {
+                any_child_timer |= node->has_child_timer();
+
+                const auto& metadata = node->get_metadata();
+                const string& node_label = metadata->get_label();
+
+                if (node->is_frozen()) {
+                    // Observations were provided for this node so there's no
+                    // need to sample from it. Its probability is deterministic.
+                    Eigen::VectorXd probabilities =
+                        Eigen::VectorXd::Zero(metadata->get_cardinality());
+                    int value = node->get_assignment()(0, 0);
+                    probabilities(value) = 1;
+                    marginals.add_data(
+                        node_label, Tensor3(probabilities), false);
+                    continue;
+                }
+
+                if (time_step < metadata->get_initial_time_step()) {
+                    Tensor3 prior(SamplerEstimator::get_prior(node));
+                    marginals.add_data(metadata->get_label(), prior, false);
+                    this->previous_marginals[node_label] =
+                        marginals[node_label];
+
+                    Tensor3 no_obs =
+                        Tensor3::constant(1,
+                                          this->num_particles,
+                                          metadata->get_sample_size(),
+                                          NO_OBS);
+                    particles.add_data(node_label, no_obs);
+                    continue;
+                }
+
+                if (sampled_particles.size() == 0 && !node->has_child_timer() &&
+                    !any_child_timer) {
+                    // No new observation. Just repeat the last marginal.
+                    if (time_step == metadata->get_initial_time_step()) {
+                        Tensor3 prior(SamplerEstimator::get_prior(node));
+                        marginals.add_data(metadata->get_label(), prior, false);
+                        this->previous_marginals[node_label] =
+                            marginals[node_label];
+                    }
+                    else {
+                        marginals.add_data(node_label,
+                                           this->previous_marginals[node_label],
+                                           false);
+                    }
+                    particles.add_data(node_label, node->get_assignment());
+                    continue;
+                }
+
+                int children_template_time_step =
+                    min(time_step, LAST_TEMPLATE_TIME_STEP);
+
+                // p(child | node) from all child nodes that repeat over
+                // time will be multiplied and accumulated in this variable.
+                Eigen::MatrixXd repeatable_child_log_weights =
+                    Eigen::MatrixXd::Zero(this->num_particles,
+                                          metadata->get_cardinality());
+
+                // p(child | node) from all child nodes that are not
+                // repeatable will be multiplied and accumulated in this
+                // variable.
+                Eigen::MatrixXd single_time_child_log_weights =
+                    Eigen::MatrixXd::Zero(this->num_particles,
+                                          metadata->get_cardinality());
+
+                // Posterior weights for child nodes that are timer are kept
+                // separately because some of them will be accumulated (if
+                // there's a jump) others won't.
+                unordered_map<string, Eigen::MatrixXd>
+                    segment_log_weights_per_timer;
+
+                for (const auto& child :
+                    this->get_marginal_node_children(node, time_step)) {
+
+                    if (child->get_metadata()->is_timer()) {
+                        const auto& child_timer =
+                            dynamic_pointer_cast<TimerNode>(child);
+                        const string& child_label =
+                            child->get_metadata()->get_label();
+
+                        segment_log_weights_per_timer[child_label] =
+                            get_segment_log_weights(node, child_timer);
+
+                        this->update_marginal_left_segment_distributions(
+                            node, child_timer);
+                    }
+                    else {
+                        Eigen::MatrixXd child_weights =
+                            child->get_cpd()->get_posterior_weights(
+                                child->get_parents(),
+                                node,
+                                child,
+                                this->random_generators_per_job.size());
+
+                        if (child->get_metadata()->is_replicable()) {
+                            repeatable_child_log_weights.array() +=
+                                (child_weights.array() + EPSILON).log();
+                        }
+                        else {
+                            single_time_child_log_weights.array() +=
+                                (child_weights.array() + EPSILON).log();
+                        }
+                    }
+                }
+
+                // Accumulate weights
+
+                // Child weights from replicable nodes are always
+                // accumulated because they come from samples that are
+                // generated at every time step.
+                this->cum_marginal_posterior_log_weights[node_label].array() +=
+                    repeatable_child_log_weights.array();
+
+                // We incorporate the most up to date weights from single
+                // time children to compute the node's posterior.
+                Eigen::MatrixXd weights_per_particle =
+                    this->cum_marginal_posterior_log_weights[node_label]
+                        .array() +
+                    single_time_child_log_weights.array();
+
+                // Now we process weights that come from timer nodes that
+                // are children of the marginal node
+                for (const auto& [timer_label, log_weights] :
+                    segment_log_weights_per_timer) {
+                    const auto& timer = dynamic_pointer_cast<TimerNode>(
+                        this->template_dbn.get_node(
+                            timer_label, children_template_time_step));
+
+                    for (int i = 0; i < this->num_particles; i++) {
+                        // We use the current state of the segment to update
+                        // the posterior of the marginal node.
+                        weights_per_particle.row(i).array() +=
+                            log_weights.row(i).array();
+
+                        if (timer->get_forward_assignment()(i, 0) == 0) {
+                            // New segment. We can incorporate the weights
+                            // related to the previous last segment to the
+                            // cumulative weight as the duration of such
+                            // segment does not change anymore and,
+                            // therefore, p(timer | node) do not change for
+                            // that segment.
+                            this->cum_marginal_posterior_log_weights[node_label]
+                                .row(i)
+                                .array() += log_weights.row(i).array();
+                        }
+                    }
+                }
+
+                // Compute weights for the current posteriors per particle.
+                // Open segments are considered here but they are only
+                // accumulates when they become closed, which is when the
+                // semi-Markov model jumps to a new sequence of states in a
+                // different segment.
+                weights_per_particle.colwise() -=
+                    weights_per_particle.rowwise().maxCoeff();
+                weights_per_particle = weights_per_particle.array().exp();
+                Eigen::VectorXd sum_per_row =
+                    weights_per_particle.rowwise().sum();
+                weights_per_particle = weights_per_particle.array().colwise() /
+                                       sum_per_row.array();
+
+                // Compute posterior, calculate estimate based on the
+                // posterior of all the particles and sample a new value
+                // from that posterior.
+                auto posteriors = node->get_cpd()->get_posterior(
+                    weights_per_particle,
+                    node,
+                    this->random_generators_per_job.size());
+                Eigen::VectorXd probabilities =
+                    Eigen::VectorXd::Zero(metadata->get_cardinality());
+                bool process_left_segment = EXISTS(
+                    node_label,
+                    this->last_left_segment_marginal_nodes_distribution_indices);
+
+                int i = 0;
+                for (const auto& posterior : posteriors) {
+                    probabilities.array() += posterior->get_values(0).array();
+
+                    // Each particle holds its own marginal node posterior
+                    double curr_value = node->get_assignment()(i, 0);
+                    double new_value = posterior->sample(
+                        this->random_generators_per_job[0], 0)(0);
+
+                    if (curr_value != new_value) {
+                        node->set_assignment(i, 0, new_value);
+
+                        // Update time controlled node's left segment
+                        // distributions with the most up to date marginal
+                        // node value. A marginal node has only a single
+                        // time instance and, therefore, its current value
+                        // must influence currently open segments.
+                        if (time_step > 0 && process_left_segment) {
+                            for (
+                                const auto& [timer_label, log_weights] :
+                                this->last_left_segment_marginal_nodes_distribution_indices
+                                [node_label]) {
+
+                                const auto& timer =
+                                    dynamic_pointer_cast<TimerNode>(
+                                        this->template_dbn.get_node(
+                                            timer_label,
+                                            children_template_time_step));
+                                const string& timed_node_label =
+                                    timer->get_controlled_node()
+                                        ->get_metadata()
+                                        ->get_label();
+                                auto& distribution_indices =
+                                    this->last_left_segment_distribution_indices
+                                    [timed_node_label];
+
+                                int rcc = timer->get_cpd()
+                                    ->get_parent_label_to_indexing()
+                                    .at(node_label)
+                                    .right_cumulative_cardinality;
+                                distribution_indices(i) +=
+                                    (new_value - curr_value) * rcc;
+                            }
+                        }
+                    }
+                    i++;
+                }
+
+                // Final estimate for a marginal node consider its posterior
+                // in all the particles.
+                probabilities.array() /= probabilities.sum();
+                marginals.add_data(node_label, Tensor3(probabilities), false);
+                this->previous_marginals[node_label] = marginals[node_label];
+
+                // We also include the particles in case it's necessary
+                // Save particles
+                Tensor3 filtered_samples_tensor(node->get_assignment());
+                if (node->get_assignment().cols() > 1) {
+                    // If the sample has more than one dimension, we
+                    // move the dimension to the depth axis of the
+                    // tensor because the column is reserved for the
+                    // time dimension.
+                    filtered_samples_tensor.reshape(
+                        node->get_assignment().cols(), this->num_particles, 1);
+                }
+                particles.add_data(node_label, filtered_samples_tensor);
+            }
+
+            return marginals;
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+        vector<int> ParticleFilter::resample_particle_indices(
+            std::shared_ptr<gsl_rng>& random_generator,
+            const ProcessingBlock& processing_block) const {
+
+            if (!this->evidence_in_time_step)
+                return {};
+
+            auto [initial_row, num_rows] = processing_block;
+
+            vector<int> particles(num_rows);
+            for (int i = 0; i < num_rows; i++) {
+                particles[i] = gsl_ran_discrete(
+                    random_generator.get(), this->sampling_query_table.get());
+            }
+        }
+
+        void ParticleFilter::shuffle_marginal_posterior_weights(
+            const RVNodePtr& node,
+            const std::vector<int>& particle_indices,
+            const ProcessingBlock& processing_block) {
+
+            if (particle_indices.empty() || node->is_frozen())
+                return;
+
+            const string& node_label = node->get_metadata()->get_label();
+            auto& posterior_weights =
+                this->cum_marginal_posterior_log_weights[node_label];
+
+            auto [initial_row, num_rows] = processing_block;
+            int cols =
+                this->cum_marginal_posterior_log_weights[node_label].cols();
+            auto staged_posterior_weights =
+                this->staged_cum_marginal_posterior_log_weights[node_label]
+                    .block(initial_row, 0, num_rows, cols);
+
+            for (int i = 0; i < num_rows; i++) {
+                int particle_index = particle_indices[i];
+                staged_posterior_weights.row(i) =
+                    posterior_weights.row(particle_index);
+            }
+
+            if (EXISTS(
+                    node_label,
+                    this->last_left_segment_marginal_nodes_distribution_indices)) {
+                for (auto& [timer_label, distribution_indices] :
+                     this->last_left_segment_marginal_nodes_distribution_indices
+                         [node_label]) {
+
+                    auto staged_distribution_indices =
+                        this->staged_last_left_segment_marginal_nodes_distribution_indices
+                            [node_label][timer_label]
+                                .block(initial_row, 0, num_rows, 1);
+
+                    for (int i = 0; i < num_rows; i++) {
+                        int particle_index = particle_indices[i];
+                        staged_distribution_indices.row(i) =
+                            distribution_indices.row(particle_index);
+                    }
+                }
+            }
+        }
+
+        void ParticleFilter::shuffle_node_and_previous(
+            const RVNodePtr& node,
+            const std::vector<int>& particle_indices,
+            const ProcessingBlock& processing_block) {
+
+            if (particle_indices.empty() || node->is_frozen())
+                return;
+
+            auto [initial_row, num_rows] = processing_block;
+            int cols = node->get_metadata()->get_sample_size();
+            Eigen::MatrixXd staged_assignment =
+                Eigen::MatrixXd::Zero(num_rows, cols);
+
+            if (node->get_metadata()->is_timer()) {
+                const auto& timer = dynamic_pointer_cast<TimerNode>(node);
+
+                for (int i = 0; i < num_rows; i++) {
+                    int particle_index = particle_indices[i];
+                    staged_assignment.row(i) =
+                        timer->get_forward_assignment().row(particle_index);
+                }
+
+                timer->retain_forward_assignment(staged_assignment,
+                                                 processing_block);
+
+                if (timer->get_previous()) {
+                    const auto& previous_timer =
+                        dynamic_pointer_cast<TimerNode>(timer->get_previous());
+
+                    for (int i = 0; i < num_rows; i++) {
+                        int particle_index = particle_indices[i];
+                        staged_assignment.row(i) =
+                            previous_timer->get_forward_assignment().row(
+                                particle_index);
+                    }
+
+                    previous_timer->retain_forward_assignment(staged_assignment,
+                                                              processing_block);
+                }
+            }
+            else {
+                for (int i = 0; i < num_rows; i++) {
+                    int particle_index = particle_indices[i];
+                    staged_assignment.row(i) =
+                        node->get_assignment().row(particle_index);
+                }
+
+                node->retain_assignment(staged_assignment, processing_block);
+
+                if (node->get_previous()) {
+                    const auto& previous_node = node->get_previous();
+
+                    for (int i = 0; i < num_rows; i++) {
+                        int particle_index = particle_indices[i];
+                        staged_assignment.row(i) =
+                            previous_node->get_assignment().row(particle_index);
+                    }
+
+                    previous_node->retain_assignment(staged_assignment,
+                                                     processing_block);
+                }
+            }
+        }
+
+        void ParticleFilter::shuffle_timed_node_left_segment_distributions(
+            const RVNodePtr& node,
+            const std::vector<int>& particle_indices,
+            const ProcessingBlock& processing_block) {
+
+            if (particle_indices.empty())
+                return;
+
+            auto [initial_row, num_rows] = processing_block;
+
+            const string& node_label = node->get_metadata()->get_label();
+            // Rearrange left segment distribution indices
+            auto& left_segment_distribution_indices =
+                this->last_left_segment_distribution_indices[node_label];
+
+            auto staged_distribution_indices =
+                this->staged_last_left_segment_distribution_indices[node_label]
+                    .block(initial_row, 0, num_rows, 1);
+
+            for (int i = 0; i < num_rows; i++) {
+                int particle_index = particle_indices[i];
+                staged_distribution_indices.row(i) =
+                    left_segment_distribution_indices.row(particle_index);
+            }
         }
 
         EvidenceSet

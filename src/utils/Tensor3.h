@@ -7,6 +7,7 @@
 #include <eigen3/Eigen/Dense>
 
 #include "utils/Definitions.h"
+#include "utils/Multithreading.h"
 
 namespace tomcat {
     namespace model {
@@ -465,8 +466,8 @@ namespace tomcat {
              * Returns a tensor formed by the absolute values of the elements of
              * the original tensor.
              *
-             * @return Tensor formed by the absolute values of the elements of the
-             * original tensor.
+             * @return Tensor formed by the absolute values of the elements of
+             * the original tensor.
              */
             Tensor3 abs() const;
 
@@ -689,6 +690,15 @@ namespace tomcat {
              * @return
              */
             bool equals(const Tensor3& other, double tolerance = EPSILON) const;
+
+            /**
+             * Updates a some rows of a tensor with values from another tensor.
+             *
+             * @param other: other tensor
+             * @param processing_block: rows to update
+             */
+            void update(const Tensor3& other,
+                        const ProcessingBlock& processing_block);
 
           private:
             //------------------------------------------------------------------

@@ -884,8 +884,8 @@ namespace tomcat {
             for (int i = 0; i < this->get_shape().at(0); i++) {
                 for (int j = 0; j < this->get_shape().at(1); j++) {
                     for (int k = 0; k < this->get_shape().at(2); k++) {
-                        if (std::abs(this->tensor[i](j, k) - other.at(i, j, k)) >
-                            tolerance) {
+                        if (std::abs(this->tensor[i](j, k) -
+                                     other.at(i, j, k)) > tolerance) {
                             return false;
                         }
                     }
@@ -893,6 +893,28 @@ namespace tomcat {
             }
 
             return true;
+        }
+
+        void Tensor3::update(const Tensor3& other,
+                             const ProcessingBlock& processing_block) {
+            if (this->get_shape()[0] != other.get_shape()[0] ||
+                this->get_shape()[2] != other.get_shape()[2]) {
+                stringstream ss;
+                ss << "It is not possible to update a tensor of shape ("
+                   << this->get_shape()[0] << ", " << this->get_shape()[1]
+                   << ", " << this->get_shape()[2]
+                   << ") with a tensor of shape (" << other.get_shape()[0]
+                   << ", " << other.get_shape()[1] << ", "
+                   << other.get_shape()[2] << ")";
+                throw TomcatModelException(ss.str());
+            }
+
+            for (int i = 0; i < this->tensor.size(); i++) {
+                this->tensor[i].block(processing_block.first,
+                                      0,
+                                      processing_block.second,
+                                      this->tensor[i].cols()) = other.tensor[i];
+            }
         }
 
     } // namespace model

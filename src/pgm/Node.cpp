@@ -65,6 +65,19 @@ namespace tomcat {
                                     assignment.cols());
         }
 
+        void Node::retain_assignment(const Eigen::MatrixXd& assignment,
+                                     const ProcessingBlock& processing_block) {
+            this->staged_assignment.block(processing_block.first,
+                                          0,
+                                          processing_block.second,
+                                          this->staged_assignment.cols()) =
+                assignment;
+        }
+
+        void Node::unstage_assignment() {
+            this->set_assignment(this->staged_assignment);
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------

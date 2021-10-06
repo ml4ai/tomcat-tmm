@@ -9,8 +9,9 @@ namespace multithread {
     //----------------------------------------------------------------------
     ThreadPool::ThreadPool(unsigned int num_threads) : done(false) {
         // Do not use more than 90% of the available cores/processors
+        int max_cores = max((int)(0.9 * thread::hardware_concurrency()), 1);
         num_threads =
-            min((int)num_threads, (int)(0.9 * thread::hardware_concurrency()));
+            min((int)num_threads, max_cores);
         try {
             for (int i = 0; i < num_threads; i++) {
                 this->threads.push_back(

@@ -148,6 +148,23 @@ namespace tomcat {
             void set_controlled_node(
                 const std::shared_ptr<RandomVariableNode>& controlled_node);
 
+            /**
+             * Stages a temporary forward assignment.
+             *
+             * @param assignment: assignment to be retained
+             * @param processing_block: rows to retain
+             */
+            void
+            retain_forward_assignment(const Eigen::MatrixXd& assignment,
+                                      const ProcessingBlock& processing_block);
+
+            /**
+             * Copies the content of an staged assignment to the timer's
+             * forward assignment. If the timer is frozen, the original
+             * assignment is not modified and this function does nothing.
+             */
+            void unstage_forward_assignment();
+
           private:
             //------------------------------------------------------------------
             // Member functions
@@ -171,6 +188,8 @@ namespace tomcat {
 
             // Timed copy of the node controlled by this timer.
             std::shared_ptr<RandomVariableNode> controlled_node;
+
+            Eigen::MatrixXd staged_forward_assignment;
         };
 
     } // namespace model

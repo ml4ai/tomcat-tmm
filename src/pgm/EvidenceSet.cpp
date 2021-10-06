@@ -215,6 +215,14 @@ namespace tomcat {
             this->node_label_to_data[node_label] = data;
         }
 
+        void EvidenceSet::update_data(const std::string& node_label,
+                         const Tensor3& data,
+                         const ProcessingBlock& processing_block) {
+
+            this->node_label_to_data[node_label].update(data, processing_block);
+
+        }
+
         bool EvidenceSet::has_data_for(const string& node_label) const {
             return EXISTS(node_label, this->node_label_to_data);
         }

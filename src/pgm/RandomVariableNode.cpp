@@ -451,6 +451,13 @@ namespace tomcat {
                 shared_from_this(), num_jobs, parameter_idx);
         }
 
+        Eigen::VectorXd
+        RandomVariableNode::get_pdfs(const ProcessingBlock& processing_block,
+                                     int parameter_idx) const {
+            return this->cpd->get_pdfs(
+                shared_from_this(), processing_block, parameter_idx);
+        }
+
         void RandomVariableNode::update_parents_sufficient_statistics() {
             this->cpd->update_sufficient_statistics(shared_from_this());
         }

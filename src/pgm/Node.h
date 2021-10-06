@@ -145,10 +145,29 @@ namespace tomcat {
             /**
              * Return non-const reference to a block of the node's assignment
              *
+             * @param processing_block: rows to process
+             *
              * @return Reference to the node's assignment block
              */
             Eigen::Block<Eigen::MatrixXd>
             get_modifiable_assignment(const ProcessingBlock& processing_block);
+
+            /**
+             * Stages a temporary assignment.
+             *
+             * @param assignment: assignment to be retained
+             * @param processing_block: rows to retain
+             */
+            void retain_assignment(const Eigen::MatrixXd& assignment,
+                                   const ProcessingBlock& processing_block);
+
+            /**
+             * Copies the content of an staged assignment to the node's
+             * assignment. This function calls set_assignment and it might not
+             * modify the original assignment depending on how this function is
+             * reimplemented in the node's underlying class.
+             */
+            void unstage_assignment();
 
             // --------------------------------------------------------
             // Getters & Setters
@@ -193,7 +212,12 @@ namespace tomcat {
             // of the matrix.
             Eigen::MatrixXd assignment;
 
+            // An assignment can be stacked later restored
             Eigen::MatrixXd stacked_assignment;
+
+            // A temporary assignment that can later be unstaged and replace
+            // the original assignment
+            Eigen::MatrixXd staged_assignment;
         };
 
     } // namespace model

@@ -711,6 +711,19 @@ namespace tomcat {
              * Returns the pdfs computed for the assignments of the cpw owner.
              *
              * @param cpd_owner: node that owns the CPD
+             * @param processing_block: rows to process
+             *
+             * @return Vector of PDFs
+             */
+            virtual Eigen::VectorXd
+            get_pdfs(const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                     const ProcessingBlock& processing_block,
+                     int parameter_idx) const;
+
+            /**
+             * Returns the pdfs computed for the assignments of the cpw owner.
+             *
+             * @param cpd_owner: node that owns the CPD
              * @param num_jobs: number of threads created for parallel
              * sampling. If 1, no parallel processing is performed and the code
              * runs in the main thread
@@ -719,6 +732,7 @@ namespace tomcat {
              *
              * @return Vector of PDFs
              */
+             // TODO - Remove
             virtual Eigen::VectorXd
             get_pdfs(const std::shared_ptr<const RandomVariableNode>& cpd_owner,
                      int num_jobs,

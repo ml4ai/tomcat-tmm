@@ -9,6 +9,7 @@
 
 #include "utils/Definitions.h"
 #include "utils/FileHandler.h"
+#include "utils/Multithreading.h"
 
 namespace tomcat {
     namespace model {
@@ -138,6 +139,17 @@ namespace tomcat {
             void add_data(const std::string& node_label,
                           const Tensor3& data,
                           bool check_dimensions = true);
+
+            /**
+             * Updates data for a specific node.
+             *
+             * @param node_label: node's label
+             * @param data: values for the node
+             * @param processing_block: rows to update
+             */
+            void update_data(const std::string& node_label,
+                             const Tensor3& data,
+                             const ProcessingBlock& processing_block);
 
             /**
              * Checks whether this object contains data for a given node.

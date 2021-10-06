@@ -119,8 +119,7 @@ namespace tomcat {
              * @return Samples from the node's CPD.
              */
             Eigen::MatrixXd
-            sample(std::shared_ptr<gsl_rng>&
-                       random_generator,
+            sample(std::shared_ptr<gsl_rng>& random_generator,
                    const ProcessingBlock& processing_block,
                    const std::vector<int>& time_steps_per_sample = {}) const;
 
@@ -212,6 +211,18 @@ namespace tomcat {
             /**
              * Gets pdfs associated with the node's assignments.
              *
+             * @param processing_block: rows to process
+             * @param parameter_idx: index of the parameter's assignments to
+             * consider as parameters of the distributions in the CPD.
+             *
+             * @return Pdfs.
+             */
+            Eigen::VectorXd get_pdfs(const ProcessingBlock& processing_block,
+                                     int parameter_idx = 0) const;
+
+            /**
+             * Gets pdfs associated with the node's assignments.
+             *
              * @param num_jobs: number of threads to be used in this
              * computation.
              * @param parameter_idx: index of the parameter's assignments to
@@ -219,6 +230,7 @@ namespace tomcat {
              *
              * @return Pdfs.
              */
+            // TODO - Remove
             Eigen::VectorXd get_pdfs(int num_jobs, int parameter_idx) const;
 
             /**
@@ -614,6 +626,8 @@ namespace tomcat {
             std::shared_ptr<TimerNode> timer;
 
             bool child_timer = false;
+
+            Eigen::MatrixXd staged_assignment;
         };
 
     } // namespace model
