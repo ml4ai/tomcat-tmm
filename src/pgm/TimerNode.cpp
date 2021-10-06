@@ -129,6 +129,17 @@ namespace tomcat {
                 sample_idx);
         }
 
+        void TimerNode::stack_forward_assignment() {
+            this->stacked_forward_assignment = this->forward_assignment;
+        }
+
+        void TimerNode::pop_forward_assignment() {
+            if (this->stacked_forward_assignment.size() > 0) {
+                this->set_forward_assignment(this->stacked_forward_assignment);
+            }
+            this->stacked_forward_assignment = Eigen::MatrixXd(0, 0);
+        }
+
         // ---------------------------------------------------------------------
         // Getters & Setters
         // ---------------------------------------------------------------------
@@ -157,11 +168,13 @@ namespace tomcat {
         void TimerNode::set_forward_assignment(
             const Eigen::MatrixXd& forward_assignment,
             const ProcessingBlock& processing_block) {
-            this->forward_assignment.block(processing_block.first,
-                                           0,
-                                           processing_block.second,
-                                           this->forward_assignment.cols()) =
-                forward_assignment;
+            if (!this->is_frozen()) {
+                this->forward_assignment.block(
+                    processing_block.first,
+                    0,
+                    processing_block.second,
+                    this->forward_assignment.cols()) = forward_assignment;
+            }
         }
 
         const Eigen::MatrixXd& TimerNode::get_backward_assignment() const {
@@ -179,7 +192,7 @@ namespace tomcat {
 
         void TimerNode::set_backward_assignment(
             const Eigen::MatrixXd& backward_assignment) {
-            this->assignment = backward_assignment;
+            this->set_assignment(backward_assignment);
         }
 
         void TimerNode::set_backward_assignment(
@@ -198,18 +211,9 @@ namespace tomcat {
             this->controlled_node = controlled_node;
         }
 
-        void TimerNode::retain_forward_assignment(
-            const Eigen::MatrixXd& assignment,
-            const ProcessingBlock& processing_block) {
-            this->staged_forward_assignment.block(
-                processing_block.first,
-                0,
-                processing_block.second,
-                this->staged_forward_assignment.cols()) = assignment;
-        }
-
-        void TimerNode::unstage_forward_assignment() {
-            this->set_forward_assignment(this->staged_forward_assignment);
+        const Eigen::MatrixXd&
+        TimerNode::get_stacked_forward_assignment() const {
+            return stacked_forward_assignment;
         }
 
     } // namespace model

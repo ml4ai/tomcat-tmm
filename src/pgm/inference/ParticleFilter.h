@@ -179,13 +179,31 @@ namespace tomcat {
             void prepare_particle_resampling();
 
             /**
-             * Create a set of particles for all nodes in the DBN. This will be
+             * Creates a set of particles for all nodes in the DBN. This will be
              * filled with actual numbers sampled from the nodes in the
              * shuffling step.
              *
              * @return Particle set.
              */
-            EvidenceSet create_template_particle_set();
+            EvidenceSet create_template_particle_set() const;
+
+            /**
+             * Creates an empy set of marginal probabilities for each
+             * marginalizable node. The final probabilities will be computed by
+             * individual threads and updated into the template structure.
+             *
+             * @return Marginal probabilities.
+             */
+            std::unordered_map<std::string, Eigen::MatrixXd>
+            create_template_marginal_probabilities() const;
+
+            /**
+             * Store nodes' assignments and local computations so independent
+             * threads can read from them when shuffling particles.
+             *
+             * @param time_step: time step of the particles
+             */
+            void stack_computations(int time_step);
 
             /**
              * Resample particles according to observations and apply
@@ -195,13 +213,22 @@ namespace tomcat {
              * @param time_step: time step of the particles
              * @param random_generator: random number generator
              * @param processing_block: rows to process
+             * @param particle_set: template set of particles to be filled with
+             * valid values
+             * @param marginal_probabilities: template marginal probabilities to
+             * be filled with valid values
+             * @param thread_order: index of the running thread
              *
              * @return Particles generated in the time step
              */
             void resample(const EvidenceSet& new_data,
                           int time_step,
                           std::shared_ptr<gsl_rng>& random_generator,
-                          const ProcessingBlock& processing_block);
+                          const ProcessingBlock& processing_block,
+                          EvidenceSet& particle_set,
+                          std::unordered_map<std::string, Eigen::MatrixXd>&
+                              marginal_probabilities,
+                          int thread_order);
 
             /**
              * Sample particles from the discrete distribution of particle
@@ -269,12 +296,23 @@ namespace tomcat {
              *
              * @param time_step: time step of the inference process
              * @param processing_block: rows to process
+             * @param particle_set: template set of particles to be filled with
+             * valid values
+             * @param marginal_set: template set of marginals to be filled with
+             * valid values
+             * @param marginal_probabilities: template marginal probabilities to
+             * be filled with valid values
+             * @param thread_order: index of the running thread
              *
              * @return Marginal probabilities
              */
-            EvidenceSet
-            apply_rao_blackwellization(int time_step,
-                                       const ProcessingBlock& processing_block);
+            void apply_rao_blackwellization(
+                int time_step,
+                const ProcessingBlock& processing_block,
+                EvidenceSet& particle_set,
+                std::unordered_map<std::string, Eigen::MatrixXd>&
+                    marginal_probabilities,
+                int thread_order);
 
             /**
              * Resample particles according to observations.
@@ -515,12 +553,12 @@ namespace tomcat {
             // Posterior weights updated per particle of nodes being
             // marginalized
             std::unordered_map<std::string, Eigen::MatrixXd>
-                staged_cum_marginal_posterior_log_weights;
+                stacked_cum_marginal_posterior_log_weights;
             std::unordered_map<std::string,
                                std::unordered_map<std::string, Eigen::VectorXi>>
-                staged_last_left_segment_marginal_nodes_distribution_indices;
+                stacked_last_left_segment_marginal_nodes_distribution_indices;
             std::unordered_map<std::string, Eigen::VectorXi>
-                staged_last_left_segment_distribution_indices;
+                stacked_last_left_segment_distribution_indices;
         };
 
     } // namespace model

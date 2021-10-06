@@ -107,9 +107,20 @@ namespace tomcat {
 
             /**
              * Computes the duration of the segments backwards.
-             *
              */
             void update_backward_assignment();
+
+            /**
+             * Saves the node's current forward assignment for future usage.
+             */
+            void stack_forward_assignment();
+
+            /**
+             * Sets as the node's forward assignment a previously stacked
+             * forward assignment. If there's no assignment stacked, the node's
+             * assignment is preserved.
+             */
+            void pop_forward_assignment();
 
             // -----------------------------------------------------------------
             // Getters & Setters
@@ -148,22 +159,7 @@ namespace tomcat {
             void set_controlled_node(
                 const std::shared_ptr<RandomVariableNode>& controlled_node);
 
-            /**
-             * Stages a temporary forward assignment.
-             *
-             * @param assignment: assignment to be retained
-             * @param processing_block: rows to retain
-             */
-            void
-            retain_forward_assignment(const Eigen::MatrixXd& assignment,
-                                      const ProcessingBlock& processing_block);
-
-            /**
-             * Copies the content of an staged assignment to the timer's
-             * forward assignment. If the timer is frozen, the original
-             * assignment is not modified and this function does nothing.
-             */
-            void unstage_forward_assignment();
+            const Eigen::MatrixXd& get_stacked_forward_assignment() const;
 
           private:
             //------------------------------------------------------------------
@@ -189,7 +185,7 @@ namespace tomcat {
             // Timed copy of the node controlled by this timer.
             std::shared_ptr<RandomVariableNode> controlled_node;
 
-            Eigen::MatrixXd staged_forward_assignment;
+            Eigen::MatrixXd stacked_forward_assignment;
         };
 
     } // namespace model

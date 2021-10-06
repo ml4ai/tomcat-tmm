@@ -42,7 +42,7 @@ namespace tomcat {
 
         void Node::pop_assignment() {
             if (this->stacked_assignment.size() > 0) {
-                this->assignment = this->stacked_assignment;
+                this->set_assignment(this->stacked_assignment);
             }
             this->stacked_assignment = Eigen::MatrixXd(0, 0);
         }
@@ -63,19 +63,6 @@ namespace tomcat {
                                     0,
                                     processing_block.second,
                                     assignment.cols());
-        }
-
-        void Node::retain_assignment(const Eigen::MatrixXd& assignment,
-                                     const ProcessingBlock& processing_block) {
-            this->staged_assignment.block(processing_block.first,
-                                          0,
-                                          processing_block.second,
-                                          this->staged_assignment.cols()) =
-                assignment;
-        }
-
-        void Node::unstage_assignment() {
-            this->set_assignment(this->staged_assignment);
         }
 
         //----------------------------------------------------------------------
@@ -111,6 +98,10 @@ namespace tomcat {
                                    0,
                                    processing_block.second,
                                    this->assignment.cols()) = assignment;
+        }
+
+        const Eigen::MatrixXd& Node::get_stacked_assignment() const {
+            return stacked_assignment;
         }
 
     } // namespace model

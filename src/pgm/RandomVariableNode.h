@@ -626,8 +626,6 @@ namespace tomcat {
             std::shared_ptr<TimerNode> timer;
 
             bool child_timer = false;
-
-            Eigen::MatrixXd staged_assignment;
         };
 
     } // namespace model
