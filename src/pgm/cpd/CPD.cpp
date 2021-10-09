@@ -1655,7 +1655,7 @@ namespace tomcat {
             for (int i = initial_row; i < initial_row + num_rows; i++) {
                 const auto& distribution =
                     this->distributions[distribution_indices[i]];
-                pdfs[i] =
+                pdfs[i - initial_row] =
                     distribution->get_pdf(cpd_owner->get_assignment().row(i));
             }
 
