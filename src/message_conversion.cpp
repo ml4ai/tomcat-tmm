@@ -9,6 +9,7 @@
 
 #include "converter/ASISTMultiPlayerMessageConverter.h"
 #include "converter/ASISTSinglePlayerMessageConverter.h"
+#include "converter/ASISTStudy3MessageConverter.h"
 
 using namespace tomcat::model;
 using namespace std;
@@ -17,19 +18,22 @@ namespace po = boost::program_options;
 void extract_data_from_messages(const string& map_json,
                                 const string& messages_dir,
                                 const string& data_dir,
-                                bool multiplayer,
+                                int study_num,
                                 int num_players,
                                 int num_seconds,
                                 int time_step_size) {
 
     shared_ptr<ASISTMessageConverter> converter;
-    if (multiplayer) {
-        converter = make_shared<ASISTMultiPlayerMessageConverter>(
-            num_seconds, time_step_size, map_json, num_players);
-    }
-    else {
+    if (study_num == 1) {
         converter = make_shared<ASISTSinglePlayerMessageConverter>(
             num_seconds, time_step_size, map_json);
+    }
+    else if (study_num == 2) {
+        converter = make_shared<ASISTMultiPlayerMessageConverter>(
+            num_seconds, time_step_size, map_json, num_players);
+    } else {
+        converter = make_shared<ASISTStudy3MessageConverter>(
+            num_seconds, time_step_size, map_json, num_players);
     }
 
     converter->convert_messages(messages_dir, data_dir);
@@ -39,7 +43,7 @@ int main(int argc, char* argv[]) {
     string map_json;
     string messages_dir;
     string data_dir;
-    bool multiplayer;
+    int study_num;
     int num_players;
     int num_seconds;
     int time_step_size;
@@ -50,7 +54,7 @@ int main(int argc, char* argv[]) {
                        "ASIST test bed to the matrix format that"
                        " can be interpreted by a DBN.")(
         "map_json",
-        po::value<string>(&map_json)->required(),
+        po::value<string>(&map_json)->default_value(""),
         "Path to the json file containing the map configuration.")(
         "messages_dir",
         po::value<string>(&messages_dir)->required(),
@@ -58,9 +62,9 @@ int main(int argc, char* argv[]) {
         "data_dir",
         po::value<string>(&data_dir)->required(),
         "Directory where the data must be saved.")(
-        "multiplayer",
-        po::bool_switch(&multiplayer),
-        "Whether the messages come from a multiplayer mission.")(
+        "study",
+        po::value<int>(&study_num)->default_value(3)->required(),
+        "Number of the study: 1, 2 or 3")(
         "players",
         po::value<int>(&num_players)->default_value(3),
         "Number of players in the multiplayer mission.")(
@@ -82,7 +86,7 @@ int main(int argc, char* argv[]) {
     extract_data_from_messages(map_json,
                                messages_dir,
                                data_dir,
-                               multiplayer,
+                               study_num,
                                num_players,
                                num_seconds,
                                time_step_size);

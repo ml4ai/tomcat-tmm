@@ -7,7 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include "pipeline/estimation/Agent.h"
-#include "pipeline/estimation/EstimateReporter.h"
+#include "reporter/EstimateReporter.h"
 #include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
 #include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
@@ -48,7 +48,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             std::vector<nlohmann::json>
             translate_estimates_to_messages(const AgentPtr& agent,
-                                            int time_step) const;
+                                            int time_step);
 
             nlohmann::json build_log_message(const AgentPtr& agent,
                                              const std::string& log) const;

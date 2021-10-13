@@ -23,7 +23,9 @@ namespace tomcat {
             const MsgConverterPtr& message_converter,
             const EstimateReporterPtr& reporter)
             : EstimationProcess(agent, reporter), config(config),
-              message_converter(message_converter) {}
+              message_converter(message_converter) {
+            this->prepare();
+        }
 
         OnlineEstimation::~OnlineEstimation() {}
 
@@ -49,6 +51,7 @@ namespace tomcat {
             this->messages_to_process.clear();
             this->last_time_step = -1;
             this->evidence_metadata.clear();
+            this->message_converter->start_new_mission();
         }
 
         void

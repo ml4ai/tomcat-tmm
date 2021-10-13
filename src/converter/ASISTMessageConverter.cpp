@@ -30,12 +30,14 @@ namespace tomcat {
             // separate file.
             this->fov_filepaths.clear();
             string fov_dir = messages_dir + "/FoV";
-            for (const auto& file : fs::directory_iterator(fov_dir)) {
-                string filename = file.path().filename().string();
-                const size_t start = filename.find("T00");
-                const size_t end = filename.find("_Member");
-                string trial_team = filename.substr(start, end - start);
-                this->fov_filepaths[trial_team] = file.path().string();
+            if (fs::exists(fov_dir)) {
+                for (const auto& file : fs::directory_iterator(fov_dir)) {
+                    string filename = file.path().filename().string();
+                    const size_t start = filename.find("T00");
+                    const size_t end = filename.find("_Member");
+                    string trial_team = filename.substr(start, end - start);
+                    this->fov_filepaths[trial_team] = file.path().string();
+                }
             }
             MessageConverter::convert_messages(messages_dir, data_dir);
         }

@@ -4,7 +4,7 @@
 
 #include "pgm/EvidenceSet.h"
 #include "pipeline/estimation/Agent.h"
-#include "pipeline/estimation/EstimateReporter.h"
+#include "reporter/EstimateReporter.h"
 #include "utils/Definitions.h"
 
 namespace tomcat {

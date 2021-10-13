@@ -56,7 +56,7 @@ namespace tomcat {
              */
             virtual std::vector<nlohmann::json>
             translate_estimates_to_messages(const AgentPtr& agent,
-                                 int time_step) const = 0;
+                                 int time_step) = 0;
 
             /**
              * Builds a log message with a given text.

@@ -7,7 +7,7 @@
 #include "pipeline/DBNSaver.h"
 #include "pipeline/DataSplitter.h"
 #include "pipeline/Pipeline.h"
-#include "pipeline/estimation/EstimateReporter.h"
+#include "reporter/EstimateReporter.h"
 #include "pipeline/estimation/OfflineEstimation.h"
 #include "pipeline/estimation/OnlineEstimation.h"
 #include "pipeline/estimation/ParticleFilterEstimator.h"
@@ -66,10 +66,11 @@ namespace tomcat {
             else {
                 final_params_dir = fmt::format("{}/fold{{}}", params_dir);
                 try {
-                    // Tries to load pre-existent indices from the params folder.
-                    splitter =
-                        DataSplitter(data, params_dir);
-                } catch (TomcatModelException e) {
+                    // Tries to load pre-existent indices from the params
+                    // folder.
+                    splitter = DataSplitter(data, params_dir);
+                }
+                catch (TomcatModelException e) {
                     splitter =
                         DataSplitter(data, num_folds, this->random_generator);
                     splitter.save_indices(params_dir);
@@ -417,10 +418,6 @@ namespace tomcat {
                 }
             }
 
-            shared_ptr<DBNTrainer> loader =
-                make_shared<DBNLoader>(this->model, final_params_dir, true);
-            EvidenceSet empty_training;
-
             fs::create_directories(eval_dir);
             string filepath =
                 fmt::format("{}/{}.json", eval_dir, this->experiment_id);
@@ -430,7 +427,12 @@ namespace tomcat {
             this->estimation->set_display_estimates(true);
             Pipeline pipeline(this->experiment_id, output_file);
             pipeline.set_data_splitter(data_splitter);
-            pipeline.set_model_trainer(loader);
+
+            if (params_dir != "") {
+                shared_ptr<DBNTrainer> loader =
+                    make_shared<DBNLoader>(this->model, final_params_dir, true);
+                pipeline.set_model_trainer(loader);
+            }
             pipeline.set_estimation_process(this->estimation);
             if (this->evaluation->has_measures()) {
                 pipeline.set_aggregator(this->evaluation);
@@ -446,10 +448,6 @@ namespace tomcat {
             shared_ptr<DataSplitter> data_splitter =
                 make_shared<DataSplitter>(empty_set, empty_set);
 
-            shared_ptr<DBNTrainer> loader =
-                make_shared<DBNLoader>(this->model, params_dir, true);
-            EvidenceSet empty_training;
-
             for (const auto& estimator :
                  this->estimation->get_agent()->get_estimators()) {
                 for (const auto& base_estimator :
@@ -460,7 +458,11 @@ namespace tomcat {
 
             Pipeline pipeline;
             pipeline.set_data_splitter(data_splitter);
-            pipeline.set_model_trainer(loader);
+            if (params_dir != "") {
+                shared_ptr<DBNTrainer> loader =
+                    make_shared<DBNLoader>(this->model, params_dir, true);
+                pipeline.set_model_trainer(loader);
+            }
             pipeline.set_estimation_process(this->estimation);
             pipeline.execute();
         }
@@ -475,9 +477,12 @@ namespace tomcat {
             int num_jobs) {
 
             this->model->unroll(num_time_steps, true);
-            shared_ptr<DBNTrainer> loader =
-                make_shared<DBNLoader>(this->model, params_dir, true);
-            loader->fit({});
+
+            if (params_dir != "") {
+                shared_ptr<DBNTrainer> loader =
+                    make_shared<DBNLoader>(this->model, params_dir, true);
+                loader->fit({});
+            }
 
             AncestralSampler sampler(this->model, num_jobs);
             sampler.set_num_in_plate_samples(num_data_samples);
