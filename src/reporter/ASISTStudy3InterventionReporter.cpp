@@ -40,7 +40,7 @@ namespace tomcat {
             vector<nlohmann::json> messages;
 
             // Interventions after 2.5, 5 and 8 minutes since the mission start
-            if (time_step == 30 || time_step == 150 || time_step == 300 ||
+            if (time_step == 10 || time_step == 150 || time_step == 300 ||
                 time_step == 480 || time_step == 570) {
                 nlohmann::json intervention_message;
                 intervention_message["header"] =
@@ -49,7 +49,7 @@ namespace tomcat {
                 intervention_message["data"] =
                     this->get_common_data_section(agent, time_step);
 
-                if (time_step == 30) {
+                if (time_step == 10) {
                     intervention_message["data"]["content"] =
                         this->get_introductory_speech();
                 }

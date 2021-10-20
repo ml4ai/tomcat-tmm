@@ -71,6 +71,8 @@ namespace tomcat {
             const nlohmann::json& json_message,
             nlohmann::json& json_mission_log) {
 
+            cout << "Received message!!!" << endl;
+
             EvidenceSet data;
             if (json_message["header"]["message_type"] == "event" &&
                 json_message["msg"]["sub_type"] == "Event:MissionState") {
