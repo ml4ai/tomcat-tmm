@@ -113,7 +113,7 @@ namespace tomcat {
              *
              * @return: List of participant ids
              */
-            std::string get_player_list(const AgentPtr& agent) const;
+            nlohmann::json  get_player_list(const AgentPtr& agent) const;
 
             /**
              * Calculates the timestamp at a given time step within the mission.

@@ -154,14 +154,14 @@ namespace tomcat {
 
             boost::uuids::uuid u = boost::uuids::random_generator()();
             msg_common["id"] = boost::uuids::to_string(u);
-            msg_common["agent"] = agent->get_id();
-            msg_common["start"] = this->get_milliseconds_at(agent, time_step);
-            msg_common["end"] =
-                this->get_milliseconds_at(agent, time_step + 180);
-
-            msg_common["receiver"] = this->get_player_list(agent);
+            msg_common["source"] = agent->get_id();
+            msg_common["created"] = this->get_current_timestamp();
+            msg_common["start"] = -1;
+            msg_common["duration"] = 1;
+            msg_common["receivers"] = this->get_player_list(agent);
             msg_common["type"] = "string";
-            msg_common["renderer"] = "Minecraft_Chat";
+            msg_common["renderers"] = nlohmann::json::array();
+            msg_common["renderers"].push_back("Minecraft_Chat");
 
             return msg_common;
         }
@@ -224,16 +224,16 @@ namespace tomcat {
             return speech;
         }
 
-        string ASISTStudy3InterventionReporter::get_player_list(
+        nlohmann::json ASISTStudy3InterventionReporter::get_player_list(
             const AgentPtr& agent) const {
-            vector<string> player_ids;
+            nlohmann::json player_ids = nlohmann::json::array();
 
             for (const auto json_player :
                  agent->get_evidence_metadata()["players"]) {
                 player_ids.push_back(json_player["id"]);
             }
 
-            return boost::algorithm::join(player_ids, ",");
+            return player_ids;
         }
 
         string ASISTStudy3InterventionReporter::get_timestamp_at(
