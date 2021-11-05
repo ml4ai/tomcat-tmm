@@ -44,24 +44,6 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
-            nlohmann::json
-            build_heartbeat_message(const AgentPtr& agent) override;
-
-            nlohmann::json
-            build_start_of_mission_message(const AgentPtr& agent) override;
-
-            nlohmann::json
-            build_end_of_mission_message(const AgentPtr& agent) override;
-
-            nlohmann::json
-            build_message_by_request(const AgentPtr& agent,
-                                     const nlohmann::json& request_message,
-                                     int time_step) override;
-
-            std::string get_request_response_topic(
-                const nlohmann::json& request_message,
-                const MessageBrokerConfiguration& broker_config) override;
-
             std::vector<nlohmann::json>
             translate_estimates_to_messages(const AgentPtr& agent,
                                             int time_step) override;
@@ -162,34 +144,10 @@ namespace tomcat {
              */
             int get_milliseconds_at(const AgentPtr& agent, int time_step) const;
 
-            /**
-             * Builds a message to communicate information about a running
-             * agent.
-             *
-             * @param agent: agent
-             *
-             * @return Version info message
-             */
-            nlohmann::json build_version_info_message(const AgentPtr& agent);
-
-            /**
-             * Builds a message to let the system know that the agent is up by
-             * the system's request.
-             */
-            nlohmann::json
-            build_rollcall_message(const AgentPtr& agent,
-                                   const nlohmann::json& request_message,
-                                   int time_step);
-
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
-            bool mission_started = false;
-
             int last_quality = -1;
-
-            std::chrono::time_point<std::chrono::steady_clock>
-                time_last_heartbeat;
         };
 
     } // namespace model

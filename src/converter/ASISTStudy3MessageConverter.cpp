@@ -63,7 +63,6 @@ namespace tomcat {
             topics.insert("observations/events/mission");
             topics.insert("observations/state");
             topics.insert("observations/events/scoreboard");
-            topics.insert("agent/control/rollcall/request");
 
             return topics;
         }
@@ -237,12 +236,6 @@ namespace tomcat {
                      json_message["data"]["mission_state"] == "Stop") {
                 this->write_to_log_on_mission_finished(json_mission_log);
                 this->mission_finished = true;
-            }
-            else if (json_message["header"]["message_type"] == "agent" &&
-                     json_message["msg"]["sub_type"] == "rollcall:request") {
-                if (this->callback_function) {
-                    this->callback_function(json_message);
-                }
             }
 
             if (!this->mission_finished) {

@@ -142,9 +142,6 @@ namespace tomcat {
 
             // Information about the trial being processed
             nlohmann::json evidence_metadata;
-
-            bool start_message_published;
-            bool final_message_published;
         };
 
     } // namespace model

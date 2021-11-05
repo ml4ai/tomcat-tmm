@@ -16,10 +16,6 @@ namespace tomcat {
             int milliseconds_before_retrial;
             std::string estimates_topic;
             std::string log_topic;
-            std::string heartbeat_topic;
-            std::string start_of_mission_topic;
-            std::string end_of_mission_topic;
-            std::string rollcall_response_topic;
         };
     } // namespace model
 } // namespace tomcat

@@ -47,38 +47,6 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Builds a heartbeat message to let the system know that the agent
-             * is alive
-             *
-             * @param agent: agent
-             * @return Heartbeat message
-             */
-            virtual nlohmann::json
-            build_heartbeat_message(const AgentPtr& agent);
-
-            /**
-             * Builds any message that must be published when a mission
-             * starts.
-             *
-             * @param agent: agent
-             *
-             * @return End of mission message
-             */
-            virtual nlohmann::json
-            build_start_of_mission_message(const AgentPtr& agent);
-
-            /**
-             * Builds any message that must be published when a mission
-             * finishes.
-             *
-             * @param agent: agent
-             *
-             * @return End of mission message
-             */
-            virtual nlohmann::json
-            build_end_of_mission_message(const AgentPtr& agent);
-
-            /**
              * Builds a message as a response to another message.
              *
              * @param agent: agent

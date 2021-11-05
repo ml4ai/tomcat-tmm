@@ -142,11 +142,6 @@ namespace tomcat {
                 config.port = broker["port"];
                 config.estimates_topic = broker["estimates_topic"];
                 config.log_topic = broker["log_topic"];
-                config.heartbeat_topic = broker["heartbeat_topic"];
-                config.start_of_mission_topic =
-                    broker["start_of_mission_topic"];
-                config.end_of_mission_topic = broker["end_of_mission_topic"];
-                config.rollcall_response_topic = broker["rollcall_response_topic"];
                 config.num_connection_trials = broker["num_connection_trials"];
                 config.milliseconds_before_retrial =
                     broker["milliseconds_before_connection_retrial"];

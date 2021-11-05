@@ -21,24 +21,6 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
 
-        nlohmann::json
-        EstimateReporter::build_heartbeat_message(const AgentPtr& agent) {
-            // No heartbeat message by default
-            return {};
-        }
-
-        nlohmann::json EstimateReporter::build_start_of_mission_message(
-            const AgentPtr& agent) {
-            // No message by default
-            return {};
-        }
-
-        nlohmann::json
-        EstimateReporter::build_end_of_mission_message(const AgentPtr& agent) {
-            // No message by default
-            return {};
-        }
-
         nlohmann::json EstimateReporter::build_message_by_request(
             const AgentPtr& agent,
             const nlohmann::json& request_message,
