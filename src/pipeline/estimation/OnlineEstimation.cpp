@@ -59,6 +59,7 @@ namespace tomcat {
             this->last_time_step = -1;
             this->evidence_metadata.clear();
             this->message_converter->start_new_mission();
+            this->reporter->prepare();
         }
 
         void
@@ -94,6 +95,8 @@ namespace tomcat {
         void OnlineEstimation::run_estimation_thread() {
             while (this->running || !this->messages_to_process.empty()) {
                 this->publish_heartbeat();
+                this->publish_start_of_mission_message();
+
                 EvidenceSet new_data =
                     this->get_next_data_from_pending_messages();
                 if (!new_data.empty()) {
@@ -101,11 +104,9 @@ namespace tomcat {
                         cout << "Agent " << this->agent->get_id()
                              << " is awake and working..." << endl;
                     }
-
                     this->agent->estimate(new_data);
                     this->last_time_step++;
                     this->publish_last_estimates();
-
                     if (this->message_converter->is_mission_finished()) {
                         this->publish_end_of_mission_message();
                         if (this->config.log_topic != "" && this->reporter) {
@@ -113,12 +114,11 @@ namespace tomcat {
                             ss << "The maximum time step defined for the "
                                   "mission has been reached. Waiting for a new "
                                   "mission to start...";
-                            string message =
-                                this->reporter
-                                    ->build_log_message(this->agent, ss.str())
-                                    .dump();
+                            auto message = this->reporter->build_log_message(
+                                this->agent, ss.str());
                             if (!message.empty()) {
-                                this->publish(this->config.log_topic, message);
+                                this->publish(this->config.log_topic,
+                                              message.dump());
                             }
                         }
 
@@ -131,10 +131,10 @@ namespace tomcat {
 
         void OnlineEstimation::publish_heartbeat() {
             if (!this->message_converter->is_mission_finished()) {
-                string message =
-                    this->reporter->build_heartbeat_message(this->agent).dump();
+                auto message =
+                    this->reporter->build_heartbeat_message(this->agent);
                 if (!message.empty()) {
-                    this->publish(this->config.heartbeat_topic, message);
+                    this->publish(this->config.heartbeat_topic, message.dump());
                 }
             }
         }
@@ -142,26 +142,26 @@ namespace tomcat {
         void OnlineEstimation::publish_start_of_mission_message() {
             if (!this->message_converter->is_mission_finished() &&
                 !this->start_message_published) {
-                string message =
-                    this->reporter->build_start_of_mission_message(this->agent)
-                        .dump();
+                auto message =
+                    this->reporter->build_start_of_mission_message(this->agent);
                 if (!message.empty()) {
-                    this->publish(this->config.start_of_mission_topic, message);
+                    this->publish(this->config.start_of_mission_topic,
+                                  message.dump());
+                    this->start_message_published = true;
                 }
-                this->start_message_published = true;
             }
         }
 
         void OnlineEstimation::publish_end_of_mission_message() {
             if (this->message_converter->is_mission_finished() &&
                 !this->final_message_published) {
-                string message =
-                    this->reporter->build_end_of_mission_message(this->agent)
-                        .dump();
+                auto message =
+                    this->reporter->build_end_of_mission_message(this->agent);
                 if (!message.empty()) {
-                    this->publish(this->config.end_of_mission_topic, message);
+                    this->publish(this->config.end_of_mission_topic,
+                                  message.dump());
+                    this->final_message_published = true;
                 }
-                this->final_message_published = true;
             }
         }
 

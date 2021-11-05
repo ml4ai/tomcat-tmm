@@ -38,7 +38,15 @@ namespace tomcat {
             const AgentPtr& agent) {
             nlohmann::json msg;
 
+            if (agent->get_evidence_metadata().empty()) return {};
+
             auto curr_time = chrono::steady_clock::now();
+            if (!this->mission_started) {
+                this->mission_started = true;
+                this->time_last_heartbeat = curr_time;
+                return {};
+            }
+
             std::chrono::duration<float> duration;
             duration = curr_time - this->time_last_heartbeat;
             if (duration.count() >= 10) {
@@ -67,10 +75,13 @@ namespace tomcat {
         nlohmann::json
         ASISTStudy3InterventionReporter::build_version_info_message(
             const AgentPtr& agent) {
-            nlohmann::json msg;
 
+            if (agent->get_evidence_metadata().empty()) return {};
+
+            nlohmann::json msg;
             msg["header"] = this->get_header_section(agent, "agent");
             msg["msg"] = this->get_msg_section(agent, "versioninfo");
+
             msg["data"]["agent_name"] = agent->get_id();
             msg["data"]["version"] = agent->get_version();
             msg["data"]["owner"] = "UAZ";
@@ -148,6 +159,8 @@ namespace tomcat {
             const nlohmann::json& request_message,
             int time_step) {
 
+            if (agent->get_evidence_metadata().empty()) return {};
+
             nlohmann::json response_msg;
             if (request_message["header"]["message_type"] == "agent" &&
                 request_message["msg"]["sub_type"] == "rollcall:request") {
@@ -162,6 +175,8 @@ namespace tomcat {
             const AgentPtr& agent,
             const nlohmann::json& request_message,
             int time_step) {
+
+            if (agent->get_evidence_metadata().empty()) return {};
 
             nlohmann::json msg;
             msg["header"] = this->get_header_section(agent, "agent");
@@ -181,7 +196,7 @@ namespace tomcat {
 
             string topic;
             if (request_message["msg"]["sub_type"] == "rollcall:request") {
-                topic = broker_config.rollcall_topic;
+                topic = broker_config.rollcall_response_topic;
             }
 
             return topic;
@@ -272,6 +287,11 @@ namespace tomcat {
             // No predefined format for the ASIST program
             nlohmann::json message;
             return message;
+        }
+
+        void ASISTStudy3InterventionReporter::prepare() {
+            this->mission_started = false;
+            this->last_quality = -1;
         }
 
         nlohmann::json ASISTStudy3InterventionReporter::get_header_section(

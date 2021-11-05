@@ -75,6 +75,7 @@ namespace tomcat {
             EvidenceSet data;
             if (json_message["header"]["message_type"] == "event" &&
                 json_message["msg"]["sub_type"] == "Event:MissionState") {
+
                 string mission_state = json_message["data"]["mission_state"];
                 alg::to_lower(mission_state);
 

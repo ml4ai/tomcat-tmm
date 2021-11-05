@@ -70,6 +70,8 @@ namespace tomcat {
             build_log_message(const AgentPtr& agent,
                               const std::string& log) const override;
 
+            void prepare() override;
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -182,6 +184,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
+            bool mission_started = false;
+
             int last_quality = -1;
 
             std::chrono::time_point<std::chrono::steady_clock>

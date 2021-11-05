@@ -102,6 +102,12 @@ namespace tomcat {
                 const nlohmann::json& request_message,
                 const MessageBrokerConfiguration& broker_config);
 
+            /**
+             * Clear buffers and wait for a new mission.
+             *
+             */
+            virtual void prepare();
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------

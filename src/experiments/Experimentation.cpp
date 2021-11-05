@@ -146,7 +146,7 @@ namespace tomcat {
                 config.start_of_mission_topic =
                     broker["start_of_mission_topic"];
                 config.end_of_mission_topic = broker["end_of_mission_topic"];
-                config.rollcall_topic = broker["rollcall_topic"];
+                config.rollcall_response_topic = broker["rollcall_response_topic"];
                 config.num_connection_trials = broker["num_connection_trials"];
                 config.milliseconds_before_retrial =
                     broker["milliseconds_before_connection_retrial"];

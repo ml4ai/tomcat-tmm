@@ -54,6 +54,10 @@ namespace tomcat {
             return {};
         }
 
+        void EstimateReporter::prepare() {
+
+        }
+
         string EstimateReporter::get_current_timestamp() const {
             pt::ptime time = pt::microsec_clock::universal_time();
             return pt::to_iso_extended_string(time) + "Z";
