@@ -7,7 +7,6 @@
 #include "pipeline/DBNSaver.h"
 #include "pipeline/DataSplitter.h"
 #include "pipeline/Pipeline.h"
-#include "reporter/EstimateReporter.h"
 #include "pipeline/estimation/OfflineEstimation.h"
 #include "pipeline/estimation/OnlineEstimation.h"
 #include "pipeline/estimation/ParticleFilterEstimator.h"
@@ -19,6 +18,7 @@
 #include "pipeline/evaluation/RMSE.h"
 #include "pipeline/training/DBNLoader.h"
 #include "pipeline/training/DBNSamplingTrainer.h"
+#include "reporter/EstimateReporter.h"
 #include "sampling/GibbsSampler.h"
 #include "utils/Definitions.h"
 #include "utils/FileHandler.h"
@@ -132,7 +132,7 @@ namespace tomcat {
                                                 exact_inference,
                                                 max_time_step);
 
-            OnlineEstimation::MessageBrokerConfiguration config;
+            MessageBrokerConfiguration config;
             config.timeout = INT32_MAX;
             fstream file;
             file.open(message_broker_config_filepath);
@@ -142,6 +142,11 @@ namespace tomcat {
                 config.port = broker["port"];
                 config.estimates_topic = broker["estimates_topic"];
                 config.log_topic = broker["log_topic"];
+                config.heartbeat_topic = broker["heartbeat_topic"];
+                config.start_of_mission_topic =
+                    broker["start_of_mission_topic"];
+                config.end_of_mission_topic = broker["end_of_mission_topic"];
+                config.rollcall_topic = broker["rollcall_topic"];
                 config.num_connection_trials = broker["num_connection_trials"];
                 config.milliseconds_before_retrial =
                     broker["milliseconds_before_connection_retrial"];

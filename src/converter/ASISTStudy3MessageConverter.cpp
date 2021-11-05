@@ -63,6 +63,7 @@ namespace tomcat {
             topics.insert("observations/events/mission");
             topics.insert("observations/state");
             topics.insert("observations/events/scoreboard");
+            topics.insert("agent/control/rollcall/request");
 
             return topics;
         }
@@ -95,10 +96,12 @@ namespace tomcat {
                     this->experiment_id = json_message["msg"]["experiment_id"];
 
                     const string& team_n_trial = json_message["data"]["name"];
-                    string team_id =
-                        team_n_trial.substr(0, team_n_trial.find("_"));
-                    string trial_id =
-                        team_n_trial.substr(team_n_trial.find("_") + 1);
+                    string team_id = "";
+                    //                        team_n_trial.substr(0,
+                    //                        team_n_trial.find("_"));
+                    string trial_id = team_n_trial;
+                    //                        team_n_trial.substr(team_n_trial.find("_")
+                    //                        + 1);
 
                     json_mission_log["trial_id"] = trial_id;
                     json_mission_log["team_id"] = team_id;
@@ -163,7 +166,6 @@ namespace tomcat {
                 Player player;
                 player.id = info_per_player["participant_id"];
                 player.callsign = info_per_player["callsign"];
-                player.unique_id = info_per_player["uniqueid"];
 
                 if (EXISTS("playername", info_per_player)) {
                     player.name = info_per_player["playername"];
@@ -173,7 +175,6 @@ namespace tomcat {
                 nlohmann::json json_player;
                 json_player["id"] = player.id;
                 json_player["callsign"] = player.callsign;
-                json_player["uniqueid"] = player.unique_id;
                 json_player["name"] = player.name;
                 json_log["players"].push_back(json_player);
             }
@@ -236,6 +237,12 @@ namespace tomcat {
                 this->write_to_log_on_mission_finished(json_mission_log);
                 this->mission_finished = true;
             }
+            else if (json_message["header"]["message_type"] == "agent" &&
+                     json_message["msg"]["sub_type"] == "rollcall:request") {
+                if (this->callback_function) {
+                    this->callback_function(json_message);
+                }
+            }
 
             if (!this->mission_finished) {
                 this->fill_observation(json_message);
@@ -288,8 +295,7 @@ namespace tomcat {
             EvidenceSet data;
 
             // Per team
-            data.add_data(TEAM_SCORE,
-                          this->team_score);
+            data.add_data(TEAM_SCORE, this->team_score);
             data.add_data(ELAPSED_SECOND, Tensor3(this->next_time_step + 1));
 
             this->next_time_step += 1;
@@ -325,12 +331,9 @@ namespace tomcat {
         }
 
         void ASISTStudy3MessageConverter::parse_individual_message(
-            const nlohmann::json& json_message) {
-
-        }
+            const nlohmann::json& json_message) {}
 
         void ASISTStudy3MessageConverter::write_to_log_on_mission_finished(
-            nlohmann::json& json_log) const {
-        }
+            nlohmann::json& json_log) const {}
     } // namespace model
 } // namespace tomcat

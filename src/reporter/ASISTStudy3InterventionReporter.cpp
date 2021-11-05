@@ -34,6 +34,159 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
 
+        nlohmann::json ASISTStudy3InterventionReporter::build_heartbeat_message(
+            const AgentPtr& agent) {
+            nlohmann::json msg;
+
+            auto curr_time = chrono::steady_clock::now();
+            std::chrono::duration<float> duration;
+            duration = curr_time - this->time_last_heartbeat;
+            if (duration.count() >= 10) {
+                this->time_last_heartbeat = curr_time;
+                // Creates a heartbeat message at every 10 seconds
+                msg["header"] = this->get_header_section(agent, "status");
+                msg["msg"] = this->get_msg_section(agent, "heartbeat");
+                msg["data"]["state"] = "ok";
+            }
+
+            return msg;
+        }
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::build_start_of_mission_message(
+            const AgentPtr& agent) {
+            return this->build_version_info_message(agent);
+        }
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::build_end_of_mission_message(
+            const AgentPtr& agent) {
+            return this->build_version_info_message(agent);
+        }
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::build_version_info_message(
+            const AgentPtr& agent) {
+            nlohmann::json msg;
+
+            msg["header"] = this->get_header_section(agent, "agent");
+            msg["msg"] = this->get_msg_section(agent, "versioninfo");
+            msg["data"]["agent_name"] = agent->get_id();
+            msg["data"]["version"] = agent->get_version();
+            msg["data"]["owner"] = "UAZ";
+            msg["data"]["config"] = nlohmann::json::array();
+            nlohmann::json config;
+            config["name"] = "model";
+            config["value"] = "team_quality";
+            msg["data"]["config"].push_back(config);
+            msg["data"]["source"] = "https://gitlab.asist.aptima.com/asist/"
+                                    "testbed/Agents/uaz_tmm_agent";
+            msg["data"]["dependencies"] = nlohmann::json::array();
+            msg["data"]["dependencies"].push_back("boost");
+            msg["data"]["dependencies"].push_back("eigen");
+            msg["data"]["dependencies"].push_back("gsl");
+            msg["data"]["dependencies"].push_back("fmt");
+            msg["data"]["dependencies"].push_back("nlohmann_json");
+            msg["data"]["dependencies"].push_back("mosquitto");
+            msg["data"]["publishes"] = nlohmann::json::array();
+            nlohmann::json pub;
+            // Topic 1
+            pub["topic"] = "status/uaz_tmm_agent/heartbeats";
+            pub["message_type"] = "status";
+            pub["sub_type"] = "heartbeat";
+            msg["data"]["publishes"].push_back(pub);
+            // Topic 2
+            pub["topic"] = "agent/uaz_tmm_agent/versioninfo";
+            pub["message_type"] = "agent";
+            pub["sub_type"] = "versioninfo";
+            msg["data"]["publishes"].push_back(pub);
+            // Topic 3
+            pub["topic"] = "agent/intervention/uaz_tmm_agent/chat";
+            pub["message_type"] = "agent";
+            pub["sub_type"] = "Intervention:Chat";
+            msg["data"]["publishes"].push_back(pub);
+            // Topic 4
+            pub["topic"] = "agent/control/rollcall/response";
+            pub["message_type"] = "agent";
+            pub["sub_type"] = "rollcall:response";
+            msg["data"]["publishes"].push_back(pub);
+
+            msg["data"]["subscribes"] = nlohmann::json::array();
+            nlohmann::json sub;
+            // Topic 1
+            sub["topic"] = "trial";
+            sub["message_type"] = "trial";
+            sub["sub_type"] = "start";
+            msg["data"]["subscribes"].push_back(sub);
+            // Topic 2
+            sub["topic"] = "observations/events/mission";
+            sub["message_type"] = "event";
+            sub["sub_type"] = "Event:MissionState";
+            msg["data"]["subscribes"].push_back(sub);
+            // Topic 3
+            sub["topic"] = "observations/state";
+            sub["message_type"] = "observation";
+            sub["sub_type"] = "state";
+            msg["data"]["subscribes"].push_back(sub);
+            // Topic 4
+            sub["topic"] = "observations/events/scoreboard";
+            sub["message_type"] = "observation";
+            sub["sub_type"] = "Event:Scoreboard";
+            msg["data"]["subscribes"].push_back(sub);
+            // Topic 5
+            sub["topic"] = "agent/control/rollcall/request";
+            sub["message_type"] = "agent";
+            sub["sub_type"] = "rollcall:request";
+            msg["data"]["subscribes"].push_back(sub);
+
+            return msg;
+        }
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::build_message_by_request(
+            const AgentPtr& agent,
+            const nlohmann::json& request_message,
+            int time_step) {
+
+            nlohmann::json response_msg;
+            if (request_message["header"]["message_type"] == "agent" &&
+                request_message["msg"]["sub_type"] == "rollcall:request") {
+                response_msg = this->build_rollcall_message(
+                    agent, request_message, time_step);
+            }
+
+            return response_msg;
+        }
+
+        nlohmann::json ASISTStudy3InterventionReporter::build_rollcall_message(
+            const AgentPtr& agent,
+            const nlohmann::json& request_message,
+            int time_step) {
+
+            nlohmann::json msg;
+            msg["header"] = this->get_header_section(agent, "agent");
+            msg["msg"] = this->get_msg_section(agent, "rollcall:response");
+            msg["data"]["rollcall_id"] = request_message["data"]["rollcall_id"];
+            msg["data"]["version"] = agent->get_version();
+            msg["data"]["status"] = "up";
+            int step_size = agent->get_evidence_metadata()["step_size"];
+            msg["data"]["uptime"] = time_step * step_size;
+
+            return msg;
+        }
+
+        string ASISTStudy3InterventionReporter::get_request_response_topic(
+            const nlohmann::json& request_message,
+            const MessageBrokerConfiguration& broker_config) {
+
+            string topic;
+            if (request_message["msg"]["sub_type"] == "rollcall:request") {
+                topic = broker_config.rollcall_topic;
+            }
+
+            return topic;
+        }
+
         vector<nlohmann::json>
         ASISTStudy3InterventionReporter::translate_estimates_to_messages(
             const AgentPtr& agent, int time_step) {
@@ -44,8 +197,9 @@ namespace tomcat {
                 time_step == 480 || time_step == 570) {
                 nlohmann::json intervention_message;
                 intervention_message["header"] =
-                    this->get_header_section(agent);
-                intervention_message["msg"] = this->get_msg_section(agent);
+                    this->get_header_section(agent, "agent");
+                intervention_message["msg"] =
+                    this->get_msg_section(agent, "Intervention:Chat");
                 intervention_message["data"] =
                     this->get_common_data_section(agent, time_step);
 
@@ -121,17 +275,17 @@ namespace tomcat {
         }
 
         nlohmann::json ASISTStudy3InterventionReporter::get_header_section(
-            const AgentPtr& agent) const {
+            const AgentPtr& agent, const string& message_type) const {
             nlohmann::json header;
             header["timestamp"] = this->get_current_timestamp();
-            header["message_type"] = "agent";
+            header["message_type"] = message_type;
             header["version"] = agent->get_version();
 
             return header;
         }
 
         nlohmann::json ASISTStudy3InterventionReporter::get_msg_section(
-            const AgentPtr& agent) const {
+            const AgentPtr& agent, const string& sub_type) const {
             nlohmann::json msg_common;
 
             msg_common["trial_id"] =
@@ -143,7 +297,7 @@ namespace tomcat {
             msg_common["version"] = "1.0";
             msg_common["trial_number"] =
                 agent->get_evidence_metadata()["trial_id"];
-            msg_common["sub_type"] = "Intervention:Chat";
+            msg_common["sub_type"] = sub_type;
 
             return msg_common;
         }
@@ -236,13 +390,13 @@ namespace tomcat {
             return player_ids;
         }
 
-        string ASISTStudy3InterventionReporter::get_timestamp_at(
-            const AgentPtr& agent, int time_step) const {
+        string
+        ASISTStudy3InterventionReporter::get_timestamp_at(const AgentPtr& agent,
+                                                          int time_step) const {
             const string& initial_timestamp =
                 agent->get_evidence_metadata()["initial_timestamp"];
             int elapsed_time =
-                time_step *
-                (int)agent->get_evidence_metadata()["step_size"];
+                time_step * (int)agent->get_evidence_metadata()["step_size"];
 
             return this->get_elapsed_timestamp(initial_timestamp, elapsed_time);
         }

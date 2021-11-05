@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -141,6 +142,10 @@ namespace tomcat {
 
             bool is_mission_finished() const;
 
+            void set_callback_function(
+                const std::function<void(const nlohmann::json&)>&
+                    callback_function);
+
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -189,6 +194,9 @@ namespace tomcat {
 
             // Whether the timer has reached zero
             bool mission_finished = false;
+
+            std::function<void(const nlohmann::json& json_message)>
+                callback_function;
 
           private:
             /**

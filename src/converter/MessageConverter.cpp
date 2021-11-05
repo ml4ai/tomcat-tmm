@@ -185,5 +185,10 @@ namespace tomcat {
             return mission_finished;
         }
 
+        void MessageConverter::set_callback_function(
+            const function<void(const nlohmann::json&)>& callback_function) {
+            MessageConverter::callback_function = callback_function;
+        }
+
     } // namespace model
 } // namespace tomcat

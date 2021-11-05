@@ -21,6 +21,39 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
 
+        nlohmann::json
+        EstimateReporter::build_heartbeat_message(const AgentPtr& agent) {
+            // No heartbeat message by default
+            return {};
+        }
+
+        nlohmann::json EstimateReporter::build_start_of_mission_message(
+            const AgentPtr& agent) {
+            // No message by default
+            return {};
+        }
+
+        nlohmann::json
+        EstimateReporter::build_end_of_mission_message(const AgentPtr& agent) {
+            // No message by default
+            return {};
+        }
+
+        nlohmann::json EstimateReporter::build_message_by_request(
+            const AgentPtr& agent,
+            const nlohmann::json& request_message,
+            int time_step) {
+            // No message by default
+            return {};
+        }
+
+        string EstimateReporter::get_request_response_topic(
+            const nlohmann::json& request_message,
+            const MessageBrokerConfiguration& broker_config) {
+            // No topic by default
+            return {};
+        }
+
         string EstimateReporter::get_current_timestamp() const {
             pt::ptime time = pt::microsec_clock::universal_time();
             return pt::to_iso_extended_string(time) + "Z";
@@ -28,7 +61,7 @@ namespace tomcat {
 
         string
         EstimateReporter::get_elapsed_timestamp(const string& initial_timestamp,
-                                          int elapsed_time) const {
+                                                int elapsed_time) const {
             tm t{};
             istringstream ss(initial_timestamp);
 
@@ -42,8 +75,7 @@ namespace tomcat {
                 time_t base_timestamp = mktime(&t);
                 time_t timestamp = base_timestamp + elapsed_time;
                 stringstream ss;
-                ss << put_time(localtime(&timestamp),
-                               "%Y-%m-%dT%T.000Z");
+                ss << put_time(localtime(&timestamp), "%Y-%m-%dT%T.000Z");
                 elapsed_timestamp = ss.str();
             }
 

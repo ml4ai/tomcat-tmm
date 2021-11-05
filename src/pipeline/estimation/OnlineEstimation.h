@@ -3,6 +3,7 @@
 #include <memory>
 #include <thread>
 #include <unordered_set>
+#include <functional>
 
 #include <nlohmann/json.hpp>
 
@@ -12,6 +13,7 @@
 #include "utils/Definitions.h"
 #include "utils/Mosquitto.h"
 #include "utils/SynchronizedQueue.h"
+#include "utils/OnlineConfig.h"
 
 namespace tomcat {
     namespace model {
@@ -23,24 +25,6 @@ namespace tomcat {
          */
         class OnlineEstimation : public EstimationProcess, public Mosquitto {
           public:
-            //------------------------------------------------------------------
-            // Structs
-            //------------------------------------------------------------------
-
-            /**
-             * This struct contains information needed to connect to a message
-             * broker to either subscribe or publish to a topic.
-             */
-            struct MessageBrokerConfiguration {
-                int timeout = 9999;
-                std::string address;
-                int port;
-                int num_connection_trials;
-                int milliseconds_before_retrial;
-                std::string estimates_topic;
-                std::string log_topic;
-            };
-
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -117,12 +101,33 @@ namespace tomcat {
             void run_estimation_thread();
 
             /**
+             * Publishes a heartbeat message to let the system know that the
+             * agent is alive
+             */
+            void publish_heartbeat();
+
+            /**
+             * Publishes a message as soon as a mission starts.
+             */
+            void publish_start_of_mission_message();
+
+            /**
+             * Publishes a message as soon as a mission ends.
+             */
+            void publish_end_of_mission_message();
+
+            /**
              * Returns next set of observations from the pending messages in the
              * queue.
              *
              * @return Evidence set.
              */
             EvidenceSet get_next_data_from_pending_messages();
+
+            /**
+             * Callback function executed by the message converter's request.
+             */
+            void on_request(const nlohmann::json& request_message);
 
             //------------------------------------------------------------------
             // Data members
@@ -137,6 +142,9 @@ namespace tomcat {
 
             // Information about the trial being processed
             nlohmann::json evidence_metadata;
+
+            bool start_message_published;
+            bool final_message_published;
         };
 
     } // namespace model
