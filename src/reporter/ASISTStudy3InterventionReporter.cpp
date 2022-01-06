@@ -166,6 +166,10 @@ namespace tomcat {
             msg_common["type"] = "string";
             msg_common["renderers"] = nlohmann::json::array();
             msg_common["renderers"].push_back("Minecraft_Chat");
+            msg_common["explanation"]["text"] =
+                "Gives feedback to the team based on their quality. The "
+                "feedback is inferred from the current team score and mission "
+                "timer.";
 
             return msg_common;
         }

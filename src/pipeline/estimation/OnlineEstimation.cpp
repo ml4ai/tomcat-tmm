@@ -3,11 +3,8 @@
 #include <algorithm>
 #include <sstream>
 #include <thread>
-#include <unordered_map>
 
 #include <nlohmann/json.hpp>
-
-#include "utils/EigenExtensions.h"
 
 namespace tomcat {
     namespace model {
@@ -147,11 +144,11 @@ namespace tomcat {
 
         void
         OnlineEstimation::on_request(const nlohmann::json& request_message) {
-            auto message =
-                this->reporter
-                    ->build_message_by_request(
-                        this->agent, request_message, this->last_time_step)
-                    .dump();
+            auto message = this->reporter
+                               ->build_message_by_request(this->agent,
+                                                          request_message,
+                                                          this->last_time_step)
+                               .dump();
             string topic = this->reporter->get_request_response_topic(
                 request_message, this->config);
             if (!message.empty() && !topic.empty()) {
