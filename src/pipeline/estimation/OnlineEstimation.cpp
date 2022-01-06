@@ -3,11 +3,8 @@
 #include <algorithm>
 #include <sstream>
 #include <thread>
-#include <unordered_map>
 
 #include <nlohmann/json.hpp>
-
-#include "utils/EigenExtensions.h"
 
 namespace tomcat {
     namespace model {
@@ -23,7 +20,14 @@ namespace tomcat {
             const MsgConverterPtr& message_converter,
             const EstimateReporterPtr& reporter)
             : EstimationProcess(agent, reporter), config(config),
-              message_converter(message_converter) {}
+              message_converter(message_converter) {
+
+            // This callback function will be invoked every time the converter
+            // parses messages that need immediate responses.
+            message_converter->set_callback_function(bind(
+                &OnlineEstimation::on_request, this, std::placeholders::_1));
+            this->prepare();
+        }
 
         OnlineEstimation::~OnlineEstimation() {}
 
@@ -49,6 +53,8 @@ namespace tomcat {
             this->messages_to_process.clear();
             this->last_time_step = -1;
             this->evidence_metadata.clear();
+            this->message_converter->start_new_mission();
+            this->reporter->prepare();
         }
 
         void
@@ -90,22 +96,21 @@ namespace tomcat {
                         cout << "Agent " << this->agent->get_id()
                              << " is awake and working..." << endl;
                     }
-
                     this->agent->estimate(new_data);
                     this->last_time_step++;
                     this->publish_last_estimates();
-
                     if (this->message_converter->is_mission_finished()) {
                         if (this->config.log_topic != "" && this->reporter) {
                             stringstream ss;
                             ss << "The maximum time step defined for the "
                                   "mission has been reached. Waiting for a new "
                                   "mission to start...";
-                            string message =
-                                this->reporter
-                                    ->build_log_message(this->agent, ss.str())
-                                    .dump();
-                            this->publish(this->config.log_topic, message);
+                            auto message = this->reporter->build_log_message(
+                                this->agent, ss.str());
+                            if (!message.empty()) {
+                                this->publish(this->config.log_topic,
+                                              message.dump());
+                            }
                         }
 
                         cout << "Waiting for a new mission to start..." << endl;
@@ -134,6 +139,20 @@ namespace tomcat {
                 this->agent, this->last_time_step);
             for (const auto& message : messages) {
                 this->publish(this->config.estimates_topic, message.dump());
+            }
+        }
+
+        void
+        OnlineEstimation::on_request(const nlohmann::json& request_message) {
+            auto message = this->reporter
+                               ->build_message_by_request(this->agent,
+                                                          request_message,
+                                                          this->last_time_step)
+                               .dump();
+            string topic = this->reporter->get_request_response_topic(
+                request_message, this->config);
+            if (!message.empty() && !topic.empty()) {
+                this->publish(topic, message);
             }
         }
 

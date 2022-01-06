@@ -9,8 +9,8 @@
 #include "experiments/Experimentation.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
-#include "pipeline/estimation/ASISTStudy2EstimateReporter.h"
-#include "pipeline/estimation/EstimateReporter.h"
+#include "reporter/ASISTStudy2EstimateReporter.h"
+#include "reporter/EstimateReporter.h"
 
 using namespace tomcat::model;
 using namespace std;
@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
         po::value<string>(&model_dir),
         "Directory where the agent's model definition is saved.")(
         "params_dir",
-        po::value<string>(&params_dir)->required(),
+        po::value<string>(&params_dir)->default_value(""),
         "Directory where the pre-trained model's parameters are saved.")(
         "data_dir",
         po::value<string>(&data_dir)->required(),

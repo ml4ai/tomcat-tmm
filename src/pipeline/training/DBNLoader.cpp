@@ -54,12 +54,21 @@ namespace tomcat {
         void DBNLoader::fit(const EvidenceSet& training_data) {
             // If the name of the folder has a placeholder for the cv step,
             // replace it with the current number.
+
             string final_folder_path =
                 fmt::format(this->input_folder_path, this->split_idx + 1);
-            this->model->load_from(final_folder_path,
-                                   this->freeze_loaded_nodes);
-            this->load_partials();
-            this->split_idx++;
+            if (fs::exists(final_folder_path)) {
+                this->model->load_from(final_folder_path,
+                                       this->freeze_loaded_nodes);
+                this->load_partials();
+                this->split_idx++;
+            }
+            else {
+                stringstream ss;
+                ss << "The directory " << final_folder_path
+                   << " does not exist.";
+                throw TomcatModelException(ss.str());
+            }
         }
 
         void DBNLoader::load_partials() {

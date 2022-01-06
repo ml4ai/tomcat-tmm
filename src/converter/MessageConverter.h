@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -126,11 +127,24 @@ namespace tomcat {
             virtual std::unordered_set<std::string> get_used_topics() const = 0;
 
             //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            /*
+             * Clears cache and prepare to process a new mission.
+             */
+            void start_new_mission();
+
+            //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
             int get_time_step_size() const;
 
             bool is_mission_finished() const;
+
+            void set_callback_function(
+                const std::function<void(const nlohmann::json&)>&
+                    callback_function);
 
           protected:
             //------------------------------------------------------------------
@@ -143,11 +157,6 @@ namespace tomcat {
              * @param converter: converter to copy the data members from
              */
             void copy_converter(const MessageConverter& converter);
-
-            /*
-             * Clears cache and prepare to process a new mission.
-             */
-            void start_new_mission();
 
             //------------------------------------------------------------------
             // Virtual functions
@@ -185,6 +194,9 @@ namespace tomcat {
 
             // Whether the timer has reached zero
             bool mission_finished = false;
+
+            std::function<void(const nlohmann::json& json_message)>
+                callback_function;
 
           private:
             /**

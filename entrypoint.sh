@@ -1,0 +1,1 @@
+./build/bin/start_agent --model_dir "data/study3_spiral1/models/" --broker_json "data/study3_spiral1/online/broker.json" --agent_json "data/study3_spiral1/agents/team_quality_online_agent.json" --seconds 900 --step_size 1 --particles 1000 --jobs 10 --study_num 3

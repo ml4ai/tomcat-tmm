@@ -121,6 +121,7 @@ namespace tomcat {
                                                  marginals,
                                                  d,
                                                  this->last_time_step + 1);
+
                     }
                 }
                 else {

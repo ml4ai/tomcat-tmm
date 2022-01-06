@@ -8,11 +8,11 @@
 # 6. Starting an online agent with a model with pre-trained params (requires
 # explicitly target execution)
 
-SERVER = laplace
+SERVER = gauss
 ASIST_SERVER_DIR = /data/asist
 
 # The name of the Google Cloud Source folder where the ASIST HSR data resides.
-STUDY_ID = study-2_2021.06
+STUDY_ID = study-3_spiral-2_pilot
 
 # Binaries required for the ASIST evaluation analyses
 BUILD_DIR = ../../../build

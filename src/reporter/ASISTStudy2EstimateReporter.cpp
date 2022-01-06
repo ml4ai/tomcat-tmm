@@ -36,7 +36,7 @@ namespace tomcat {
 
         vector<nlohmann::json>
         ASISTStudy2EstimateReporter::translate_estimates_to_messages(
-            const AgentPtr& agent, int time_step) const {
+            const AgentPtr& agent, int time_step) {
             vector<nlohmann::json> messages;
 
             nlohmann::json state_message;
