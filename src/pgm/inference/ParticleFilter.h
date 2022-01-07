@@ -84,10 +84,12 @@ namespace tomcat {
              *
              * @param num_time_steps: number of time step to generate particles
              * in the future
+             * @param data: data in the future
              *
              * @return Samples generated for the next time steps requested.
              */
-            EvidenceSet forward_particles(int num_time_steps);
+            EvidenceSet forward_particles(int num_time_steps,
+                                          EvidenceSet data = {});
 
             /**
              * Prepare to start generating particles from scratch.
@@ -213,9 +215,10 @@ namespace tomcat {
              *
              * @return Marginal probabilities
              */
-            EvidenceSet apply_rao_blackwellization(int time_step,
-                                                   EvidenceSet& particles,
-                                                   const Eigen::VectorXi& sampled_particles);
+            EvidenceSet apply_rao_blackwellization(
+                int time_step,
+                EvidenceSet& particles,
+                const Eigen::VectorXi& sampled_particles);
 
             /**
              * Gets p (child_timer | parent) in a given time step in log scale.

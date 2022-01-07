@@ -111,11 +111,11 @@ namespace tomcat {
                 this->distributions[distribution_idx];
             scoped_lock lock(*this->sufficient_statistics_mutex);
 
-            const auto& alpha_node =
+            auto alpha_node =
                 prior_distribution
                     ->get_parameters()[InverseGamma::PARAMETER_INDEX::alpha];
 
-            auto& beta_node =
+            auto beta_node =
                 prior_distribution
                     ->get_parameters()[InverseGamma::PARAMETER_INDEX::beta];
 

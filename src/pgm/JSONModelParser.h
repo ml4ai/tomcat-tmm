@@ -41,7 +41,8 @@ namespace tomcat {
                 MetadataMap;
             // Keep it sorted to preserve order of computation across machines.
             typedef std::map<std::string, RVNodePtrVec> RVMap;
-            typedef std::unordered_map<std::string, NumNodePtr> VarMap;
+            typedef std::unordered_map<std::string, std::vector<NumNodePtr>>
+                VarMap;
             typedef std::unordered_set<std::string> NodeSet;
             typedef std::unordered_map<std::string, std::pair<int, int>>
                 ParamMapConfig;

@@ -123,12 +123,24 @@ namespace tomcat {
                 for (const auto& json_variable :
                      this->json_model["variables"]) {
                     const string& var_name = json_variable["name"];
-                    double value = json_variable["default_value"];
-                    if (value == 0) {
-                        value =
-                            EPSILON; // For numerical stability when using logs
+                    vector<double> values;
+                    if (json_variable["default_value"].is_array()) {
+                        for (double value : json_variable["default_value"]) {
+                            values.push_back(value);
+                        }
                     }
-                    this->variables[var_name] = make_shared<NumericNode>(value);
+                    else {
+                        values.push_back(json_variable["default_value"]);
+                    }
+
+                    for (double value : values) {
+                        if (value == 0) {
+                            value = EPSILON; // For numerical stability when
+                                             // using logs
+                        }
+                        this->variables[var_name].push_back(
+                            make_shared<NumericNode>(value));
+                    }
                 }
             }
         }
@@ -500,7 +512,9 @@ namespace tomcat {
             for (string token : tokens) {
                 boost::trim(token);
                 if (EXISTS(token, this->variables)) {
-                    values.push_back(this->variables.at(token));
+                    // If a multivalue variable is used as a constant parameter,
+                    // only its first value will be used.
+                    values.push_back(this->variables.at(token).front());
                 }
                 else {
                     double value = stod(token);
@@ -565,7 +579,15 @@ namespace tomcat {
                     }
                     else {
                         if (EXISTS(token, this->variables)) {
-                            parameters.push_back(this->variables.at(token));
+                            if (this->variables.at(token).size() == 1) {
+                                parameters.push_back(
+                                    this->variables.at(token).front());
+                            }
+                            else {
+                                // Multivalue variable
+                                parameters.push_back(
+                                    this->variables.at(token)[i]);
+                            }
                         }
                         else {
                             double value = stod(token);

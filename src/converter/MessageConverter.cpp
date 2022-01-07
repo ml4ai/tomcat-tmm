@@ -31,7 +31,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         string MessageConverter::get_player_variable_label(
             const string& variable_label, int player_number) {
-            return fmt::format("{}P{}", variable_label, player_number);
+            return fmt::format("{}_P{}", variable_label, player_number + 1);
         }
 
         //----------------------------------------------------------------------
@@ -116,7 +116,8 @@ namespace tomcat {
                     json_log["files_not_converted"].push_back(json_mission_log);
                 }
 
-                // Save every processed file to avoid having to convert again in case something get wrong with other files
+                // Save every processed file to avoid having to convert again in
+                // case something get wrong with other files
                 ofstream out_log_file;
                 out_log_file.open(log_filepath);
                 out_log_file << setw(4) << json_log;
@@ -129,8 +130,7 @@ namespace tomcat {
             }
         }
 
-        set<string>
-        MessageConverter::get_unprocessed_message_filenames(
+        set<string> MessageConverter::get_unprocessed_message_filenames(
             const string& messages_dir, const string& data_dir) {
 
             unordered_set<string> processed_files;

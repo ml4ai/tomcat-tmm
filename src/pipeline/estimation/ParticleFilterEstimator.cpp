@@ -120,8 +120,8 @@ namespace tomcat {
                                                  projected_particles,
                                                  marginals,
                                                  d,
-                                                 this->last_time_step + 1);
-
+                                                 this->last_time_step + 1,
+                                                 filter);
                     }
                 }
                 else {
@@ -183,7 +183,8 @@ namespace tomcat {
                                                          projected_particles,
                                                          marginals,
                                                          d,
-                                                         real_time_step);
+                                                         real_time_step,
+                                                         filter);
                             }
                         }
                     }

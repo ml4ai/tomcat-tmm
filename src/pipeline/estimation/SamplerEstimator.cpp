@@ -111,7 +111,8 @@ namespace tomcat {
                 estimator =
                     make_shared<IndependentMapVersionAssignmentEstimator>(
                         model, frequency_type);
-            }else if (name == NextAreaOnNearbyMarkerEstimator::NAME) {
+            }
+            else if (name == NextAreaOnNearbyMarkerEstimator::NAME) {
                 estimator = make_shared<NextAreaOnNearbyMarkerEstimator>(
                     model, json_config);
             }
@@ -165,7 +166,8 @@ namespace tomcat {
                                         const EvidenceSet& projected_particles,
                                         const EvidenceSet& marginals,
                                         int data_point_idx,
-                                        int time_step) {
+                                        int time_step,
+                                        ParticleFilter& filter) {
 
             if (this->inference_horizon == 0) {
                 for (int t = 0; t < particles.get_time_steps(); t++) {
@@ -313,8 +315,7 @@ namespace tomcat {
                                                 int data_point_idx,
                                                 int time_step,
                                                 double probability) {
-            auto& estimates_matrix =
-                this->estimates.estimates[estimates_idx];
+            auto& estimates_matrix = this->estimates.estimates[estimates_idx];
             int new_rows =
                 max(data_point_idx + 1, (int)estimates_matrix.rows());
             int new_cols = max(time_step + 1, (int)estimates_matrix.cols());

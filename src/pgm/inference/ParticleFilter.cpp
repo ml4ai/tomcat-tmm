@@ -468,8 +468,9 @@ namespace tomcat {
                             marginals[node_label];
                     }
                     else {
-                        marginals.add_data(
-                            node_label, this->previous_marginals[node_label], false);
+                        marginals.add_data(node_label,
+                                           this->previous_marginals[node_label],
+                                           false);
                     }
                     particles.add_data(node_label, node->get_assignment());
                     continue;
@@ -786,9 +787,9 @@ namespace tomcat {
             }
         }
 
-        EvidenceSet ParticleFilter::forward_particles(int num_time_steps) {
+        EvidenceSet ParticleFilter::forward_particles(int num_time_steps,
+                                                      EvidenceSet data) {
             EvidenceSet particles;
-
             if (num_time_steps > 0) {
                 int template_time_step =
                     min(this->last_time_step, LAST_TEMPLATE_TIME_STEP);
@@ -844,15 +845,14 @@ namespace tomcat {
                 auto last_last_left_segment_marginal_nodes_distribution_indices =
                     this->last_left_segment_marginal_nodes_distribution_indices;
 
-                EvidenceSet empty_set;
                 int initial_time_step = this->last_time_step + 1;
                 int final_time_step = this->last_time_step + num_time_steps;
                 for (int t = initial_time_step; t <= final_time_step; t++) {
-                    this->elapse(empty_set, t);
+                    this->elapse(data, t);
                     Eigen::VectorXi no_particles =
-                        this->weigh_and_sample_particles(t, empty_set);
+                        this->weigh_and_sample_particles(t, data);
                     EvidenceSet resampled_particles =
-                        this->resample(empty_set, t, no_particles);
+                        this->resample(data, t, no_particles);
                     this->apply_rao_blackwellization(
                         t, resampled_particles, no_particles);
                     particles.hstack(resampled_particles);

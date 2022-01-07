@@ -102,6 +102,20 @@ namespace tomcat {
                                        int time_step) const;
 
             /**
+             * Get quality decay considering a specific player spends 30 more
+             * seconds in the current section.
+             *
+             * @param estimator: team quality estimator
+             * @param time_step: time step
+             * @param player_number: player_number
+             *
+             * @return Quality decay
+             */
+            double get_team_quality_decay(const EstimatorPtr& estimator,
+                                          int time_step,
+                                          int player_number) const;
+
+            /**
              * Gets ToMCAT's speech to the players about the quality of their
              * team.
              *
@@ -112,6 +126,24 @@ namespace tomcat {
              */
             std::string get_tomcat_team_quality_speech(int quality,
                                                        int confidence) const;
+
+            /**
+             * Gets ToMCAT's speech to the players alerting them about the
+             * remaining time until the mission ending
+             *
+             * @param time_step: mission time step
+             *
+             * @return: Speech
+             */
+            std::string get_tomcat_timer_alert_speech(int time_step) const;
+
+            /**
+             * Gets ToMCAT's speech to a specific player that searching in this
+             * area longer might decrease the team performance.
+             *
+             * @return: Speech
+             */
+            std::string get_tomcat_team_quality_decay_speech() const;
 
             /**
              * Return a string with the participant ids separated by comma.
@@ -148,6 +180,13 @@ namespace tomcat {
             // Data member
             //------------------------------------------------------------------
             int last_quality = -1;
+
+            int intro_time;
+            int closing_time;
+            std::unordered_set<int> mission_timer_alert_times;
+            std::unordered_set<int> performance_feedback_times;
+            std::unordered_set<int> map_section_check_times;
+            std::unordered_set<int> all_intervention_times;
         };
 
     } // namespace model
