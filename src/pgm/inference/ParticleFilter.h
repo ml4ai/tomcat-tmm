@@ -86,10 +86,11 @@ namespace tomcat {
              * in the future
              * @param data: data in the future
              *
-             * @return Samples generated for the next time steps requested.
+             * @return Samples generated for the next time steps requested and
+             * marginals.
              */
-            EvidenceSet forward_particles(int num_time_steps,
-                                          EvidenceSet data = {});
+            std::pair<EvidenceSet, EvidenceSet>
+            forward_particles(int num_time_steps, EvidenceSet data = {});
 
             /**
              * Prepare to start generating particles from scratch.

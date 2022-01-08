@@ -170,7 +170,7 @@ namespace tomcat {
 
                         EvidenceSet projected_particles;
                         if (time_steps_ahead > 0) {
-                            projected_particles =
+                            auto [projected_particles, projected_marginals] =
                                 filter.forward_particles(time_steps_ahead);
                         }
 

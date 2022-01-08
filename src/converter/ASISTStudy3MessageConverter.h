@@ -30,10 +30,10 @@ namespace tomcat {
             // Individual player node labels
 
             // Seconds spent in each one of the 6 sections of the map so far
+            inline static const std::string MAP_SECTION = "MapSection";
             inline static const std::string ELAPSED_SECONDS_MAP_SECTION =
                 "ElapsedSecondsMapSection";
-            inline static const std::string PLAYER_ROLE =
-                "Role";
+            inline static const std::string PLAYER_ROLE = "Role";
 
             // Cardinal value
             static const int MEDICAL_ROLE = 0;
@@ -220,7 +220,7 @@ namespace tomcat {
              * @param data: evidence set
              * @param player_number: player number
              */
-            void collect_player_seconds_in_map_section(EvidenceSet& data,
+            void collect_player_map_section_evidence(EvidenceSet& data,
                                                        int player_number);
 
             /**

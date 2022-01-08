@@ -124,7 +124,7 @@ namespace tomcat {
              *
              * @return: Speech
              */
-            std::string get_tomcat_team_quality_speech(int quality,
+            std::string get_team_quality_speech(int quality,
                                                        int confidence) const;
 
             /**
@@ -135,7 +135,7 @@ namespace tomcat {
              *
              * @return: Speech
              */
-            std::string get_tomcat_timer_alert_speech(int time_step) const;
+            std::string get_mission_timer_alert_speech(int time_step) const;
 
             /**
              * Gets ToMCAT's speech to a specific player that searching in this
@@ -143,7 +143,7 @@ namespace tomcat {
              *
              * @return: Speech
              */
-            std::string get_tomcat_team_quality_decay_speech() const;
+            std::string get_team_quality_decay_speech() const;
 
             /**
              * Return a string with the participant ids separated by comma.

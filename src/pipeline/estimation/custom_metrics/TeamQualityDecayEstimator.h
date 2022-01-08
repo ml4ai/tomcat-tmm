@@ -29,7 +29,7 @@ namespace tomcat {
              */
             TeamQualityDecayEstimator(
                 const std::shared_ptr<DynamicBayesNet>& model,
-                FREQUENCY_TYPE frequency_type = all,
+                FREQUENCY_TYPE frequency_type,
                 const nlohmann::json& json_config);
 
             ~TeamQualityDecayEstimator();
@@ -80,7 +80,7 @@ namespace tomcat {
                           ParticleFilter& filter) override;
 
           private:
-            const static int SECONDS_IN_SECTION = 30;
+            const inline static int SECONDS_IN_SECTION = 30;
 
             int player_number;
         };

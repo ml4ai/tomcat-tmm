@@ -787,9 +787,11 @@ namespace tomcat {
             }
         }
 
-        EvidenceSet ParticleFilter::forward_particles(int num_time_steps,
-                                                      EvidenceSet data) {
+        pair<EvidenceSet, EvidenceSet>
+        ParticleFilter::forward_particles(int num_time_steps,
+                                          EvidenceSet data) {
             EvidenceSet particles;
+            EvidenceSet marginals;
             if (num_time_steps > 0) {
                 int template_time_step =
                     min(this->last_time_step, LAST_TEMPLATE_TIME_STEP);
@@ -853,8 +855,8 @@ namespace tomcat {
                         this->weigh_and_sample_particles(t, data);
                     EvidenceSet resampled_particles =
                         this->resample(data, t, no_particles);
-                    this->apply_rao_blackwellization(
-                        t, resampled_particles, no_particles);
+                    marginals.hstack(this->apply_rao_blackwellization(
+                        t, resampled_particles, no_particles));
                     particles.hstack(resampled_particles);
                     this->update_left_segment_distribution_indices(t);
                     this->move_particles_back_in_time(t);
@@ -894,7 +896,7 @@ namespace tomcat {
                     last_last_left_segment_marginal_nodes_distribution_indices;
             }
 
-            return particles;
+            return make_pair(particles, marginals);
         }
 
         void ParticleFilter::clear_cache() { this->last_time_step = -1; }

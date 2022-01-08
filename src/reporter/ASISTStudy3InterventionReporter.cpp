@@ -82,7 +82,7 @@ namespace tomcat {
                                     this->get_estimated_team_quality(
                                         base_estimator, time_step);
                                 intervention_message["data"]["content"] =
-                                    this->get_tomcat_team_quality_speech(
+                                    this->get_team_quality_speech(
                                         current_quality, confidence);
                                 this->last_quality = current_quality;
                                 messages.push_back(intervention_message);
@@ -98,7 +98,8 @@ namespace tomcat {
                                     agent->get_evidence_metadata()["players"];
                                 for (const auto json_player : json_players) {
                                     // This intervention is per player.
-                                    msg_common["receivers"].clear();
+                                    intervention_message["data"]["receivers"]
+                                        .clear();
 
                                     double quality_decay =
                                         this->get_team_quality_decay(
@@ -107,11 +108,12 @@ namespace tomcat {
                                             player_number++);
 
                                     if (quality_decay > 0.5) {
-                                        msg_common["receivers"].push_back(
-                                            json_player["id"]);
+                                        intervention_message
+                                            ["data"]["receivers"]
+                                                .push_back(json_player["id"]);
                                         intervention_message["data"]["conten"
                                                                      "t"] =
-                                            this->get_tomcat_team_quality_decay_speech();
+                                            this->get_team_quality_decay_speech();
                                         messages.push_back(
                                             intervention_message);
                                     }
@@ -162,7 +164,8 @@ namespace tomcat {
             return speech;
         }
 
-        string get_tomcat_timer_alert_speech(int time_step) const {
+        string ASISTStudy3InterventionReporter::get_mission_timer_alert_speech(
+            int time_step) const {
             int minutes = (600 - time_step) / 60;
 
             string speech = fmt::format(
@@ -173,7 +176,8 @@ namespace tomcat {
             return speech;
         }
 
-        string get_tomcat_team_quality_decay_speech() const {
+        string
+        ASISTStudy3InterventionReporter::get_team_quality_decay_speech() const {
             string speech = fmt::format(
                 "ToMCAT, here. Based on previous teams' strategy and your "
                 "role, moving to another area might be better.");
@@ -294,14 +298,13 @@ namespace tomcat {
             return {quality, probability};
         }
 
-        double get_team_quality_decay(const EstimatorPtr& estimator,
+        double ASISTStudy3InterventionReporter::get_team_quality_decay(const EstimatorPtr& estimator,
                                       int time_step,
-                                      int player_number) const {}
+                                      int player_number) const {
+            return estimator->get_estimates().estimates[0](0, time_step);
+        }
 
-        double ASISTStudy3InterventionReporter::get_team_quality_decay(
-            base_estimator, time_step) const {}
-
-        string ASISTStudy3InterventionReporter::get_tomcat_team_quality_speech(
+        string ASISTStudy3InterventionReporter::get_team_quality_speech(
             int quality, int confidence) const {
 
             string speech;

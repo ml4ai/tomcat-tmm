@@ -7,6 +7,7 @@
 #include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
 #include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
+#include "pipeline/estimation/custom_metrics/TeamQualityDecayEstimator.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -116,6 +117,10 @@ namespace tomcat {
                 estimator = make_shared<NextAreaOnNearbyMarkerEstimator>(
                     model, json_config);
             }
+            else if (name == TeamQualityDecayEstimator::NAME) {
+                estimator = make_shared<TeamQualityDecayEstimator>(
+                    model, frequency_type, json_config);
+            }
 
             return estimator;
         }
@@ -198,15 +203,11 @@ namespace tomcat {
                                 // Compute estimates for each value the node can
                                 // take (assuming the node's distribution is
                                 // discrete)
-                                Eigen::MatrixXd samples = samples_tensor(0, 0);
-                                probs = Eigen::VectorXd::Zero(k);
-
-                                for (int i = 0; i < samples.rows(); i++) {
-                                    int value = samples(i, t);
-                                    probs[value] += 1;
-                                }
-
-                                probs /= samples.rows();
+                                Eigen::VectorXd samples =
+                                    samples_tensor(0, 0).col(t);
+                                probs =
+                                    this->calculate_probabilities_from_samples(
+                                        samples, k);
                             }
                         }
 
@@ -346,6 +347,20 @@ namespace tomcat {
             // A positive horizon is used in the estimates but we are not
             // constrained to a binary problem.
             return false;
+        }
+
+        Eigen::VectorXd SamplerEstimator::calculate_probabilities_from_samples(
+            const Eigen::VectorXd& samples, int cardinality) const {
+            Eigen::VectorXd probs = Eigen::VectorXd::Zero(cardinality);
+
+            for (int i = 0; i < samples.size(); i++) {
+                int value = samples(i);
+                probs[value] += 1;
+            }
+
+            probs /= samples.size();
+
+            return probs;
         }
 
         //----------------------------------------------------------------------

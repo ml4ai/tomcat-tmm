@@ -398,8 +398,7 @@ namespace tomcat {
             // Per player
             for (int player_number = 0; player_number < this->num_players;
                  player_number++) {
-                this->collect_player_seconds_in_map_section(data,
-                                                            player_number);
+                this->collect_player_map_section_evidence(data, player_number);
 
                 string node_label =
                     this->get_player_variable_label(PLAYER_ROLE, player_number);
@@ -449,9 +448,14 @@ namespace tomcat {
         void ASISTStudy3MessageConverter::write_to_log_on_mission_finished(
             nlohmann::json& json_log) const {}
 
-        void ASISTStudy3MessageConverter::collect_player_seconds_in_map_section(
+        void ASISTStudy3MessageConverter::collect_player_map_section_evidence(
             EvidenceSet& data, int player_number) {
             int map_section = this->get_player_map_section(player_number);
+            data.add_data(
+                this->get_player_variable_label(MAP_SECTION, player_number),
+                map_section);
+
+            // Update the number of seconds the player spent in this section
             this->player_seconds_in_map_section[player_number][map_section] +=
                 this->time_step_size;
 

@@ -77,7 +77,8 @@ namespace tomcat {
                           const EvidenceSet& projected_particles,
                           const EvidenceSet& marginals,
                           int data_point_idx,
-                          int time_step) override;
+                          int time_step,
+                          ParticleFilter& filter) override;
         };
 
     } // namespace model
