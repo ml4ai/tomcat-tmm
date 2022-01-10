@@ -64,6 +64,13 @@ namespace tomcat {
             int time_step,
             ParticleFilter& filter) {
 
+            // In the online estimation, the new_data will be processed per time
+            // step, so there will be only one observation available. In the
+            // offline estimation, data from all the time steps will be
+            // available, so we can index the time step directly.
+            int real_time_step = time_step;
+            time_step = min(time_step, new_data.get_time_steps() - 1);
+
             string node_map_section_label =
                 ASISTStudy3MessageConverter::get_player_variable_label(
                     ASISTStudy3MessageConverter::MAP_SECTION,
@@ -128,7 +135,8 @@ namespace tomcat {
                 quality_decay = team_quality_change(0);
             }
 
-            this->update_estimates(0, data_point_idx, time_step, quality_decay);
+            this->update_estimates(
+                0, data_point_idx, real_time_step, quality_decay);
         }
 
     } // namespace model

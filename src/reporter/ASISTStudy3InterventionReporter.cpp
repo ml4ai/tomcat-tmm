@@ -52,6 +52,8 @@ namespace tomcat {
                     // Introduce agent
                     intervention_message["data"]["content"] =
                         this->get_introductory_speech();
+                    intervention_message["data"]["explanation"]["text"] =
+                        "ToMCAT introduces itself to the team.";
                     messages.push_back(intervention_message);
                 }
 
@@ -59,6 +61,9 @@ namespace tomcat {
                     // Say goodbye
                     intervention_message["data"]["content"] =
                         this->get_closing_speech();
+                    intervention_message["data"]["explanation"]["text"] =
+                        "ToMCAT says goodbye to the team letting them know how "
+                        "well they performed compared to other teams.";
                     messages.push_back(intervention_message);
                 }
 
@@ -66,6 +71,10 @@ namespace tomcat {
                     // Say goodbye
                     intervention_message["data"]["content"] =
                         this->get_mission_timer_alert_speech(time_step);
+                    intervention_message["data"]["explanation"]["text"] =
+                        "It warns the team about the remaining time of the "
+                        "mission halfway through it and 2 minutes before it "
+                        "ends.";
                     messages.push_back(intervention_message);
                 }
 
@@ -84,6 +93,17 @@ namespace tomcat {
                                 intervention_message["data"]["content"] =
                                     this->get_team_quality_speech(
                                         current_quality, confidence);
+                                intervention_message["data"]["duration"] = 90;
+                                intervention_message
+                                    ["data"]["explanation"]["text"] =
+                                        "Gives feedback to the team based on "
+                                        "their "
+                                        "quality. The feedback is inferred "
+                                        "from the current "
+                                        "team score, mission timer and amount "
+                                        "of seconds each player "
+                                        "has spent do far in each one of the 6 "
+                                        "sections of the map.";
                                 this->last_quality = current_quality;
                                 messages.push_back(intervention_message);
                             }
@@ -114,6 +134,18 @@ namespace tomcat {
                                         intervention_message["data"]["conten"
                                                                      "t"] =
                                             this->get_team_quality_decay_speech();
+                                        intervention_message["data"]
+                                                            ["duration"] = 60;
+                                        intervention_message
+                                            ["data"]["explanation"]["text"] =
+                                                "For each player, it infers "
+                                                "whether staying in the "
+                                                "current map section degrades "
+                                                "the team quality by more than "
+                                                "50%. If it does, it informs "
+                                                "the player that it is better "
+                                                "to explore a different area "
+                                                "of the map.";
                                         messages.push_back(
                                             intervention_message);
                                     }
@@ -129,10 +161,14 @@ namespace tomcat {
 
         string
         ASISTStudy3InterventionReporter::get_introductory_speech() const {
-            return "Hi, Team. I am ToMCAT and I will give you feedback about "
-                   "your performance and suggestions about whether you are "
-                   "spending too much time in certain places. throughout the "
-                   "mission. Good luck and team up!";
+            return "Hi, Team. I am ToMCAT and I will assist you in this "
+                   "mission. I will give you feedback about "
+                   "the team performance, warn you about the remaining time "
+                   "and give individual thoughts on whether  "
+                   "keep exploring a certain section of the map (6 sections: 3 "
+                   "evenly split sections on the top and bottom portions of "
+                   "the map) is likely to degrade the team performance. Good "
+                   "luck and team up!";
         }
 
         string ASISTStudy3InterventionReporter::get_closing_speech() const {
@@ -179,8 +215,9 @@ namespace tomcat {
         string
         ASISTStudy3InterventionReporter::get_team_quality_decay_speech() const {
             string speech = fmt::format(
-                "ToMCAT, here. Based on previous teams' strategy and your "
-                "role, moving to another area might be better.");
+                "ToMCAT, here. Based on previous teams' strategies and your "
+                "role, I suggest you explore a different section of the map to "
+                "increase your team performance.");
 
             return speech;
         }
@@ -266,16 +303,6 @@ namespace tomcat {
             msg_common["type"] = "string";
             msg_common["renderers"] = nlohmann::json::array();
             msg_common["renderers"].push_back("Minecraft_Chat");
-            msg_common["explanation"]["text"] =
-                "Gives feedback to the team based on their quality. The "
-                "feedback is inferred from the current team score, mission "
-                "timer. Moreover, it lets individual players know whether "
-                "moving to another area of the map would increase the "
-                "probability of achieving a better team quality by more than "
-                "50%. This is inferred by the amount of time each player has "
-                "spent in one of 6 sections of the map and their role. "
-                "Finally, it alerts players about the remaining time they have "
-                "halfway through the mission and 2 minutes before it ends.";
 
             return msg_common;
         }
@@ -298,9 +325,10 @@ namespace tomcat {
             return {quality, probability};
         }
 
-        double ASISTStudy3InterventionReporter::get_team_quality_decay(const EstimatorPtr& estimator,
-                                      int time_step,
-                                      int player_number) const {
+        double ASISTStudy3InterventionReporter::get_team_quality_decay(
+            const EstimatorPtr& estimator,
+            int time_step,
+            int player_number) const {
             return estimator->get_estimates().estimates[0](0, time_step);
         }
 
