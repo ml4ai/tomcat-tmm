@@ -76,7 +76,6 @@ void evaluate(const string& experiment_id,
 
     EvidenceSet test_data(data_dir);
     test_data.shrink_up_to(num_time_steps - 1);
-    test_data.keep_first(1);
     experimentation.evaluate_and_save(
         params_dir, num_folds, eval_dir, test_data, baseline, train_dir);
 }
