@@ -164,11 +164,9 @@ namespace tomcat {
             return "Hi, Team. I am ToMCAT and I will assist you in this "
                    "mission. I will give you feedback about "
                    "the team performance, warn you about the remaining time "
-                   "and give individual thoughts on whether to "
-                   "keep exploring a certain section of the map (6 sections: 3 "
-                   "evenly split sections on the top and bottom portions of "
-                   "the map) is likely to degrade the team performance. Good "
-                   "luck and team up!";
+                   "and give suggestions about whether or not continuing to "
+                   "explore a certain section of the map is likely to degrade "
+                   "your team performance. Good luck and team up!";
         }
 
         string ASISTStudy3InterventionReporter::get_closing_speech() const {
