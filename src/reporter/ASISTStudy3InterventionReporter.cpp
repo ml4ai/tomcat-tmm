@@ -234,17 +234,17 @@ namespace tomcat {
             this->intro_time = 10;
 
             // 10 before the mission ends
-            this->closing_time = 590;
+            this->closing_time = 890;
 
-            // 5:00 min, 8:00 min
-            this->mission_timer_alert_times = {300, 480};
-            // 2:30 min, 5:10 min, 7:50 min, 9:40 min
-            this->performance_feedback_times = {150, 310, 450, 580};
+            // 7:30 min, 8:00 min
+            this->mission_timer_alert_times = {450, 780};
+            // 2:30 min, 5:10 min, 7:50 min, 10:10 min, , 12:30 min, 14:40 min
+            this->performance_feedback_times = {150, 310, 450, 610, 750, 880};
 
             // 2:00 min, 3:00 min, 4:00 min, 4:50, 6:00 min, 7:00 min, 8:00 min,
-            // 9:00 min
+            // 9:00 min, 10:00 min, 11:00 min, 12:00 min, 13:00 min, 14:00 min
             this->map_section_check_times = {
-                120, 180, 240, 290, 360, 420, 470, 540};
+                120, 180, 240, 290, 360, 420, 470, 540, 600, 660, 720, 780, 840};
 
             this->all_intervention_times.insert(this->intro_time);
             this->all_intervention_times.insert(this->closing_time);
