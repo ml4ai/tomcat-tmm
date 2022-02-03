@@ -170,8 +170,12 @@ namespace tomcat {
 
                         EvidenceSet projected_particles;
                         if (time_steps_ahead > 0) {
-                            auto [projected_particles, projected_marginals] =
+                            auto projection =
                                 filter.forward_particles(time_steps_ahead);
+                            projected_particles = projection.first;
+                            // There are no projected marginals for this
+                            // estimator because it does not use evidence in the
+                            // future.
                         }
 
                         for (const auto& base_estimator :
