@@ -282,52 +282,6 @@ namespace tomcat {
             // Structs
             //------------------------------------------------------------------
 
-            struct BoundingBox {
-                int x1;
-                int x2;
-                int z1;
-                int z2;
-
-                BoundingBox(int x1, int x2, int z1, int z2)
-                    : x1(x1), x2(x2), z1(z1), z2(z2) {}
-
-                std::pair<BoundingBox, BoundingBox> get_horizontal_split() {
-                    BoundingBox b1(x1, x2, z1, z1 + (z2 - z1) / 2);
-                    BoundingBox b2(x1, x2, b1.z2 + 1, z2);
-
-                    return {b1, b2};
-                }
-
-                std::pair<BoundingBox, BoundingBox> get_vertical_split() {
-                    BoundingBox b1(x1, x1 + (x2 - x1) / 2, z1, z2);
-                    BoundingBox b2(b1.x2 + 1, x2, z1, z2);
-
-                    return {b1, b2};
-                }
-            };
-
-            struct Position {
-                double x;
-                double z;
-
-                Position(double x, double z) : x(x), z(z) {}
-
-                bool is_inside(const BoundingBox& box) const {
-                    return this->x <= box.x2 && this->x >= box.x1 &&
-                           this->z <= box.z2 && this->z >= box.z1;
-                }
-
-                bool equals(const Position& other_position) const {
-                    return this->x == other_position.x &&
-                           this->z == other_position.z;
-                }
-
-                double get_distance(const Position& other_position) const {
-                    return sqrt(pow(this->x - other_position.x, 2) +
-                                pow(this->z - other_position.z, 2));
-                }
-            };
-
             struct Player {
                 std::string id;
                 std::string callsign; // red, blue or green

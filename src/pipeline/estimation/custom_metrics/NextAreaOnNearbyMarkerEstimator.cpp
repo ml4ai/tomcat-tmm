@@ -141,7 +141,8 @@ namespace tomcat {
             const EvidenceSet& projected_particles,
             const EvidenceSet& marginals,
             int data_point_idx,
-            int time_step) {
+            int time_step,
+            ParticleFilter& filter) {
 
             int n = particles.get_num_data_points();
             Eigen::VectorXd areas = Eigen::VectorXd::Zero(2);

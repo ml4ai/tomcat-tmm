@@ -10,6 +10,7 @@
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 #include "reporter/ASISTStudy2EstimateReporter.h"
+#include "reporter/ASISTStudy3InterventionReporter.h"
 #include "reporter/EstimateReporter.h"
 
 using namespace tomcat::model;
@@ -19,6 +20,7 @@ namespace po = boost::program_options;
 struct ReporterTypes {
     const static int NONE = 0;
     const static int ASIST_STUDY2 = 1;
+    const static int ASIST_STUDY3 = 2;
 };
 
 void evaluate(const string& experiment_id,
@@ -56,6 +58,8 @@ void evaluate(const string& experiment_id,
     EstimateReporterPtr reporter;
     if (reporter_type == ReporterTypes::ASIST_STUDY2) {
         reporter = make_shared<ASISTStudy2EstimateReporter>();
+    } else if (reporter_type == ReporterTypes::ASIST_STUDY3) {
+        reporter = make_shared<ASISTStudy3InterventionReporter>();
     }
     string report_filepath;
     if (report_filename != "") {
@@ -150,7 +154,8 @@ int main(int argc, char* argv[]) {
         "reporter",
         po::value<unsigned int>(&reporter_type)->default_value(0)->required(),
         "0 - None\n"
-        "1 - ASIST Study 2")("report_filename",
+        "1 - ASIST Study 2\n"
+        "3 - ASIST Study 3")("report_filename",
                              po::value<string>(&report_filename),
                              "Filename of the reporter (if a reporter is "
                              "provided)..");

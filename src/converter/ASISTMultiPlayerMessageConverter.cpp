@@ -217,14 +217,14 @@ namespace tomcat {
             this->building_sections.push_back(section5);
             this->building_sections.push_back(section6);
 
-            auto [upper_section2, lower_section2] =
-                section2.get_horizontal_split();
-            auto [left_section3, right_section3] =
-                section3.get_vertical_split();
-            auto [left_section4, right_section4] =
-                section4.get_vertical_split();
-            auto [left_section6, right_section6] =
-                section6.get_vertical_split();
+            auto upper_section2 = section2.get_horizontal_splits()[0];
+            auto lower_section2 = section2.get_horizontal_splits()[1];
+            auto left_section3 = section3.get_vertical_splits()[0];
+            auto right_section3 = section3.get_vertical_splits()[1];
+            auto left_section4 = section4.get_vertical_splits()[0];
+            auto right_section4 = section4.get_vertical_splits()[1];
+            auto left_section6 = section6.get_vertical_splits()[0];
+            auto right_section6 = section6.get_vertical_splits()[1];
 
             this->expanded_building_sections.push_back(section1);
             this->expanded_building_sections.push_back(upper_section2);

@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "pgm/inference/ParticleFilter.h"
 #include "pipeline/estimation/Estimator.h"
 #include "sampling/AncestralSampler.h"
 #include "sampling/Sampler.h"
@@ -164,13 +165,15 @@ namespace tomcat {
              * particles were generated
              * @param time_step: time step when the first particles in de set
              * were generated
+             * @param filter: particle filter used to generate the samples
              */
             virtual void estimate(const EvidenceSet& new_data,
                                   const EvidenceSet& particles,
                                   const EvidenceSet& projected_particles,
                                   const EvidenceSet& marginals,
                                   int data_point_idx,
-                                  int time_step);
+                                  int time_step,
+                                  ParticleFilter& filter);
 
             /**
              * Checks whether a custom event is triggered at a given time
@@ -231,6 +234,19 @@ namespace tomcat {
                                     int data_point_idx,
                                     int time_step,
                                     double probability);
+
+            /**
+             * From a vector of sampled values from a categorical distribution.
+             * Calculate the empirical probability of each category.
+             *
+             * @param samples: samples
+             * @param cardinality: number of categories
+             *
+             * @return Empirical probability per category
+             */
+            Eigen::VectorXd
+            calculate_probabilities_from_samples(const Eigen::VectorXd& samples,
+                                                 int cardinality) const;
 
             //------------------------------------------------------------------
             // Data members

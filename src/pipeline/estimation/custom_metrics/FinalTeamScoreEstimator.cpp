@@ -69,7 +69,8 @@ namespace tomcat {
             const EvidenceSet& projected_particles,
             const EvidenceSet& marginals,
             int data_point_idx,
-            int time_step) {
+            int time_step,
+            ParticleFilter& filter) {
 
             int avg_estimated_score = 0;
             double std_estimated_score = 0;

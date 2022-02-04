@@ -55,7 +55,8 @@ namespace tomcat {
             const EvidenceSet& projected_particles,
             const EvidenceSet& marginals,
             int data_point_idx,
-            int time_step) {
+            int time_step,
+            ParticleFilter& filter) {
 
             for(int t = 0; t < marginals.get_time_steps(); t++) {
                 vector<Eigen::VectorXd> map_version_samples(3);

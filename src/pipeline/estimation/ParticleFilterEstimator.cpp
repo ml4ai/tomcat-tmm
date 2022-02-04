@@ -120,8 +120,8 @@ namespace tomcat {
                                                  projected_particles,
                                                  marginals,
                                                  d,
-                                                 this->last_time_step + 1);
-
+                                                 this->last_time_step + 1,
+                                                 filter);
                     }
                 }
                 else {
@@ -170,8 +170,12 @@ namespace tomcat {
 
                         EvidenceSet projected_particles;
                         if (time_steps_ahead > 0) {
-                            projected_particles =
+                            auto projection =
                                 filter.forward_particles(time_steps_ahead);
+                            projected_particles = projection.first;
+                            // There are no projected marginals for this
+                            // estimator because it does not use evidence in the
+                            // future.
                         }
 
                         for (const auto& base_estimator :
@@ -183,7 +187,8 @@ namespace tomcat {
                                                          projected_particles,
                                                          marginals,
                                                          d,
-                                                         real_time_step);
+                                                         real_time_step,
+                                                         filter);
                             }
                         }
                     }

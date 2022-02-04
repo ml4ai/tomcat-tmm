@@ -55,7 +55,7 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             void convert_messages(const std::string& messages_dir,
-                                          const std::string& data_dir) override;
+                                  const std::string& data_dir) override;
 
             EvidenceSet
             get_data_from_message(const nlohmann::json& json_message,
@@ -71,6 +71,88 @@ namespace tomcat {
             const std::string& get_experiment_id() const;
 
           protected:
+            //------------------------------------------------------------------
+            // Structs
+            //------------------------------------------------------------------
+
+            struct BoundingBox {
+                int x1 = 0;
+                int x2 = 0;
+                int z1 = 0;
+                int z2 = 0;
+
+                BoundingBox() {}
+
+                BoundingBox(int x1, int x2, int z1, int z2)
+                    : x1(x1), x2(x2), z1(z1), z2(z2) {}
+
+                std::vector<BoundingBox>
+                get_horizontal_splits(int num_sections = 2) const {
+                    std::vector<BoundingBox> sections(num_sections);
+
+                    int height = (z2 - z1) / num_sections;
+                    int initial_z = z1;
+                    for (int i = 0; i < num_sections; i++) {
+                        if (i == num_sections - 1) {
+                            // If the heights cannot be evenly split, the last
+                            // section will get a different height amount.
+                            height = z2 - initial_z;
+                        }
+                        BoundingBox section(
+                            x1, x2, initial_z, initial_z + height);
+                        initial_z += height + 1;
+                        sections[i] = section;
+                    }
+
+                    return sections;
+                }
+
+                std::vector<BoundingBox>
+                get_vertical_splits(int num_sections = 2) const {
+                    std::vector<BoundingBox> sections(num_sections);
+
+                    int width = (x2 - x1) / num_sections;
+                    int initial_x = x1;
+                    for (int i = 0; i < num_sections; i++) {
+                        if (i == num_sections - 1) {
+                            // If the widths cannot be evenly split, the last
+                            // section will get a different width amount.
+                            width = x2 - initial_x;
+                        }
+                        BoundingBox section(
+                            initial_x, initial_x + width, z1, z2);
+                        initial_x += width + 1;
+                        sections[i] = section;
+                    }
+
+                    return sections;
+                }
+            };
+
+            struct Position {
+                double x = 0;
+                double z = 0;
+
+                Position() {}
+
+                Position(double x, double z) : x(x), z(z) {}
+
+                bool is_inside(const BoundingBox& box) const {
+                    return this->x <= box.x2 && this->x >= box.x1 &&
+                           this->z <= box.z2 && this->z >= box.z1;
+                }
+
+                bool equals(const Position& other_position) const {
+                    return this->x == other_position.x &&
+                           this->z == other_position.z;
+                }
+
+                double get_distance(const Position& other_position) const {
+                    return sqrt(pow(this->x - other_position.x, 2) +
+                                pow(this->z - other_position.z, 2));
+                }
+            };
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -167,7 +249,6 @@ namespace tomcat {
             std::string experiment_id;
 
             std::unordered_map<std::string, std::string> fov_filepaths;
-
         };
 
     } // namespace model

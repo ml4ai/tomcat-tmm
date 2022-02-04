@@ -23,9 +23,22 @@ namespace tomcat {
          */
         class ASISTStudy3MessageConverter : public ASISTMessageConverter {
           public:
-            // Node Labels
-            inline static const std::string ELAPSED_SECOND = "ElapsedSecond";
+            // Team node labels
+            inline static const std::string ELAPSED_SECONDS = "ElapsedSeconds";
             inline static const std::string TEAM_SCORE = "TeamScore";
+
+            // Individual player node labels
+
+            // Seconds spent in each one of the 6 sections of the map so far
+            inline static const std::string MAP_SECTION = "MapSection";
+            inline static const std::string ELAPSED_SECONDS_MAP_SECTION =
+                "ElapsedSecondsMapSection";
+            inline static const std::string PLAYER_ROLE = "Role";
+
+            // Cardinal value
+            static const int MEDICAL_ROLE = 0;
+            static const int ENGINEER_ROLE = 1;
+            static const int TRANSPORTER_ROLE = 2;
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -119,6 +132,12 @@ namespace tomcat {
             void load_map_area_configuration(const std::string& map_filepath);
 
             /**
+             * Split the map into 6 different sections and store these areas for
+             * future reference (e.g. check in which area a player is).
+             */
+            void fill_map_sections(const BoundingBox& map_bounding_box);
+
+            /**
              * Adds a player to the list of players in the mission.
              *
              * @param player: player
@@ -171,9 +190,19 @@ namespace tomcat {
             /**
              * Stores the current scoreboard.
              *
-             * @param json_message
+             * @param json_message: json containing the scoreboard information
              */
             void parse_scoreboard_message(const nlohmann::json& json_message);
+
+            /**
+             * Stores players' roles
+             *
+             * @param json_message: json containing the role information
+             * @param player_number: player number
+             */
+            void
+            parse_role_selection_message(const nlohmann::json& json_message,
+                                         int player_number);
 
             /**
              * Stores live player info
@@ -183,6 +212,26 @@ namespace tomcat {
              */
             void parse_player_state_message(const nlohmann::json& json_message,
                                             int player_number);
+
+            /**
+             * Updates the amount of seconds a player is in an specific section
+             * of the map and adds that information to an evidence set.
+             *
+             * @param data: evidence set
+             * @param player_number: player number
+             */
+            void collect_player_map_section_evidence(EvidenceSet& data,
+                                                       int player_number);
+
+            /**
+             * Retrieves the section of the map where the player is at the
+             * moment.
+             *
+             * @param player_number: number of the player
+             *
+             * @return Section number.
+             */
+            int get_player_map_section(int player_number) const;
 
             //------------------------------------------------------------------
             // Data members
@@ -196,8 +245,14 @@ namespace tomcat {
             std::unordered_map<std::string, int> player_id_to_number;
             std::vector<Player> players;
 
+            // Pre-processed map information
+            std::vector<BoundingBox> map_sections;
+
             // Evidence
             Tensor3 team_score;
+            std::vector<Tensor3> player_role;
+            std::vector<Position> player_position;
+            std::vector<std::vector<int>> player_seconds_in_map_section;
         };
 
     } // namespace model

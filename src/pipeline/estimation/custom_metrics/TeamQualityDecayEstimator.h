@@ -6,47 +6,47 @@ namespace tomcat {
     namespace model {
 
         /**
-         * Represents a metric to estimate the distribution of the possible map
-         * version assignments given marginals of individual player map versions
-         * generated.
+         * Represents a metric to estimate by how much the team quality decays
+         * if a specific player stays in the same map section for at least 30
+         * more seconds.
          */
-        class IndependentMapVersionAssignmentEstimator : public SamplerEstimator {
+        class TeamQualityDecayEstimator : public SamplerEstimator {
           public:
-            inline const static std::string NAME = "IndependentMapVersionAssignment";
+            inline const static std::string NAME = "TeamQualityDecay";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Creates an instance of the estimator.
+             * Creates an instance of the team quality decay metric.
              *
              * @param model: DBN
              * @param frequency_type: frequency at which estimates must be
              * computed
+             * @param json_config: extra parameters
              *
              */
-            IndependentMapVersionAssignmentEstimator(
+            TeamQualityDecayEstimator(
                 const std::shared_ptr<DynamicBayesNet>& model,
-                FREQUENCY_TYPE frequency_type = all);
+                FREQUENCY_TYPE frequency_type,
+                const nlohmann::json& json_config);
 
-            ~IndependentMapVersionAssignmentEstimator();
+            ~TeamQualityDecayEstimator();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
 
-            IndependentMapVersionAssignmentEstimator(
-                const IndependentMapVersionAssignmentEstimator& estimator);
+            TeamQualityDecayEstimator(const TeamQualityDecayEstimator& final_score);
 
-            IndependentMapVersionAssignmentEstimator&
-            operator=(const IndependentMapVersionAssignmentEstimator& estimator);
+            TeamQualityDecayEstimator&
+            operator=(const TeamQualityDecayEstimator& final_Score);
 
-            IndependentMapVersionAssignmentEstimator(IndependentMapVersionAssignmentEstimator&&) =
-                default;
+            TeamQualityDecayEstimator(TeamQualityDecayEstimator&&) = default;
 
-            IndependentMapVersionAssignmentEstimator&
-            operator=(IndependentMapVersionAssignmentEstimator&&) = default;
+            TeamQualityDecayEstimator&
+            operator=(TeamQualityDecayEstimator&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -57,9 +57,8 @@ namespace tomcat {
             std::string get_name() const override;
 
             /**
-             * Estimate the map version assignment distribution based on the
-             * particles generated until the end of the mission related to
-             * individual player map version.
+             * Estimate the team quality decay by inferring the team quality if
+             * the player stays in the same section of the map for 30 seconds.
              *
              * @param new_data: observations
              * @param particles: particles for the last time step processed
@@ -79,6 +78,11 @@ namespace tomcat {
                           int data_point_idx,
                           int time_step,
                           ParticleFilter& filter) override;
+
+          private:
+            const inline static int SECONDS_IN_SECTION = 30;
+
+            int player_number;
         };
 
     } // namespace model
