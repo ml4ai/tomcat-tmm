@@ -85,7 +85,7 @@ namespace tomcat {
              * @param cardinality: cardinality of the variable node
              * @param time_step: time step where the nodes (variable and its
              * factor) should be added (up to 2)
-             * @param cpd: cpd of the variable node given its parents. This will
+             * @param cpd: static CPD table of a node. This will
              * be converted into a potential function stored in the factor node
              * created in this function.
              * @param cpd_ordering_map: how parent nodes index the cpd table
@@ -93,8 +93,40 @@ namespace tomcat {
             void add_node(const std::string& node_label,
                           int cardinality,
                           int time_step,
-                          const Eigen::MatrixXd& cpd,
+                          const Eigen::MatrixXd& cpd_table,
                           const CPD::TableOrderingMap& cpd_ordering_map);
+
+            /**
+             * Adds a variable node and a parent factor node attached to it to
+             * the factor graph.
+             *
+             * @param node_label: variable node's label
+             * @param cardinality: cardinality of the variable node
+             * @param time_step: time step where the nodes (variable and its
+             * factor) should be added (up to 2)
+             * @param distributions: list of distributions that composes the
+             * node's CPD. This will be converted into a potential function
+             * stored in the factor node created in this function.
+             * @param cpd_ordering_map: how parent nodes index the cpd table
+             */
+            void add_node(const std::string& node_label,
+                          int cardinality,
+                          int time_step,
+                          const std::vector<DistributionPtr>& distributions,
+                          const CPD::TableOrderingMap& cpd_ordering_map);
+
+            /**
+             * Adds a variable node target of a factor node.
+             *
+             * @param node_label: variable node's label
+             * @param cardinality: cardinality of the variable node
+             * @param time_step: time step where the nodes (variable and its
+             *
+             * @return id of the target node in the graph
+             */
+            int add_target_node(const std::string& node_label,
+                                 int cardinality,
+                                 int time_step);
 
             /**
              * Adds a link between a variable node and the parent factor node of
@@ -290,6 +322,21 @@ namespace tomcat {
             static std::string
             compose_intermediary_label(const std::string& node_label);
 
+            /**
+             * Return an ordering map that is a combination of dependencies
+             * of the duration distributions and transition distributions.
+             *
+             * @param duration_ordering_map: ordering map of the duration
+             * distributions
+             * @param transition_ordering_map: ordering map of the transition
+             * distributions
+             *
+             * @return Merged ordering map
+             */
+            static CPD::TableOrderingMap get_segment_total_ordering_map(
+                const CPD::TableOrderingMap& duration_ordering_map,
+                const CPD::TableOrderingMap& transition_ordering_map) ;
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -302,7 +349,7 @@ namespace tomcat {
              *
              * @param random_variable: random variable
              */
-            void add_non_replicable_node_copy(RVNodePtr random_variable);
+            void add_non_replicable_node_copy(const RVNodePtr& random_variable);
 
             /**
              * Adds nodes necessary to to inference in a random variable
@@ -310,7 +357,7 @@ namespace tomcat {
              *
              * @param random_variable: random variable
              */
-            void add_timed_node(RVNodePtr random_variable);
+            void add_timed_node(const RVNodePtr& random_variable);
 
             /**
              * Adds a template variable node to the graph.
@@ -336,7 +383,8 @@ namespace tomcat {
             int add_segment_node(const std::string& node_label, int time_step);
 
             /**
-             * Adds a template factor node to the graph.
+             * Adds a template factor node with static probability table to the
+             * graph.
              *
              * @param node_label: node's label
              * @param time_step: node's time step (up to 2)
@@ -350,24 +398,31 @@ namespace tomcat {
              */
             int add_factor_node(const std::string& node_label,
                                 int time_step,
-                                const Eigen::MatrixXd& cpd,
+                                const Eigen::MatrixXd& cpd_table,
                                 const CPD::TableOrderingMap& cpd_ordering_map,
                                 const std::string& cpd_owner_label);
 
             /**
-             * Return an ordering map that is a combination of dependencies
-             * of the duration distributions and transition distributions.
+             * Adds a template factor node with a dynamic cpd table to the
+             * graph. Used for factor nodes associated to leaf random variables
+             * with continuous distributions.
              *
-             * @param duration_ordering_map: ordering map of the duration
-             * distributions
-             * @param transition_ordering_map: ordering map of the transition
-             * distributions
+             * @param node_label: node's label
+             * @param time_step: node's time step (up to 2)
+             * @param distributions: list of continuous distributions
+             * @param cpd_ordering_map: how the factor's parent nodes index its
+             * cpd table
+             * @param cpd_owner_label: label of the node to which forward
+             * messages flows through (owner of the cpd)
              *
-             * @return Merged ordering map
+             * @return Index of the vertex in the graph.
              */
-            CPD::TableOrderingMap get_segment_total_ordering_map(
-                const CPD::TableOrderingMap& duration_ordering_map,
-                const CPD::TableOrderingMap& transition_ordering_map) const;
+            int
+            add_factor_node(const std::string& node_label,
+                            int time_step,
+                            const std::vector<DistributionPtr>& distributions,
+                            const CPD::TableOrderingMap& cpd_ordering_map,
+                            const std::string& cpd_owner_label);
 
             /**
              * Adds a template segment marginalization factor node to the graph.

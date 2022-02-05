@@ -32,9 +32,9 @@ namespace tomcat {
                 // CPD table
                 Eigen::MatrixXd probability_table;
 
-                // In some scenarios, we won't be able to enumerate all the
-                // probabilities in a table. The list of distributions of
-                // a CPD will be needed instead.
+                // In some scenarios (with continuous distributions), we won't
+                // be able to enumerate all the probabilities in a table. The
+                // list of distributions of a CPD will be needed instead.
                 DistributionPtrVec distributions;
 
                 // Node's label in P(Node | ...)
@@ -52,20 +52,24 @@ namespace tomcat {
                 // duplicate keys are not correctly handled.
                 std::string duplicate_key = "";
 
-                PotentialFunction() {}
+                // Whether the probabilities/densities in the CPD table have to
+                // be calculated on-the-fly.
+                bool dynamic;
+
+                PotentialFunction() = default;
 
                 PotentialFunction(const CPD::TableOrderingMap& ordering_map,
                                   const Eigen::MatrixXd& probability_table,
                                   const std::string main_node_label)
                     : ordering_map(ordering_map),
                       probability_table(probability_table),
-                      main_node_label(main_node_label) {}
+                      main_node_label(main_node_label), dynamic(false) {}
 
                 PotentialFunction(const CPD::TableOrderingMap& ordering_map,
                                   const DistributionPtrVec& distributions,
                                   const std::string main_node_label)
                     : ordering_map(ordering_map), distributions(distributions),
-                      main_node_label(main_node_label) {}
+                      main_node_label(main_node_label), dynamic(true) {}
 
                 static std::string
                 get_alternative_key_label(const std::string& label) {
@@ -214,7 +218,19 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Returns all possible rotations of a potential function.
+             * Returns all possible rotations of a potential function. Potential
+             * functions are created from CPD tables, which are described as
+             * p(X | Y, Z, ...). When performing message passing, we also need
+             * p(Y | X, Z, ...) and other combinations. Therefore, this function
+             * rearranges the CPD for every parent to seepd up computation
+             * during the message passing.
+             *
+             * The sum-product algorithm only supports random variables with
+             * continuous distributions as leaf nodes. The procedure to compute
+             * the rotations for these cases are slighly different as we cannot
+             * enumerate all possible values of the leaf node to create a static
+             * table. Therefore, the table will contain pointers that will have
+             * their values updated during the message passing procedure.
              *
              * @param original_potential: potential function to rotate
              */
@@ -296,8 +312,8 @@ namespace tomcat {
             Potential working_potential;
 
             // Some factors will be created to prevent the message passing to go
-            // backwards in time. Some incoming messages may need to be ignore
-            // to achieve this purpose .
+            // backwards in time. Some incoming messages may need to be ignored
+            // to achieve this purpose.
             bool block_forward_message = false;
             bool block_backward_message = false;
         };
