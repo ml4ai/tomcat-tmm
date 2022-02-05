@@ -55,6 +55,18 @@ namespace tomcat {
                 }
 
                 int size() const { return this->node_name_to_messages.size(); }
+
+                bool has_message_for(const std::string node_label,
+                                     int time_step) {
+                    std::string node_name =
+                        MessageNode::get_name(node_label, time_step);
+
+                    if(EXISTS(node_name, this->node_name_to_messages)) {
+                        return true;
+                    }
+
+                    return false;
+                }
             };
 
             //------------------------------------------------------------------

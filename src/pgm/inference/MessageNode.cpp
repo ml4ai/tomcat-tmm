@@ -85,29 +85,26 @@ namespace tomcat {
                                                int target_time_step,
                                                const Tensor3& message,
                                                Direction direction) {
+            if (message.is_empty())
+                return false;
 
             bool changed = false;
-            if (!message.is_empty()) {
-                this->max_time_step_stored =
-                    max(this->max_time_step_stored, target_time_step);
+            this->max_time_step_stored =
+                max(this->max_time_step_stored, target_time_step);
 
-                if (EXISTS(target_time_step,
-                           this->incoming_messages_per_time_slice)) {
-                    const Tensor3& curr_msg =
-                        this->incoming_messages_per_time_slice
-                            .at(target_time_step)
-                            .get_message_for(source_node_label,
-                                             source_time_step);
-                    changed = !curr_msg.equals(message);
-                }
-                else {
-                    changed = true;
-                }
-
-                this->incoming_messages_per_time_slice[target_time_step]
-                    .set_message_for(
-                        source_node_label, source_time_step, message);
+            if (EXISTS(target_time_step,
+                       this->incoming_messages_per_time_slice)) {
+                const Tensor3& curr_msg =
+                    this->incoming_messages_per_time_slice.at(target_time_step)
+                        .get_message_for(source_node_label, source_time_step);
+                changed = !curr_msg.equals(message);
             }
+            else {
+                changed = true;
+            }
+
+            this->incoming_messages_per_time_slice[target_time_step]
+                .set_message_for(source_node_label, source_time_step, message);
 
             return changed;
         }

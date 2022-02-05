@@ -52,10 +52,6 @@ namespace tomcat {
                 // duplicate keys are not correctly handled.
                 std::string duplicate_key = "";
 
-                // Whether the probabilities/densities in the CPD table have to
-                // be calculated on-the-fly.
-                bool dynamic;
-
                 PotentialFunction() = default;
 
                 PotentialFunction(const CPD::TableOrderingMap& ordering_map,
@@ -63,13 +59,13 @@ namespace tomcat {
                                   const std::string main_node_label)
                     : ordering_map(ordering_map),
                       probability_table(probability_table),
-                      main_node_label(main_node_label), dynamic(false) {}
+                      main_node_label(main_node_label) {}
 
                 PotentialFunction(const CPD::TableOrderingMap& ordering_map,
                                   const DistributionPtrVec& distributions,
                                   const std::string main_node_label)
                     : ordering_map(ordering_map), distributions(distributions),
-                      main_node_label(main_node_label), dynamic(true) {}
+                      main_node_label(main_node_label) {}
 
                 static std::string
                 get_alternative_key_label(const std::string& label) {
@@ -186,6 +182,14 @@ namespace tomcat {
 
             bool is_segment() const override;
 
+            bool set_incoming_message_from(const std::string& source_node_label,
+                                           int source_time_step,
+                                           int target_time_step,
+                                           const Tensor3& message,
+                                           Direction direction) override;
+
+            void erase_incoming_messages_beyond(int time_step) override;
+
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
@@ -295,13 +299,55 @@ namespace tomcat {
              *
              * @param tensors: tensors
              *
-             * @return cartesian product of rows from a collection of tensors
-             * . The final tensor will be formed by matrices with the same
+             * @return cartesian product of rows from a collection of tensors.
+             * The final tensor will be formed by matrices with the same
              * number of rows and columns given by the cartesian product of
              * the rows in the collection of tensors.
              */
             Tensor3
             get_cartesian_tensor(const std::vector<Tensor3>& tensors) const;
+
+            /**
+             * Computes outward messages for a factor node linked to discrete
+             * random variable nodes.
+             *
+             * @param template_target_node: template instance of the node where
+             * the message should go to
+             * @param template_time_step: time step of this node where to get
+             * the incoming messages from. If the template node belongs to the
+             * repeatable structure, this information is needed to know which
+             * time step to address to retrieve the incoming messages.
+             * @param target_time_step: real time step of the target node
+             * @param direction: direction of the message passing
+             *
+             * @return Message
+             */
+            Tensor3 get_static_factor_outward_message_to(
+                const std::shared_ptr<MessageNode>& template_target_node,
+                int template_time_step,
+                int target_time_step,
+                Direction direction) const;
+
+            /**
+             * Computes outward messages for a factor node linked to at least
+             * one continuous variable node.
+             *
+             * @param template_target_node: template instance of the node where
+             * the message should go to
+             * @param template_time_step: time step of this node where to get
+             * the incoming messages from. If the template node belongs to the
+             * repeatable structure, this information is needed to know which
+             * time step to address to retrieve the incoming messages.
+             * @param target_time_step: real time step of the target node
+             * @param direction: direction of the message passing
+             *
+             * @return Message
+             */
+            Tensor3 get_dynamic_factor_outward_message_to(
+                const std::shared_ptr<MessageNode>& template_target_node,
+                int template_time_step,
+                int target_time_step,
+                Direction direction) const;
 
             //------------------------------------------------------------------
             // Data members
@@ -316,6 +362,16 @@ namespace tomcat {
             // to achieve this purpose.
             bool block_forward_message = false;
             bool block_backward_message = false;
+
+            // Whether the probabilities/densities in the potential function
+            // have to be calculated on-the-fly.
+            bool dynamic;
+
+            // Stores backward messages from continuous leaf variables. This
+            // implementation only supports one continuous node involved in each
+            // factor node thus we don't need a MessageContainer.
+            std::unordered_map<int, Tensor3>
+                incoming_continuous_messages_per_time_slice;
         };
 
     } // namespace model
