@@ -38,7 +38,7 @@ namespace tomcat {
                     std::string node_name =
                         MessageNode::get_name(node_label, time_step);
 
-                    if(EXISTS(node_name, this->node_name_to_messages)) {
+                    if (EXISTS(node_name, this->node_name_to_messages)) {
                         message = this->node_name_to_messages.at(node_name);
                     }
 
@@ -61,7 +61,7 @@ namespace tomcat {
                     std::string node_name =
                         MessageNode::get_name(node_label, time_step);
 
-                    if(EXISTS(node_name, this->node_name_to_messages)) {
+                    if (EXISTS(node_name, this->node_name_to_messages)) {
                         return true;
                     }
 
@@ -182,25 +182,6 @@ namespace tomcat {
                                               int target_time_step) const;
 
             /**
-             * For a given target time step, stores the message that came from
-             * a source node. This version of the method is for non-segment
-             * nodes only.
-             *
-             * @param source_node_label: source node's label
-             * @param source_time_step: source node's time step
-             * @param target_time_step: time step instance of this node to store
-             * @param direction: direction of the message passing
-             *
-             * @return Whether the message changed or not compared to the
-             * previous message from the same source
-             */
-            bool set_incoming_message_from(const std::string& source_node_label,
-                                           int source_time_step,
-                                           int target_time_step,
-                                           const Tensor3& message,
-                                           Direction direction);
-
-            /**
              * Get template node's name as a combination of its label and time
              * step.
              *
@@ -227,6 +208,26 @@ namespace tomcat {
              */
             virtual bool
             set_incoming_message_from(const MsgNodePtr& source_node_template,
+                                      int source_time_step,
+                                      int target_time_step,
+                                      const Tensor3& message,
+                                      Direction direction);
+
+            /**
+             * For a given target time step, stores the message that came from
+             * a source node. This version of the method is for non-segment
+             * nodes only.
+             *
+             * @param source_node_label: source node's label
+             * @param source_time_step: source node's time step
+             * @param target_time_step: time step instance of this node to store
+             * @param direction: direction of the message passing
+             *
+             * @return Whether the message changed or not compared to the
+             * previous message from the same source
+             */
+            virtual bool
+            set_incoming_message_from(const std::string& source_node_label,
                                       int source_time_step,
                                       int target_time_step,
                                       const Tensor3& message,

@@ -21,8 +21,9 @@ namespace tomcat {
             const shared_ptr<DynamicBayesNet>& model,
             int inference_horizon,
             const std::string& node_label,
-            const Eigen::VectorXd& assignment)
-            : Estimator(model, inference_horizon, node_label, assignment) {
+            const Eigen::VectorXd& assignment,
+            bool single_pass)
+            : Estimator(model, inference_horizon, node_label, assignment), single_pass(single_pass) {
 
             if (inference_horizon > 2) {
                 if (assignment.size() == 0) {
@@ -110,7 +111,7 @@ namespace tomcat {
                         any_change |= this->compute_backward_messages(
                             this->factor_graph, w, new_data, t);
                     }
-                } while (any_change);
+                } while (any_change && !this->single_pass);
 
                 Eigen::MatrixXd marginal;
 

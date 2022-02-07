@@ -27,9 +27,7 @@ namespace tomcat {
 
             this->original_potential.potential = PotentialFunction(
                 ordering_map, probability_table, cpd_main_node_label);
-            this->original_potential.node_label_to_rotated_potential =
-                this->create_potential_function_rotations(
-                    this->original_potential.potential);
+            this->create_potential_function_rotations();
             this->working_potential = this->original_potential;
         }
 
@@ -44,14 +42,19 @@ namespace tomcat {
                 throw TomcatModelException(
                     "This implementation of the SumProduct only supports "
                     "static categorical distributions. Use the alternative "
-                    "constructor for this purpose.")
+                    "constructor for this purpose.");
             }
 
             this->original_potential.potential = PotentialFunction(
                 ordering_map, distributions, cpd_main_node_label);
-            this->original_potential.node_label_to_rotated_potential =
-                this->create_potential_function_rotations(
-                    this->original_potential.potential);
+            // The CPD table in this case will store indices of the
+            // distributions to be evaluated at runtime.
+            Eigen::MatrixXd index_table(distributions.size(), 1);
+            for (int i = 0; i < distributions.size(); i++) {
+                index_table(i, 0) = i;
+            }
+            this->original_potential.potential.probability_table = index_table;
+            this->create_potential_function_rotations();
             this->working_potential = this->original_potential;
         }
 
@@ -79,57 +82,21 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        unordered_map<string, FactorNode::PotentialFunction>
-        FactorNode::create_potential_function_rotations(
-            const PotentialFunction& original_potential) {
-
-            std::unordered_map<std::string, PotentialFunction>
-                label_to_rotations;
-
-            bool continuous = false;
-            int continuous_table_size = 1;
-            if (original_potential.ordering_map
-                    .at(original_potential.main_node_label)
-                    .cardinality < 2) {
-                continuous = true;
-
-                for (const auto& [node_label, ordering] :
-                     original_potential.ordering_map) {
-                    if (node_label != original_potential.main_node_label) {
-                        continuous_table_size *= ordering.cardinality;
-                    }
-                }
-            }
+        void FactorNode::create_potential_function_rotations() {
 
             for (const auto& [node_label, ordering] :
-                 original_potential.ordering_map) {
+                 this->original_potential.potential.ordering_map) {
 
-                if (node_label == original_potential.main_node_label) {
+                if (node_label ==
+                    this->original_potential.potential.main_node_label) {
                     // This is the original version.
                     continue;
                 }
 
-                Eigen::MatrixXd new_matrix;
-                if (continuous) {
-                    // In the continuous case, the table cannot be computed
-                    // beforehand. Therefore, we will update the continuous
-                    // node's messages with their pdfs, so we can keep the table
-                    // static and share the same computation logic between
-                    // categorical and continuous cases. In that cases, tables
-                    // filled with 1s will suffice.
-                    int fake_continuous_cardinality =
-                        original_potential.distributions.size();
-                    int rows = fake_continuous_cardinality *
-                               continuous_table_size / ordering.cardinality;
-                    int cols = ordering.cardinality;
-                    new_matrix = Eigen::MatrixXd::Ones(rows, cols);
-                }
-                else {
-                    new_matrix = this->rotate_table(
-                        original_potential.probability_table,
-                        ordering.cardinality,
-                        ordering.right_cumulative_cardinality);
-                }
+                Eigen::MatrixXd new_matrix = this->rotate_table(
+                    this->original_potential.potential.probability_table,
+                    ordering.cardinality,
+                    ordering.right_cumulative_cardinality);
 
                 PotentialFunction new_function;
                 new_function.probability_table = move(new_matrix);
@@ -137,9 +104,10 @@ namespace tomcat {
                 // Create a new ordering map and replace the parent node's label
                 // by the main node name, that happens to be the child of this
                 // factor node;
-                CPD::TableOrderingMap new_map = original_potential.ordering_map;
+                CPD::TableOrderingMap new_map =
+                    this->original_potential.potential.ordering_map;
                 string prev_main_node_label =
-                    original_potential.main_node_label;
+                    this->original_potential.potential.main_node_label;
                 if (EXISTS(prev_main_node_label, new_map)) {
                     new_function.duplicate_key = prev_main_node_label;
                     // Adds * to the key to differentiate it from the already
@@ -156,10 +124,9 @@ namespace tomcat {
 
                 new_function.ordering_map = move(new_map);
 
-                label_to_rotations[node_label] = new_function;
+                this->original_potential
+                    .node_label_to_rotated_potential[node_label] = new_function;
             }
-
-            return label_to_rotations;
         }
 
         Eigen::MatrixXd
@@ -220,8 +187,19 @@ namespace tomcat {
                 return {};
             }
 
+            PotentialFunction potential_function;
+            if (direction == Direction::forward) {
+                potential_function = this->working_potential.potential;
+            }
+            else {
+                potential_function =
+                    this->working_potential.node_label_to_rotated_potential.at(
+                        template_target_node->get_label());
+            }
+
             if (this->dynamic) {
                 return this->get_dynamic_factor_outward_message_to(
+                    potential_function,
                     template_target_node,
                     template_time_step,
                     target_time_step,
@@ -229,6 +207,7 @@ namespace tomcat {
             }
             else {
                 return this->get_static_factor_outward_message_to(
+                    potential_function,
                     template_target_node,
                     template_time_step,
                     target_time_step,
@@ -275,24 +254,19 @@ namespace tomcat {
                 new_tensor[depth] = temp_matrix;
             }
 
-            return Tensor3(new_tensor);
+            if (new_tensor.empty()) {
+                return {1};
+            }
+
+            return {new_tensor};
         }
 
         Tensor3 FactorNode::get_static_factor_outward_message_to(
+            const PotentialFunction& potential_function,
             const shared_ptr<MessageNode>& template_target_node,
             int template_time_step,
             int target_time_step,
             Direction direction) const {
-
-            PotentialFunction potential_function;
-            if (direction == Direction::forward) {
-                potential_function = this->working_potential.potential;
-            }
-            else {
-                potential_function =
-                    this->working_potential.node_label_to_rotated_potential.at(
-                        template_target_node->get_label());
-            }
 
             // To achieve the correct indexing when multiplying incoming
             // messages by the potential function matrix, the messages have to
@@ -325,6 +299,7 @@ namespace tomcat {
         }
 
         Tensor3 FactorNode::get_dynamic_factor_outward_message_to(
+            const PotentialFunction& potential_function,
             const shared_ptr<MessageNode>& template_target_node,
             int template_time_step,
             int target_time_step,
@@ -338,74 +313,67 @@ namespace tomcat {
                 // pass can reach to. Therefore, we can ignore them.
                 return {};
             }
-            else {
-                // In the backward pass we can compute the message from a
-                // continuous distribution because we have evidence for the leaf
-                // node. Then we can compute p(evidence|parents) and replace the
-                // continuous message with the pdfs.
+            // In the backward pass we can compute the message from a
+            // continuous distribution because we have evidence for the leaf
+            // node. Then we can compute p(evidence|parents) and replace the
+            // continuous message with the pdfs.
+            vector<Tensor3> messages_in_order =
+                this->get_incoming_messages_in_order(
+                    template_target_node->get_label(),
+                    template_time_step,
+                    target_time_step,
+                    potential_function);
+            Eigen::MatrixXd indexing_probs =
+                this->get_cartesian_tensor(messages_in_order)(0, 0);
 
-                auto& distributions =
-                    this->working_potential.potential.distributions;
-                if (EXISTS(template_time_step,
-                           this->incoming_continuous_messages_per_time_slice)) {
-                    Eigen::MatrixXd continuous_values =
-                        this->incoming_continuous_messages_per_time_slice.at(
-                            time_step)(0, 0);
+            auto& distributions =
+                this->working_potential.potential.distributions;
+            Eigen::MatrixXd pdf_table = potential_function.probability_table;
 
-                    Eigen::MatrixXd pdf_table(continuous_values.rows(), distributions.size());
-                    for (int data_point = 0;
-                         data_point < continuous_values.rows();
-                         data_point++) {
-                        for (int i = 0; i < distributions.size(); i++) {
-                            pdf_table(data_point, i) = distributions[i]->get_pdf(
-                                continuous_values.row(data_point));
+            if (EXISTS(template_time_step,
+                       this->incoming_continuous_messages_per_time_slice)) {
+
+                Eigen::MatrixXd continuous_values =
+                    this->incoming_continuous_messages_per_time_slice.at(
+                        template_time_step)(0, 0);
+
+                Eigen::MatrixXd outward_message(continuous_values.rows(),
+                                                pdf_table.cols());
+
+                // For each data point we compute their pdf and populate a
+                // CPD table using the index table associated to the
+                // potential function in use.
+                for (int data_point = 0; data_point < continuous_values.rows();
+                     data_point++) {
+                    for (int i = 0; i < pdf_table.rows(); i++) {
+                        for (int j = 0; j < pdf_table.cols(); j++) {
+                            int distribution_idx =
+                                (int)potential_function.probability_table(i, j);
+                            pdf_table(i, j) =
+                                distributions[distribution_idx]->get_pdf(
+                                    continuous_values.row(data_point));
                         }
-
-                        // Now we create an incoming message for the node containing the pdfs
-
                     }
-                }
-                else {
-                    // No data available for the continuous leaf node.
-//                    pdf_table.fill(1);
+
+                    outward_message.row(data_point) =
+                        indexing_probs * pdf_table;
+                    outward_message.row(data_point).array() /=
+                        outward_message.row(data_point).sum();
                 }
 
-//                Tensor3 PotentialFunction potential_function =
-//                    this->working_potential.freeze_with()
-//
-//                        potential_function =
-//                        this->working_potential.node_label_to_rotated_potential
-//                            .at(template_target_node->get_label());
+                return {outward_message};
+            }
+            else {
+                PotentialFunction ignore_evidence = potential_function;
+                ignore_evidence.probability_table.fill(1);
+                return this->get_static_factor_outward_message_to(
+                    potential_function,
+                    template_target_node,
+                    template_time_step,
+                    target_time_step,
+                    direction);
             }
 
-            // To achieve the correct indexing when multiplying incoming
-            // messages by the potential function matrix, the messages have to
-            // be multiplied following the CPD order defined for parent nodes.
-//            vector<Tensor3> messages_in_order =
-//                this->get_incoming_messages_in_order(
-//                    template_target_node->get_label(),
-//                    template_time_step,
-//                    target_time_step,
-//                    potential_function);
-//
-//            Eigen::MatrixXd outward_message;
-//
-//            if (!messages_in_order.empty()) {
-//                Eigen::MatrixXd indexing_probs =
-//                    this->get_cartesian_tensor(messages_in_order)(0, 0);
-//
-//                // This will marginalize the incoming nodes by summing the rows.
-//                outward_message =
-//                    indexing_probs * potential_function.probability_table;
-//
-//                // Normalize the message
-//                Eigen::VectorXd sum_per_row = outward_message.rowwise().sum();
-//                outward_message =
-//                    (outward_message.array().colwise() / sum_per_row.array())
-//                        .matrix();
-//            }
-
-//            return {outward_message};
             return {};
         }
 

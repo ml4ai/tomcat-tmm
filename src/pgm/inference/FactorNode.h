@@ -29,7 +29,9 @@ namespace tomcat {
                 // map.
                 CPD::TableOrderingMap ordering_map;
 
-                // CPD table
+                // CPD table containing probabilities when a static potential is
+                // used or the indices of the distributions when the potential
+                // is dynamic.
                 Eigen::MatrixXd probability_table;
 
                 // In some scenarios (with continuous distributions), we won't
@@ -182,6 +184,8 @@ namespace tomcat {
 
             bool is_segment() const override;
 
+            using MessageNode::set_incoming_message_from;
+
             bool set_incoming_message_from(const std::string& source_node_label,
                                            int source_time_step,
                                            int target_time_step,
@@ -222,25 +226,24 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Returns all possible rotations of a potential function. Potential
-             * functions are created from CPD tables, which are described as
-             * p(X | Y, Z, ...). When performing message passing, we also need
-             * p(Y | X, Z, ...) and other combinations. Therefore, this function
-             * rearranges the CPD for every parent to seepd up computation
-             * during the message passing.
+             * Stores all possible rotations of a potential function table.
+             * Potential functions are created from CPD tables, which are
+             * described as p(X | Y, Z, ...). When performing message passing,
+             * we also need p(Y | X, Z, ...) and other combinations. Therefore,
+             * this function rearranges the CPD for every parent to seepd up
+             * computation during the message passing.
              *
              * The sum-product algorithm only supports random variables with
              * continuous distributions as leaf nodes. The procedure to compute
-             * the rotations for these cases are slighly different as we cannot
+             * the rotations for these cases are slightly different as we cannot
              * enumerate all possible values of the leaf node to create a static
-             * table. Therefore, the table will contain pointers that will have
-             * their values updated during the message passing procedure.
+             * table. Therefore, the table will contain indices to the
+             * distributions and will have its values filled during the message
+             * passing procedure.
              *
              * @param original_potential: potential function to rotate
              */
-            std::unordered_map<std::string, FactorNode::PotentialFunction>
-            create_potential_function_rotations(
-                const PotentialFunction& original_potential);
+            void create_potential_function_rotations();
 
             /**
              * Copies data members from another factor node.
@@ -311,6 +314,8 @@ namespace tomcat {
              * Computes outward messages for a factor node linked to discrete
              * random variable nodes.
              *
+             * @param potential_function: potential function to be used in the
+             * computation
              * @param template_target_node: template instance of the node where
              * the message should go to
              * @param template_time_step: time step of this node where to get
@@ -323,6 +328,7 @@ namespace tomcat {
              * @return Message
              */
             Tensor3 get_static_factor_outward_message_to(
+                const PotentialFunction& potential_function,
                 const std::shared_ptr<MessageNode>& template_target_node,
                 int template_time_step,
                 int target_time_step,
@@ -332,6 +338,8 @@ namespace tomcat {
              * Computes outward messages for a factor node linked to at least
              * one continuous variable node.
              *
+             * @param potential_function: potential function to be used in the
+             * computation
              * @param template_target_node: template instance of the node where
              * the message should go to
              * @param template_time_step: time step of this node where to get
@@ -344,6 +352,7 @@ namespace tomcat {
              * @return Message
              */
             Tensor3 get_dynamic_factor_outward_message_to(
+                const PotentialFunction& potential_function,
                 const std::shared_ptr<MessageNode>& template_target_node,
                 int template_time_step,
                 int target_time_step,
