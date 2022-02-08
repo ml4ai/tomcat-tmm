@@ -380,7 +380,7 @@ namespace tomcat {
             }
             else {
                 // To compute the probability of observing at least one
-                // occurence of an assignment in the inference_horizon, we
+                // occurrence of an assignment in the inference_horizon, we
                 // compute the complement of not observing the assignment in
                 // any of the time steps in the inference horizon.
                 // This implementation only supports prediction in horizons
@@ -403,10 +403,6 @@ namespace tomcat {
                     // regular way.
                     this->next_time_step = t;
 
-                    int initial_time_step_in_window =
-                        this->variable_subgraph_window
-                            ? 0
-                            : max(t - this->subgraph_window_size + 1, 0);
                     bool any_change;
                     do {
                         any_change = false;
@@ -450,7 +446,7 @@ namespace tomcat {
 
                 estimated_probabilities = 1 - estimated_probabilities.array();
 
-                // Adjust the time counter back to it's original position.
+                // Adjust the time counter back to its original position.
                 this->next_time_step = curr_next_time_step;
                 this->factor_graph.erase_incoming_messages_beyond(time_step);
             }

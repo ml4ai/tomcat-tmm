@@ -980,7 +980,7 @@ BOOST_AUTO_TEST_CASE(dbn7_exact) {
         Tensor3(x_estimator.get_estimates().estimates);
     BOOST_TEST(check_tensor_eq(estimated_x_inference, expected_x_inference));
 
-    // Prediction
+//    // Prediction
 //    SumProductEstimator x_predictor(model, H, "X", VectorXd::Constant(1, 0));
 //    x_predictor.set_subgraph_window_size(1);
 //    x_predictor.set_show_progress(false);
