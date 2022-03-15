@@ -15,7 +15,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         ASISTStudy3InterventionReporter::ASISTStudy3InterventionReporter(
             const nlohmann::json& settings)
-            : settings(settings), introduced(false) {}
+            : settings(settings) {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
@@ -38,7 +38,6 @@ namespace tomcat {
         void ASISTStudy3InterventionReporter::copy(
             const ASISTStudy3InterventionReporter& reporter) {
             this->settings = reporter.settings;
-            this->introduced = false;
         }
 
         vector<nlohmann::json>
@@ -49,6 +48,19 @@ namespace tomcat {
             if (this->introduced) {
                 // The agent only checks for interventions after it has
                 // introduced himself to the team.
+
+                // TODO - study if we will queue interventions or push all
+                // triggered ones to the testbed at the same time.
+                if (!this->intervened_on_motivation &&
+                    time_step >= this->settings["introduction_time_step"]) {
+                    this->intervened_on_motivation = true;
+
+//                    if (agent->get_estimators()[0]->is_team_unmotivated()) {
+                        messages.push_back(
+                            this->get_motivation_intervention_message(
+                                agent, time_step));
+//                    }
+                }
             }
             else {
                 if (time_step >= this->settings["introduction_time_step"]) {
@@ -214,7 +226,7 @@ namespace tomcat {
         }
 
         nlohmann::json
-        ASISTStudy3InterventionReporter::get_introductory_intervention_message(
+        ASISTStudy3InterventionReporter::get_template_intervention_message(
             const AgentPtr& agent, int time_step) const {
             nlohmann::json intervention_message;
             this->add_header_section(
@@ -223,8 +235,28 @@ namespace tomcat {
                 intervention_message, agent, "Intervention:Chat", time_step);
             this->add_common_data_section(
                 intervention_message, agent, time_step);
+
+            return intervention_message;
+        }
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::get_introductory_intervention_message(
+            const AgentPtr& agent, int time_step) const {
+            nlohmann::json intervention_message =
+                this->get_template_intervention_message(agent, time_step);
             intervention_message["data"]["content"] =
                 this->settings["prompts"]["introduction"];
+
+            return intervention_message;
+        }
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::get_motivation_intervention_message(
+            const AgentPtr& agent, int time_step) const {
+            nlohmann::json intervention_message =
+                this->get_template_intervention_message(agent, time_step);
+            intervention_message["data"]["content"] =
+                this->settings["prompts"]["motivation"];
 
             return intervention_message;
         }
@@ -238,6 +270,7 @@ namespace tomcat {
 
         void ASISTStudy3InterventionReporter::prepare() {
             this->introduced = false;
+            this->intervened_on_motivation = false;
         }
 
         void ASISTStudy3InterventionReporter::add_common_data_section(

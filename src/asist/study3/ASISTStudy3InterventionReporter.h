@@ -75,6 +75,19 @@ namespace tomcat {
                                          int time_step) const;
 
             /**
+             * Creates a template intervention message.
+             *
+             * @param agent: ASI
+             * @param time_step: time step at which the message is being
+             * generated
+             *
+             * @return: json intervention message
+             */
+            nlohmann::json
+            get_template_intervention_message(const AgentPtr& agent,
+                                                  int time_step) const;
+
+            /**
              * Assembles ToMCAT's introduction as an intervention.
              *
              * @param agent: ASI
@@ -86,6 +99,19 @@ namespace tomcat {
             nlohmann::json
             get_introductory_intervention_message(const AgentPtr& agent,
                                                   int time_step) const;
+
+            /**
+             * Assembles motivation intervention.
+             *
+             * @param agent: ASI
+             * @param time_step: time step at which the message is being
+             * generated
+             *
+             * @return: json intervention message
+             */
+            nlohmann::json
+            get_motivation_intervention_message(const AgentPtr& agent,
+                                                int time_step) const;
 
             /**
              * Return a string with the participant ids separated by comma.
@@ -101,6 +127,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             nlohmann::json settings;
             bool introduced;
+            bool intervened_on_motivation;
         };
 
     } // namespace model
