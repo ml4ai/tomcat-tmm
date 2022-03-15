@@ -1,4 +1,4 @@
-#include "InterventionEstimator.h"
+#include "ASISTStudy3InterventionEstimator.h"
 
 #include <fmt/format.h>
 
@@ -12,7 +12,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors
         //----------------------------------------------------------------------
-        InterventionEstimator::InterventionEstimator(
+        ASISTStudy3InterventionEstimator::InterventionEstimator(
             const string& map_filepath,
             const string& threat_room_model_filepath) {
 
@@ -23,13 +23,14 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        InterventionEstimator::InterventionEstimator(
-            const InterventionEstimator& estimator) {
+        ASISTStudy3InterventionEstimator::InterventionEstimator(
+            const ASISTStudy3InterventionEstimator& estimator) {
             this->copy_estimator(estimator);
         }
 
-        InterventionEstimator& InterventionEstimator::operator=(
-            const InterventionEstimator& estimator) {
+        ASISTStudy3InterventionEstimator&
+        ASISTStudy3InterventionEstimator::operator=(
+            const ASISTStudy3InterventionEstimator& estimator) {
             this->copy_estimator(estimator);
             return *this;
         }
@@ -41,8 +42,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void
-        InterventionEstimator::copy(const InterventionEstimator& estimator) {
+        void ASISTStudy3InterventionEstimator::copy(const ASISTStudy3InterventionEstimator& estimator) {
             Estimator::copy_estimator(estimator);
             this->room_id_to_idx = estimator.room_id_to_idx;
             this->room_ids = estimator.room_ids;
@@ -50,24 +50,25 @@ namespace tomcat {
                 estimator.threat_room_belief_estimators;
         }
 
-        void InterventionEstimator::estimate(const EvidenceSet& new_data) {
+        void ASISTStudy3InterventionEstimator::estimate(const EvidenceSet& new_data) {
             this->update_threat_room_beliefs(new_data);
         }
 
-        void InterventionEstimator::get_info(nlohmann::json& json) const {
+        void
+        ASISTStudy3InterventionEstimator::get_info(nlohmann::json& json) const {
             json["name"] = this->get_name();
             json["inference_horizon"] = this->inference_horizon;
         }
 
-        string InterventionEstimator::get_name() const { return "sampler"; }
+        string ASISTStudy3InterventionEstimator::get_name() const { return "sampler"; }
 
-        bool InterventionEstimator::is_binary_on_prediction() const {
+        bool ASISTStudy3InterventionEstimator::is_binary_on_prediction() const {
             // Irrelevant for this estimator. It just aggregates other smaller
             // estimators. One per belief.
             return false;
         }
 
-        void InterventionEstimator::prepare() {
+        void ASISTStudy3InterventionEstimator::prepare() {
             // belief about threat rooms
             for (auto& estimators : this->threat_room_belief_estimators) {
                 for (auto& estimator : estimators) {
@@ -76,7 +77,7 @@ namespace tomcat {
             }
         }
 
-        void InterventionEstimator::parse_map(const std::string& map_filepath) {
+        void ASISTStudy3InterventionEstimator::parse_map(const std::string& map_filepath) {
             fstream map_file;
             map_file.open(map_filepath);
             if (map_file.is_open()) {
@@ -98,13 +99,14 @@ namespace tomcat {
             }
         }
 
-        void InterventionEstimator::create_belief_estimators(
+        void ASISTStudy3InterventionEstimator::create_belief_estimators(
             const string& threat_room_model_filepath) {
             this->create_threat_room_belief_estimators(
                 threat_room_model_filepath);
         }
 
-        void InterventionEstimator::create_threat_room_belief_estimators(
+        void
+        ASISTStudy3InterventionEstimator::create_threat_room_belief_estimators(
             const string& threat_room_model_filepath) {
 
             // Since we are using SumProduct, we can use the same model for all
@@ -125,7 +127,7 @@ namespace tomcat {
             }
         }
 
-        void InterventionEstimator::update_threat_room_beliefs(
+        void ASISTStudy3InterventionEstimator::update_threat_room_beliefs(
             const EvidenceSet& new_data) {
             for (int i = 0; i < NUM_ROLES; i++) {
                 for (int j = 0; j < this->room_ids.size(); j++) {

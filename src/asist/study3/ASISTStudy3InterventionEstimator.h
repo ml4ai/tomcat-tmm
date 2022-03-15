@@ -17,28 +17,28 @@ namespace tomcat::model {
      * the ASIST program. It consists of a collection of models to keep track of
      * different beliefs for different players in the mission.
      */
-    class InterventionEstimator : public Estimator {
+    class ASISTStudy3InterventionEstimator : public Estimator {
       public:
         //------------------------------------------------------------------
         // Constructors & Destructor
         //------------------------------------------------------------------
 
-        InterventionEstimator(const std::string& map_filepath,
+        ASISTStudy3InterventionEstimator(const std::string& map_filepath,
                               const std::string& threat_room_model_filepath);
 
-        ~InterventionEstimator() = default;
+        ~ASISTStudy3InterventionEstimator() = default;
 
         //------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //------------------------------------------------------------------
-        InterventionEstimator(const InterventionEstimator& estimator);
+        ASISTStudy3InterventionEstimator(const ASISTStudy3InterventionEstimator& estimator);
 
-        InterventionEstimator&
-        operator=(const InterventionEstimator& estimator);
+        ASISTStudy3InterventionEstimator&
+        operator=(const ASISTStudy3InterventionEstimator& estimator);
 
-        InterventionEstimator(InterventionEstimator&&) = default;
+        ASISTStudy3InterventionEstimator(ASISTStudy3InterventionEstimator&&) = default;
 
-        InterventionEstimator& operator=(InterventionEstimator&&) = default;
+        ASISTStudy3InterventionEstimator& operator=(ASISTStudy3InterventionEstimator&&) = default;
 
         //------------------------------------------------------------------
         // Static functions
@@ -75,7 +75,7 @@ namespace tomcat::model {
          *
          * @param estimator: other estimator
          */
-        void copy(const InterventionEstimator& estimator);
+        void copy(const ASISTStudy3InterventionEstimator& estimator);
 
         //------------------------------------------------------------------
         // Data members
