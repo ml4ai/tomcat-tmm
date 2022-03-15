@@ -930,9 +930,8 @@ BOOST_AUTO_TEST_CASE(hmm_exact) {
 BOOST_AUTO_TEST_CASE(dbn7_exact) {
     /**
      * This test case uses a HMM with 1 Gaussian observed node per state. It
-     * evaluates whether the probabilities of X (state variable) and projections
-     * over a horizon of size 3 can be accurately determined at every time step
-     * using sum-product.
+     * evaluates whether the probabilities of X (state variable) can be
+     * accurately determined at every time step using sum-product.
      */
 
     int T = 10;
@@ -979,22 +978,6 @@ BOOST_AUTO_TEST_CASE(dbn7_exact) {
     Tensor3 estimated_x_inference =
         Tensor3(x_estimator.get_estimates().estimates);
     BOOST_TEST(check_tensor_eq(estimated_x_inference, expected_x_inference));
-
-//    // Prediction
-//    SumProductEstimator x_predictor(model, H, "X", VectorXd::Constant(1, 0));
-//    x_predictor.set_subgraph_window_size(1);
-//    x_predictor.set_show_progress(false);
-//    x_predictor.prepare();
-//    x_predictor.estimate(data);
-//
-//    Eigen::MatrixXd expected_x_prediction1(D, T);
-//    expected_x_prediction1 << 0.68043, 0.72207, 0.68242, 0.80306, 0.41659,
-//        0.69093, 0.62257, 0.68943, 0.41659, 0.41687, 0.68043, 0.41661, 0.67265,
-//        0.85431, 0.89575, 0.49732, 0.41706, 0.52624, 0.63376, 0.41659;
-//    Tensor3 expected_x_prediction(expected_x_prediction1);
-//    Tensor3 estimated_x_prediction =
-//        Tensor3(x_predictor.get_estimates().estimates);
-//    BOOST_TEST(check_tensor_eq(estimated_x_prediction, expected_x_prediction));
 }
 
 BOOST_AUTO_TEST_CASE(hmm_particle_filter) {

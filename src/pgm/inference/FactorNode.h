@@ -119,12 +119,15 @@ namespace tomcat {
              * defines the factor node's potential function
              * @param time_step: factor's time step
              * @param ordering_map: potential function matrix's ordering map
+             * @param create_rotations: whether we should create rotations based
+             * on the indices of the distributions
              */
             FactorNode(const std::string& label,
                        int time_step,
                        const DistributionPtrVec& distributions,
                        const CPD::TableOrderingMap& ordering_map,
-                       const std::string& cpd_node_label);
+                       const std::string& cpd_node_label,
+                       bool create_rotations = true);
 
             ~FactorNode();
 

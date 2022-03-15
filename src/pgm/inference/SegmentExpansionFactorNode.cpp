@@ -18,7 +18,8 @@ namespace tomcat {
                          time_step,
                          duration_distributions,
                          duration_ordering_map,
-                         ""),
+                         "",
+                         false),
               total_ordering_map(total_ordering_map) {
 
             for (const auto& [label, indexing_scheme] : duration_ordering_map) {

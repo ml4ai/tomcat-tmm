@@ -448,9 +448,11 @@ namespace tomcat::model {
 
         int target_id =
             this->add_target_node(node_label, cardinality, time_step);
-        int source_id = this->add_factor_node(
-            node_label, time_step, cpd_table, cpd_ordering_map, node_label);
-        boost::add_edge(source_id, target_id, this->graph);
+        if (cpd_table.size() > 0) {
+            int source_id = this->add_factor_node(
+                node_label, time_step, cpd_table, cpd_ordering_map, node_label);
+            boost::add_edge(source_id, target_id, this->graph);
+        }
     }
 
     void FactorGraph::add_node(const string& node_label,

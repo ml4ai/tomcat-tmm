@@ -35,7 +35,8 @@ namespace tomcat {
                                int time_step,
                                const DistributionPtrVec& distributions,
                                const CPD::TableOrderingMap& ordering_map,
-                               const string& cpd_main_node_label)
+                               const string& cpd_main_node_label,
+                               bool create_rotations)
             : MessageNode(compose_label(label), time_step), dynamic(true) {
 
             if (instanceof <Categorical>(distributions[0].get())) {
@@ -47,14 +48,18 @@ namespace tomcat {
 
             this->original_potential.potential = PotentialFunction(
                 ordering_map, distributions, cpd_main_node_label);
-            // The CPD table in this case will store indices of the
-            // distributions to be evaluated at runtime.
-            Eigen::MatrixXd index_table(distributions.size(), 1);
-            for (int i = 0; i < distributions.size(); i++) {
-                index_table(i, 0) = i;
+
+            if (create_rotations) {
+                // The CPD table in this case will store indices of the
+                // distributions to be evaluated at runtime.
+                Eigen::MatrixXd index_table(distributions.size(), 1);
+                for (int i = 0; i < distributions.size(); i++) {
+                    index_table(i, 0) = i;
+                }
+                this->original_potential.potential.probability_table =
+                    index_table;
+                this->create_potential_function_rotations();
             }
-            this->original_potential.potential.probability_table = index_table;
-            this->create_potential_function_rotations();
             this->working_potential = this->original_potential;
         }
 
