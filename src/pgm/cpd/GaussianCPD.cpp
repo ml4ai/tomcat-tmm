@@ -180,7 +180,7 @@ namespace tomcat {
             this->sufficient_statistics.clear();
         }
 
-        bool GaussianCPD::is_continuous() const { return false; }
+        bool GaussianCPD::is_continuous() const { return true; }
 
         void GaussianCPD::update_sufficient_statistics(
             const shared_ptr<RandomVariableNode>& cpd_owner) {

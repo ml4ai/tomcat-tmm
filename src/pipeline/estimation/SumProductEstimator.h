@@ -31,12 +31,16 @@ namespace tomcat {
              * probability that the node assumes a value x, where x is the fixed
              * assignment). This parameter is optional when the inference
              * horizon is 0, but mandatory otherwise.
+             * @param single_pass: whether a single pass forward and backward is
+             * enough to estimate the marginals. In case it isn't, messages are
+             * passed until stabilization (loopy belief algorithm).
              */
             SumProductEstimator(
                 const std::shared_ptr<DynamicBayesNet>& model,
                 int inference_horizon,
                 const std::string& node_label,
-                const Eigen::VectorXd& assignment = EMPTY_VECTOR);
+                const Eigen::VectorXd& assignment = EMPTY_VECTOR,
+                bool single_pass = true);
 
             ~SumProductEstimator();
 
@@ -165,6 +169,10 @@ namespace tomcat {
             // updated with message passing. That is, whatever is defined in the
             // attribute subgraph_window_size will be ignored.
             bool variable_subgraph_window = false;
+
+            // Whether the marginals can be computed in a single
+            // forward/backward pass or if they need to stabilize.
+            bool single_pass;
         };
 
     } // namespace model

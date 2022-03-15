@@ -927,6 +927,59 @@ BOOST_AUTO_TEST_CASE(hmm_exact) {
         check_tensor_eq(estimated_z1_prediction, expected_z1_prediction));
 }
 
+BOOST_AUTO_TEST_CASE(dbn7_exact) {
+    /**
+     * This test case uses a HMM with 1 Gaussian observed node per state. It
+     * evaluates whether the probabilities of X (state variable) can be
+     * accurately determined at every time step using sum-product.
+     */
+
+    int T = 10;
+    int D = 2;
+    int H = 3;
+
+    // Data
+    Eigen::MatrixXd z(D, T);
+    z << NO_OBS, 0.5, 0.2, 3, 10, 2, 4, 0.5, 8, 6, NO_OBS, 7, 2, 2, 3, 5, 6,
+        0.4, 0.6, 8;
+
+    EvidenceSet data;
+    data.add_data("Z", Tensor3(z));
+
+    // Model
+    DBNPtr model = make_shared<DynamicBayesNet>(
+        DynamicBayesNet::create_from_json("models/dbn7.json"));
+
+    model->unroll(3, true);
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+
+    // Inference
+    SumProductEstimator x_estimator(model, 0, "X");
+    x_estimator.set_subgraph_window_size(1);
+    x_estimator.set_show_progress(false);
+    x_estimator.prepare();
+    x_estimator.estimate(data);
+
+    Eigen::MatrixXd expected_x_inference1(D, T);
+    expected_x_inference1 << 0.3, 0.36085, 0.30278, 0.49841, 4.1913e-13,
+        0.31484, 0.22337, 0.31269, 1.0771e-07, 0.00026292, 0.3, 1.7368e-05,
+        0.2892, 0.60525, 0.71049, 0.080285, 0.000443, 0.11107, 0.23757,
+        8.8613e-08;
+    Eigen::MatrixXd expected_x_inference2(D, T);
+    expected_x_inference2 << 0.5, 0.47462, 0.5222, 0.38669, 0.26023, 0.29612,
+        0.42252, 0.4374, 0.40639, 0.41294, 0.5, 0.5623, 0.47578, 0.28888,
+        0.21316, 0.60959, 0.61023, 0.60702, 0.55881, 0.48412;
+    Eigen::MatrixXd expected_x_inference3(D, T);
+    expected_x_inference3 << 0.2, 0.16453, 0.17502, 0.11491, 0.73977, 0.38904,
+        0.35412, 0.2499, 0.59361, 0.5868, 0.2, 0.43768, 0.23502, 0.10587,
+        0.07635, 0.31013, 0.38933, 0.28191, 0.20363, 0.51588;
+    Tensor3 expected_x_inference((vector<Eigen::MatrixXd>){
+        expected_x_inference1, expected_x_inference2, expected_x_inference3});
+    Tensor3 estimated_x_inference =
+        Tensor3(x_estimator.get_estimates().estimates);
+    BOOST_TEST(check_tensor_eq(estimated_x_inference, expected_x_inference));
+}
+
 BOOST_AUTO_TEST_CASE(hmm_particle_filter) {
     /**
      * This test case uses a HMM with 2 observed nodes per state. It evaluates
@@ -1846,7 +1899,6 @@ BOOST_AUTO_TEST_CASE(dbn7_particle_filter) {
         expected_x_inference1, expected_x_inference2, expected_x_inference3});
     Tensor3 estimated_x_inference =
         Tensor3(x_estimator->get_estimates().estimates);
-    cout << estimated_x_inference << endl;
     BOOST_TEST(check_tensor_eq(
         estimated_x_inference, expected_x_inference, tolerance));
 }
@@ -2180,8 +2232,9 @@ BOOST_AUTO_TEST_CASE(segment_marginalization_factor) {
 
     int state_cardinality = 3;
     int time_step = 2;
-    SegmentMarginalizationFactorNode marginalization_factor(
-        "f:Marginalization", time_step, 1, "State");
+    SegMarFactorNodePtr marginalization_factor =
+        make_shared<SegmentMarginalizationFactorNode>(
+            "f:Marginalization", time_step, 1, "State");
     VarNodePtr segment = make_shared<VariableNode>("Segment", time_step);
     VarNodePtr state =
         make_shared<VariableNode>("State", time_step, state_cardinality);
@@ -2207,13 +2260,13 @@ BOOST_AUTO_TEST_CASE(segment_marginalization_factor) {
         0.8, 0.3, 0.6, 0.7, 0.8, 0.7, 0.5, 0.4, 0.1;
     Tensor3 msg_from_segment(msg_from_segment_matrices);
 
-    marginalization_factor.set_incoming_message_from(
+    marginalization_factor->set_incoming_message_from(
         state,
         time_step,
         time_step,
         msg_from_state,
         MessageNode::Direction::backwards);
-    marginalization_factor.set_incoming_message_from(
+    marginalization_factor->set_incoming_message_from(
         segment,
         time_step,
         time_step,
@@ -2228,7 +2281,7 @@ BOOST_AUTO_TEST_CASE(segment_marginalization_factor) {
         0.260869565217391;
     Tensor3 expected_msg2state(expected_msg2state_matrix);
 
-    Tensor3 msg2state = marginalization_factor.get_outward_message_to(
+    Tensor3 msg2state = marginalization_factor->get_outward_message_to(
         state, time_step, time_step, MessageNode::Direction::forward);
 
     BOOST_TEST(check_tensor_eq(msg2state, expected_msg2state));
@@ -2242,7 +2295,7 @@ BOOST_AUTO_TEST_CASE(segment_marginalization_factor) {
     expected_msg2segment = expected_msg2segment.reshape(
         num_data_points, 1, state_cardinality * (time_step + 1));
 
-    Tensor3 msg2segment = marginalization_factor.get_outward_message_to(
+    Tensor3 msg2segment = marginalization_factor->get_outward_message_to(
         segment, time_step, time_step, MessageNode::Direction::backwards);
 
     BOOST_TEST(check_tensor_eq(msg2segment, expected_msg2segment));

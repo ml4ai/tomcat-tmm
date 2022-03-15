@@ -18,6 +18,11 @@ namespace tomcat {
 #define EPSILON 1E-15
 #define EMPTY_VECTOR Eigen::VectorXd(0)
 
+        template<typename Base, typename T>
+        inline bool instanceof(const T*) {
+            return std::is_base_of<Base, T>::value;
+        }
+
         /**
          * General exception raised throughout the project
          */

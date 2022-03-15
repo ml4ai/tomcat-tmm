@@ -166,18 +166,26 @@ namespace tomcat {
 
         void VariableNode::set_data_at(int time_step,
                                        const Eigen::MatrixXd& data) {
-
-            // Convert each element of the vector to a binary row vector and
-            // stack them horizontally;
-            Eigen::MatrixXd data_matrix(data.size(), this->cardinality);
-            for (int i = 0; i < data.size(); i++) {
-                Eigen::VectorXd binary_vector =
-                    Eigen::VectorXd::Zero(this->cardinality);
-                binary_vector[data(i, 0)] = 1;
-                data_matrix.row(i) = move(binary_vector);
+            // TODO - fix this method for the case when data is NO_OBS.
+            Eigen::MatrixXd observations(data.size(), this->cardinality);
+            if (this->cardinality > 1) {
+                // The node is a discrete random variable. We, therefore,
+                // one-hot encode the values from each row of the data matrix
+                // and store them for the given time step.
+                for (int i = 0; i < data.size(); i++) {
+                    Eigen::VectorXd binary_vector =
+                        Eigen::VectorXd::Zero(this->cardinality);
+                    binary_vector[data(i, 0)] = 1;
+                    observations.row(i) = move(binary_vector);
+                }
+            }
+            else {
+                // The node is a continuous random variable. We store the data
+                // as is.
+                observations = data;
             }
 
-            this->data_per_time_slice[time_step] = data_matrix;
+            this->data_per_time_slice[time_step] = observations;
         }
 
         void VariableNode::erase_data_at(int time_step) {
