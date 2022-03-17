@@ -15,13 +15,22 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        DynamicBayesNet::DynamicBayesNet() {}
-
         DynamicBayesNet::DynamicBayesNet(int num_node_templates) {
             this->node_templates.reserve(num_node_templates);
         }
 
-        DynamicBayesNet::~DynamicBayesNet() {}
+        //----------------------------------------------------------------------
+        // Copy & Move constructors/assignments
+        //----------------------------------------------------------------------
+        DynamicBayesNet::DynamicBayesNet(const DynamicBayesNet& dbn) {
+            this->copy(dbn);
+        }
+
+        DynamicBayesNet&
+        DynamicBayesNet::operator=(const DynamicBayesNet& dbn) {
+            this->copy(dbn);
+            return *this;
+        }
 
         //----------------------------------------------------------------------
         // Static functions
@@ -36,6 +45,63 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+        void DynamicBayesNet::save_to(const string& output_dir) const {
+
+            boost::filesystem::create_directories(output_dir);
+
+            for (const auto& mapping : this->parameter_nodes_map) {
+                string filename = mapping.first;
+                string filepath = get_filepath(output_dir, filename);
+                save_matrix_to_file(filepath, mapping.second->get_assignment());
+            }
+        }
+
+        void DynamicBayesNet::load_from(const string& input_dir,
+                                        bool freeze_model) {
+            // Parameters of the model should be in files with the same name
+            // as the parameters timed names. (eg. (Theta_S0,0).txt)
+            for (const auto& file :
+                 boost::filesystem::directory_iterator(input_dir)) {
+                // Ignore directories
+                if (boost::filesystem::is_regular_file(file)) {
+                    string filename = file.path().filename().string();
+                    string parameter_timed_name = filename;
+
+                    // Only process the file's content if a parameter with
+                    // the same name exists in the model.
+                    if (EXISTS(parameter_timed_name,
+                               this->parameter_nodes_map)) {
+
+                        RandomVariableNode* parameter_node =
+                            dynamic_cast<RandomVariableNode*>(
+                                this->parameter_nodes_map
+                                    .at(parameter_timed_name)
+                                    .get());
+
+                        // We set the loaded matrix as the assignment of the
+                        // corresponding parameter node and freeze it so it
+                        // cannot be modified by sampling.
+                        Eigen::MatrixXd assignment =
+                            read_matrix_from_file(file.path().string());
+                        parameter_node->set_assignment(assignment);
+
+                        if (freeze_model) {
+                            parameter_node->freeze();
+                        }
+                    }
+                }
+            }
+        }
+
+        unique_ptr<Model> DynamicBayesNet::clone() const {
+            DynamicBayesNet new_dbn((int)this->node_templates.size());
+            for (const auto& node_template : this->node_templates) {
+                new_dbn.add_node_template(node_template);
+            }
+
+            return make_unique<DynamicBayesNet>(new_dbn);
+        }
+
         void DynamicBayesNet::add_node_template(
             const shared_ptr<RandomVariableNode>& node) {
             shared_ptr<RandomVariableNode> node_ptr;
@@ -514,54 +580,6 @@ namespace tomcat {
             return child_nodes;
         }
 
-        void DynamicBayesNet::save_to(const string& output_dir) const {
-
-            boost::filesystem::create_directories(output_dir);
-
-            for (const auto& mapping : this->parameter_nodes_map) {
-                string filename = mapping.first;
-                string filepath = get_filepath(output_dir, filename);
-                save_matrix_to_file(filepath, mapping.second->get_assignment());
-            }
-        }
-
-        void DynamicBayesNet::load_from(const string& input_dir,
-                                        bool freeze_nodes) {
-            // Parameters of the model should be in files with the same name
-            // as the parameters timed names. (eg. (Theta_S0,0).txt)
-            for (const auto& file :
-                 boost::filesystem::directory_iterator(input_dir)) {
-                // Ignore directories
-                if (boost::filesystem::is_regular_file(file)) {
-                    string filename = file.path().filename().string();
-                    string parameter_timed_name = filename;
-
-                    // Only process the file's content if a parameter with
-                    // the same name exists in the model.
-                    if (EXISTS(parameter_timed_name,
-                               this->parameter_nodes_map)) {
-
-                        RandomVariableNode* parameter_node =
-                            dynamic_cast<RandomVariableNode*>(
-                                this->parameter_nodes_map
-                                    .at(parameter_timed_name)
-                                    .get());
-
-                        // We set the loaded matrix as the assignment of the
-                        // corresponding parameter node and freeze it so it
-                        // cannot be modified by sampling.
-                        Eigen::MatrixXd assignment =
-                            read_matrix_from_file(file.path().string());
-                        parameter_node->set_assignment(assignment);
-
-                        if (freeze_nodes) {
-                            parameter_node->freeze();
-                        }
-                    }
-                }
-            }
-        }
-
         vector<DynamicBayesNet::Edge> DynamicBayesNet::get_edges() const {
             Graph::edge_iterator begin, end;
             boost::tie(begin, end) = boost::edges(this->graph);
@@ -628,19 +646,6 @@ namespace tomcat {
         shared_ptr<NodeMetadata>
         DynamicBayesNet::get_metadata_of(const std::string& node_label) const {
             return this->label_to_nodes.at(node_label)[0]->get_metadata();
-        }
-
-        DynamicBayesNet DynamicBayesNet::clone(bool unroll) const {
-            DynamicBayesNet new_dbn(this->node_templates.size());
-            for (const auto& node_template : this->node_templates) {
-                new_dbn.add_node_template(node_template);
-            }
-
-            if (unroll) {
-                new_dbn.unroll(this->time_steps, true);
-            }
-
-            return new_dbn;
         }
 
         void DynamicBayesNet::mirror_parameter_nodes_from(
@@ -715,6 +720,20 @@ namespace tomcat {
         RVNodePtrVec
         DynamicBayesNet::get_data_nodes_in_topological_order_at(int time_step) {
             return this->topological_data_nodes_per_time.at(time_step);
+        }
+
+        void DynamicBayesNet::copy(const DynamicBayesNet& dbn) {
+            this->graph = dbn.graph;
+            this->name_to_id = dbn.name_to_id;
+            this->nodes = dbn.nodes;
+            this->data_nodes_per_time_step = dbn.data_nodes_per_time_step;
+            this->single_time_nodes = dbn.single_time_nodes;
+            this->topological_nodes_per_time = dbn.topological_nodes_per_time;
+            this->topological_data_nodes_per_time = dbn.topological_data_nodes_per_time;
+            this->parameter_nodes_map = dbn.parameter_nodes_map;
+            this->label_to_nodes = dbn.label_to_nodes;
+            this->node_templates = dbn.node_templates;
+            this->time_steps = dbn.time_steps;
         }
 
         //----------------------------------------------------------------------

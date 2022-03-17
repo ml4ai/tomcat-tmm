@@ -11,6 +11,7 @@
 #include <boost/graph/graphviz.hpp>
 
 #include "pgm/RandomVariableNode.h"
+#include "pipeline/Model.h"
 #include "utils/Definitions.h"
 
 namespace tomcat {
@@ -37,7 +38,7 @@ namespace tomcat {
          * it's guaranteed that a sample from these CPDs will condition on the
          * current assignments of the nodes in the DBN.
          */
-        class DynamicBayesNet {
+        class DynamicBayesNet : public Model {
           public:
             //------------------------------------------------------------------
             // Types, Enums & Constants
@@ -53,22 +54,22 @@ namespace tomcat {
             /**
              * Creates an instance of a DBN.
              */
-            DynamicBayesNet();
+            DynamicBayesNet() = default;
 
             /**
              * Creates an instance of a DBN and reserves space in the vector of
              * node templates.
              */
-            DynamicBayesNet(int num_node_templates);
+            explicit DynamicBayesNet(int num_node_templates);
 
-            ~DynamicBayesNet();
+            ~DynamicBayesNet() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            DynamicBayesNet(const DynamicBayesNet&) = default;
+            DynamicBayesNet(const DynamicBayesNet& dbn);
 
-            DynamicBayesNet& operator=(const DynamicBayesNet&) = default;
+            DynamicBayesNet& operator=(const DynamicBayesNet& dbn);
 
             DynamicBayesNet(DynamicBayesNet&&) = default;
 
@@ -92,6 +93,36 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Saves model's parameter values in individual files inside a given
+             * directory. The directory is created if it does not exist.
+             *
+             * @param output_dir: folder where the files must be saved
+             */
+            void save_to(const std::string& output_dir) const override;
+
+            /**
+             * Loads model's parameter assignments from files previously saved
+             * in a specific directory and freeze the parameter nodes.
+             *
+             * @param input_dir: directory where the files with the parameters'
+             * values are saved
+             * @param freeze_model: if true nodes that had their assignments
+             * set will be frozen
+             */
+            void load_from(const std::string& input_dir,
+                           bool freeze_model) override;
+
+            /**
+             * Creates a deep copy of the template nodes and unrolls the DBN
+             * into the same time steps as the original one. Only the
+             * parameter nodes' assignments are preserved.
+             *
+             *
+             * @return a deep copy of this DBN
+             */
+            std::unique_ptr<Model> clone() const override;
 
             /**
              * Adds node to the DBN as a template. This function adds a deep
@@ -187,25 +218,6 @@ namespace tomcat {
                                bool exclude_timers = false) const;
 
             /**
-             * Saves model's parameter values in individual files inside a given
-             * directory. The directory is created if it does not exist.
-             *
-             * @param output_dir: folder where the files must be saved
-             */
-            void save_to(const std::string& output_dir) const;
-
-            /**
-             * Loads model's parameter assignments from files previously saved
-             * in a specific directory and freeze the parameter nodes.
-             *
-             * @param input_dir: directory where the files with the parameters'
-             * values are saved
-             * @param freeze_nodes: if true nodes that had their assignments
-             * set will be frozen
-             */
-            void load_from(const std::string& input_dir, bool freeze_nodes);
-
-            /**
              * Returns edges of the unrolled DBN
              *
              * @return Edges
@@ -268,18 +280,6 @@ namespace tomcat {
              */
             std::shared_ptr<NodeMetadata>
             get_metadata_of(const std::string& node_label) const;
-
-            /**
-             * Creates a deep copy of the template nodes and unrolls the DBN
-             * into the same time steps as the original one. Only the
-             * parameter nodes' assignments are preserved.
-             *
-             * @param unroll: whether the new DBN must be unrolled into the
-             * same number of time steps as the original one.
-             *
-             * @return a deep copy of this DBN
-             */
-            DynamicBayesNet clone(bool unroll) const;
 
             /**
              * Set relevant attributes (assignment and frozen) of parameter
@@ -452,6 +452,13 @@ namespace tomcat {
              * Save list of nodes in topological order per time step;
              */
             void save_topological_list();
+
+            /**
+             * Copy the contents from another DBN.
+             *
+             * @param dbn: other DBN
+             */
+            void copy(const DynamicBayesNet& dbn);
 
             //------------------------------------------------------------------
             // Data members
