@@ -1,4 +1,4 @@
-#include "Empirical.h"
+#include "Histogram.h"
 
 #include <gsl/gsl_randist.h>
 
@@ -12,14 +12,14 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Empirical::Empirical(const shared_ptr<Node>& samples,
+        Histogram::Histogram(const shared_ptr<Node>& samples,
                              int num_bins)
             : Distribution({samples}), num_bins(num_bins) {}
 
-        Empirical::Empirical(shared_ptr<Node>&& samples, int num_bins)
+        Histogram::Histogram(shared_ptr<Node>&& samples, int num_bins)
             : Distribution({move(samples)}), num_bins(num_bins) {}
 
-        Empirical::Empirical(const Eigen::VectorXd& samples,
+        Histogram::Histogram(const Eigen::VectorXd& samples,
                              int num_bins)
             : num_bins(num_bins) {
 
@@ -33,7 +33,7 @@ namespace tomcat {
                 make_shared<NumericNode>(move(samples_node)));
         }
 
-        Empirical::Empirical(Eigen::VectorXd&& samples, int num_bins)
+        Histogram::Histogram(Eigen::VectorXd&& samples, int num_bins)
             : num_bins(num_bins) {
 
             this->num_samples = samples.size();
@@ -46,7 +46,7 @@ namespace tomcat {
                 make_shared<NumericNode>(move(samples_node)));
         }
 
-        Empirical::~Empirical() noexcept {
+        Histogram::~Histogram() noexcept {
             if (this->histogram) {
                 auto* temp_histogram = this->histogram.get();
                 this->histogram.release();
@@ -61,19 +61,19 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        Empirical::Empirical(const Empirical& empirical) {
-            this->copy(empirical);
+        Histogram::Histogram(const Histogram& Histogram) {
+            this->copy(Histogram);
         }
 
-        Empirical& Empirical::operator=(const Empirical& empirical) {
-            this->copy(empirical);
+        Histogram& Histogram::operator=(const Histogram& Histogram) {
+            this->copy(Histogram);
             return *this;
         }
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void Empirical::copy(const Empirical& other) {
+        void Histogram::copy(const Histogram& other) {
             Distribution::copy(other);
             this->num_bins = other.num_bins;
             this->num_samples = other.num_samples;
@@ -84,7 +84,7 @@ namespace tomcat {
             }
         }
 
-        unique_ptr<gsl_histogram> Empirical::build_histogram(
+        unique_ptr<gsl_histogram> Histogram::build_histogram(
             const Eigen::VectorXd& samples) const {
             double min_value = samples.minCoeff();
             double max_value = samples.maxCoeff() + 1;
@@ -99,7 +99,7 @@ namespace tomcat {
             return make_unique<gsl_histogram>(*new_histogram);
         }
 
-        unique_ptr<gsl_histogram_pdf> Empirical::build_histogram_pdf(
+        unique_ptr<gsl_histogram_pdf> Histogram::build_histogram_pdf(
             const unique_ptr<gsl_histogram>& reference_histogram) const {
 
             gsl_histogram_pdf* new_histogram_pdf =
@@ -110,7 +110,7 @@ namespace tomcat {
             return make_unique<gsl_histogram_pdf>(*new_histogram_pdf);
         }
 
-        vector<double> Empirical::build_histogram_cdf(
+        vector<double> Histogram::build_histogram_cdf(
             const unique_ptr<gsl_histogram>& reference_histogram) const {
 
             vector<double> cdfs(this->num_bins);
@@ -131,12 +131,12 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        Empirical::sample(const shared_ptr<gsl_rng>& random_generator,
+        Histogram::sample(const shared_ptr<gsl_rng>& random_generator,
                           int parameter_idx) const {
 
             Eigen::VectorXd sample;
             if (this->histogram) {
-                // The empirical values are fixed and the histogram was already
+                // The Histogram values are fixed and the histogram was already
                 // precomputed. We use it.
 
                 sample = this->sample_from_gsl(random_generator,
@@ -144,7 +144,7 @@ namespace tomcat {
             }
             else {
                 // Histograms are created on-the-fly based on the must
-                // up-to-date empirical samples in the parameter node.
+                // up-to-date Histogram samples in the parameter node.
                 unique_ptr<gsl_histogram> temp_histogram =
                     this->build_histogram(
                         this->parameters[0]->get_assignment().row(
@@ -161,7 +161,7 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        Empirical::sample_from_gsl(const shared_ptr<gsl_rng>& random_generator,
+        Histogram::sample_from_gsl(const shared_ptr<gsl_rng>& random_generator,
                                    const unique_ptr<gsl_histogram_pdf>&
                                        reference_histogram_pdf) const {
 
@@ -176,46 +176,48 @@ namespace tomcat {
         }
 
         Eigen::VectorXd
-        Empirical::sample(const shared_ptr<gsl_rng>& random_generator,
+        Histogram::sample(const shared_ptr<gsl_rng>& random_generator,
                           const Eigen::VectorXd& weights) const {
 
             throw TomcatModelException(
-                "Not implemented for empirical distributions.");
+                "Not implemented for Histogram distributions.");
         }
 
         Eigen::VectorXd
-        Empirical::sample(const std::shared_ptr<gsl_rng>& random_generator,
+        Histogram::sample(const std::shared_ptr<gsl_rng>& random_generator,
                           const Eigen::VectorXd& weights,
                           double replace_by_weight) const {
 
             throw TomcatModelException(
-                "Not implemented for empirical distributions.");
+                "Not implemented for Histogram distributions.");
         }
 
-        Eigen::VectorXd Empirical::sample_from_conjugacy(
+        Eigen::VectorXd Histogram::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int parameter_idx,
             const Eigen::VectorXd& sufficient_statistics) const {
 
             throw TomcatModelException(
-                "Not implemented for empirical distributions.");
+                "Not implemented for Histogram distributions.");
         }
 
-        double Empirical::get_pdf(const Eigen::VectorXd& value) const {
+        double Histogram::get_pdf(const Eigen::VectorXd& value) const {
             return this->get_pdf(value(0));
         }
 
-        double Empirical::get_pdf(double value) const {
+        double Histogram::get_pdf(double value) const {
             double pdf;
 
             if (this->histogram) {
                 size_t* bin = new size_t(0);
                 gsl_histogram_find(this->histogram.get(), value, bin);
-                pdf = gsl_histogram_get(this->histogram.get(), *bin) /
-                      this->num_samples;
+                pdf = gsl_histogram_get(this->histogram.get(), *bin);
+                double* lb = new double (0);
+                double* ub = new double (0);
+                gsl_histogram_get_range(this->histogram.get(), *bin, lb, ub);
 
-                cout << *bin << endl;
-                cout << gsl_histogram_max_bin(this->histogram.get()) << endl;
+                double bin_width = *ub - *lb;
+                pdf /= this->num_samples * bin_width;
             }
             else {
                 // Builds histogram on-the-fly
@@ -233,7 +235,7 @@ namespace tomcat {
             return pdf;
         }
 
-        double Empirical::get_cdf(double value, bool reverse) const {
+        double Histogram::get_cdf(double value, bool reverse) const {
             double cdf;
 
             if (this->histogram) {
@@ -260,9 +262,9 @@ namespace tomcat {
             return cdf;
         }
 
-        unique_ptr<Distribution> Empirical::clone() const {
-            unique_ptr<Empirical> new_distribution =
-                make_unique<Empirical>(*this);
+        unique_ptr<Distribution> Histogram::clone() const {
+            unique_ptr<Histogram> new_distribution =
+                make_unique<Histogram>(*this);
 
             for (auto& parameter : new_distribution->parameters) {
                 // Do not clone numeric nodes to allow them to be sharable and
@@ -276,19 +278,19 @@ namespace tomcat {
             return new_distribution;
         }
 
-        string Empirical::get_description() const {
+        string Histogram::get_description() const {
             stringstream ss;
-            ss << "Empirical(bins = " << this->num_bins << ")";
+            ss << "Histogram(bins = " << this->num_bins << ")";
             return ss.str();
         }
 
-        int Empirical::get_sample_size() const { return 1; }
+        int Histogram::get_sample_size() const { return 1; }
 
-        void Empirical::update_from_posterior(
+        void Histogram::update_from_posterior(
             const Eigen::VectorXd& posterior_weights) {
 
             throw TomcatModelException(
-                "Not implemented for empirical distributions.");
+                "Not implemented for Histogram distributions.");
         }
 
     } // namespace model

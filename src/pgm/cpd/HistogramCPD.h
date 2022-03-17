@@ -1,6 +1,6 @@
 #pragma once
 
-#include "distribution/Empirical.h"
+#include "distribution/Histogram.h"
 #include "pgm/cpd/CPD.h"
 #include "utils/Definitions.h"
 
@@ -8,7 +8,7 @@ namespace tomcat {
     namespace model {
 
         /**
-         * An Empirical CPD consists of a table containing a list of Empirical
+         * An Histogram CPD consists of a table containing a list of Histogram
          * distributions. The number of rows is given by the product of the
          * cardinalities of the parent nodes of the node that owns this CPD.
          * Each row represents a combination of possible assignments of these
@@ -31,51 +31,51 @@ namespace tomcat {
          * |----------------------------------------------------|
          * | A | B |////////////////////////////////////////////|
          * |----------------------------------------------------|
-         * | 0 | 0 |     Empirical(\f$samples_{00}\f$)          |
+         * | 0 | 0 |     Histogram(\f$samples_{00}\f$)          |
          * |----------------------------------------------------|
-         * | 0 | 1 |     Empirical(\f$samples_{01}\f$)          |
+         * | 0 | 1 |     Histogram(\f$samples_{01}\f$)          |
          * |----------------------------------------------------|
-         * | 0 | 2 |     Empirical(\f$samples_{02}\f$)          |
+         * | 0 | 2 |     Histogram(\f$samples_{02}\f$)          |
          * |----------------------------------------------------|
-         * | 1 | 0 |     Empirical(\f$samples_{10}\f$)          |
+         * | 1 | 0 |     Histogram(\f$samples_{10}\f$)          |
          * |----------------------------------------------------|
-         * | 1 | 1 |     Empirical(\f$samples_{11}\f$)          |
+         * | 1 | 1 |     Histogram(\f$samples_{11}\f$)          |
          * |----------------------------------------------------|
-         * | 1 | 2 |     Empirical(\f$samples_{12}\f$)          |
+         * | 1 | 2 |     Histogram(\f$samples_{12}\f$)          |
          * |----------------------------------------------------|
          */
-        class EmpiricalCPD : public CPD {
+        class HistogramCPD : public CPD {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Creates an instance of an empirical CPD.
+             * Creates an instance of an histogram CPD.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param distributions: list of empirical distributions
+             * @param distributions: list of histogram distributions
              */
-            EmpiricalCPD(
+            HistogramCPD(
                 const std::vector<std::shared_ptr<NodeMetadata>>&
                     parent_node_order,
-                const std::vector<std::shared_ptr<Empirical>>& distributions);
+                const std::vector<std::shared_ptr<Histogram>>& distributions);
 
             /**
-             * Creates an instance of an empirical CPD.
+             * Creates an instance of an histogram CPD.
              *
              * @param parent_node_order: evaluation order of the parent
              * nodes' assignments for correct distribution indexing
-             * @param distributions: list of empirical distributions
+             * @param distributions: list of histogram distributions
              */
-            EmpiricalCPD(
+            HistogramCPD(
                 std::vector<std::shared_ptr<NodeMetadata>>&& parent_node_order,
-                std::vector<std::shared_ptr<Empirical>>&& distributions);
+                std::vector<std::shared_ptr<Histogram>>&& distributions);
 
             /**
-             * Creates an instance of an empirical CPD table by transforming a
-             * table containing lists of samples to a list of empirical
+             * Creates an instance of an histogram CPD table by transforming a
+             * table containing lists of samples to a list of histogram
              * distributions.
              *
              * @param parent_node_order: evaluation order of the parent
@@ -83,7 +83,7 @@ namespace tomcat {
              * @param samples_table: table containing samples from any
              * distributions
              */
-            EmpiricalCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
+            HistogramCPD(const std::vector<std::shared_ptr<NodeMetadata>>&
                              parent_node_order,
                          const std::vector<Eigen::VectorXd>& samples_table);
 
@@ -97,22 +97,22 @@ namespace tomcat {
              * @param samples_table: table containing samples from any
              * distributions
              */
-            EmpiricalCPD(
+            HistogramCPD(
                 std::vector<std::shared_ptr<NodeMetadata>>&& parent_node_order,
                 const std::vector<Eigen::VectorXd>& samples_table);
 
-            ~EmpiricalCPD();
+            ~HistogramCPD();
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            EmpiricalCPD(const EmpiricalCPD& cpd);
+            HistogramCPD(const HistogramCPD& cpd);
 
-            EmpiricalCPD& operator=(const EmpiricalCPD& cpd);
+            HistogramCPD& operator=(const HistogramCPD& cpd);
 
-            EmpiricalCPD(EmpiricalCPD&& cpd) = default;
+            HistogramCPD(HistogramCPD&& cpd) = default;
 
-            EmpiricalCPD& operator=(EmpiricalCPD&& cpd) = default;
+            HistogramCPD& operator=(HistogramCPD&& cpd) = default;
 
             //------------------------------------------------------------------
             // Member functions

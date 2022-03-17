@@ -9,68 +9,68 @@ namespace tomcat {
     namespace model {
 
         /**
-         * Empirical distribution with given samples.
+         * Histogram distribution with given samples.
          */
-        class Empirical : public Distribution {
+        class Histogram : public Distribution {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
             /**
-             * Creates an instance of an empirical distribution for node
+             * Creates an instance of an histogram distribution for node
              * dependent parameters.
              *
-             * @param samples: empirical values sampled from this
+             * @param samples: histogram values sampled from this
              * distribution
              */
-            Empirical(const std::shared_ptr<Node>& samples, int num_bins = 10);
+            Histogram(const std::shared_ptr<Node>& samples, int num_bins = 10);
 
             /**
-             * Creates an instance of an empirical distribution for node
+             * Creates an instance of an histogram distribution for node
              * dependent parameters.
              *
-             * @param samples: empirical values sampled from this
+             * @param samples: histogram values sampled from this
              * distribution
              */
-            Empirical(std::shared_ptr<Node>&& samples, int num_bins = 10);
+            Histogram(std::shared_ptr<Node>&& samples, int num_bins = 10);
 
             /**
-             * Creates an instance of an empirical distribution by transforming
+             * Creates an instance of an histogram distribution by transforming
              * a numerical vector of samples into a constant node to keep
              * static and node dependent distributions compatible.
              *
-             * @param samples: Mean and variance of a empirical
+             * @param samples: Mean and variance of a histogram
              * distribution
              * @param num_bins: number of bins to use in the construction of the
              * histogram
              */
-            Empirical(const Eigen::VectorXd& samples, int num_bins = 10);
+            Histogram(const Eigen::VectorXd& samples, int num_bins = 10);
 
             /**
-             * Creates an instance of an empirical distribution by transforming
+             * Creates an instance of an histogram distribution by transforming
              * a numerical vector of samples into a constant node to keep
              * static and node dependent distributions compatible.
              *
-             * @param samples: Mean and variance of a empirical
+             * @param samples: Mean and variance of a histogram
              * distribution
              * @param num_bins: number of bins to use in the construction of the
              * histogram
              */
-            Empirical(Eigen::VectorXd&& samples, int num_bins = 10);
+            Histogram(Eigen::VectorXd&& samples, int num_bins = 10);
 
-            ~Empirical() noexcept;
+            ~Histogram() noexcept;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            Empirical(const Empirical& Empirical);
+            Histogram(const Histogram& histogram);
 
-            Empirical& operator=(const Empirical& Empirical);
+            Histogram& operator=(const Histogram& histogram);
 
-            Empirical(Empirical&&) = default;
+            Histogram(Histogram&&) = default;
 
-            Empirical& operator=(Empirical&&) = default;
+            Histogram& operator=(Histogram&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -80,14 +80,14 @@ namespace tomcat {
                    int parameter_idx) const override;
 
             /**
-             * Undefined for an empirical distribution.
+             * Undefined for an histogram distribution.
              */
             Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
                    const Eigen::VectorXd& weights) const override;
 
             /**
-             * Undefined for an empirical distribution.
+             * Undefined for an histogram distribution.
              */
             Eigen::VectorXd
             sample(const std::shared_ptr<gsl_rng>& random_generator,
@@ -95,7 +95,7 @@ namespace tomcat {
                    double replace_by_weight) const override;
 
             /**
-             * Undefined for an empirical distribution.
+             * Undefined for an histogram distribution.
              */
             Eigen::VectorXd sample_from_conjugacy(
                 const std::shared_ptr<gsl_rng>& random_generator,
@@ -115,7 +115,7 @@ namespace tomcat {
             int get_sample_size() const override;
 
             /**
-             * Undefined for an empirical distribution.
+             * Undefined for an histogram distribution.
              */
             void update_from_posterior(
                 const Eigen::VectorXd& posterior_weights) override;
@@ -126,22 +126,22 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Copies the content of another empirical distribution to this one.
+             * Copies the content of another histogram distribution to this one.
              *
-             * @param other: other empirical distribution.
+             * @param other: other histogram distribution.
              */
-            void copy(const Empirical& other);
+            void copy(const Histogram& other);
 
             /**
-             * Builds a histogram based on values from empirical samples. The
+             * Builds a histogram based on values from histogram samples. The
              * bins are uniformly distributed.
              *
-             * @param empirical_samples: values to build the histogram
+             * @param histogram_samples: values to build the histogram
              *
              * @return Histogram
              */
             std::unique_ptr<gsl_histogram>
-            build_histogram(const Eigen::VectorXd& empirical_samples) const;
+            build_histogram(const Eigen::VectorXd& histogram_samples) const;
 
             /**
              * Builds a structure to compute pdfs and sample from a reference
@@ -167,7 +167,7 @@ namespace tomcat {
                 const;
 
             /**
-             * Returns a list of empirical samples associated to the
+             * Returns a list of histogram samples associated to the
              * distribution.
              *
              * @param samples_idx: the index of the samples assignment
@@ -176,7 +176,7 @@ namespace tomcat {
              * that is the one being used regardless of the value informed in
              * this argument.
              *
-             * @return histogram constructed with the empirical values.
+             * @return histogram constructed with the histogram values.
              */
             std::unique_ptr<gsl_histogram> get_histogram(int samples_idx) const;
 
@@ -187,7 +187,7 @@ namespace tomcat {
              * @param reference_histogram_pdf: histogram pdf structure used for
              * sampling
              *
-             * @return A sample from an empirical distribution.
+             * @return A sample from an histogram distribution.
              */
             Eigen::VectorXd
             sample_from_gsl(const std::shared_ptr<gsl_rng>& random_generator,

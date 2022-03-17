@@ -1,4 +1,4 @@
-#include "pgm/cpd/EmpiricalCPD.h"
+#include "pgm/cpd/HistogramCPD.h"
 
 #include "pgm/NumericNode.h"
 #include "pgm/RandomVariableNode.h"
@@ -11,9 +11,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        EmpiricalCPD::EmpiricalCPD(
+        HistogramCPD::HistogramCPD(
             const vector<shared_ptr<NodeMetadata>>& parent_node_order,
-            const vector<shared_ptr<Empirical>>& distributions)
+            const vector<shared_ptr<Histogram>>& distributions)
             : CPD(parent_node_order) {
 
             this->distributions.reserve(distributions.size());
@@ -22,9 +22,9 @@ namespace tomcat {
             }
         }
 
-        EmpiricalCPD::EmpiricalCPD(
+        HistogramCPD::HistogramCPD(
             vector<shared_ptr<NodeMetadata>>&& parent_node_order,
-            vector<shared_ptr<Empirical>>&& distributions)
+            vector<shared_ptr<Histogram>>&& distributions)
             : CPD(parent_node_order) {
 
             this->distributions.reserve(distributions.size());
@@ -33,30 +33,30 @@ namespace tomcat {
             }
         }
 
-        EmpiricalCPD::EmpiricalCPD(
+        HistogramCPD::HistogramCPD(
             const vector<shared_ptr<NodeMetadata>>& parent_node_order,
             const vector<Eigen::VectorXd>& samples_table)
             : CPD(parent_node_order) {
             this->init_from_table(samples_table);
         }
 
-        EmpiricalCPD::EmpiricalCPD(
+        HistogramCPD::HistogramCPD(
             vector<shared_ptr<NodeMetadata>>&& parent_node_order,
             const vector<Eigen::VectorXd>& samples_table)
             : CPD(parent_node_order) {
             this->init_from_table(samples_table);
         }
 
-        EmpiricalCPD::~EmpiricalCPD() {}
+        HistogramCPD::~HistogramCPD() {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        EmpiricalCPD::EmpiricalCPD(const EmpiricalCPD& cpd) {
+        HistogramCPD::HistogramCPD(const HistogramCPD& cpd) {
             this->copy_cpd(cpd);
         }
 
-        EmpiricalCPD& EmpiricalCPD::operator=(const EmpiricalCPD& cpd) {
+        HistogramCPD& HistogramCPD::operator=(const HistogramCPD& cpd) {
             this->copy_cpd(cpd);
             return *this;
         }
@@ -64,55 +64,55 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void EmpiricalCPD::init_from_table(
+        void HistogramCPD::init_from_table(
             const vector<Eigen::VectorXd>& samples_table) {
             for (int row = 0; row < samples_table.size(); row++) {
-                shared_ptr<Empirical> distribution_ptr =
-                    make_shared<Empirical>(samples_table[row]);
+                shared_ptr<Histogram> distribution_ptr =
+                    make_shared<Histogram>(samples_table[row]);
                 this->distributions.push_back(distribution_ptr);
             }
         }
 
-        unique_ptr<CPD> EmpiricalCPD::clone() const {
-            unique_ptr<EmpiricalCPD> new_cpd = make_unique<EmpiricalCPD>(*this);
+        unique_ptr<CPD> HistogramCPD::clone() const {
+            unique_ptr<HistogramCPD> new_cpd = make_unique<HistogramCPD>(*this);
             new_cpd->clone_distributions();
             return new_cpd;
         }
 
-        void EmpiricalCPD::clone_distributions() {
+        void HistogramCPD::clone_distributions() {
             for (auto& distribution : this->distributions) {
                 shared_ptr<Distribution> temp = distribution->clone();
-                distribution = dynamic_pointer_cast<Empirical>(temp);
+                distribution = dynamic_pointer_cast<Histogram>(temp);
             }
         }
 
-        string EmpiricalCPD::get_name() const { return "Empirical"; }
+        string HistogramCPD::get_name() const { return "Histogram"; }
 
-        void EmpiricalCPD::add_to_sufficient_statistics(
+        void HistogramCPD::add_to_sufficient_statistics(
             const std::shared_ptr<const Distribution>& distribution,
             const vector<double>& values) {
 
-            throw TomcatModelException("Not implemented for Empirical CPDs.");
+            throw TomcatModelException("Not implemented for Histogram CPDs.");
         }
 
-        Eigen::MatrixXd EmpiricalCPD::sample_from_conjugacy(
+        Eigen::MatrixXd HistogramCPD::sample_from_conjugacy(
             const shared_ptr<gsl_rng>& random_generator,
             int num_samples,
             const shared_ptr<const RandomVariableNode>& cpd_owner) const {
 
-            throw TomcatModelException("Not implemented for Empirical CPDs.");
+            throw TomcatModelException("Not implemented for Histogram CPDs.");
         }
 
-        void EmpiricalCPD::reset_sufficient_statistics() {
-            throw TomcatModelException("Not implemented for Empirical CPDs.");
+        void HistogramCPD::reset_sufficient_statistics() {
+            throw TomcatModelException("Not implemented for Histogram CPDs.");
         }
 
-        bool EmpiricalCPD::is_continuous() const { return true; }
+        bool HistogramCPD::is_continuous() const { return true; }
 
-        void EmpiricalCPD::update_sufficient_statistics(
+        void HistogramCPD::update_sufficient_statistics(
             const shared_ptr<RandomVariableNode>& cpd_owner) {
 
-            throw TomcatModelException("Not implemented for Empirical CPDs.");
+            throw TomcatModelException("Not implemented for Histogram CPDs.");
         }
 
     } // namespace model
