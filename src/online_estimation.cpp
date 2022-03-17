@@ -13,7 +13,7 @@
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 #include "reporter/ASISTStudy2EstimateReporter.h"
-#include "reporter/ASISTStudy3InterventionReporter.h"
+#include "asist/study3/ASISTStudy3InterventionReporter.h"
 #include "reporter/EstimateReporter.h"
 
 /**
@@ -67,7 +67,7 @@ void start_agent(const string& model_dir,
     else {
         converter = make_shared<ASISTStudy3MessageConverter>(
             num_seconds, time_step_size, map_json, num_players);
-        reporter = make_shared<ASISTStudy3InterventionReporter>();
+//        reporter = make_shared<ASISTStudy3InterventionReporter>();
     }
 
     Experimentation experimentation(random_generator, "", model);

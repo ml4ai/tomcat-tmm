@@ -10,7 +10,7 @@
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 #include "reporter/ASISTStudy2EstimateReporter.h"
-#include "reporter/ASISTStudy3InterventionReporter.h"
+#include "asist/study3/ASISTStudy3InterventionReporter.h"
 #include "reporter/EstimateReporter.h"
 
 using namespace tomcat::model;
@@ -59,7 +59,7 @@ void evaluate(const string& experiment_id,
     if (reporter_type == ReporterTypes::ASIST_STUDY2) {
         reporter = make_shared<ASISTStudy2EstimateReporter>();
     } else if (reporter_type == ReporterTypes::ASIST_STUDY3) {
-        reporter = make_shared<ASISTStudy3InterventionReporter>();
+//        reporter = make_shared<ASISTStudy3InterventionReporter>();
     }
     string report_filepath;
     if (report_filename != "") {

@@ -12,7 +12,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors
         //----------------------------------------------------------------------
-        ASISTStudy3InterventionEstimator::InterventionEstimator(
+        ASISTStudy3InterventionEstimator::ASISTStudy3InterventionEstimator(
             const string& map_filepath,
             const string& threat_room_model_filepath) {
 
@@ -23,7 +23,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        ASISTStudy3InterventionEstimator::InterventionEstimator(
+        ASISTStudy3InterventionEstimator::ASISTStudy3InterventionEstimator(
             const ASISTStudy3InterventionEstimator& estimator) {
             this->copy_estimator(estimator);
         }

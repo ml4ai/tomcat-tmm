@@ -62,7 +62,7 @@ namespace tomcat {
 
         Categorical::Categorical(const Eigen::VectorXd&& probabilities) {
             shared_ptr<NumericNode> probabilities_node =
-                make_shared<NumericNode>(NumericNode(move(probabilities)));
+                make_shared<NumericNode>(probabilities);
             this->parameters.push_back(move(probabilities_node));
         }
 
