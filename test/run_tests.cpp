@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <random>
 
 #include "boost/test/included/unit_test.hpp"
 #include "eigen3/Eigen/Dense"
@@ -57,8 +58,8 @@ BOOST_AUTO_TEST_CASE(gamma, *utf::tolerance(0.00001)) {
     BOOST_TEST(pdf == 0.135335);
 }
 
-BOOST_AUTO_TEST_CASE(empirical, *utf::tolerance(0.02)) {
-
+BOOST_AUTO_TEST_CASE(empirical_toy, *utf::tolerance(0.02)) {
+    // Samples from a toy distribution
     Eigen::VectorXd samples(20);
     samples << 2,4,7,1,4,8,3,7,4,9,10,2,4,3,7,6,8,9,9,2;
 
@@ -76,6 +77,43 @@ BOOST_AUTO_TEST_CASE(empirical, *utf::tolerance(0.02)) {
     for (int i = 0; i < num_samples; i++) {
         double sample = empirical.sample(gen, 0)(0);
         if (sample >= 4 && sample < 5) {
+            num_matching_samples += 1;
+        }
+    }
+
+    double estimated_pdf = (double) num_matching_samples / num_samples;
+    BOOST_TEST(estimated_pdf == pdf);
+}
+
+BOOST_AUTO_TEST_CASE(empirical_normal, *utf::tolerance(0.02)) {
+    // Samples from a normal distribution
+
+    int num_samples = 10000;
+    int num_bins = 100;
+    double mean = 5;
+    double std = 2;
+    Eigen::VectorXd samples(num_samples);
+    default_random_engine generator;
+    normal_distribution<double> normal_distribution(mean, std);
+    for (int i = 0; i < num_samples; i++) {
+        samples(i) = normal_distribution(generator);
+    }
+
+    Empirical empirical(samples, num_bins);
+
+    double x = 6.5;
+    double pdf = empirical.get_pdf(5);
+    double cdf = empirical.get_cdf(x, false);
+    BOOST_TEST(pdf == 0.150568716077402);
+    BOOST_TEST(cdf == 0.773372647623132);
+
+    // Check if the frequency of the samples approximates the empirical distribution.
+    shared_ptr<gsl_rng> gen(gsl_rng_alloc(gsl_rng_mt19937));
+    num_samples = 1000;
+    int num_matching_samples = 0;
+    for (int i = 0; i < num_samples; i++) {
+        double sample = empirical.sample(gen, 0)(0);
+        if (abs(x - sample) <= (double) 1 / num_bins) {
             num_matching_samples += 1;
         }
     }

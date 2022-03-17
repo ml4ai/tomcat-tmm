@@ -1,6 +1,5 @@
 #include "Empirical.h"
 
-#include <gsl/gsl_cdf.h>
 #include <gsl/gsl_randist.h>
 
 #include "pgm/NumericNode.h"
@@ -13,35 +12,35 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Empirical::Empirical(const shared_ptr<Node>& empirical_samples,
+        Empirical::Empirical(const shared_ptr<Node>& samples,
                              int num_bins)
-            : Distribution({empirical_samples}), num_bins(num_bins) {}
+            : Distribution({samples}), num_bins(num_bins) {}
 
-        Empirical::Empirical(shared_ptr<Node>&& empirical_samples, int num_bins)
-            : Distribution({move(empirical_samples)}), num_bins(num_bins) {}
+        Empirical::Empirical(shared_ptr<Node>&& samples, int num_bins)
+            : Distribution({move(samples)}), num_bins(num_bins) {}
 
-        Empirical::Empirical(const Eigen::VectorXd& empirical_samples,
+        Empirical::Empirical(const Eigen::VectorXd& samples,
                              int num_bins)
             : num_bins(num_bins) {
 
-            this->num_samples = empirical_samples.size();
-            this->histogram = this->build_histogram(empirical_samples);
+            this->num_samples = samples.size();
+            this->histogram = this->build_histogram(samples);
             this->histogram_pdf = this->build_histogram_pdf(this->histogram);
             this->histogram_cdf = this->build_histogram_cdf(this->histogram);
-            NumericNode samples_node(empirical_samples.transpose());
+            NumericNode samples_node(samples.transpose());
 
             this->parameters.push_back(
                 make_shared<NumericNode>(move(samples_node)));
         }
 
-        Empirical::Empirical(Eigen::VectorXd&& empirical_samples, int num_bins)
+        Empirical::Empirical(Eigen::VectorXd&& samples, int num_bins)
             : num_bins(num_bins) {
 
-            this->num_samples = empirical_samples.size();
-            this->histogram = this->build_histogram(empirical_samples);
+            this->num_samples = samples.size();
+            this->histogram = this->build_histogram(samples);
             this->histogram_pdf = this->build_histogram_pdf(this->histogram);
             this->histogram_cdf = this->build_histogram_cdf(this->histogram);
-            NumericNode samples_node(empirical_samples.transpose());
+            NumericNode samples_node(samples.transpose());
 
             this->parameters.push_back(
                 make_shared<NumericNode>(move(samples_node)));
@@ -86,15 +85,15 @@ namespace tomcat {
         }
 
         unique_ptr<gsl_histogram> Empirical::build_histogram(
-            const Eigen::VectorXd& empirical_samples) const {
-            double min_value = empirical_samples.minCoeff();
-            double max_value = empirical_samples.maxCoeff() + 1;
+            const Eigen::VectorXd& samples) const {
+            double min_value = samples.minCoeff();
+            double max_value = samples.maxCoeff() + 1;
 
             gsl_histogram* new_histogram = gsl_histogram_alloc(this->num_bins);
             gsl_histogram_set_ranges_uniform(
                 new_histogram, min_value, max_value);
-            for (int i = 0; i < empirical_samples.size(); i++) {
-                gsl_histogram_increment(new_histogram, empirical_samples(i));
+            for (int i = 0; i < samples.size(); i++) {
+                gsl_histogram_increment(new_histogram, samples(i));
             }
 
             return make_unique<gsl_histogram>(*new_histogram);
@@ -214,6 +213,9 @@ namespace tomcat {
                 gsl_histogram_find(this->histogram.get(), value, bin);
                 pdf = gsl_histogram_get(this->histogram.get(), *bin) /
                       this->num_samples;
+
+                cout << *bin << endl;
+                cout << gsl_histogram_max_bin(this->histogram.get()) << endl;
             }
             else {
                 // Builds histogram on-the-fly

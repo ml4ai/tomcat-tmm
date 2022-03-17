@@ -21,46 +21,43 @@ namespace tomcat {
              * Creates an instance of an empirical distribution for node
              * dependent parameters.
              *
-             * @param empirical_samples: empirical values sampled from this
+             * @param samples: empirical values sampled from this
              * distribution
              */
-            Empirical(const std::shared_ptr<Node>& empirical_samples,
-                      int num_bins = 10);
+            Empirical(const std::shared_ptr<Node>& samples, int num_bins = 10);
 
             /**
              * Creates an instance of an empirical distribution for node
              * dependent parameters.
              *
-             * @param empirical_samples: empirical values sampled from this
+             * @param samples: empirical values sampled from this
              * distribution
              */
-            Empirical(std::shared_ptr<Node>&& empirical_samples,
-                      int num_bins = 10);
+            Empirical(std::shared_ptr<Node>&& samples, int num_bins = 10);
 
             /**
              * Creates an instance of an empirical distribution by transforming
              * a numerical vector of samples into a constant node to keep
              * static and node dependent distributions compatible.
              *
-             * @param empirical_samples: Mean and variance of a empirical
+             * @param samples: Mean and variance of a empirical
              * distribution
              * @param num_bins: number of bins to use in the construction of the
              * histogram
              */
-            Empirical(const Eigen::VectorXd& empirical_samples,
-                      int num_bins = 10);
+            Empirical(const Eigen::VectorXd& samples, int num_bins = 10);
 
             /**
              * Creates an instance of an empirical distribution by transforming
              * a numerical vector of samples into a constant node to keep
              * static and node dependent distributions compatible.
              *
-             * @param empirical_samples: Mean and variance of a empirical
+             * @param samples: Mean and variance of a empirical
              * distribution
              * @param num_bins: number of bins to use in the construction of the
              * histogram
              */
-            Empirical(Eigen::VectorXd&& empirical_samples, int num_bins = 10);
+            Empirical(Eigen::VectorXd&& samples, int num_bins = 10);
 
             ~Empirical() noexcept;
 
