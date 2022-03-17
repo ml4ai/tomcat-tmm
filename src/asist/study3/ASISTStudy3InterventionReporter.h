@@ -30,10 +30,10 @@ namespace tomcat {
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
             ASISTStudy3InterventionReporter(
-                const ASISTStudy3InterventionReporter& agent);
+                const ASISTStudy3InterventionReporter& reporter);
 
             ASISTStudy3InterventionReporter&
-            operator=(const ASISTStudy3InterventionReporter& agent);
+            operator=(const ASISTStudy3InterventionReporter& reporter);
 
             ASISTStudy3InterventionReporter(ASISTStudy3InterventionReporter&&) =
                 default;
