@@ -88,6 +88,13 @@ namespace tomcat {
              */
             void add_estimator(const EstimatorPtr& estimator);
 
+            /**
+             * Whether estimators should print their progress on the screen.
+             *
+             * @param show_progress: true or false
+             */
+            void show_progress(bool show_progress);
+
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------

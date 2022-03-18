@@ -23,7 +23,8 @@ namespace tomcat {
             const std::string& node_label,
             const Eigen::VectorXd& assignment,
             bool single_pass)
-            : Estimator(model, inference_horizon, node_label, assignment), single_pass(single_pass) {
+            : PGMEstimator(model, inference_horizon, node_label, assignment),
+              single_pass(single_pass) {
 
             if (inference_horizon > 2) {
                 if (assignment.size() == 0) {
@@ -31,7 +32,7 @@ namespace tomcat {
                         "An assignment must be given for estimations with "
                         "inference horizon greater than 0.");
                 }
-                else if (this->model->get_metadata_of(node_label)
+                else if (model->get_metadata_of(node_label)
                              ->get_cardinality() != 2) {
                     throw TomcatModelException(
                         "Prediction within a window larger than 1 time step "
@@ -48,14 +49,16 @@ namespace tomcat {
         //----------------------------------------------------------------------
         SumProductEstimator::SumProductEstimator(
             const SumProductEstimator& estimator) {
-            Estimator::copy_estimator(estimator);
+            PGMEstimator::copy(estimator);
             this->next_time_step = estimator.next_time_step;
+            this->single_pass = estimator.single_pass;
         }
 
         SumProductEstimator&
         SumProductEstimator::operator=(const SumProductEstimator& estimator) {
-            Estimator::copy_estimator(estimator);
+            PGMEstimator::copy(estimator);
             this->next_time_step = estimator.next_time_step;
+            this->single_pass = estimator.single_pass;
             return *this;
         }
 
@@ -63,10 +66,10 @@ namespace tomcat {
         // Member functions
         //----------------------------------------------------------------------
         void SumProductEstimator::prepare() {
-            Estimator::prepare();
+            PGMEstimator::prepare();
             this->next_time_step = 0;
-            this->factor_graph =
-                FactorGraph::create_from_unrolled_dbn(*this->model);
+            this->factor_graph = FactorGraph::create_from_unrolled_dbn(
+                *dynamic_pointer_cast<DynamicBayesNet>(this->model));
             this->factor_graph.store_topological_traversal_per_time_step();
         }
 
@@ -132,7 +135,8 @@ namespace tomcat {
                     // take, we compute the probability estimate.
                     // marginal.cols() is the cardinality of the node.
                     int cardinality =
-                        this->model->get_cardinality_of(this->estimates.label);
+                        dynamic_pointer_cast<DynamicBayesNet>(this->model)
+                            ->get_cardinality_of(this->estimates.label);
 
                     for (int col = 0; col < cardinality; col++) {
                         Eigen::VectorXd estimates_in_time_step = no_obs;
@@ -144,13 +148,14 @@ namespace tomcat {
                     }
                 }
                 else {
-                    int discrete_assignment = this->estimates.assignment[0];
+                    int discrete_assignment =
+                        (int)this->estimates.assignment[0];
                     Eigen::VectorXd estimates_in_time_step = no_obs;
                     if (marginal.size() > 0) {
-                        if(marginal.cols() == 1) {
-                            estimates_in_time_step =
-                                marginal.col(0);
-                        } else {
+                        if (marginal.cols() == 1) {
+                            estimates_in_time_step = marginal.col(0);
+                        }
+                        else {
                             estimates_in_time_step =
                                 marginal.col(discrete_assignment);
                         }
@@ -170,7 +175,7 @@ namespace tomcat {
         bool SumProductEstimator::compute_forward_messages(
             const FactorGraph& factor_graph,
             int time_step,
-            const EvidenceSet& new_data) {
+            const EvidenceSet& new_data) const {
 
             bool any_change = false;
             for (auto& node :
@@ -390,7 +395,8 @@ namespace tomcat {
                 Eigen::MatrixXd opposite_assignment =
                     Eigen::MatrixXd::Zero(num_data_points, 1);
                 opposite_assignment.col(discrete_assignment) =
-                    Eigen::VectorXd::Constant(num_data_points, 1 - discrete_assignment);
+                    Eigen::VectorXd::Constant(num_data_points,
+                                              1 - discrete_assignment);
 
                 EvidenceSet horizon_data;
                 horizon_data.add_data(node_label, Tensor3(opposite_assignment));
@@ -441,8 +447,9 @@ namespace tomcat {
                     time_step + this->inference_horizon,
                     true);
 
-                estimated_probabilities = estimated_probabilities.array() *
-                                          marginal.col(1 - discrete_assignment).array();
+                estimated_probabilities =
+                    estimated_probabilities.array() *
+                    marginal.col(1 - discrete_assignment).array();
 
                 estimated_probabilities = 1 - estimated_probabilities.array();
 
@@ -455,17 +462,12 @@ namespace tomcat {
         }
 
         void SumProductEstimator::add_column_to_estimates(
-            const Eigen::VectorXd new_column, int index) {
+            const Eigen::VectorXd& new_column, int index) {
 
             if (this->estimates.estimates.size() < index + 1) {
                 this->estimates.estimates.push_back(Eigen::MatrixXd(0, 0));
             }
             matrix_hstack(this->estimates.estimates[index], new_column);
-        }
-
-        void SumProductEstimator::get_info(nlohmann::json& json) const {
-            json["name"] = this->get_name();
-            json["inference_horizon"] = this->inference_horizon;
         }
 
         string SumProductEstimator::get_name() const { return "sum-product"; }
@@ -474,8 +476,8 @@ namespace tomcat {
         // Getters & Setters
         //----------------------------------------------------------------------
         void SumProductEstimator::set_subgraph_window_size(
-            int subgraph_window_size) {
-            this->subgraph_window_size = subgraph_window_size;
+            int window_size) {
+            this->subgraph_window_size = window_size;
         }
 
         void SumProductEstimator::set_variable_window(bool variable_window) {

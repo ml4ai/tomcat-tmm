@@ -7,7 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include "pgm/EvidenceSet.h"
-#include "pipeline/estimation/Estimator.h"
+#include "pipeline/estimation/PGMEstimator.h"
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"
 
@@ -67,7 +67,7 @@ namespace tomcat {
              * @param frequency_type: frequency at which estimates must be
              * computed
              */
-            Measure(const std::shared_ptr<Estimator>& estimator,
+            Measure(const std::shared_ptr<PGMEstimator>& estimator,
                     double threshold = 0.5,
                     FREQUENCY_TYPE frequency_type = all);
 
@@ -150,7 +150,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // The estimates computed and stored in the estimator will be used
             // to evaluate the measure.
-            std::shared_ptr<Estimator> estimator;
+            std::shared_ptr<PGMEstimator> estimator;
 
             // Probability threshold for predicting or inferring the occurrence
             // of an assignment as true

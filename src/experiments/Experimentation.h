@@ -10,6 +10,7 @@
 #include "converter/MessageConverter.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/DBNSaver.h"
 #include "pipeline/estimation/Agent.h"
 #include "pipeline/estimation/EstimationProcess.h"
 #include "pipeline/evaluation/EvaluationAggregator.h"
@@ -223,10 +224,7 @@ namespace tomcat {
             // Data members
             //------------------------------------------------------------------
             AgentPtr create_agent(const std::string& agent_config_filepath,
-                                  int num_particles,
                                   int num_jobs,
-                                  bool baseline,
-                                  bool exact_inference,
                                   int max_time_step);
 
             //------------------------------------------------------------------
@@ -234,9 +232,11 @@ namespace tomcat {
             //------------------------------------------------------------------
             std::shared_ptr<gsl_rng> random_generator;
 
-            std::shared_ptr<DynamicBayesNet> model;
+            std::shared_ptr<Model> model;
 
             std::shared_ptr<DBNTrainer> trainer;
+
+            std::shared_ptr<DBNSaver> saver;
 
             std::shared_ptr<EstimationProcess> estimation;
 

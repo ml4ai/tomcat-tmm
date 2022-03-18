@@ -49,7 +49,7 @@ namespace tomcat {
             }
 
             if (!observations.empty()) {
-                for (auto estimator : this->estimators) {
+                for (const auto& estimator : this->estimators) {
                     estimator->estimate(relevant_observations);
                 }
             }
@@ -63,6 +63,12 @@ namespace tomcat {
             this->estimators.push_back(estimator);
         }
 
+        void Agent::show_progress(bool show_progress) {
+            for (auto& estimator : this->estimators) {
+                estimator->set_show_progress(show_progress);
+            }
+        }
+
         void Agent::prepare() {
             for (auto& estimator : this->estimators) {
                 estimator->prepare();
@@ -73,57 +79,7 @@ namespace tomcat {
             json["id"] = this->id;
             json["estimators"] = nlohmann::json::array();
             for (const auto& estimator : this->estimators) {
-                // An estimator can be compound and comprised of multiple
-                // base estimators, which are the ones that actually
-                // store the estimates.
-                for (const auto& base_estimator :
-                     estimator->get_base_estimators()) {
-
-                    nlohmann::json json_estimator;
-                    base_estimator->get_info(json_estimator);
-
-                    CumulativeNodeEstimates cumulative_estimates =
-                        base_estimator->get_cumulative_estimates();
-
-                    json_estimator["node_label"] = cumulative_estimates.label;
-                    json_estimator["node_assignment"] =
-                        to_string(cumulative_estimates.assignment);
-                    json_estimator["executions"] = nlohmann::json::array();
-
-                    // Estimates
-                    for (const auto& estimates_matrix_per_execution :
-                         cumulative_estimates.estimates) {
-
-                        nlohmann::json json_execution;
-                        json_execution["estimates"] = nlohmann::json::array();
-
-                        for (const auto& estimates_matrix :
-                             estimates_matrix_per_execution) {
-                            json_execution["estimates"].push_back(
-                                to_string(estimates_matrix));
-                        }
-
-                        json_estimator["executions"].push_back(json_execution);
-                    }
-
-                    // Custom data
-                    for (const auto& custom_data_matrix_per_execution :
-                         cumulative_estimates.custom_data) {
-
-                        nlohmann::json json_execution;
-                        json_execution["custom_data"] = nlohmann::json::array();
-
-                        for (const auto& custom_data_matrix :
-                             custom_data_matrix_per_execution) {
-                            json_execution["custom_data"].push_back(
-                                to_string(custom_data_matrix));
-                        }
-
-                        json_estimator["executions"].push_back(json_execution);
-                    }
-
-                    json["estimators"].push_back(json_estimator);
-                }
+                estimator->get_info(json["estimators"]);
             }
         }
 

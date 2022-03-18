@@ -63,6 +63,14 @@ namespace tomcat {
             this->encouragement_node = make_unique<RandomVariableNode>(
                 make_shared<NodeMetadata>(move(metadata)), 0);
         }
+        const unique_ptr<RandomVariableNode>&
 
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        ASISTStudy3InterventionModel::get_encouragement_node() const {
+            return encouragement_node;
+        }
     } // namespace model
 } // namespace tomcat

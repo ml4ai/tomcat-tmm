@@ -8,7 +8,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Accuracy::Accuracy(const shared_ptr<Estimator>& estimator,
+        Accuracy::Accuracy(const shared_ptr<PGMEstimator>& estimator,
                            double threshold,
                            FREQUENCY_TYPE frequency_type)
             : Measure(estimator, threshold, frequency_type) {}

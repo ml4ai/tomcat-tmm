@@ -15,7 +15,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Measure::Measure() {}
 
-        Measure::Measure(const shared_ptr<Estimator>& estimator,
+        Measure::Measure(const shared_ptr<PGMEstimator>& estimator,
                          double threshold,
                          FREQUENCY_TYPE frequency_type)
             : estimator(estimator), threshold(threshold),

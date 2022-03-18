@@ -8,7 +8,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        F1Score::F1Score(const shared_ptr<Estimator>& estimator,
+        F1Score::F1Score(const shared_ptr<PGMEstimator>& estimator,
                          double threshold,
                          FREQUENCY_TYPE frequency_type,
                          bool macro)

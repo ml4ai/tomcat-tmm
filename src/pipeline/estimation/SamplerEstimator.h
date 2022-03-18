@@ -8,7 +8,7 @@
 #include <nlohmann/json.hpp>
 
 #include "pgm/inference/ParticleFilter.h"
-#include "pipeline/estimation/Estimator.h"
+#include "pipeline/estimation/PGMEstimator.h"
 #include "sampling/AncestralSampler.h"
 #include "sampling/Sampler.h"
 #include "utils/Definitions.h"
@@ -27,7 +27,7 @@ namespace tomcat {
          * for evaluation but only for estimation purposes to share computation
          * among different nodes' estimates.
          */
-        class SamplerEstimator : public Estimator {
+        class SamplerEstimator : public PGMEstimator {
           public:
             //------------------------------------------------------------------
             // Types, Enums & Constants
@@ -39,7 +39,7 @@ namespace tomcat {
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            SamplerEstimator();
+            SamplerEstimator() = default;
 
             /**
              * Creates an instance of a sampler estimator.
@@ -71,7 +71,7 @@ namespace tomcat {
                              const Eigen::VectorXd& high = EMPTY_VECTOR,
                              FREQUENCY_TYPE frequency_type = all);
 
-            ~SamplerEstimator();
+            ~SamplerEstimator() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -120,8 +120,6 @@ namespace tomcat {
             // Member functions
             //------------------------------------------------------------------
             void estimate(const EvidenceSet& new_data) override;
-
-            void get_info(nlohmann::json& json) const override;
 
             std::string get_name() const override;
 

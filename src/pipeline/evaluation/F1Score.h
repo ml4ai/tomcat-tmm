@@ -30,7 +30,7 @@ namespace tomcat {
              * @param macro: whether macro or micro computation must be used for
              * the multi-class scenario.
              */
-            F1Score(const std::shared_ptr<Estimator>& estimator,
+            F1Score(const std::shared_ptr<PGMEstimator>& estimator,
                     double threshold = 0.5,
                     FREQUENCY_TYPE frequency_type = all,
                     bool macro = true);

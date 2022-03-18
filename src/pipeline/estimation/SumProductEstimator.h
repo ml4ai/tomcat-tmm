@@ -3,7 +3,7 @@
 #include "utils/Definitions.h"
 
 #include "pgm/inference/FactorGraph.h"
-#include "pipeline/estimation/Estimator.h"
+#include "pipeline/estimation/PGMEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -13,7 +13,7 @@ namespace tomcat {
          * message-passing sum-product algorithm on top of a factor graph
          * originated from an unrolled DBN.
          */
-        class SumProductEstimator : public Estimator {
+        class SumProductEstimator : public PGMEstimator {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -63,8 +63,6 @@ namespace tomcat {
 
             void estimate(const EvidenceSet& new_data) override;
 
-            void get_info(nlohmann::json& json) const override;
-
             std::string get_name() const override;
 
             //------------------------------------------------------------------
@@ -103,7 +101,7 @@ namespace tomcat {
              */
             bool compute_forward_messages(const FactorGraph& factor_graph,
                                           int time_step,
-                                          const EvidenceSet& new_data);
+                                          const EvidenceSet& new_data) const;
 
             /**
              * Computes messages from children to parent nodes in a given time
@@ -145,7 +143,7 @@ namespace tomcat {
              * data, the index is always zero as there'll be estimates just for
              * a single assignment.
              */
-            void add_column_to_estimates(const Eigen::VectorXd new_column,
+            void add_column_to_estimates(const Eigen::VectorXd& new_column,
                                          int index = 0);
 
             //------------------------------------------------------------------

@@ -5,6 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "asist/study3/ASISTStudy3InterventionModel.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/estimation/Estimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
@@ -23,22 +24,27 @@ namespace tomcat::model {
         // Constructors & Destructor
         //------------------------------------------------------------------
 
-        ASISTStudy3InterventionEstimator(const std::string& map_filepath,
-                              const std::string& threat_room_model_filepath);
+        ASISTStudy3InterventionEstimator(
+            const std::string& map_filepath,
+            const std::string& threat_room_model_filepath,
+            const std::shared_ptr<ASISTStudy3InterventionModel>& model);
 
         ~ASISTStudy3InterventionEstimator() = default;
 
         //------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //------------------------------------------------------------------
-        ASISTStudy3InterventionEstimator(const ASISTStudy3InterventionEstimator& estimator);
+        ASISTStudy3InterventionEstimator(
+            const ASISTStudy3InterventionEstimator& estimator);
 
         ASISTStudy3InterventionEstimator&
         operator=(const ASISTStudy3InterventionEstimator& estimator);
 
-        ASISTStudy3InterventionEstimator(ASISTStudy3InterventionEstimator&&) = default;
+        ASISTStudy3InterventionEstimator(ASISTStudy3InterventionEstimator&&) =
+            default;
 
-        ASISTStudy3InterventionEstimator& operator=(ASISTStudy3InterventionEstimator&&) = default;
+        ASISTStudy3InterventionEstimator&
+        operator=(ASISTStudy3InterventionEstimator&&) = default;
 
         //------------------------------------------------------------------
         // Static functions
@@ -53,9 +59,15 @@ namespace tomcat::model {
 
         std::string get_name() const override;
 
-        bool is_binary_on_prediction() const override;
-
         void prepare() override;
+
+        /**
+         * Get the CDF of the number of encouragement utterances identified in
+         * mission 1.
+         *
+         * @return CDF
+         */
+        double get_encouragement_cdf();
 
         //------------------------------------------------------------------
         // Getters & Setters
@@ -122,6 +134,9 @@ namespace tomcat::model {
         //------------------------------------------------------------------
         // Data members
         //------------------------------------------------------------------
+
+        std::shared_ptr<ASISTStudy3InterventionModel> intervention_model;
+        int num_encouragements_first_mission = 0;
 
         // Indices of each role
         const static int NUM_ROLES = 3;

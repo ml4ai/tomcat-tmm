@@ -8,7 +8,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        RMSE::RMSE(const shared_ptr<Estimator>& estimator,
+        RMSE::RMSE(const shared_ptr<PGMEstimator>& estimator,
                    FREQUENCY_TYPE frequency_type)
             : Measure(estimator, 0, frequency_type) {}
 

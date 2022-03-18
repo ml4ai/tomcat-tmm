@@ -14,7 +14,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         ASISTStudy3InterventionEstimator::ASISTStudy3InterventionEstimator(
             const string& map_filepath,
-            const string& threat_room_model_filepath) {
+            const string& threat_room_model_filepath,
+            const shared_ptr<ASISTStudy3InterventionModel>& model)
+            : intervention_model(model) {
 
             this->parse_map(map_filepath);
             this->create_belief_estimators(threat_room_model_filepath);
@@ -25,13 +27,13 @@ namespace tomcat {
         //----------------------------------------------------------------------
         ASISTStudy3InterventionEstimator::ASISTStudy3InterventionEstimator(
             const ASISTStudy3InterventionEstimator& estimator) {
-            this->copy_estimator(estimator);
+            this->copy(estimator);
         }
 
         ASISTStudy3InterventionEstimator&
         ASISTStudy3InterventionEstimator::operator=(
             const ASISTStudy3InterventionEstimator& estimator) {
-            this->copy_estimator(estimator);
+            this->copy(estimator);
             return *this;
         }
 
@@ -42,30 +44,29 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void ASISTStudy3InterventionEstimator::copy(const ASISTStudy3InterventionEstimator& estimator) {
-            Estimator::copy_estimator(estimator);
+        void ASISTStudy3InterventionEstimator::copy(
+            const ASISTStudy3InterventionEstimator& estimator) {
+            Estimator::copy(estimator);
+            this->model = estimator.model;
+
             this->room_id_to_idx = estimator.room_id_to_idx;
             this->room_ids = estimator.room_ids;
             this->threat_room_belief_estimators =
                 estimator.threat_room_belief_estimators;
         }
 
-        void ASISTStudy3InterventionEstimator::estimate(const EvidenceSet& new_data) {
+        void ASISTStudy3InterventionEstimator::estimate(
+            const EvidenceSet& new_data) {
             this->update_threat_room_beliefs(new_data);
         }
 
         void
         ASISTStudy3InterventionEstimator::get_info(nlohmann::json& json) const {
             json["name"] = this->get_name();
-            json["inference_horizon"] = this->inference_horizon;
         }
 
-        string ASISTStudy3InterventionEstimator::get_name() const { return "sampler"; }
-
-        bool ASISTStudy3InterventionEstimator::is_binary_on_prediction() const {
-            // Irrelevant for this estimator. It just aggregates other smaller
-            // estimators. One per belief.
-            return false;
+        string ASISTStudy3InterventionEstimator::get_name() const {
+            return "ASIST study 3 intervention estimator";
         }
 
         void ASISTStudy3InterventionEstimator::prepare() {
@@ -77,7 +78,8 @@ namespace tomcat {
             }
         }
 
-        void ASISTStudy3InterventionEstimator::parse_map(const std::string& map_filepath) {
+        void ASISTStudy3InterventionEstimator::parse_map(
+            const std::string& map_filepath) {
             fstream map_file;
             map_file.open(map_filepath);
             if (map_file.is_open()) {
@@ -149,6 +151,13 @@ namespace tomcat {
                         threat_room_data);
                 }
             }
+        }
+
+        double ASISTStudy3InterventionEstimator::get_encouragement_cdf() {
+            Eigen::MatrixXd assignment(1, 1);
+            assignment << this->num_encouragements_first_mission;
+            this->intervention_model->get_encouragement_node()->set_assignment(assignment);
+            return this->intervention_model->get_encouragement_node()->get_pdfs(1, 0)(0);
         }
 
         //----------------------------------------------------------------------

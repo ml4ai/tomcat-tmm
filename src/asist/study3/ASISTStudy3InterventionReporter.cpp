@@ -5,6 +5,8 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <fmt/format.h>
 
+#include "asist/study3/ASISTStudy3InterventionEstimator.h"
+
 namespace tomcat {
     namespace model {
 
@@ -45,6 +47,10 @@ namespace tomcat {
             const AgentPtr& agent, int time_step) {
             vector<nlohmann::json> messages;
 
+            auto estimator =
+                dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
+                    agent->get_estimators()[0]);
+
             if (this->introduced) {
                 // The agent only checks for interventions after it has
                 // introduced himself to the team.
@@ -52,14 +58,15 @@ namespace tomcat {
                 // TODO - study if we will queue interventions or push all
                 // triggered ones to the testbed at the same time.
                 if (!this->intervened_on_motivation &&
-                    time_step >= this->settings["introduction_time_step"]) {
+                    time_step >= this->settings["motivation_time_step"]) {
                     this->intervened_on_motivation = true;
 
-//                    if (agent->get_estimators()[0]->is_team_unmotivated()) {
+                    if (estimator->get_encouragement_cdf() <=
+                        this->settings["motivation_min_percentile"]) {
                         messages.push_back(
                             this->get_motivation_intervention_message(
                                 agent, time_step));
-//                    }
+                    }
                 }
             }
             else {
