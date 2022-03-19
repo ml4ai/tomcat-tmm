@@ -1,5 +1,4 @@
 #include <memory>
-#include <string>
 #include <vector>
 
 #include <boost/program_options.hpp>
@@ -29,7 +28,8 @@ void train(const string& model_json,
     num_time_steps = min(num_time_steps, training_data.get_time_steps());
     model->unroll(num_time_steps, true);
 
-    Experimentation experimentation(random_generator, "", model);
+    Experimentation experimentation(random_generator, "");
+    experimentation.set_model(model);
     experimentation.set_gibbs_trainer(burn_in, num_samples, num_jobs);
     experimentation.train_and_save(params_dir, num_folds, training_data);
 }

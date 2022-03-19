@@ -18,7 +18,7 @@ namespace tomcat {
         DBNLoader::DBNLoader(const shared_ptr<DynamicBayesNet>& model,
                              const string& input_folder_path,
                              bool freeze_loaded_nodes)
-            : model(model), input_folder_path(input_folder_path),
+            : DBNTrainer(model), input_folder_path(input_folder_path),
               freeze_loaded_nodes(freeze_loaded_nodes) {}
 
         DBNLoader::~DBNLoader() {}
@@ -26,20 +26,21 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
-        DBNLoader::DBNLoader(const DBNLoader& loader) {
-            this->copy_loader(loader);
+        DBNLoader::DBNLoader(const DBNLoader& loader)
+            : DBNTrainer(loader.model),
+              freeze_loaded_nodes(loader.freeze_loaded_nodes) {
+            this->copy(loader);
         }
 
         DBNLoader& DBNLoader::operator=(const DBNLoader& loader) {
-            this->copy_loader(loader);
+            this->copy(loader);
             return *this;
         }
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void DBNLoader::copy_loader(const DBNLoader& loader) {
-            this->model = loader.model;
+        void DBNLoader::copy(const DBNLoader& loader) {
             this->input_folder_path = loader.input_folder_path;
             this->split_idx = loader.split_idx;
             this->freeze_loaded_nodes = loader.freeze_loaded_nodes;
@@ -100,10 +101,6 @@ namespace tomcat {
         void DBNLoader::get_info(nlohmann::json& json) const {
             json["type"] = "pre_trained";
             json["input_folder_path"] = this->input_folder_path;
-        }
-
-        shared_ptr<DynamicBayesNet> DBNLoader::get_model() const {
-            return this->model;
         }
 
     } // namespace model

@@ -8,11 +8,11 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "pgm/EvidenceSet.h"
-#include "pipeline/DBNSaver.h"
+#include "pipeline/ModelSaver.h"
 #include "pipeline/DataSplitter.h"
 #include "pipeline/estimation/EstimationProcess.h"
 #include "pipeline/evaluation/EvaluationAggregator.h"
-#include "pipeline/training/DBNTrainer.h"
+#include "pipeline/training/ModelTrainer.h"
 #include "utils/Definitions.h"
 
 namespace tomcat {
@@ -97,9 +97,9 @@ namespace tomcat {
             void set_data_splitter(const std::shared_ptr<DataSplitter>& data_splitter);
 
             void set_model_trainer(
-                const std::shared_ptr<DBNTrainer>& model_trainer);
+                const std::shared_ptr<ModelTrainer>& model_trainer);
 
-            void set_model_saver(const std::shared_ptr<DBNSaver>& model_saver);
+            void set_model_saver(const std::shared_ptr<ModelSaver>& model_saver);
 
             void set_estimation_process(
                 const std::shared_ptr<EstimationProcess>& estimation_process);
@@ -128,9 +128,9 @@ namespace tomcat {
 
             std::shared_ptr<DataSplitter> data_splitter;
 
-            std::shared_ptr<DBNTrainer> model_trainer;
+            std::shared_ptr<ModelTrainer> model_trainer;
 
-            std::shared_ptr<DBNSaver> model_saver;
+            std::shared_ptr<ModelSaver> model_saver;
 
             std::shared_ptr<EstimationProcess> estimation_process;
 

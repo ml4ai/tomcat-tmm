@@ -28,7 +28,7 @@ namespace tomcat {
              * computed
              */
             RMSE(const std::shared_ptr<PGMEstimator>& estimator,
-                 FREQUENCY_TYPE frequency_type = all);
+                 Estimator::FREQUENCY_TYPE frequency_type = Estimator::all);
             ~RMSE();
 
             //------------------------------------------------------------------

@@ -1,13 +1,7 @@
 #include "SamplerEstimator.h"
 
-#include <iostream>
 #include <thread>
 
-#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
-#include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
-#include "pipeline/estimation/custom_metrics/TeamQualityDecayEstimator.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -90,38 +84,6 @@ namespace tomcat {
             return prior;
         }
 
-        SamplerEstimatorPtr SamplerEstimator::create_custom_estimator(
-            const std::string& name,
-            const DBNPtr& model,
-            const nlohmann::json& json_config,
-            FREQUENCY_TYPE frequency_type) {
-
-            SamplerEstimatorPtr estimator;
-            if (name == FinalTeamScoreEstimator::NAME) {
-                estimator =
-                    make_shared<FinalTeamScoreEstimator>(model, frequency_type);
-            }
-            else if (name == MapVersionAssignmentEstimator::NAME) {
-                estimator = make_shared<MapVersionAssignmentEstimator>(
-                    model, frequency_type);
-            }
-            else if (name == IndependentMapVersionAssignmentEstimator::NAME) {
-                estimator =
-                    make_shared<IndependentMapVersionAssignmentEstimator>(
-                        model, frequency_type);
-            }
-            else if (name == NextAreaOnNearbyMarkerEstimator::NAME) {
-                estimator = make_shared<NextAreaOnNearbyMarkerEstimator>(
-                    model, json_config);
-            }
-            else if (name == TeamQualityDecayEstimator::NAME) {
-                estimator = make_shared<TeamQualityDecayEstimator>(
-                    model, frequency_type, json_config);
-            }
-
-            return estimator;
-        }
-
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
@@ -134,7 +96,7 @@ namespace tomcat {
                 "function.");
         }
 
-        string SamplerEstimator::get_name() const { return "sampler"; }
+        string SamplerEstimator::get_name() const { return NAME; }
 
         bool SamplerEstimator::does_estimation_at(
             int data_point, int time_step, const EvidenceSet& new_data) const {

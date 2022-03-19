@@ -10,7 +10,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         F1Score::F1Score(const shared_ptr<PGMEstimator>& estimator,
                          double threshold,
-                         FREQUENCY_TYPE frequency_type,
+                         Estimator::FREQUENCY_TYPE frequency_type,
                          bool macro)
             : Measure(estimator, threshold, frequency_type), macro(macro) {}
 

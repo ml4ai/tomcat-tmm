@@ -216,7 +216,7 @@ namespace tomcat {
         }
 
         string ParticleFilterEstimator::get_name() const {
-            return "particle_filter";
+            return NAME;
         }
 
         bool ParticleFilterEstimator::is_computing_estimates_for(

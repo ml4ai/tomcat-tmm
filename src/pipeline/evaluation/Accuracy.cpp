@@ -10,7 +10,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Accuracy::Accuracy(const shared_ptr<PGMEstimator>& estimator,
                            double threshold,
-                           FREQUENCY_TYPE frequency_type)
+                           Estimator::FREQUENCY_TYPE frequency_type)
             : Measure(estimator, threshold, frequency_type) {}
 
         Accuracy::~Accuracy() {}

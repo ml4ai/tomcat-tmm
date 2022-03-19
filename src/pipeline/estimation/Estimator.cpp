@@ -1,6 +1,13 @@
 #include "Estimator.h"
 
+#include <fmt/format.h>
 #include <sstream>
+
+#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
+#include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
+#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
+#include "pipeline/estimation/custom_metrics/TeamQualityDecayEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -10,8 +17,70 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Estimator::Estimator(const shared_ptr<Model>& model)
-            : model(model) {}
+        Estimator::Estimator(const shared_ptr<Model>& model) : model(model) {}
+
+        //------------------------------------------------------------------
+        // Static functions
+        //------------------------------------------------------------------
+
+        EstimatorPtr
+        Estimator::factory(const std::string& estimator_name,
+                           const ModelPtr& model,
+                           const nlohmann::json& json_settings,
+                           FREQUENCY_TYPE frequency_type,
+                           const std::unordered_set<int>& fixed_time_steps,
+                           int num_jobs) {
+
+            const unordered_set<string> pgm_estimators = {
+                FinalTeamScoreEstimator::NAME,
+                MapVersionAssignmentEstimator::NAME,
+                IndependentMapVersionAssignmentEstimator::NAME,
+                NextAreaOnNearbyMarkerEstimator::NAME,
+                TeamQualityDecayEstimator::NAME};
+
+            EstimatorPtr estimator;
+            if (EXISTS(estimator_name, pgm_estimators)) {
+                if (const auto& dbn =
+                        dynamic_pointer_cast<DynamicBayesNet>(model)) {
+
+                    if (estimator_name == FinalTeamScoreEstimator::NAME) {
+                        estimator = make_shared<FinalTeamScoreEstimator>(
+                            dbn, frequency_type);
+                    }
+                    else if (estimator_name ==
+                             MapVersionAssignmentEstimator::NAME) {
+                        estimator = make_shared<MapVersionAssignmentEstimator>(
+                            dbn, frequency_type);
+                    }
+                    else if (estimator_name ==
+                             IndependentMapVersionAssignmentEstimator::NAME) {
+                        estimator = make_shared<
+                            IndependentMapVersionAssignmentEstimator>(
+                            dbn, frequency_type);
+                    }
+                    else if (estimator_name ==
+                             NextAreaOnNearbyMarkerEstimator::NAME) {
+                        estimator =
+                            make_shared<NextAreaOnNearbyMarkerEstimator>(
+                                dbn, json_settings);
+                    }
+                    else if (estimator_name ==
+                             TeamQualityDecayEstimator::NAME) {
+                        estimator = make_shared<TeamQualityDecayEstimator>(
+                            dbn, frequency_type, json_settings);
+                    }
+                }
+                else {
+                    throw TomcatModelException(fmt::format(
+                        "Estimator {} is only defined for DBN models.",
+                        estimator_name));
+                }
+            } else {
+
+            }
+
+            return estimator;
+        }
 
         //----------------------------------------------------------------------
         // Member functions
@@ -22,11 +91,11 @@ namespace tomcat {
             this->show_progress = estimator.show_progress;
         }
 
-        void Estimator::prepare() {
-        }
+        void Estimator::prepare() {}
 
-        void Estimator::cleanup() {
-        }
+        void Estimator::cleanup() {}
+
+        void Estimator::keep_estimates(){}
 
         void Estimator::set_show_progress(bool show_progress) {
             this->show_progress = show_progress;
@@ -40,9 +109,7 @@ namespace tomcat {
             this->training_data = training_data;
         }
 
-        const shared_ptr<Model>& Estimator::get_model() const {
-            return model;
-        }
+        const shared_ptr<Model>& Estimator::get_model() const { return model; }
 
     } // namespace model
 } // namespace tomcat

@@ -32,7 +32,7 @@ namespace tomcat {
              */
             F1Score(const std::shared_ptr<PGMEstimator>& estimator,
                     double threshold = 0.5,
-                    FREQUENCY_TYPE frequency_type = all,
+                    Estimator::FREQUENCY_TYPE frequency_type = Estimator::all,
                     bool macro = true);
 
             ~F1Score();

@@ -29,11 +29,8 @@ namespace tomcat {
          */
         class SamplerEstimator : public PGMEstimator {
           public:
-            //------------------------------------------------------------------
-            // Types, Enums & Constants
-            //------------------------------------------------------------------
 
-            enum FREQUENCY_TYPE { all, fixed, dynamic };
+            inline static const std::string NAME = "sampler";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -96,25 +93,6 @@ namespace tomcat {
              * @return Prior probability
              */
             static Eigen::VectorXd get_prior(const RVNodePtr& node);
-
-            /**
-             * factory function to create a new instance of a custom sampler
-             * estimator from its name
-             *
-             * @param name: estimator name
-             * @param model: model used for estimation
-             * @param json_config: extra configuration
-             * @param frequency_type: frequency at which estimates must be
-             * computed
-
-             *
-             * @return Newly created instance of the custom estimator
-             */
-            static SamplerEstimatorPtr
-            create_custom_estimator(const std::string& name,
-                                    const DBNPtr& model,
-                                    const nlohmann::json& json_config,
-                                    FREQUENCY_TYPE frequency_type = all);
 
             //------------------------------------------------------------------
             // Member functions

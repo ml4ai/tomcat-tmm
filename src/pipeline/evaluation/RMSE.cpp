@@ -9,7 +9,7 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         RMSE::RMSE(const shared_ptr<PGMEstimator>& estimator,
-                   FREQUENCY_TYPE frequency_type)
+                   Estimator::FREQUENCY_TYPE frequency_type)
             : Measure(estimator, 0, frequency_type) {}
 
         RMSE::~RMSE() {}
@@ -41,7 +41,7 @@ namespace tomcat {
                 int rows = estimates.estimates[0].rows();
                 int cols = estimates.estimates[0].cols();
                 int horizon = this->estimator->get_inference_horizon();
-                int num_measures = this->frequency_type == fixed
+                int num_measures = this->frequency_type == Estimator::fixed
                                        ? this->fixed_steps.size()
                                        : 1;
 
@@ -51,14 +51,14 @@ namespace tomcat {
                 for (int i = 0; i < rows; i++) {
                     // Convert time step to column index
                     vector<int> valid_cols;
-                    if (this->frequency_type == fixed) {
+                    if (this->frequency_type == Estimator::fixed) {
                         for (int t : this->fixed_steps) {
                             valid_cols.push_back(
                                 test_data.get_column_index_for(i, t));
                         }
                         sort(valid_cols.begin(), valid_cols.end());
                     }
-                    else if (this->frequency_type == last) {
+                    else if (this->frequency_type == Estimator::last) {
                         valid_cols = vector<int>(1);
                         for (valid_cols[0] = cols - 1; valid_cols[0] >= 0;
                              valid_cols[0]--) {
@@ -91,7 +91,7 @@ namespace tomcat {
                                 2);
                         num_cases[fixed_time_step_idx] += 1;
 
-                        if (this->frequency_type == fixed) {
+                        if (this->frequency_type == Estimator::fixed) {
                             fixed_time_step_idx++;
                         }
                     }

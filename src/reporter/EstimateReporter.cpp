@@ -3,6 +3,8 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "utils/EigenExtensions.h"
+#include "asist/study2/ASISTStudy2EstimateReporter.h"
+#include "asist/study3/ASISTStudy3InterventionReporter.h"
 
 namespace tomcat {
     namespace model {
@@ -18,8 +20,29 @@ namespace tomcat {
         EstimateReporter::~EstimateReporter() {}
 
         //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+
+        EstimateReporterPtr
+        factory(const std::string& reporter_name) {
+            EstimateReporterPtr reporter;
+
+            if (reporter_name == ASISTStudy2EstimateReporter::NAME) {
+                reporter = make_shared<ASISTStudy2EstimateReporter>();
+            } else if (reporter_name == ASISTStudy3InterventionReporter::NAME) {
+                reporter = make_shared<ASISTStudy3InterventionReporter>();
+            }
+
+            return reporter;
+        }
+
+        //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+
+        void EstimateReporter::copy(const EstimateReporter& reporter) {
+            this->json_settings = reporter.json_settings;
+        }
 
         nlohmann::json EstimateReporter::build_message_by_request(
             const AgentPtr& agent,
@@ -66,6 +89,15 @@ namespace tomcat {
             }
 
             return elapsed_timestamp;
+        }
+
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        void EstimateReporter::set_json_settings(
+            const nlohmann::json& json_settings) {
+            EstimateReporter::json_settings = json_settings;
         }
 
     } // namespace model

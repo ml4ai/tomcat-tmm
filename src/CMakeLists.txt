@@ -30,7 +30,7 @@ add_executable(start_agent online_estimation.cpp)
 target_include_directories(start_agent PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(start_agent PRIVATE ${ALL_LIBS})
 
-add_executable(view model_visulization.cpp)
+add_executable(view model_visualization.cpp)
 target_include_directories(view PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(view PRIVATE ${ALL_LIBS})
 

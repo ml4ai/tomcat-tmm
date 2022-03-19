@@ -13,6 +13,7 @@ namespace tomcat {
         class Distribution;
         class DynamicBayesNet;
         class TimerNode;
+        class Model;
 
         typedef std::shared_ptr<NodeMetadata> MetadataPtr;
         typedef std::shared_ptr<Node> NodePtr;
@@ -27,6 +28,7 @@ namespace tomcat {
         typedef std::shared_ptr<Distribution> DistributionPtr;
         typedef std::vector<DistributionPtr> DistributionPtrVec;
         typedef std::shared_ptr<DynamicBayesNet> DBNPtr;
+        typedef std::shared_ptr<Model> ModelPtr;
 
         // Exact Inference
         class MessageNode;
@@ -61,6 +63,8 @@ namespace tomcat {
         class ASISTEstimateReporter;
         class ASISTStudy2EstimateReporter;
         class Measure;
+        class ParticleFilterEstimator;
+        class PGMEstimator;
 
         typedef std::shared_ptr<Estimator> EstimatorPtr;
         typedef std::vector<EstimatorPtr> EstimatorPtrVec;
@@ -83,6 +87,8 @@ namespace tomcat {
             ASISTStudy2EstimateReporterPtrVec;
         typedef std::shared_ptr<Measure> MeasurePtr;
         typedef std::vector<MeasurePtr> MeasurePtrVec;
+        typedef std::shared_ptr<ParticleFilterEstimator> ParticleFilterEstimatorPtr;
+        typedef std::shared_ptr<PGMEstimator> PGMEstimatorPtr;
 
     } // namespace model
 } // namespace tomcat

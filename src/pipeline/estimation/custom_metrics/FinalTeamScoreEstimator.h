@@ -25,7 +25,7 @@ namespace tomcat {
              * computed
              *
              */
-            FinalTeamScoreEstimator(
+            explicit FinalTeamScoreEstimator(
                 const std::shared_ptr<DynamicBayesNet>& model,
                 FREQUENCY_TYPE frequency_type = all);
 

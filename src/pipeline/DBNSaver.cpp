@@ -15,32 +15,41 @@ namespace tomcat {
         // Constructors & Destructor
         //----------------------------------------------------------------------
         DBNSaver::DBNSaver(const shared_ptr<DynamicBayesNet>& model,
-                           const shared_ptr<DBNTrainer>& trainer,
                            const string& output_folder_path,
+                           const shared_ptr<DBNTrainer>& trainer,
                            bool include_partials)
-            : model(model), trainer(trainer),
-              output_folder_path(output_folder_path),
+            : ModelSaver(model, output_folder_path), trainer(trainer),
               include_partials(include_partials) {}
 
-        DBNSaver::~DBNSaver() {}
+        //----------------------------------------------------------------------
+        // Copy & Move constructors/assignments
+        //----------------------------------------------------------------------
+        DBNSaver::DBNSaver(const DBNSaver& saver)
+            : ModelSaver(saver.model, saver.output_folder_path) {
+            ModelSaver::copy(saver);
+            this->trainer = saver.trainer;
+            this->include_partials = saver.include_partials;
+        }
+
+        DBNSaver& DBNSaver::operator=(const DBNSaver& saver) {
+            ModelSaver::copy(saver);
+            this->trainer = saver.trainer;
+            this->include_partials = saver.include_partials;
+            return *this;
+        }
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void DBNSaver::prepare() { this->cv_step = 0; }
 
         void DBNSaver::save() {
-            // If the name of the folder has a placeholder for the cv step,
-            // replace it with the current number.
-            const string final_folder_path =
-                fmt::format(this->output_folder_path, this->cv_step + 1);
-            this->model->save_to(final_folder_path);
-
             if (this->include_partials) {
+                const string final_folder_path =
+                    fmt::format(this->output_folder_path, this->cv_step + 1);
                 this->save_partials(final_folder_path);
             }
 
-            this->cv_step++;
+            ModelSaver::save();
         }
 
         void DBNSaver::save_partials(const string& model_dir) const {

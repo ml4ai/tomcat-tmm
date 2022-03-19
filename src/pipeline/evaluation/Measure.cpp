@@ -2,9 +2,6 @@
 
 #include <set>
 
-#include "pipeline/evaluation/Accuracy.h"
-#include "pipeline/evaluation/F1Score.h"
-
 namespace tomcat {
     namespace model {
 
@@ -13,11 +10,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Measure::Measure() {}
-
         Measure::Measure(const shared_ptr<PGMEstimator>& estimator,
                          double threshold,
-                         FREQUENCY_TYPE frequency_type)
+                         Estimator::FREQUENCY_TYPE frequency_type)
             : estimator(estimator), threshold(threshold),
               frequency_type(frequency_type) {
 
@@ -31,8 +26,6 @@ namespace tomcat {
                 throw TomcatModelException(ss.str());
             }
         }
-
-        Measure::~Measure() {}
 
         //----------------------------------------------------------------------
         // Member functions
@@ -48,12 +41,13 @@ namespace tomcat {
                 test_data[this->estimator->get_estimates().label](0, 0);
             const auto& probabilities_per_class =
                 this->estimator->get_estimates().estimates;
-            int rows = probabilities_per_class[0].rows();
-            int cols = probabilities_per_class[0].cols();
+            int rows = (int)probabilities_per_class[0].rows();
+            int cols = (int)probabilities_per_class[0].cols();
             int horizon = this->estimator->get_inference_horizon();
-            int num_classes = probabilities_per_class.size();
-            int num_matrices =
-                this->frequency_type == fixed ? this->fixed_steps.size() : 1;
+            int num_classes = (int)probabilities_per_class.size();
+            int num_matrices = this->frequency_type == Estimator::fixed
+                                   ? this->fixed_steps.size()
+                                   : 1;
 
             vector<Eigen::MatrixXi> confusion_matrices;
             if (this->estimator->get_estimates().assignment.size() > 0) {
@@ -69,14 +63,14 @@ namespace tomcat {
             for (int i = 0; i < rows; i++) {
                 // Convert time step to column index
                 vector<int> valid_cols;
-                if (this->frequency_type == fixed) {
+                if (this->frequency_type == Estimator::fixed) {
                     for (int t : this->fixed_steps) {
                         valid_cols.push_back(
                             test_data.get_column_index_for(i, t));
                     }
                     sort(valid_cols.begin(), valid_cols.end());
                 }
-                else if (this->frequency_type == last) {
+                else if (this->frequency_type == Estimator::last) {
                     valid_cols = vector<int>(1);
                     for (valid_cols[0] = cols - 1; valid_cols[0] >= 0;
                          valid_cols[0]--) {
@@ -87,7 +81,7 @@ namespace tomcat {
                     }
                     valid_cols[0] -= horizon;
                 }
-                else if (this->frequency_type == all) {
+                else if (this->frequency_type == Estimator::all) {
                     valid_cols =
                         vector<int>(test_data.get_num_events_for(i) - horizon);
                     for (int j = 0;
@@ -127,7 +121,8 @@ namespace tomcat {
                         // probabilities among classes, therefore, do not sum up
                         // to one.
                         int fixed_class =
-                            this->estimator->get_estimates().assignment(0, 0);
+                            (int)this->estimator->get_estimates().assignment(0,
+                                                                             0);
                         int is_true;
                         if (horizon > 0) {
                             // Check within a window in the future instead
@@ -164,14 +159,14 @@ namespace tomcat {
                             estimated_class = 1 - estimated_class;
                         }
 
-                        int true_class = true_values(i, j);
+                        int true_class = (int)true_values(i, j);
                         if (true_class != NO_OBS) {
                             confusion_matrices[fixed_time_step_idx](
                                 estimated_class, true_class) += 1;
                         }
                     }
 
-                    if (this->frequency_type == fixed) {
+                    if (this->frequency_type == Estimator::fixed) {
                         fixed_time_step_idx++;
                     }
                 }
@@ -196,8 +191,9 @@ namespace tomcat {
         // Getters & Setters
         //----------------------------------------------------------------------
 
-        void Measure::set_fixed_steps(const unordered_set<int>& fixed_steps) {
-            Measure::fixed_steps = fixed_steps;
+        void
+        Measure::set_fixed_steps(const unordered_set<int>& new_fixed_steps) {
+            Measure::fixed_steps = new_fixed_steps;
         }
 
     } // namespace model

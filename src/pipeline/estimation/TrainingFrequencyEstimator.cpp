@@ -90,7 +90,7 @@ namespace tomcat {
         }
 
         string TrainingFrequencyEstimator::get_name() const {
-            return "training frequency";
+            return NAME;
         }
 
     } // namespace model

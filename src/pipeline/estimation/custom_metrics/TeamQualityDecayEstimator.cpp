@@ -64,6 +64,9 @@ namespace tomcat {
             int time_step,
             ParticleFilter& filter) {
 
+            const auto& dbn =
+                dynamic_pointer_cast<DynamicBayesNet>(this->model);
+
             // In the online estimation, the new_data will be processed per time
             // step, so there will be only one observation available. In the
             // offline estimation, data from all the time steps will be
@@ -103,7 +106,7 @@ namespace tomcat {
             // Check the quality that changes the most and see if it's smaller
             // than the most likely current quality.
             int team_quality_cardinality =
-                this->get_model()->get_cardinality_of("TeamQuality");
+                dbn->get_cardinality_of("TeamQuality");
             Eigen::VectorXd projected_team_quality =
                 this->calculate_probabilities_from_samples(
                     new_particles["TeamQuality"](data_point_idx, 0)

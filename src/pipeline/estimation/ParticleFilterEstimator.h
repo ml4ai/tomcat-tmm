@@ -26,6 +26,9 @@ namespace tomcat {
          */
         class ParticleFilterEstimator : public PGMEstimator {
           public:
+
+            inline static const std::string NAME = "particle_filter";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------

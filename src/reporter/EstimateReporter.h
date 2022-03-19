@@ -43,6 +43,13 @@ namespace tomcat {
             EstimateReporter& operator=(EstimateReporter&&) = default;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            static EstimateReporterPtr
+            factory(const std::string& reporter_name);
+
+            //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
 
@@ -104,10 +111,22 @@ namespace tomcat {
             build_log_message(const AgentPtr& agent,
                               const std::string& log) const = 0;
 
+            //------------------------------------------------------------------
+            // Getters & Setters
+            //------------------------------------------------------------------
+            void set_json_settings(const nlohmann::json& json_settings);
+
           protected:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            /**
+             * Copy contents from another reporter.
+             *
+             * @param reporter: reporter
+             */
+            void copy(const EstimateReporter& reporter);
 
             /**
              * Gets the current timestamp as a string.
@@ -128,6 +147,11 @@ namespace tomcat {
             std::string
             get_elapsed_timestamp(const std::string& initial_timestamp,
                                   int elapsed_time) const;
+
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+            nlohmann::json json_settings;
         };
 
     } // namespace model

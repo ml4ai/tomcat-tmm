@@ -15,6 +15,9 @@ namespace tomcat {
          */
         class SumProductEstimator : public PGMEstimator {
           public:
+
+            inline static const std::string NAME = "sum_product";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------

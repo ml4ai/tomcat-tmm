@@ -15,9 +15,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        ASISTStudy3InterventionReporter::ASISTStudy3InterventionReporter(
-            const nlohmann::json& settings)
-            : settings(settings) {}
+        ASISTStudy3InterventionReporter::ASISTStudy3InterventionReporter() {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
@@ -39,7 +37,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         void ASISTStudy3InterventionReporter::copy(
             const ASISTStudy3InterventionReporter& reporter) {
-            this->settings = reporter.settings;
+            EstimateReporter::copy(reporter);
         }
 
         vector<nlohmann::json>
@@ -58,11 +56,11 @@ namespace tomcat {
                 // TODO - study if we will queue interventions or push all
                 // triggered ones to the testbed at the same time.
                 if (!this->intervened_on_motivation &&
-                    time_step >= this->settings["motivation_time_step"]) {
+                    time_step >= this->json_settings["motivation_time_step"]) {
                     this->intervened_on_motivation = true;
 
                     if (estimator->get_encouragement_cdf() <=
-                        this->settings["motivation_min_percentile"]) {
+                        this->json_settings["motivation_min_percentile"]) {
                         messages.push_back(
                             this->get_motivation_intervention_message(
                                 agent, time_step));
@@ -70,7 +68,8 @@ namespace tomcat {
                 }
             }
             else {
-                if (time_step >= this->settings["introduction_time_step"]) {
+                if (time_step >=
+                    this->json_settings["introduction_time_step"]) {
                     this->introduced = true;
                     messages.push_back(
                         this->get_introductory_intervention_message(agent,
@@ -252,7 +251,7 @@ namespace tomcat {
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(agent, time_step);
             intervention_message["data"]["content"] =
-                this->settings["prompts"]["introduction"];
+                this->json_settings["prompts"]["introduction"];
 
             return intervention_message;
         }
@@ -263,7 +262,7 @@ namespace tomcat {
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(agent, time_step);
             intervention_message["data"]["content"] =
-                this->settings["prompts"]["motivation"];
+                this->json_settings["prompts"]["motivation"];
 
             return intervention_message;
         }

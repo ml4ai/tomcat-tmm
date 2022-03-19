@@ -470,7 +470,7 @@ namespace tomcat {
             matrix_hstack(this->estimates.estimates[index], new_column);
         }
 
-        string SumProductEstimator::get_name() const { return "sum-product"; }
+        string SumProductEstimator::get_name() const { return NAME; }
 
         //----------------------------------------------------------------------
         // Getters & Setters

@@ -1,7 +1,5 @@
 #include <memory>
-#include <string>
 #include <unordered_set>
-#include <vector>
 
 #include <boost/program_options.hpp>
 #include <gsl/gsl_rng.h>
@@ -43,7 +41,8 @@ void generate_data(const string& model_json,
         DynamicBayesNet ::create_from_json(model_json));
     unordered_set<string> exclusions = get_exclusions(exclusions_json);
 
-    Experimentation experimentation(random_generator, "", model);
+    Experimentation experimentation(random_generator, "");
+    experimentation.set_model(model);
     experimentation.generate_synthetic_data(params_dir,
                                             data_dir,
                                             num_data_samples,

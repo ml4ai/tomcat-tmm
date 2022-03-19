@@ -6,6 +6,7 @@
 #include <fmt/format.h>
 
 #include "converter/ASISTMultiPlayerMessageConverter.h"
+#include "pipeline/estimation/ParticleFilterEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -23,16 +24,34 @@ namespace tomcat {
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         ASISTStudy2EstimateReporter::ASISTStudy2EstimateReporter(
-            const ASISTStudy2EstimateReporter& reporter) {}
+            const ASISTStudy2EstimateReporter& reporter) {
+            this->copy(reporter);
+        }
 
         ASISTStudy2EstimateReporter& ASISTStudy2EstimateReporter::operator=(
             const ASISTStudy2EstimateReporter& reporter) {
+            this->copy(reporter);
             return *this;
+        }
+
+        //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+
+        int ASISTStudy2EstimateReporter::get_milliseconds_at(
+            const AgentPtr& agent, int time_step, int data_point) {
+            int step_size =
+                agent->get_evidence_metadata()[data_point]["step_size"];
+            return time_step * step_size * 1000;
         }
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+        void ASISTStudy2EstimateReporter::copy(
+            const ASISTStudy2EstimateReporter& reporter) {
+            EstimateReporter::copy(reporter);
+        }
 
         vector<nlohmann::json>
         ASISTStudy2EstimateReporter::translate_estimates_to_messages(
@@ -56,8 +75,12 @@ namespace tomcat {
 
                 vector<nlohmann::json> predictions;
                 for (const auto& estimator : agent->get_estimators()) {
+                    const auto& pf_estimator =
+                        dynamic_pointer_cast<ParticleFilterEstimator>(
+                            estimator);
+
                     for (const auto& base_estimator :
-                         estimator->get_base_estimators()) {
+                         pf_estimator->get_base_estimators()) {
                         if (const auto& score_estimator =
                                 dynamic_pointer_cast<FinalTeamScoreEstimator>(
                                     base_estimator)) {
@@ -276,7 +299,7 @@ namespace tomcat {
         vector<nlohmann::json>
         ASISTStudy2EstimateReporter::get_map_info_predictions(
             const AgentPtr& agent,
-            const EstimatorPtr& estimator,
+            const PGMEstimatorPtr& estimator,
             int time_step,
             int data_point) const {
 
@@ -377,7 +400,7 @@ namespace tomcat {
         vector<nlohmann::json>
         ASISTStudy2EstimateReporter::get_marker_legend_predictions(
             const AgentPtr& agent,
-            const EstimatorPtr& estimator,
+            const PGMEstimatorPtr& estimator,
             int time_step,
             int data_point) const {
 
@@ -561,24 +584,6 @@ namespace tomcat {
                 d++;
             }
             this->m7_initialized = true;
-        }
-
-        string ASISTStudy2EstimateReporter::get_timestamp_at(
-            const AgentPtr& agent, int time_step, int data_point) const {
-            const string& initial_timestamp =
-                agent->get_evidence_metadata()[data_point]["initial_timestamp"];
-            int elapsed_time =
-                time_step *
-                (int)agent->get_evidence_metadata()[data_point]["step_size"];
-
-            return this->get_elapsed_timestamp(initial_timestamp, elapsed_time);
-        }
-
-        int ASISTStudy2EstimateReporter::get_milliseconds_at(
-            const AgentPtr& agent, int time_step, int data_point) const {
-            int step_size =
-                agent->get_evidence_metadata()[data_point]["step_size"];
-            return time_step * step_size * 1000;
         }
 
     } // namespace model

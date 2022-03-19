@@ -5,9 +5,8 @@
 
 #include "DBNTrainer.h"
 
+#include "pipeline/Model.h"
 #include "utils/Definitions.h"
-#include "pgm/DynamicBayesNet.h"
-#include "pipeline/training/ModelLoader.h"
 
 namespace tomcat {
     namespace model {
@@ -16,7 +15,7 @@ namespace tomcat {
          * Class responsible for loading a model from a pre-trained set of
          * parameters.
          */
-        class DBNLoader : public DBNTrainer {
+        class ModelLoader : public ModelTrainer {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -25,27 +24,28 @@ namespace tomcat {
             /**
              * Creates an instance of the loader.
              *
-             * @param model: DBN
+             * @param model: model
              * @param input_folder_path: folder where the model's parameters
              * are stored
-             * @param freeze_loaded_nodes: whether loaded nodes should be frozen
+             * @param freeze_model: whether the model's parameter must be
+             * frozen
              */
-            DBNLoader(const std::shared_ptr<DynamicBayesNet>& model,
-                      const std::string& input_folder_path,
-                      bool freeze_loaded_nodes = true);
+            ModelLoader(const ModelPtr& model,
+                        const std::string& input_folder_path,
+                        bool freeze_model = true);
 
-            ~DBNLoader();
+            ~ModelLoader() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
             //------------------------------------------------------------------
-            DBNLoader(const DBNLoader& loader);
+            ModelLoader(const ModelLoader& loader);
 
-            DBNLoader& operator=(const DBNLoader& loader);
+            ModelLoader& operator=(const ModelLoader& loader);
 
-            DBNLoader(DBNLoader&&) = default;
+            ModelLoader(ModelLoader&&) = default;
 
-            DBNLoader& operator=(DBNLoader&&) = default;
+            ModelLoader& operator=(ModelLoader&&) = default;
 
             //------------------------------------------------------------------
             // Member functions
@@ -62,14 +62,9 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Loads parameter samples generated during the training process.
-             */
-            void load_partials();
-
-            /**
              * Copies data members from another ModelLoader.
              */
-            void copy(const DBNLoader& loader);
+            void copy(const ModelLoader& loader);
 
             //------------------------------------------------------------------
             // Data members
@@ -85,8 +80,7 @@ namespace tomcat {
             int split_idx = 0;
 
             // Freeze model
-            bool freeze_loaded_nodes;
-
+            bool freeze_model;
         };
 
     } // namespace model

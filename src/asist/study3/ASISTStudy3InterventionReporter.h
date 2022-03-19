@@ -18,11 +18,14 @@ namespace tomcat {
          */
         class ASISTStudy3InterventionReporter : public ASISTReporter {
           public:
+            inline static const std::string NAME = "asist_study3_reporter";
+
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            ASISTStudy3InterventionReporter(const nlohmann::json& settings);
+            ASISTStudy3InterventionReporter();
 
             ~ASISTStudy3InterventionReporter() = default;
 
@@ -59,6 +62,11 @@ namespace tomcat {
             // Member functions
             //------------------------------------------------------------------
 
+            /**
+             * Copy contents from another reporter.
+             *
+             * @param reporter: reporter
+             */
             void copy(const ASISTStudy3InterventionReporter& reporter);
 
             /**
@@ -85,7 +93,7 @@ namespace tomcat {
              */
             nlohmann::json
             get_template_intervention_message(const AgentPtr& agent,
-                                                  int time_step) const;
+                                              int time_step) const;
 
             /**
              * Assembles ToMCAT's introduction as an intervention.
@@ -125,9 +133,8 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
-            nlohmann::json settings;
-            bool introduced;
-            bool intervened_on_motivation;
+            bool introduced = false;
+            bool intervened_on_motivation = false;
         };
 
     } // namespace model

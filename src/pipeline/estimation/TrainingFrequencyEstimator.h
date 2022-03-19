@@ -18,6 +18,9 @@ namespace tomcat {
          */
         class TrainingFrequencyEstimator : public PGMEstimator {
           public:
+
+            inline static const std::string NAME = "training_frequency";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------

@@ -9,8 +9,8 @@
 #include <eigen3/Eigen/Dense>
 #include <nlohmann/json.hpp>
 
-#include "pipeline/Model.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/Model.h"
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"
 
@@ -22,6 +22,12 @@ namespace tomcat {
          */
         class Estimator {
           public:
+            //------------------------------------------------------------------
+            // Types, Enums & Constants
+            //------------------------------------------------------------------
+
+            enum FREQUENCY_TYPE { all, last, fixed, dynamic };
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -46,6 +52,31 @@ namespace tomcat {
             Estimator(Estimator&&) = default;
 
             Estimator& operator=(Estimator&&) = default;
+
+            //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Creates an instance of a custom estimator.
+             *
+             * @param estimator_name: name of the estimator
+             * @param model: underlying model
+             * @param json_settings: settings in a json object
+             * @param frequency_type: frequency type for inferences
+             * @param fixed_time_steps: fixed time steps when to compute
+             * inferences
+             * @param num_jobs: number of jobs to use for parallel processing
+             *
+             * @return Custom estimator
+             */
+            static EstimatorPtr
+            factory(const std::string& estimator_name,
+                    const ModelPtr& model,
+                    const nlohmann::json& json_settings,
+                    FREQUENCY_TYPE frequency_type,
+                    const std::unordered_set<int>& fixed_time_steps,
+                    int num_jobs);
 
             //------------------------------------------------------------------
             // Virtual functions
