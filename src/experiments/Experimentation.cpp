@@ -235,8 +235,7 @@ namespace tomcat {
 
                     check_field(json_object, "agent");
 
-                    nlohmann::json json_agent =
-                        nlohmann::json::parse(file)["agent"];
+                    nlohmann::json json_agent = json_object["agent"];
 
                     check_field(json_agent, "id");
                     check_field(json_agent, "version");
@@ -312,7 +311,7 @@ namespace tomcat {
 
                     if (!filename.empty() && !model_dir.empty()) {
                         string filepath =
-                            fmt::format("{}/{}.json", model_dir, filename);
+                            fmt::format("{}/{}", model_dir, filename);
                         auto dbn = make_shared<DynamicBayesNet>(
                             DynamicBayesNet ::create_from_json(filepath));
                         dbn->unroll(3, true);
@@ -388,30 +387,34 @@ namespace tomcat {
                             this->model)) {
 
                         if (!dbn->has_node_with_label(
-                                json_estimator["variable"])) {
+                                json_settings["variable"])) {
                             throw TomcatModelException(fmt::format(
                                 "The variable {} does not belong to "
                                 "the model.",
-                                json_estimator["variable"]));
+                                json_settings["variable"]));
                         }
 
-                        auto value = Eigen::VectorXd::Constant(
-                            1, stod((string)json_estimator["value"]));
+                        Eigen::VectorXd value;
+                        string value_str = (string) json_settings["value"];
+                        if (!value_str.empty()) {
+                            value = Eigen::VectorXd::Constant(
+                                1, stod((string)json_settings["value"]));
+                        }
 
                         if (json_estimator["name"] ==
                             TrainingFrequencyEstimator::NAME) {
                             estimator = make_shared<TrainingFrequencyEstimator>(
                                 dbn,
-                                json_estimator["horizon"],
-                                json_estimator["variable"],
+                                json_settings["horizon"],
+                                json_settings["variable"],
                                 value);
                         }
                         else if (json_estimator["name"] ==
                                  SumProductEstimator::NAME) {
                             estimator = make_shared<SumProductEstimator>(
                                 dbn,
-                                json_estimator["horizon"],
-                                json_estimator["variable"],
+                                json_settings["horizon"],
+                                json_settings["variable"],
                                 value);
                         }
                         else if (json_estimator["name"] ==
@@ -420,8 +423,8 @@ namespace tomcat {
                             SamplerEstimatorPtr sampler_estimator =
                                 make_shared<SamplerEstimator>(
                                     dbn,
-                                    json_estimator["horizon"],
-                                    json_estimator["variable"],
+                                    json_settings["horizon"],
+                                    json_settings["variable"],
                                     value,
                                     value,
                                     frequency_type);
@@ -528,8 +531,6 @@ namespace tomcat {
                                                 const string& eval_dir,
                                                 const EvidenceSet& data,
                                                 const string& train_dir) {
-
-            this->set_model_saver(params_dir, num_folds);
 
             shared_ptr<DataSplitter> data_splitter;
             string final_params_dir;

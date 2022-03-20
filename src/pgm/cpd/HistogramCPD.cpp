@@ -115,5 +115,11 @@ namespace tomcat {
             throw TomcatModelException("Not implemented for Histogram CPDs.");
         }
 
+        void HistogramCPD::freeze_distributions(int parameter_idx)  {
+            for (auto& distribution : this->distributions) {
+                // Freeze
+            }
+        }
+
     } // namespace model
 } // namespace tomcat

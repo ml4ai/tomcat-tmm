@@ -27,7 +27,7 @@ namespace tomcat {
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         DBNLoader::DBNLoader(const DBNLoader& loader)
-            : DBNTrainer(loader.model),
+            : DBNTrainer(dynamic_pointer_cast<DynamicBayesNet>(loader.model)),
               freeze_loaded_nodes(loader.freeze_loaded_nodes) {
             this->copy(loader);
         }
@@ -83,8 +83,8 @@ namespace tomcat {
                     string filename = file.path().filename().string();
                     if (fs::is_regular_file(file)) {
                         const string param_label = remove_extension(filename);
-                        if (this->model->has_parameter_node_with_label(
-                                param_label)) {
+                        if (dynamic_pointer_cast<DynamicBayesNet>(this->model)
+                                ->has_parameter_node_with_label(param_label)) {
                             const string filepath =
                                 get_filepath(partials_dir, param_label);
                             Tensor3 param_samples =

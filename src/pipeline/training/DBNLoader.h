@@ -74,7 +74,6 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-            std::shared_ptr<DynamicBayesNet> model;
 
             // Folder where the model's parameters' files are saved.
             std::string input_folder_path;

@@ -2,9 +2,9 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#include "utils/EigenExtensions.h"
 #include "asist/study2/ASISTStudy2EstimateReporter.h"
 #include "asist/study3/ASISTStudy3InterventionReporter.h"
+#include "utils/EigenExtensions.h"
 
 namespace tomcat {
     namespace model {
@@ -24,12 +24,13 @@ namespace tomcat {
         //----------------------------------------------------------------------
 
         EstimateReporterPtr
-        factory(const std::string& reporter_name) {
+        EstimateReporter::factory(const std::string& reporter_name) {
             EstimateReporterPtr reporter;
 
             if (reporter_name == ASISTStudy2EstimateReporter::NAME) {
                 reporter = make_shared<ASISTStudy2EstimateReporter>();
-            } else if (reporter_name == ASISTStudy3InterventionReporter::NAME) {
+            }
+            else if (reporter_name == ASISTStudy3InterventionReporter::NAME) {
                 reporter = make_shared<ASISTStudy3InterventionReporter>();
             }
 
@@ -59,9 +60,7 @@ namespace tomcat {
             return {};
         }
 
-        void EstimateReporter::prepare() {
-
-        }
+        void EstimateReporter::prepare() {}
 
         string EstimateReporter::get_current_timestamp() const {
             pt::ptime time = pt::microsec_clock::universal_time();

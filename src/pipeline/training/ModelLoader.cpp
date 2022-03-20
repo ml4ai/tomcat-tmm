@@ -45,7 +45,6 @@ namespace tomcat {
         }
 
         void ModelLoader::prepare() {
-            ModelTrainer::prepare();
             this->split_idx = 0;
         }
 
