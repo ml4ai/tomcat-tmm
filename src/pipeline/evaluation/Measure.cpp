@@ -46,7 +46,7 @@ namespace tomcat {
             int horizon = this->estimator->get_inference_horizon();
             int num_classes = (int)probabilities_per_class.size();
             int num_matrices = this->frequency_type == Estimator::fixed
-                                   ? this->fixed_steps.size()
+                                   ? (int) this->fixed_steps.size()
                                    : 1;
 
             vector<Eigen::MatrixXi> confusion_matrices;

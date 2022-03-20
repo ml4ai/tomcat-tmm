@@ -465,8 +465,8 @@ namespace tomcat {
                     agent->add_estimator(estimator);
                 }
 
-                if (!particle_filter_estimator &&
-                    particle_filter_estimator->get_base_estimators().empty()) {
+                if (particle_filter_estimator &&
+                    !particle_filter_estimator->get_base_estimators().empty()) {
                     agent->add_estimator(particle_filter_estimator);
                 }
 
