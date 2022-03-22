@@ -10,7 +10,7 @@
 #include <eigen3/Eigen/Dense>
 #include <nlohmann/json.hpp>
 
-#include "MessageConverter.h"
+#include "converter/MessageConverter.h"
 
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"

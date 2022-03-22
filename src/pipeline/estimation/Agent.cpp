@@ -1,8 +1,6 @@
 #include "Agent.h"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-
-#include "utils/EigenExtensions.h"
+#include <boost/date_time/posix_time/ptime.hpp>
 
 namespace tomcat {
     namespace model {
@@ -91,8 +89,8 @@ namespace tomcat {
         const string& Agent::get_version() const { return version; }
 
         void Agent::set_ignored_observations(
-            const unordered_set<std::string>& ignored_observations) {
-            this->ignored_observations = ignored_observations;
+            const unordered_set<std::string>& new_ignored_observations) {
+            this->ignored_observations = new_ignored_observations;
         }
 
         const EstimatorPtrVec& Agent::get_estimators() const {

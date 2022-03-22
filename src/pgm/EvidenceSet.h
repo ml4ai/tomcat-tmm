@@ -20,6 +20,8 @@ namespace tomcat {
          */
         class EvidenceSet {
           public:
+            inline static std::string METADATA_FILE = "metadata.json";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------

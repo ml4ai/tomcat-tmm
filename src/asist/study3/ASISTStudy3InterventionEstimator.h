@@ -20,6 +20,9 @@ namespace tomcat::model {
      */
     class ASISTStudy3InterventionEstimator : public Estimator {
       public:
+        inline static const std::string NAME =
+            "asist_study3_intervention_estimator";
+
         //------------------------------------------------------------------
         // Constructors & Destructor
         //------------------------------------------------------------------

@@ -3,9 +3,9 @@
 #include <boost/program_options.hpp>
 #include <gsl/gsl_rng.h>
 
-#include "converter/ASISTMultiPlayerMessageConverter.h"
-#include "converter/ASISTSinglePlayerMessageConverter.h"
-#include "converter/ASISTStudy3MessageConverter.h"
+#include "asist/study1/ASISTSinglePlayerMessageConverter.h"
+#include "asist/study2/ASISTMultiPlayerMessageConverter.h"
+#include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "experiments/Experimentation.h"
 #include "pgm/EvidenceSet.h"
 #include "reporter/EstimateReporter.h"
@@ -27,6 +27,7 @@ void start_agent(const string& model_dir,
                  const string& broker_json,
                  const string& map_json,
                  const string& reporter_type,
+                 const string& reporter_settings_json,
                  int study_num,
                  int num_seconds,
                  int time_step_size,
@@ -37,7 +38,16 @@ void start_agent(const string& model_dir,
 
     EstimateReporterPtr reporter = EstimateReporter::factory(reporter_type);
     if (reporter) {
-        //        reporter->set_json_settings(reporter_json_settings);
+        fstream file;
+        file.open(reporter_settings_json);
+        if (file.is_open()) {
+            nlohmann::json reporter_settings = nlohmann::json::parse(file);
+            reporter->set_json_settings(reporter_settings);
+        }
+        else {
+            throw TomcatModelException(
+                "File with reporter settings was not found.");
+        }
     }
     MsgConverterPtr converter;
     if (study_num == 1) {
@@ -72,6 +82,7 @@ int main(int argc, char* argv[]) {
     string broker_json;
     string map_json;
     string reporter_type;
+    string reporter_settings_json;
     unsigned int num_seconds;
     unsigned int time_step_size;
     unsigned int num_jobs;
@@ -120,7 +131,11 @@ int main(int argc, char* argv[]) {
         "Study number for message conversion and reporter definition: 1, 2 or "
         "3")("reporter",
              po::value<string>(&reporter_type)->default_value(""),
-             "asist_study_2\nasist_study_3");
+             "asist_study_2\nasist_study_3")(
+        "reporter_settings_json",
+        po::value<string>(&reporter_settings_json)->default_value(""),
+        "Filepath to a json file containing reporter settings.");
+    ;
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -136,6 +151,7 @@ int main(int argc, char* argv[]) {
                 broker_json,
                 map_json,
                 reporter_type,
+                reporter_settings_json,
                 (int)study_num,
                 (int)num_seconds,
                 (int)time_step_size,

@@ -19,7 +19,7 @@ namespace tomcat {
             const std::string& report_filepath)
             : EstimationProcess(agent, reporter) {
 
-            if (report_filepath != "") {
+            if (reporter && !report_filepath.empty()) {
                 this->report_file.open(report_filepath, ios_base::app);
             }
         }

@@ -10,7 +10,7 @@
 #include <eigen3/Eigen/Dense>
 #include <nlohmann/json.hpp>
 
-#include "ASISTMessageConverter.h"
+#include "asist/ASISTMessageConverter.h"
 
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"

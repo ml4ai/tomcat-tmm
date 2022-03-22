@@ -45,6 +45,20 @@ namespace tomcat {
             Model& operator=(Model&&) = default;
 
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Creates a custom model from its name
+             *
+             * @param model_name: name of the custom model
+             * @param json_settings: json object containing the model's
+             * definition
+             */
+            static ModelPtr factory(const std::string& model_name,
+                                    const nlohmann::json& json_settings);
+
+            //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
 
@@ -74,7 +88,6 @@ namespace tomcat {
              * @return a deep copy of this DBN
              */
             virtual std::unique_ptr<Model> clone() const = 0;
-
         };
 
     } // namespace model

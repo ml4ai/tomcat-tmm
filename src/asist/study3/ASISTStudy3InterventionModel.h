@@ -17,11 +17,14 @@ namespace tomcat {
          */
         class ASISTStudy3InterventionModel : public Model {
           public:
+            inline static const std::string NAME =
+                "asist_study3_intervention_model";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
-
-            ASISTStudy3InterventionModel() = default;
+            explicit ASISTStudy3InterventionModel(
+                const nlohmann::json& json_settings);
 
             ~ASISTStudy3InterventionModel() = default;
 
@@ -52,6 +55,11 @@ namespace tomcat {
 
           private:
             //------------------------------------------------------------------
+            // Constructors & Destructor
+            //------------------------------------------------------------------
+            ASISTStudy3InterventionModel() = default;
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
@@ -62,12 +70,20 @@ namespace tomcat {
 
             std::unique_ptr<Model> clone() const override;
 
+            //            /**
+            //             * Copy contents from another study 3 intervention
+            //             model;
+            //             *
+            //             * @param model: study 3 intervention model
+            //             */
+            //            void copy(const ASISTStudy3InterventionModel& model);
+
             /**
-             * Copy contents from another study 3 intervention model;
+             * Parse a json object containing the model definition.
              *
-             * @param model: study 3 intervention model
+             * @param json_settings: json object containing the model definition
              */
-            void copy(const ASISTStudy3InterventionModel& model);
+            void parse_settings(const nlohmann::json& json_settings);
 
             /**
              * Create all components of the model.

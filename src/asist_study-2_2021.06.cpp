@@ -11,9 +11,8 @@
 #include <boost/program_options.hpp>
 #include <nlohmann/json.hpp>
 
-#include "converter/ASISTMultiPlayerMessageConverter.h"
+#include "asist/study2/ASISTMultiPlayerMessageConverter.h"
 #include "pgm/EvidenceSet.h"
-#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
 #include "utils/FileHandler.h"
 
 using namespace tomcat::model;

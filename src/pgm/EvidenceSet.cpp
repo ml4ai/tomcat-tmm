@@ -4,7 +4,6 @@
 
 #include <boost/filesystem.hpp>
 
-#include "converter/MessageConverter.h"
 #include "utils/EigenExtensions.h"
 #include "utils/FileHandler.h"
 #include "utils/Tensor3.h"
@@ -136,7 +135,7 @@ namespace tomcat {
             for (const auto& file : fs::directory_iterator(data_folder_path)) {
                 string filename = file.path().filename().string();
                 if (fs::is_regular_file(file)) {
-                    if (filename == MessageConverter::METADATA_FILE) {
+                    if (filename == METADATA_FILE) {
                         fstream log_file;
                         log_file.open(file.path().string());
                         if (log_file.is_open()) {
@@ -279,7 +278,7 @@ namespace tomcat {
             // Save metadata
             if (!this->metadata.empty()) {
                 string metadata_filepath =
-                    get_filepath(output_dir, MessageConverter::METADATA_FILE);
+                    get_filepath(output_dir, METADATA_FILE);
                 ofstream mmetadata_file;
                 mmetadata_file.open(metadata_filepath);
                 mmetadata_file << setw(4) << this->metadata;

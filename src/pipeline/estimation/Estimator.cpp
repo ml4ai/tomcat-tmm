@@ -3,11 +3,12 @@
 #include <fmt/format.h>
 #include <sstream>
 
-#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
-#include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
-#include "pipeline/estimation/custom_metrics/TeamQualityDecayEstimator.h"
+#include "asist/study2/FinalTeamScoreEstimator.h"
+#include "asist/study2/IndependentMapVersionAssignmentEstimator.h"
+#include "asist/study2/MapVersionAssignmentEstimator.h"
+#include "asist/study2/NextAreaOnNearbyMarkerEstimator.h"
+#include "asist/study3/TeamQualityDecayEstimator.h"
+#include "asist/study3/ASISTStudy3InterventionEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -76,7 +77,10 @@ namespace tomcat {
                         estimator_name));
                 }
             } else {
-
+                if (estimator_name == ASISTStudy3InterventionEstimator::NAME) {
+//                    estimator = make_shared<ASISTStudy3InterventionEstimator>(
+//                        model);
+                }
             }
 
             return estimator;

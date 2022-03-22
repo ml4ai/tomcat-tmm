@@ -8,9 +8,9 @@
 
 #include "pipeline/estimation/Agent.h"
 #include "reporter/EstimateReporter.h"
-#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
-#include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
+#include "FinalTeamScoreEstimator.h"
+#include "IndependentMapVersionAssignmentEstimator.h"
+#include "NextAreaOnNearbyMarkerEstimator.h"
 #include "pipeline/estimation/PGMEstimator.h"
 
 namespace tomcat {

@@ -59,8 +59,11 @@ namespace tomcat {
                     time_step >= this->json_settings["motivation_time_step"]) {
                     this->intervened_on_motivation = true;
 
-                    if (estimator->get_encouragement_cdf() <=
-                        this->json_settings["motivation_min_percentile"]) {
+                    double min_percentile =
+                        (double)this
+                            ->json_settings["motivation_min_percentile"] /
+                        100;
+                    if (estimator->get_encouragement_cdf() <= min_percentile) {
                         messages.push_back(
                             this->get_motivation_intervention_message(
                                 agent, time_step));

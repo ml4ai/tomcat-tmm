@@ -6,6 +6,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "converter/MessageConverter.h"
+
 namespace tomcat {
     namespace model {
 

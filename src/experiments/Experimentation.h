@@ -7,7 +7,6 @@
 
 #include <gsl/gsl_rng.h>
 
-#include "converter/MessageConverter.h"
 #include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/DBNSaver.h"

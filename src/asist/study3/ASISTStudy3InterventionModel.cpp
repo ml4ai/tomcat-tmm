@@ -1,18 +1,25 @@
 #include "ASISTStudy3InterventionModel.h"
 
 #include <boost/filesystem.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <fmt/format.h>
 
 #include "pgm/cpd/HistogramCPD.h"
 #include "utils/Definitions.h"
+#include "utils/JSONChecker.h"
+//include "asist/study3/ASISTStudy3InterventionMessageConverter.h"
 
 namespace tomcat {
     namespace model {
 
         using namespace std;
+
+        //----------------------------------------------------------------------
+        // Constructors
+        //----------------------------------------------------------------------
+        ASISTStudy3InterventionModel::ASISTStudy3InterventionModel(
+            const nlohmann::json& json_settings) {
+            this->parse_settings(json_settings); this->create_components();
+        }
 
         //----------------------------------------------------------------------
         // Member functions
@@ -50,6 +57,12 @@ namespace tomcat {
                     this->encouragement_node->clone().get()));
 
             return make_unique<ASISTStudy3InterventionModel>(move(new_model));
+        }
+
+
+        void ASISTStudy3InterventionModel::parse_settings(
+            const nlohmann::json& json_settings) {
+
         }
 
         void ASISTStudy3InterventionModel::create_components() {

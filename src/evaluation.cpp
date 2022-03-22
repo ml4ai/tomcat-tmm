@@ -19,6 +19,7 @@ void evaluate(const string& experiment_id,
               const string& eval_dir,
               const string& agent_json,
               const string& reporter_type,
+              const string& reporter_settings_json,
               int num_folds,
               int num_time_steps,
               int num_jobs) {
@@ -29,7 +30,16 @@ void evaluate(const string& experiment_id,
 
     EstimateReporterPtr reporter = EstimateReporter::factory(reporter_type);
     if (reporter) {
-        //        reporter->set_json_settings(reporter_json_settings);
+        fstream file;
+        file.open(reporter_settings_json);
+        if (file.is_open()) {
+            nlohmann::json reporter_settings = nlohmann::json::parse(file);
+            reporter->set_json_settings(reporter_settings);
+        }
+        else {
+            throw TomcatModelException(
+                "File with reporter settings was not found.");
+        }
     }
     experimentation.set_offline_estimation_process(agent_json,
                                                    model_dir,
@@ -53,6 +63,7 @@ int main(int argc, char* argv[]) {
     string eval_dir;
     string agent_json;
     string reporter_type;
+    string reporter_settings_json;
     unsigned int num_time_steps;
     unsigned int num_folds;
     unsigned int num_jobs;
@@ -96,7 +107,10 @@ int main(int argc, char* argv[]) {
         "one of the agent's estimator computes frequency over the training "
         "set.")("reporter",
                 po::value<string>(&reporter_type)->default_value(""),
-                "asist_study_2\nasist_study_3");
+                "asist_study_2\nasist_study_3")(
+        "reporter_settings_json",
+        po::value<string>(&reporter_settings_json)->default_value(""),
+        "Filepath to a json file containing reporter settings.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -114,6 +128,7 @@ int main(int argc, char* argv[]) {
              eval_dir,
              agent_json,
              reporter_type,
+             reporter_settings_json,
              (int)num_folds,
              (int)num_time_steps,
              (int)num_jobs);

@@ -15,7 +15,6 @@
 #include "pipeline/estimation/TrainingFrequencyEstimator.h"
 #include "pipeline/evaluation/Accuracy.h"
 #include "pipeline/evaluation/F1Score.h"
-#include "pipeline/evaluation/Measure.h"
 #include "pipeline/evaluation/RMSE.h"
 #include "pipeline/training/DBNLoader.h"
 #include "pipeline/training/DBNSamplingTrainer.h"
@@ -303,30 +302,40 @@ namespace tomcat {
                                           const string& model_dir) {
             try {
                 check_field(json_model, "type");
+                check_field(json_model, "filename");
+
+                string filename = json_model["filename"];
+                string filepath;
+
+                if (filename.empty() || model_dir.empty()) {
+                    throw TomcatModelException(
+                        "Model filename or directory not provided.");
+                }
+                else {
+                    filepath = fmt::format("{}/{}", model_dir, filename);
+                }
 
                 if (json_model["type"] == "dbn") {
-                    check_field(json_model, "filename");
-
-                    string filename = json_model["filename"];
-
-                    if (!filename.empty() && !model_dir.empty()) {
-                        string filepath =
-                            fmt::format("{}/{}", model_dir, filename);
-                        auto dbn = make_shared<DynamicBayesNet>(
-                            DynamicBayesNet ::create_from_json(filepath));
-                        dbn->unroll(3, true);
-                        this->model = dbn;
-                    }
-                    else {
-                        throw TomcatModelException(
-                            "Model filename or directory not provided.");
-                    }
+                    auto dbn = make_shared<DynamicBayesNet>(
+                        DynamicBayesNet ::create_from_json(filepath));
+                    dbn->unroll(3, true);
+                    this->model = dbn;
                 }
                 else if (json_model["type"] == "custom") {
                     check_field(json_model, "name");
 
-                    //                    this->model =
-                    //                    Model::factory((string)json_model["name"]);
+                    fstream file;
+                    file.open(filepath);
+                    if (file.is_open()) {
+                        nlohmann::json json_settings =
+                            nlohmann::json::parse(file);
+                        this->model = Model::factory((string)json_model["name"],
+                                                     json_settings);
+                    }
+                    else {
+                        throw TomcatModelException(
+                            fmt::format("File {} not found.", filepath));
+                    }
                 }
             }
             catch (TomcatModelException& tom_ex) {
@@ -391,11 +400,11 @@ namespace tomcat {
                             throw TomcatModelException(fmt::format(
                                 "The variable {} does not belong to "
                                 "the model.",
-                                json_settings["variable"]));
+                                (string)json_settings["variable"]));
                         }
 
                         Eigen::VectorXd value;
-                        string value_str = (string) json_settings["value"];
+                        string value_str = (string)json_settings["value"];
                         if (!value_str.empty()) {
                             value = Eigen::VectorXd::Constant(
                                 1, stod((string)json_settings["value"]));

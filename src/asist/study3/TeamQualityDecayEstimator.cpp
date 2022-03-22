@@ -2,7 +2,7 @@
 
 #include <fmt/format.h>
 
-#include "converter/ASISTStudy3MessageConverter.h"
+#include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {

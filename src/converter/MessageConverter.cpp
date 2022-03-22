@@ -48,7 +48,7 @@ namespace tomcat {
 
             set<string> unprocessed_filenames =
                 this->get_unprocessed_message_filenames(messages_dir, data_dir);
-            int num_files = unprocessed_filenames.size();
+            int num_files = (int) unprocessed_filenames.size();
             cout << "Converting " << num_files << " message files...";
             boost::progress_display progress(num_files);
 
