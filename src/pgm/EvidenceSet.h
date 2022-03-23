@@ -14,9 +14,14 @@ namespace tomcat {
     namespace model {
 
         /**
-         * This class contains a map between node labels in a DBN and values
+         * This class contains a map between variable names and values
          * stored into 3-dimensional tensors (value dimensionality, number data
          * points, time steps).
+         *
+         * It also supports non-matricial data stored as a list of json objects
+         * (one per time step). The json object contains the data on a
+         * dictionary-like format. This might be used with custom models that
+         * needs to make use of data that can not be stored as a tensor.
          */
         class EvidenceSet {
           public:
@@ -310,6 +315,10 @@ namespace tomcat {
 
             bool is_event_based() const;
 
+            const std::vector<nlohmann::json>& get_dict_like_data() const;
+            void set_dict_like_data(
+                const std::vector<nlohmann::json>& dict_like_data);
+
           private:
             inline static std::string TIME_2_EVENT_MAP_FILE =
                 "time_2_event_map.json";
@@ -334,14 +343,15 @@ namespace tomcat {
 
             std::unordered_map<std::string, Tensor3> node_label_to_data;
 
-            // Any relevant information regarding the evidence can be added
-            // here
-            nlohmann::json metadata;
-
             bool event_based;
 
             std::vector<std::set<std::pair<int, int>>>
                 time_2_event_per_data_point;
+
+            // General information about the dataset
+            nlohmann::json metadata;
+
+            std::vector<nlohmann::json> dict_like_data;
         };
 
     } // namespace model

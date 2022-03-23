@@ -95,7 +95,7 @@ namespace tomcat {
                 const nlohmann::json& json_message,
                 nlohmann::json& json_mission_log) override;
 
-            void fill_observation(const nlohmann::json& json_message) override;
+            void fill_observation(const nlohmann::json& json_message, nlohmann::json& json_mission_log) override;
 
             void prepare_for_new_mission() override;
 

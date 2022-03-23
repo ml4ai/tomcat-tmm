@@ -186,7 +186,8 @@ namespace tomcat {
                 const string& timer = json_message["data"]["mission_timer"];
                 int elapsed_time = this->get_elapsed_time(timer);
 
-                if (elapsed_time == this->elapsed_seconds + this->time_step_size) {
+                if (elapsed_time ==
+                    this->elapsed_seconds + this->time_step_size) {
                     // Every time there's a transition, we store the last
                     // observations collected.
 
@@ -237,14 +238,15 @@ namespace tomcat {
                 }
             }
             else {
-                this->fill_observation(json_message);
+                this->fill_observation(json_message, json_mission_log);
             }
 
             return data;
         }
 
         void ASISTSinglePlayerMessageConverter::fill_observation(
-            const nlohmann::json& json_message) {
+            const nlohmann::json& json_message,
+            nlohmann::json& json_mission_log) {
 
             if (json_message["header"]["message_type"] == "event" &&
                 json_message["msg"]["sub_type"] == "Event:Triage") {

@@ -445,5 +445,13 @@ namespace tomcat {
 
         bool EvidenceSet::is_event_based() const { return event_based; }
 
+        const vector<nlohmann::json>& EvidenceSet::get_dict_like_data() const {
+            return dict_like_data;
+        }
+        void EvidenceSet::set_dict_like_data(
+            const vector<nlohmann::json>& new_dict_like_data) {
+            EvidenceSet::dict_like_data = new_dict_like_data;
+        }
+
     } // namespace model
 } // namespace tomcat

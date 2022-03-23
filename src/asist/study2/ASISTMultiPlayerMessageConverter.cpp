@@ -331,7 +331,7 @@ namespace tomcat {
             }
 
             if (!this->mission_finished) {
-                this->fill_observation(json_message);
+                this->fill_observation(json_message, json_mission_log);
             }
 
             return data;
@@ -668,14 +668,15 @@ namespace tomcat {
             }
 
             if (!this->mission_finished) {
-                this->fill_observation(json_message);
+                this->fill_observation(json_message, json_mission_log);
             }
 
             return data;
         }
 
         void ASISTMultiPlayerMessageConverter::fill_observation(
-            const nlohmann::json& json_message) {
+            const nlohmann::json& json_message,
+            nlohmann::json& json_mission_log) {
 
             if (json_message["header"]["message_type"] == "groundtruth" &&
                 json_message["msg"]["sub_type"] == "Mission:VictimList") {
