@@ -7,7 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include "pipeline/estimation/Agent.h"
-#include "reporter/EstimateReporter.h"
+#include "asist/ASISTReporter.h"
 #include "FinalTeamScoreEstimator.h"
 #include "IndependentMapVersionAssignmentEstimator.h"
 #include "NextAreaOnNearbyMarkerEstimator.h"
@@ -19,7 +19,7 @@ namespace tomcat {
         /**
          * Represents a TMM reporter for study 2 of the ASIST program.
          */
-        class ASISTStudy2EstimateReporter : public EstimateReporter {
+        class ASISTStudy2EstimateReporter : public ASISTReporter {
           public:
 
             inline static const std::string NAME = "asist_study2_reporter";
@@ -28,9 +28,9 @@ namespace tomcat {
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            ASISTStudy2EstimateReporter();
+            explicit ASISTStudy2EstimateReporter(const nlohmann::json& json_settings);
 
-            virtual ~ASISTStudy2EstimateReporter();
+            ~ASISTStudy2EstimateReporter() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -71,25 +71,6 @@ namespace tomcat {
                                                    int data_point) const;
 
           private:
-            //------------------------------------------------------------------
-            // Static functions
-            //------------------------------------------------------------------
-
-            /**
-             * Calculates the milliseconds at a given time step within the
-             * mission.
-             *
-             * @param agent: agent responsible for the predictions
-             * @param time_step: time step
-             * @param data_point: mission trial index (if multiple missions are
-             * being processed at the same time)
-             *
-             * @return Time step * step size * 1000
-             */
-            static int get_milliseconds_at(const AgentPtr& agent,
-                                           int time_step,
-                                           int data_point) ;
-
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------

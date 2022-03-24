@@ -15,13 +15,16 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        ASISTStudy3InterventionReporter::ASISTStudy3InterventionReporter() {}
+        ASISTStudy3InterventionReporter::ASISTStudy3InterventionReporter(
+            const nlohmann::json& json_settings)
+            : ASISTReporter(json_settings) {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         ASISTStudy3InterventionReporter::ASISTStudy3InterventionReporter(
-            const ASISTStudy3InterventionReporter& reporter) {
+            const ASISTStudy3InterventionReporter& reporter)
+            : ASISTReporter(json_settings) {
             this->copy(reporter);
         }
 
@@ -30,6 +33,23 @@ namespace tomcat {
             const ASISTStudy3InterventionReporter& reporter) {
             this->copy(reporter);
             return *this;
+        }
+
+        //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::get_player_list(const AgentPtr& agent,
+                                                         int data_point) {
+            nlohmann::json player_ids = nlohmann::json::array();
+
+            for (const auto& json_player :
+                 agent->get_evidence_metadata()[data_point]["players"]) {
+                player_ids.push_back(json_player["id"]);
+            }
+
+            return player_ids;
         }
 
         //----------------------------------------------------------------------
@@ -43,8 +63,14 @@ namespace tomcat {
         vector<nlohmann::json>
         ASISTStudy3InterventionReporter::translate_estimates_to_messages(
             const AgentPtr& agent, int time_step) {
-            vector<nlohmann::json> messages;
 
+            // In the online setting the number of data points will be equals to
+            // 1 (1 trial being processed). However, in the offline setting we
+            // might be processing multiple trials at the same time,
+            // and we need to generate report messages for each one
+            // of them.
+
+            vector<nlohmann::json> messages;
             auto estimator =
                 dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
                     agent->get_estimators()[0]);
@@ -63,10 +89,15 @@ namespace tomcat {
                         (double)this
                             ->json_settings["motivation_min_percentile"] /
                         100;
-                    if (estimator->get_encouragement_cdf() <= min_percentile) {
-                        messages.push_back(
-                            this->get_motivation_intervention_message(
-                                agent, time_step));
+
+                    const auto& cdfs = estimator->get_encouragement_cdfs();
+                    for (int d = 0; d < agent->get_evidence_metadata().size();
+                         d++) {
+                        if (cdfs(d) <= min_percentile) {
+                            messages.push_back(
+                                this->get_motivation_intervention_message(
+                                    agent, time_step, d));
+                        }
                     }
                 }
             }
@@ -74,9 +105,13 @@ namespace tomcat {
                 if (time_step >=
                     this->json_settings["introduction_time_step"]) {
                     this->introduced = true;
-                    messages.push_back(
-                        this->get_introductory_intervention_message(agent,
-                                                                    time_step));
+
+                    for (int d = 0; d < agent->get_evidence_metadata().size();
+                         d++) {
+                        messages.push_back(
+                            this->get_introductory_intervention_message(
+                                agent, time_step, d));
+                    }
                 }
             }
 
@@ -236,23 +271,26 @@ namespace tomcat {
 
         nlohmann::json
         ASISTStudy3InterventionReporter::get_template_intervention_message(
-            const AgentPtr& agent, int time_step) const {
+            const AgentPtr& agent, int time_step, int data_point) const {
             nlohmann::json intervention_message;
-            this->add_header_section(
-                intervention_message, agent, "agent", time_step);
-            this->add_msg_section(
-                intervention_message, agent, "Intervention:Chat", time_step);
-            this->add_common_data_section(
-                intervention_message, agent, time_step);
+            add_header_section(intervention_message, agent, "agent", time_step);
+            add_msg_section(intervention_message,
+                            agent,
+                            "Intervention:Chat",
+                            time_step,
+                            data_point);
+            add_common_data_section(
+                intervention_message, agent, time_step, data_point);
 
             return intervention_message;
         }
 
         nlohmann::json
         ASISTStudy3InterventionReporter::get_introductory_intervention_message(
-            const AgentPtr& agent, int time_step) const {
+            const AgentPtr& agent, int time_step, int data_point) const {
             nlohmann::json intervention_message =
-                this->get_template_intervention_message(agent, time_step);
+                this->get_template_intervention_message(
+                    agent, time_step, data_point);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["introduction"];
 
@@ -261,9 +299,10 @@ namespace tomcat {
 
         nlohmann::json
         ASISTStudy3InterventionReporter::get_motivation_intervention_message(
-            const AgentPtr& agent, int time_step) const {
+            const AgentPtr& agent, int time_step, int data_point) const {
             nlohmann::json intervention_message =
-                this->get_template_intervention_message(agent, time_step);
+                this->get_template_intervention_message(
+                    agent, time_step, data_point);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["motivation"];
 
@@ -285,30 +324,19 @@ namespace tomcat {
         void ASISTStudy3InterventionReporter::add_common_data_section(
             nlohmann::json& message,
             const AgentPtr& agent,
-            int time_step) const {
+            int time_step,
+            int data_point) const {
 
             boost::uuids::uuid u = boost::uuids::random_generator()();
             message["id"] = boost::uuids::to_string(u);
             message["source"] = agent->get_id();
-            message["created"] = this->get_timestamp_at(agent, time_step);
+            message["created"] = get_timestamp_at(agent, time_step);
             message["start"] = -1;
             message["duration"] = 1;
-            message["receivers"] = this->get_player_list(agent);
+            message["receivers"] = this->get_player_list(agent, data_point);
             message["type"] = "string";
             message["renderers"] = nlohmann::json::array();
             message["renderers"].push_back("Minecraft_Chat");
-        }
-
-        nlohmann::json ASISTStudy3InterventionReporter::get_player_list(
-            const AgentPtr& agent) const {
-            nlohmann::json player_ids = nlohmann::json::array();
-
-            for (const auto json_player :
-                 agent->get_evidence_metadata()["players"]) {
-                player_ids.push_back(json_player["id"]);
-            }
-
-            return player_ids;
         }
 
     } // namespace model

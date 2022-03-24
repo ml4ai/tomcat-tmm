@@ -7,7 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "asist/study3/ASISTReporter.h"
+#include "asist/ASISTReporter.h"
 #include "pipeline/estimation/Agent.h"
 
 namespace tomcat {
@@ -20,12 +20,12 @@ namespace tomcat {
           public:
             inline static const std::string NAME = "asist_study3_reporter";
 
-
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            ASISTStudy3InterventionReporter();
+            ASISTStudy3InterventionReporter(
+                const nlohmann::json& json_settings);
 
             ~ASISTStudy3InterventionReporter() = default;
 
@@ -59,6 +59,22 @@ namespace tomcat {
 
           private:
             //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Return a string with the participant ids separated by comma.
+             *
+             * @param agent: Agent
+             * @param data_point: index of the trial being processed, if
+             * estimates are being computed for multiple trials.
+             *
+             * @return: List of participant ids
+             */
+            static nlohmann::json get_player_list(const AgentPtr& agent,
+                                                  int data_point);
+
+            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
@@ -77,10 +93,13 @@ namespace tomcat {
              * @param agent: ASI
              * @param time_step: time step at which the message is being
              * generated
+             * @param data_point: index of the trial being processed, if
+             * estimates are being computed for multiple trials.
              */
             void add_common_data_section(nlohmann::json& message,
                                          const AgentPtr& agent,
-                                         int time_step) const;
+                                         int time_step,
+                                         int data_point) const;
 
             /**
              * Creates a template intervention message.
@@ -88,12 +107,13 @@ namespace tomcat {
              * @param agent: ASI
              * @param time_step: time step at which the message is being
              * generated
+             * @param data_point: index of the trial being processed, if
+             * estimates are being computed for multiple trials.
              *
              * @return: json intervention message
              */
-            nlohmann::json
-            get_template_intervention_message(const AgentPtr& agent,
-                                              int time_step) const;
+            nlohmann::json get_template_intervention_message(
+                const AgentPtr& agent, int time_step, int data_point) const;
 
             /**
              * Assembles ToMCAT's introduction as an intervention.
@@ -101,12 +121,13 @@ namespace tomcat {
              * @param agent: ASI
              * @param time_step: time step at which the message is being
              * generated
+             * @param data_point: index of the trial being processed, if
+             * estimates are being computed for multiple trials.
              *
              * @return: json intervention message
              */
-            nlohmann::json
-            get_introductory_intervention_message(const AgentPtr& agent,
-                                                  int time_step) const;
+            nlohmann::json get_introductory_intervention_message(
+                const AgentPtr& agent, int time_step, int data_point) const;
 
             /**
              * Assembles motivation intervention.
@@ -114,21 +135,13 @@ namespace tomcat {
              * @param agent: ASI
              * @param time_step: time step at which the message is being
              * generated
+             * @param data_point: index of the trial being processed, if
+             * estimates are being computed for multiple trials.
              *
              * @return: json intervention message
              */
-            nlohmann::json
-            get_motivation_intervention_message(const AgentPtr& agent,
-                                                int time_step) const;
-
-            /**
-             * Return a string with the participant ids separated by comma.
-             *
-             * @param agent: Agent
-             *
-             * @return: List of participant ids
-             */
-            nlohmann::json get_player_list(const AgentPtr& agent) const;
+            nlohmann::json get_motivation_intervention_message(
+                const AgentPtr& agent, int time_step, int data_point) const;
 
             //------------------------------------------------------------------
             // Data member

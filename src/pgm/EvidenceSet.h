@@ -37,7 +37,7 @@ namespace tomcat {
              * @param event_based: whether the data is based on events or time
              * steps.
              */
-            EvidenceSet(bool event_based = false);
+            explicit EvidenceSet(bool event_based = false);
 
             /**
              * Creates an DBNData object with data from files in a given folder.
@@ -47,10 +47,21 @@ namespace tomcat {
              * @param event_based: whether the data is based on events or time
              * steps.
              */
-            EvidenceSet(const std::string& data_folder_path,
-                        bool event_based = false);
+            explicit EvidenceSet(const std::string& data_folder_path,
+                                 bool event_based = false);
 
-            ~EvidenceSet();
+            /**
+             * Create a dataset with non-matricial data.
+             *
+             * @param new_dict_like_data: non-matricial data
+             * @param event_based: whether the data is based on events or time
+             * steps.
+             */
+            explicit EvidenceSet(const std::vector<std::vector<nlohmann::json>>&
+                                     new_dict_like_data,
+                                 bool event_based = false);
+
+            ~EvidenceSet() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -315,9 +326,8 @@ namespace tomcat {
 
             bool is_event_based() const;
 
-            const std::vector<nlohmann::json>& get_dict_like_data() const;
-            void set_dict_like_data(
-                const std::vector<nlohmann::json>& dict_like_data);
+            const std::vector<std::vector<nlohmann::json>>&
+            get_dict_like_data() const;
 
           private:
             inline static std::string TIME_2_EVENT_MAP_FILE =
@@ -351,7 +361,7 @@ namespace tomcat {
             // General information about the dataset
             nlohmann::json metadata;
 
-            std::vector<nlohmann::json> dict_like_data;
+            std::vector<std::vector<nlohmann::json>> dict_like_data;
         };
 
     } // namespace model

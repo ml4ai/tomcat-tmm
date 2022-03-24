@@ -46,7 +46,7 @@ namespace tomcat {
                                         const std::string& map_filepath,
                                         int num_players);
 
-            ~ASISTStudy3MessageConverter();
+            ~ASISTStudy3MessageConverter() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -91,9 +91,8 @@ namespace tomcat {
                 const nlohmann::json& json_message,
                 nlohmann::json& json_mission_log) override;
 
-            void
-            fill_observation(const nlohmann::json& json_message,
-                             nlohmann::json& json_mission_log) override;
+            void fill_observation(const nlohmann::json& json_message,
+                                  nlohmann::json& json_mission_log) override;
 
             void prepare_for_new_mission() override;
 
@@ -105,6 +104,10 @@ namespace tomcat {
           private:
             struct Player {
               public:
+                // Default constructor just to allow initial expansion of a
+                // vector of players.
+                Player() {}
+
                 Player(const std::string& id, const std::string& color)
                     : id(id) {
                     this->color = color;
@@ -125,10 +128,10 @@ namespace tomcat {
                     }
                 }
 
-                std::string id;
-                std::string color;
-                std::string role;
-                int index;
+                std::string id = "";
+                std::string color = "";
+                std::string role = "";
+                int index = -1;
             };
 
             //------------------------------------------------------------------
@@ -151,6 +154,13 @@ namespace tomcat {
              * about the kind of map and marker legend received per player
              */
             void parse_players(const nlohmann::json& json_client_info);
+
+            /**
+             * Update utterance evidence
+             *
+             * @param json_message: json containing the utterance information
+             */
+            void parse_utterance_message(const nlohmann::json& json_message);
 
             /**
              * Update player's role
@@ -218,11 +228,6 @@ namespace tomcat {
 
             // Data
             int num_encouragement_utterances;
-
-
-
-
-
         };
 
     } // namespace model

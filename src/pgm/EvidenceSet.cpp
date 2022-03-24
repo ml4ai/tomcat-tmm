@@ -25,7 +25,17 @@ namespace tomcat {
             this->init_from_folder(data_folder_path);
         }
 
-        EvidenceSet::~EvidenceSet() {}
+        EvidenceSet::EvidenceSet(
+            const vector<vector<nlohmann::json>>& new_dict_like_data,
+            bool event_based)
+            : event_based(event_based) {
+            this->dict_like_data = new_dict_like_data;
+
+            this->num_data_points = (int)new_dict_like_data.size();
+            this->time_steps = (int)new_dict_like_data.size() > 0
+                                   ? (int)new_dict_like_data[0].size()
+                                   : 0;
+        }
 
         //----------------------------------------------------------------------
         // Operator overload
@@ -332,6 +342,12 @@ namespace tomcat {
                     this->time_steps = other.time_steps;
                 }
             }
+
+            // Merge dict-like data
+            this->dict_like_data.insert(this->dict_like_data.end(),
+                                        other.get_dict_like_data().begin(),
+                                        other.get_dict_like_data().end());
+
             this->num_data_points += other.num_data_points;
         }
 
@@ -347,6 +363,13 @@ namespace tomcat {
                     this->num_data_points = other.num_data_points;
                 }
             }
+
+            // Merge dict-like data
+            for (int i = 0; i < this->dict_like_data.size(); i++) {
+                this->dict_like_data[i].insert(this->dict_like_data[i].end(),
+                                               other.get_dict_like_data()[i]);
+            }
+
             this->time_steps += other.get_time_steps();
         }
 
@@ -445,12 +468,9 @@ namespace tomcat {
 
         bool EvidenceSet::is_event_based() const { return event_based; }
 
-        const vector<nlohmann::json>& EvidenceSet::get_dict_like_data() const {
+        const vector<vector<nlohmann::json>>&
+        EvidenceSet::get_dict_like_data() const {
             return dict_like_data;
-        }
-        void EvidenceSet::set_dict_like_data(
-            const vector<nlohmann::json>& new_dict_like_data) {
-            EvidenceSet::dict_like_data = new_dict_like_data;
         }
 
     } // namespace model

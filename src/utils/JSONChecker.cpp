@@ -9,7 +9,8 @@ namespace tomcat {
 
         void check_field(const nlohmann::json& json, const string& field) {
             if (!EXISTS(field, json)) {
-                throw TomcatModelException(fmt::format("Field {} not found."));
+                throw TomcatModelException(fmt::format(
+                    "Field {} not found in json {}.", field, json.dump()));
             }
         }
 

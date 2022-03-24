@@ -7,7 +7,6 @@
 #include "asist/study2/IndependentMapVersionAssignmentEstimator.h"
 #include "asist/study2/MapVersionAssignmentEstimator.h"
 #include "asist/study2/NextAreaOnNearbyMarkerEstimator.h"
-#include "asist/study3/TeamQualityDecayEstimator.h"
 #include "asist/study3/ASISTStudy3InterventionEstimator.h"
 
 namespace tomcat {
@@ -36,8 +35,7 @@ namespace tomcat {
                 FinalTeamScoreEstimator::NAME,
                 MapVersionAssignmentEstimator::NAME,
                 IndependentMapVersionAssignmentEstimator::NAME,
-                NextAreaOnNearbyMarkerEstimator::NAME,
-                TeamQualityDecayEstimator::NAME};
+                NextAreaOnNearbyMarkerEstimator::NAME};
 
             EstimatorPtr estimator;
             if (EXISTS(estimator_name, pgm_estimators)) {
@@ -64,11 +62,6 @@ namespace tomcat {
                         estimator =
                             make_shared<NextAreaOnNearbyMarkerEstimator>(
                                 dbn, json_settings);
-                    }
-                    else if (estimator_name ==
-                             TeamQualityDecayEstimator::NAME) {
-                        estimator = make_shared<TeamQualityDecayEstimator>(
-                            dbn, frequency_type, json_settings);
                     }
                 }
                 else {

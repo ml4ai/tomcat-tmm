@@ -560,7 +560,8 @@ namespace tomcat {
                     // training. If this executable is called with baseline
                     // set, we assume that the content of the parameter data
                     // is the training data.
-                    data_splitter = make_shared<DataSplitter>(train_dir, data);
+                    EvidenceSet train_data(train_dir);
+                    data_splitter = make_shared<DataSplitter>(train_data, data);
                 }
             }
 
@@ -639,7 +640,7 @@ namespace tomcat {
                 if (!params_dir.empty()) {
                     shared_ptr<ModelTrainer> loader =
                         make_shared<DBNLoader>(dbn, params_dir, true);
-                    loader->fit({});
+                    loader->fit(EvidenceSet());
                 }
 
                 AncestralSampler sampler(dbn, num_jobs);
@@ -664,7 +665,7 @@ namespace tomcat {
                 dbn->unroll(3, true);
                 shared_ptr<ModelTrainer> loader =
                     make_shared<DBNLoader>(dbn, params_dir, true);
-                loader->fit({});
+                loader->fit(EvidenceSet());
 
                 fs::create_directories(model_dir);
                 ofstream output_file;

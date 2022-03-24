@@ -1,6 +1,5 @@
 #include "ASISTStudy3MessageConverter.h"
 
-#include <fstream>
 #include <iomanip>
 
 #include "utils/JSONChecker.h"
@@ -20,13 +19,12 @@ namespace tomcat {
             const std::string& map_filepath,
             int num_players)
             : ASISTMessageConverter(num_seconds, time_step_size),
-              num_players(num_players) {
+              num_players(num_players), next_time_step(0),
+              num_players_with_role(0), num_encouragement_utterances(0) {
 
             this->players.resize(num_players);
             this->parse_map(map_filepath);
         }
-
-        ASISTStudy3MessageConverter::~ASISTStudy3MessageConverter() {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
@@ -35,7 +33,12 @@ namespace tomcat {
             const ASISTStudy3MessageConverter& converter)
             : ASISTMessageConverter(converter.time_steps *
                                         converter.time_step_size,
-                                    converter.time_step_size) {
+                                    converter.time_step_size),
+              num_players(converter.num_players),
+              next_time_step(converter.next_time_step),
+              num_players_with_role(converter.num_players_with_role),
+              num_encouragement_utterances(
+                  converter.num_encouragement_utterances) {
             this->copy_converter(converter);
         }
 
@@ -51,6 +54,12 @@ namespace tomcat {
         void ASISTStudy3MessageConverter::copy_converter(
             const ASISTStudy3MessageConverter& converter) {
             ASISTMessageConverter::copy_converter(converter);
+
+            this->num_players = converter.num_players;
+            this->next_time_step = converter.next_time_step;
+            this->num_players_with_role = converter.num_players_with_role;
+            this->num_encouragement_utterances =
+                converter.num_encouragement_utterances;
         }
 
         void ASISTStudy3MessageConverter::prepare_for_new_mission() {
@@ -96,10 +105,12 @@ namespace tomcat {
 
             EvidenceSet data;
             if (is_message_of(json_message, "trial", "Event:MissionState")) {
-                const auto& sub_type = json_message["msg"]["sub_type"];
+                const string& sub_type = json_message["msg"]["sub_type"];
 
                 if (boost::iequals(sub_type, "start")) {
                     check_field(json_message["data"], "trial_number");
+                    check_field(json_message["data"], "experiment_id");
+                    check_field(json_message["data"], "trial_id");
                     check_field(json_message["data"], "name");
                     check_field(json_message["data"], "map_block_filename");
                     check_field(json_message["data"], "client_info");
@@ -108,6 +119,10 @@ namespace tomcat {
 
                     json_mission_log["trial"] =
                         json_message["data"]["trial_number"];
+                    json_mission_log["experiment_id"] =
+                        json_message["data"]["experiment_id"];
+                    json_mission_log["trial_id"] =
+                        json_message["data"]["trial_unique_id"];
                     json_mission_log["team"] = name.substr(0, name.find('_'));
 
                     const string& map_filename =
@@ -137,7 +152,7 @@ namespace tomcat {
                          json_message, "event", "Event:MissionState")) {
                 check_field(json_message["data"], "mission_state");
 
-                const auto& mission_state =
+                const string& mission_state =
                     json_message["data"]["mission_state"];
                 if (boost::iequals(mission_state, "start")) {
                     this->mission_started = true;
@@ -177,7 +192,7 @@ namespace tomcat {
 
             if (is_message_of(json_message, "event", "Event:dialogue_event")) {
                 if (this->mission_started) {
-                    // store the number of encouragement extractions
+                    this->parse_utterance_message(json_message);
                 }
             }
             else if (is_message_of(
@@ -225,6 +240,22 @@ namespace tomcat {
         //                }
         //            }
         //        }
+
+        void ASISTStudy3MessageConverter::parse_utterance_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "extractions");
+
+            for (const auto& json_extraction :
+                 json_message["data"]["extractions"]) {
+                check_field(json_extraction, "labels");
+
+                for (const auto& label : json_extraction["labels"]) {
+                    if (boost::iequals((string)label, "Encouragement")) {
+                        this->num_encouragement_utterances++;
+                    }
+                }
+            }
+        }
 
         void ASISTStudy3MessageConverter::parse_role_selection_message(
             const nlohmann::json& json_message,
@@ -342,8 +373,6 @@ namespace tomcat {
         }
 
         EvidenceSet ASISTStudy3MessageConverter::collect_time_step_evidence() {
-            EvidenceSet data;
-
             nlohmann::json dict_data;
 
             dict_data[Labels::ENCOURAGEMENT] =
@@ -351,7 +380,7 @@ namespace tomcat {
 
             this->num_encouragement_utterances = 0;
 
-            data.set_dict_like_data({dict_data});
+            EvidenceSet data({{dict_data}});
 
             this->next_time_step += 1;
             return data;

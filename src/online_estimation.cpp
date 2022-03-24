@@ -36,19 +36,21 @@ void start_agent(const string& model_dir,
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
 
-    EstimateReporterPtr reporter = EstimateReporter::factory(reporter_type);
-    if (reporter) {
+    EstimateReporterPtr reporter;
+    if (!reporter_type.empty()) {
         fstream file;
         file.open(reporter_settings_json);
         if (file.is_open()) {
             nlohmann::json reporter_settings = nlohmann::json::parse(file);
-            reporter->set_json_settings(reporter_settings);
+            reporter =
+                EstimateReporter::factory(reporter_type, reporter_settings);
         }
         else {
             throw TomcatModelException(
                 "File with reporter settings was not found.");
         }
     }
+
     MsgConverterPtr converter;
     if (study_num == 1) {
         converter = make_shared<ASISTSinglePlayerMessageConverter>(
@@ -135,7 +137,6 @@ int main(int argc, char* argv[]) {
         "reporter_settings_json",
         po::value<string>(&reporter_settings_json)->default_value(""),
         "Filepath to a json file containing reporter settings.");
-    ;
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);

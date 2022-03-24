@@ -92,8 +92,14 @@ namespace tomcat {
             void increment_assignment(int increment);
 
             /**
+             * Increments the node's assignment by values in another matrix.
+             */
+            void increment_assignment(const Eigen::MatrixXd& increments);
+
+            /**
              * Sets as the node's assignment a previously stacked assignment. If
-             * there's no assignment stacked, the node's assignment is preserved.
+             * there's no assignment stacked, the node's assignment is
+             * preserved.
              */
             void pop_assignment();
 

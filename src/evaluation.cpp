@@ -28,19 +28,21 @@ void evaluate(const string& experiment_id,
 
     Experimentation experimentation(random_generator, experiment_id);
 
-    EstimateReporterPtr reporter = EstimateReporter::factory(reporter_type);
-    if (reporter) {
+    EstimateReporterPtr reporter;
+    if (!reporter_type.empty()) {
         fstream file;
         file.open(reporter_settings_json);
         if (file.is_open()) {
             nlohmann::json reporter_settings = nlohmann::json::parse(file);
-            reporter->set_json_settings(reporter_settings);
+            reporter =
+                EstimateReporter::factory(reporter_type, reporter_settings);
         }
         else {
             throw TomcatModelException(
                 "File with reporter settings was not found.");
         }
     }
+
     experimentation.set_offline_estimation_process(agent_json,
                                                    model_dir,
                                                    eval_dir,
