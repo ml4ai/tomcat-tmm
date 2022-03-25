@@ -9,107 +9,34 @@
 #include <eigen3/Eigen/Dense>
 #include <nlohmann/json.hpp>
 
-#include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/Model.h"
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"
 
 namespace tomcat {
     namespace model {
 
-        //------------------------------------------------------------------
-        // Structs
-        //------------------------------------------------------------------
-
-        /**
-         * This struct stores a node's label, assignment over which the
-         * estimator must perform its computations and the estimates calculated
-         * for that node.
-         */
-        struct NodeEstimates {
-
-            std::string label;
-
-            Eigen::VectorXd assignment;
-
-            // Probabilities or densities calculated for n data points over
-            // several time steps. If an assignment is provided, there will be
-            // only one matrix in the vector containing the estimates for each
-            // one of the data points and time steps. If no assignment is given,
-            // there will be as many matrix estimates as the cardinality of the
-            // node. In sum, there will be estimates for each possible
-            // assignment the node can have.
-            std::vector<Eigen::MatrixXd> estimates;
-
-            // Any extra computation that needs to be reported
-            std::vector<Eigen::MatrixXd> custom_data;
-        };
-
-        /**
-         * This struct stores a node's label, assignment over which the
-         * estimator must perform its computations and a list of the multiple
-         * times estimates were calculated by the estimator.
-         */
-        struct CumulativeNodeEstimates {
-
-            std::string label;
-
-            Eigen::VectorXd assignment;
-
-            // The external vector represents the content for each one of the
-            // executions of the estimation process. In a cross-validation
-            // procedure,the size of this vector will be defined by the number
-            // of folds. The internal vector store estimates for each one of the
-            // possible node's assignments. This will only happen if no fixed
-            // assignment was provided, otherwise, this vector will have size 1
-            // as it will contain estimated for a single assignment only. Single
-            // assignments make sense when a inference horizon of size > 0 is
-            // used.
-            std::vector<std::vector<Eigen::MatrixXd>> estimates;
-
-            std::vector<std::vector<Eigen::MatrixXd>> custom_data;
-        };
-
         /**
          * Represents a generic estimator for a DBN model.
          */
-        class Estimator : public std::enable_shared_from_this<Estimator> {
+        class Estimator {
           public:
+            //------------------------------------------------------------------
+            // Types, Enums & Constants
+            //------------------------------------------------------------------
+
+            enum FREQUENCY_TYPE { all, last, fixed, dynamic };
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            /**
-             * Creates an empty estimator.
-             */
-            Estimator();
+            Estimator() = default;
 
-            /**
-             * Creates an abstract estimator.
-             *
-             * @param model: DBN
-             * @param inference_horizon: how many time steps in the future
-             * estimations are going to be computed for
-             * @param node_label: label of the node estimates are going to be
-             * computed for
-             * @param assignment: fixed assignment (for instance, estimates =
-             * probability that the node assumes a value x, where x is the fixed
-             * assignment). This parameter is optional when the inference
-             * horizon is 0, but mandatory otherwise.
-             */
-            Estimator(const std::shared_ptr<DynamicBayesNet>& model,
-                      int inference_horizon,
-                      const std::string& node_label,
-                      const Eigen::VectorXd& assignment = EMPTY_VECTOR);
+            explicit Estimator(const std::shared_ptr<Model>& model);
 
-            /**
-             * Creates an abstract compound estimator.
-             *
-             * @param model: DBN
-             */
-            Estimator(const std::shared_ptr<DynamicBayesNet>& model);
-
-            virtual ~Estimator();
+            virtual ~Estimator() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -127,70 +54,55 @@ namespace tomcat {
             Estimator& operator=(Estimator&&) = default;
 
             //------------------------------------------------------------------
-            // Member functions
+            // Static functions
             //------------------------------------------------------------------
 
             /**
-             * Returns estimates at a given time step.
+             * Creates an instance of a custom estimator.
              *
-             * @param time_step: Time step to get the estimates from
+             * @param estimator_name: name of the estimator
+             * @param model: underlying model
+             * @param json_settings: settings in a json object
+             * @param frequency_type: frequency type for inferences
+             * @param fixed_time_steps: fixed time steps when to compute
+             * inferences
+             * @param num_jobs: number of jobs to use for parallel processing
              *
-             * @return Estimates.
+             * @return Custom estimator
              */
-            NodeEstimates get_estimates_at(int time_step) const;
+            static EstimatorPtr
+            factory(const std::string& estimator_name,
+                    const ModelPtr& model,
+                    const nlohmann::json& json_settings,
+                    FREQUENCY_TYPE frequency_type,
+                    const std::unordered_set<int>& fixed_time_steps,
+                    int num_jobs);
 
             //------------------------------------------------------------------
             // Virtual functions
             //------------------------------------------------------------------
 
             /**
-             * Clear last estimates and cumulative estimates computed by the
-             * estimator.
+             * Clean up at the end of a pipeline.
              */
             virtual void cleanup();
 
             /**
-             * Initializations before the computation of estimates.
-             *
+             * Prepare for another round of executions within a single pipeline.
              */
             virtual void prepare();
 
             /**
-             * Store the last estimates computed in a list of cumulative
-             * estimates.
+             * Store the last estimates computed in the pipeline.
              */
             virtual void keep_estimates();
 
             /**
-             * Whether a node is being estimated by this estimator.
+             * Whether the estimator should print its progress on screen.
              *
-             * @param node_label: Node's label
-             *
-             * @return
+             * @param show_progress: true or false
              */
-            virtual bool
-            is_computing_estimates_for(const std::string& node_label) const;
-
-            /**
-             * Retrieves the subset of estimator of an estimator. Compound
-             * estimators can have multiple base estimators.
-             *
-             * @return Base estimators
-             */
-            virtual std::vector<std::shared_ptr<Estimator>>
-            get_base_estimators();
-
-            /**
-             * Whether prediction cases are binary. This is used to
-             * differentiate cases in which it's mandatory to provide an
-             * assignment to estimate probabilities in a horizon. Custom
-             * estimators might change the default behavior, which is true, if
-             * the use a positive horizon but computes estimates for multiple
-             * assignments.
-             *
-             * @return
-             */
-            virtual bool is_binary_on_prediction() const;
+            virtual void set_show_progress(bool show_progress);
 
             //------------------------------------------------------------------
             // Pure virtual functions
@@ -222,19 +134,9 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
-            NodeEstimates get_estimates() const;
-
-            CumulativeNodeEstimates get_cumulative_estimates() const;
-
-            int get_inference_horizon() const;
-
             void set_training_data(const EvidenceSet& training_data);
 
-            const std::shared_ptr<DynamicBayesNet>& get_model() const;
-
-            void set_show_progress(bool show_progress);
-
-            bool is_compound() const;
+            const std::shared_ptr<Model>& get_model() const;
 
           protected:
             //------------------------------------------------------------------
@@ -244,47 +146,21 @@ namespace tomcat {
             /**
              * Copies data members from another estimator.
              */
-            void copy_estimator(const Estimator& estimator);
+            void copy(const Estimator& estimator);
 
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-            std::shared_ptr<DynamicBayesNet> model;
+            std::shared_ptr<Model> model;
 
             // Data used to train the model. Baseline methods can use the
             // information in the training set to compute their estimations
             // instead of test data.
             EvidenceSet training_data;
 
-            // Observed data to perform estimations. More data points can be
-            // appended as estimations are made. Each derived class must store
-            // computations to avoid recalculations as new data is available.
-            // EvidenceSet test_data;
-
-            // Node to compute estimates, its fixed assignment (optional if
-            // inference_horizon = 0) and estimates
-            NodeEstimates estimates;
-
-            // Node to compute estimates, its fixed assignment and cumulative
-            // estimates over several executions (if cross validation is used)
-            CumulativeNodeEstimates cumulative_estimates;
-
-            // An inference horizon determines if the task is a prediction (> 0)
-            // or an inference (= 0). If it's a prediction, the horizon
-            // determines up to how much further in the future predictions are
-            // made.
-            int inference_horizon = 0;
-
             // Whether a progress bar must be shown as the estimations are
             // happening
             bool show_progress = true;
-
-            // A compound estimator has a collection of concrete child
-            // estimators. Compound estimators are used for performing a
-            // computation that can be used by these concrete estimators.
-            // Compound estimators cannot be used for evaluation as they do not
-            // calculate an estimate for an specific node.
-            bool compound;
         };
 
     } // namespace model

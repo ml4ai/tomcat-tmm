@@ -40,7 +40,8 @@ namespace tomcat {
         //----------------------------------------------------------------------
 
         void ParticleFilter::create_template_dbn() {
-            this->template_dbn = this->original_dbn.clone(false);
+            this->template_dbn = *dynamic_cast<DynamicBayesNet*>(
+                this->original_dbn.clone().get());
             this->template_dbn.unroll(LAST_TEMPLATE_TIME_STEP + 1, true);
             this->template_dbn.mirror_parameter_nodes_from(this->original_dbn);
 

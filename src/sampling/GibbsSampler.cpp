@@ -443,8 +443,13 @@ namespace tomcat {
             unique_ptr<Sampler> new_sampler = make_unique<GibbsSampler>(
                 this->model, this->burn_in_period, this->num_jobs);
             // Clone the model and the nodes in it
-            new_sampler->set_model(
-                make_shared<DynamicBayesNet>(this->model->clone(unroll_model)));
+
+            DynamicBayesNet model_copy =
+                *dynamic_cast<DynamicBayesNet*>(this->model->clone().get());
+            if (unroll_model) {
+                model_copy.unroll(this->model->get_time_steps(), true);
+            }
+            new_sampler->set_model(make_shared<DynamicBayesNet>(model_copy));
 
             return new_sampler;
         }

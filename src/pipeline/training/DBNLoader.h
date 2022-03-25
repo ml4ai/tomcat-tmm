@@ -7,6 +7,7 @@
 
 #include "utils/Definitions.h"
 #include "pgm/DynamicBayesNet.h"
+#include "pipeline/training/ModelLoader.h"
 
 namespace tomcat {
     namespace model {
@@ -55,32 +56,24 @@ namespace tomcat {
 
             void get_info(nlohmann::json& json) const override;
 
-          protected:
-            //------------------------------------------------------------------
-            // Member functions
-            //------------------------------------------------------------------
-
-            std::shared_ptr<DynamicBayesNet> get_model() const override;
-
           private:
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
 
             /**
-             * Copies data members from another DBNLoader.
-             */
-            void copy_loader(const DBNLoader& loader);
-
-            /**
              * Loads parameter samples generated during the training process.
              */
             void load_partials();
 
+            /**
+             * Copies data members from another ModelLoader.
+             */
+            void copy(const DBNLoader& loader);
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
-            std::shared_ptr<DynamicBayesNet> model;
 
             // Folder where the model's parameters' files are saved.
             std::string input_folder_path;
@@ -90,8 +83,9 @@ namespace tomcat {
             // for a specific cross validation step.
             int split_idx = 0;
 
-            // Frozen nodes cannot have their assignments changed.
+            // Freeze model
             bool freeze_loaded_nodes;
+
         };
 
     } // namespace model

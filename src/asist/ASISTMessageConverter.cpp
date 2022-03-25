@@ -1,5 +1,6 @@
 #include "ASISTMessageConverter.h"
 
+#include <boost/algorithm/string.hpp>
 #include <fstream>
 #include <iomanip>
 
@@ -19,6 +20,29 @@ namespace tomcat {
             : MessageConverter(num_seconds, time_step_size) {}
 
         ASISTMessageConverter::~ASISTMessageConverter() {}
+
+        //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+        bool
+        ASISTMessageConverter::is_message_of(const nlohmann::json& json_message,
+                                             const std::string& type) {
+
+            return boost::iequals(
+                       (string)json_message["header"]["message_type"], type);
+        }
+
+
+        bool
+        ASISTMessageConverter::is_message_of(const nlohmann::json& json_message,
+                                             const std::string& type,
+                                             const std::string& sub_type) {
+
+            return boost::iequals(
+                       (string)json_message["header"]["message_type"], type) &&
+                   boost::iequals((string)json_message["msg"]["sub_type"],
+                                  sub_type);
+        }
 
         //----------------------------------------------------------------------
         // Member functions

@@ -6,6 +6,7 @@
 #include "pgm/EvidenceSet.h"
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"
+#include "pipeline/training/ModelTrainer.h"
 
 namespace tomcat {
     namespace model {
@@ -13,7 +14,7 @@ namespace tomcat {
         /**
          * Class responsible for estimating a model's parameters.
          */
-        class DBNTrainer {
+        class DBNTrainer : public ModelTrainer {
           public:
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -22,9 +23,9 @@ namespace tomcat {
             /**
              * Creates an abstract trainer.
              */
-            DBNTrainer();
+            explicit DBNTrainer(const DBNPtr& model);
 
-            virtual ~DBNTrainer();
+            virtual ~DBNTrainer() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -42,36 +43,10 @@ namespace tomcat {
             DBNTrainer& operator=(DBNTrainer&&) = default;
 
             //------------------------------------------------------------------
-            // Virtual functions
-            //------------------------------------------------------------------
-
-            /**
-             * Prepares the trainer to a series of calls to the function fit by
-             * performing necessary cleanups.
-             */
-            virtual void prepare();
-
-            //------------------------------------------------------------------
-            // Pure virtual functions
-            //------------------------------------------------------------------
-
-            /**
-             * Estimates the model's parameters from training data. The final
-             * parameters are defined as the average over the samples
-             * (partials).
-             */
-            virtual void fit(const EvidenceSet& training_data) = 0;
-
-            /**
-             * Writes information about the splitter in a json object.
-             *
-             * @param json: json object
-             */
-            virtual void get_info(nlohmann::json& json) const = 0;
-
-            //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
+
+            void prepare() override;
 
             /**
              * Returns the samples generated for each parameter in the model
@@ -123,15 +98,6 @@ namespace tomcat {
             // information for each data split.
             std::vector<std::unordered_map<std::string, Tensor3>>
                 param_label_to_samples;
-
-            //------------------------------------------------------------------
-            // Pure virtual functions
-            //------------------------------------------------------------------
-
-            /**
-             * Gets the model from a specific instance of a trainer.
-             */
-            virtual std::shared_ptr<DynamicBayesNet> get_model() const = 0;
 
           private:
             //------------------------------------------------------------------

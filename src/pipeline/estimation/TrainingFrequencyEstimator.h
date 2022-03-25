@@ -4,7 +4,7 @@
 
 #include "utils/Definitions.h"
 
-#include "Estimator.h"
+#include "pipeline/estimation/PGMEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -16,8 +16,11 @@ namespace tomcat {
          * step t for a given node will be proportional to the number of times
          * the value x is observed in the training data for that node at time t.
          */
-        class TrainingFrequencyEstimator : public Estimator {
+        class TrainingFrequencyEstimator : public PGMEstimator {
           public:
+
+            inline static const std::string NAME = "training_frequency";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -61,8 +64,6 @@ namespace tomcat {
             // Member functions
             //------------------------------------------------------------------
             void estimate(const EvidenceSet& new_data) override;
-
-            void get_info(nlohmann::json& json) const override;
 
             std::string get_name() const override;
         };

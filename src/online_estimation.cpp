@@ -1,19 +1,13 @@
 #include <memory>
-#include <string>
-#include <vector>
 
 #include <boost/program_options.hpp>
-#include <fmt/format.h>
 #include <gsl/gsl_rng.h>
 
-#include "converter/ASISTMultiPlayerMessageConverter.h"
-#include "converter/ASISTSinglePlayerMessageConverter.h"
-#include "converter/ASISTStudy3MessageConverter.h"
+#include "asist/study1/ASISTSinglePlayerMessageConverter.h"
+#include "asist/study2/ASISTMultiPlayerMessageConverter.h"
+#include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "experiments/Experimentation.h"
-#include "pgm/DynamicBayesNet.h"
 #include "pgm/EvidenceSet.h"
-#include "reporter/ASISTStudy2EstimateReporter.h"
-#include "reporter/ASISTStudy3InterventionReporter.h"
 #include "reporter/EstimateReporter.h"
 
 /**
@@ -32,29 +26,33 @@ void start_agent(const string& model_dir,
                  const string& params_dir,
                  const string& broker_json,
                  const string& map_json,
+                 const string& reporter_type,
+                 const string& reporter_settings_json,
+                 const string& eval_dir,
                  int study_num,
                  int num_seconds,
                  int time_step_size,
-                 int num_particles,
                  int num_jobs,
                  int num_players) {
 
     shared_ptr<gsl_rng> random_generator(gsl_rng_alloc(gsl_rng_mt19937));
 
-    string model_name;
-    fstream file;
-    file.open(agent_json);
-    if (file.is_open()) {
-        model_name = nlohmann::json::parse(file)["agent"]["model"];
+    EstimateReporterPtr reporter;
+    if (!reporter_type.empty()) {
+        fstream file;
+        file.open(reporter_settings_json);
+        if (file.is_open()) {
+            nlohmann::json reporter_settings = nlohmann::json::parse(file);
+            reporter =
+                EstimateReporter::factory(reporter_type, reporter_settings);
+        }
+        else {
+            throw TomcatModelException(
+                "File with reporter settings was not found.");
+        }
     }
 
-    string model_filepath = fmt::format("{}/{}.json", model_dir, model_name);
-    shared_ptr<DynamicBayesNet> model = make_shared<DynamicBayesNet>(
-        DynamicBayesNet ::create_from_json(model_filepath));
-    model->unroll(3, true);
-
     MsgConverterPtr converter;
-    EstimateReporterPtr reporter;
     if (study_num == 1) {
         converter = make_shared<ASISTSinglePlayerMessageConverter>(
             num_seconds, time_step_size, map_json);
@@ -62,26 +60,23 @@ void start_agent(const string& model_dir,
     else if (study_num == 2) {
         converter = make_shared<ASISTMultiPlayerMessageConverter>(
             num_seconds, time_step_size, map_json, num_players);
-        reporter = make_shared<ASISTStudy2EstimateReporter>();
     }
     else {
         converter = make_shared<ASISTStudy3MessageConverter>(
             num_seconds, time_step_size, map_json, num_players);
-        reporter = make_shared<ASISTStudy3InterventionReporter>();
     }
 
-    Experimentation experimentation(random_generator, "", model);
+    Experimentation experimentation(random_generator,
+                                    EstimateReporter::get_current_timestamp());
     int num_time_steps = num_seconds / time_step_size;
     experimentation.set_online_estimation_process(agent_json,
-                                                  num_particles,
+                                                  model_dir,
                                                   num_jobs,
-                                                  false,
-                                                  false,
                                                   num_time_steps - 1,
                                                   broker_json,
                                                   converter,
                                                   reporter);
-    experimentation.start_real_time_estimation(params_dir);
+    experimentation.start_real_time_estimation(params_dir, eval_dir);
 }
 
 int main(int argc, char* argv[]) {
@@ -90,21 +85,22 @@ int main(int argc, char* argv[]) {
     string params_dir;
     string broker_json;
     string map_json;
+    string reporter_type;
+    string reporter_settings_json;
+    string eval_dir;
     unsigned int num_seconds;
     unsigned int time_step_size;
-    unsigned int num_particles;
     unsigned int num_jobs;
     unsigned int num_players;
     unsigned int study_num;
-    unsigned int reporter_type;
-    bool exact_inference;
 
     po::options_description desc("Allowed options");
     desc.add_options()(
         "help,h",
         "This program starts a new ToMCAT agent to make inferences and "
         "predictions in real time, as new relevant messages are published to "
-        "a message bus. ToMCAT can publich to the message bus if a reporter is "
+        "a message bus. ToMCAT can publish back to the message bus if a "
+        "reporter is "
         "provided.")("model_dir",
                      po::value<string>(&model_dir)->required(),
                      "Directory where the agent's model definition is saved.")(
@@ -125,15 +121,10 @@ int main(int argc, char* argv[]) {
         po::value<unsigned int>(&num_seconds)->required(),
         "Number of seconds in the mission. The agent won't close after "
         "messages beyond this number of seconds have arrived, but no more "
-        "inference will be made.")(
+        "inferences will be made.")(
         "step_size",
         po::value<unsigned int>(&time_step_size)->default_value(1)->required(),
         "Size of a time step in seconds.")(
-        "particles",
-        po::value<unsigned int>(&num_particles)
-            ->default_value(1000)
-            ->required(),
-        "Number of particles used for inference")(
         "jobs",
         po::value<unsigned int>(&num_jobs)->default_value(4),
         "Number of jobs used for multi-thread inference.")(
@@ -143,7 +134,16 @@ int main(int argc, char* argv[]) {
         "study_num",
         po::value<unsigned int>(&study_num)->default_value(3)->required(),
         "Study number for message conversion and reporter definition: 1, 2 or "
-        "3");
+        "3")("reporter",
+             po::value<string>(&reporter_type)->default_value(""),
+             "asist_study2_reporter\nasist_study3_reporter")(
+        "reporter_settings_json",
+        po::value<string>(&reporter_settings_json)->default_value(""),
+        "Filepath to a json file containing reporter settings.")(
+        "eval_dir",
+        po::value<string>(&eval_dir)->default_value(""),
+        "Directory where the evaluation file and report (if "
+        "requested) will be saved.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -158,10 +158,12 @@ int main(int argc, char* argv[]) {
                 params_dir,
                 broker_json,
                 map_json,
-                study_num,
-                num_seconds,
-                time_step_size,
-                num_particles,
-                num_jobs,
-                num_players);
+                reporter_type,
+                reporter_settings_json,
+                eval_dir,
+                (int)study_num,
+                (int)num_seconds,
+                (int)time_step_size,
+                (int)num_jobs,
+                (int)num_players);
 }

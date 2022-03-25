@@ -1,10 +1,5 @@
 #include <fstream>
-#include <memory>
-#include <set>
-#include <string>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
 #include "pgm/EvidenceSet.h"
 #include <boost/program_options.hpp>

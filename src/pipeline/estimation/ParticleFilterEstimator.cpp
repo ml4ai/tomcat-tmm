@@ -1,7 +1,6 @@
 #include "ParticleFilterEstimator.h"
 
 #include <iostream>
-#include <thread>
 
 #include <boost/progress.hpp>
 
@@ -21,7 +20,7 @@ namespace tomcat {
             const std::shared_ptr<gsl_rng>& random_generator,
             int num_jobs,
             int variable_horizon_max_time_step)
-            : Estimator(model), num_particles(num_particles),
+            : PGMEstimator(model), num_particles(num_particles),
               random_generator(random_generator), num_jobs(num_jobs),
               variable_horizon_max_time_step(variable_horizon_max_time_step) {}
 
@@ -32,14 +31,14 @@ namespace tomcat {
         //----------------------------------------------------------------------
         ParticleFilterEstimator::ParticleFilterEstimator(
             const ParticleFilterEstimator& estimator) {
-            Estimator::copy_estimator(estimator);
+            PGMEstimator::copy(estimator);
             this->copy(estimator);
         }
 
         ParticleFilterEstimator& ParticleFilterEstimator::operator=(
             const ParticleFilterEstimator& estimator) {
-            Estimator::copy_estimator(estimator);
-            this->copy_estimator(estimator);
+            PGMEstimator::copy(estimator);
+            this->copy(estimator);
             return *this;
         }
 
@@ -67,7 +66,7 @@ namespace tomcat {
         }
 
         void ParticleFilterEstimator::keep_estimates() {
-            Estimator::keep_estimates();
+            PGMEstimator::keep_estimates();
 
             for (auto& base_estimator : this->base_estimators) {
                 base_estimator->keep_estimates();
@@ -93,10 +92,11 @@ namespace tomcat {
             }
 
             for (int d = 0; d < new_data.get_num_data_points(); d++) {
-                ParticleFilter filter(*this->model,
-                                      this->num_particles,
-                                      this->random_generator,
-                                      this->num_jobs);
+                ParticleFilter filter(
+                    *dynamic_pointer_cast<DynamicBayesNet>(this->model),
+                    this->num_particles,
+                    this->random_generator,
+                    this->num_jobs);
                 filter.set_show_progress(show_filter_progress);
 
                 EvidenceSet single_point_data =
@@ -202,12 +202,21 @@ namespace tomcat {
             this->last_time_step += new_data.get_time_steps();
         }
 
-        void ParticleFilterEstimator::get_info(nlohmann::json& json) const {
-            json["name"] = this->get_name();
+        void ParticleFilterEstimator::get_info(nlohmann::json& json_estimators) const {
+            for (const auto& base_estimator: this->base_estimators) {
+                base_estimator->get_info(json_estimators);
+            }
+        }
+
+        void ParticleFilterEstimator::set_show_progress(bool show_progress) {
+            this->show_progress = show_progress;
+            for (auto& base_estimator: this->base_estimators) {
+                base_estimator->set_show_progress(show_progress);
+            }
         }
 
         string ParticleFilterEstimator::get_name() const {
-            return "particle_filter";
+            return NAME;
         }
 
         bool ParticleFilterEstimator::is_computing_estimates_for(
@@ -224,13 +233,13 @@ namespace tomcat {
             return is_estimating;
         }
 
-        vector<shared_ptr<Estimator>>
+        vector<shared_ptr<PGMEstimator>>
         ParticleFilterEstimator::get_base_estimators() {
-            vector<shared_ptr<Estimator>> base_estimators;
+            vector<shared_ptr<PGMEstimator>> estimators;
             for (const auto& base_estimator : this->base_estimators) {
-                base_estimators.push_back(base_estimator);
+                estimators.push_back(base_estimator);
             }
-            return base_estimators;
+            return estimators;
         }
 
         void ParticleFilterEstimator::add_base_estimator(

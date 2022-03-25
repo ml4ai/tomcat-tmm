@@ -27,9 +27,8 @@ namespace tomcat {
              * @param frequency_type: frequency at which estimates must be
              * computed
              */
-            RMSE(const std::shared_ptr<Estimator>& estimator,
-                 FREQUENCY_TYPE frequency_type = all);
-
+            RMSE(const std::shared_ptr<PGMEstimator>& estimator,
+                 Estimator::FREQUENCY_TYPE frequency_type = Estimator::all);
             ~RMSE();
 
             //------------------------------------------------------------------

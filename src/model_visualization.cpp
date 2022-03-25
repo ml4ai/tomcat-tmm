@@ -1,10 +1,7 @@
 #include <memory>
-#include <string>
 #include <unordered_set>
-#include <vector>
 
 #include <boost/program_options.hpp>
-#include <gsl/gsl_rng.h>
 #include <nlohmann/json.hpp>
 
 #include "experiments/Experimentation.h"
@@ -36,7 +33,8 @@ void print_model(const string& model_json,
     shared_ptr<DynamicBayesNet> model = make_shared<DynamicBayesNet>(
         DynamicBayesNet ::create_from_json(model_json));
 
-    Experimentation experimentation({}, "", model);
+    Experimentation experimentation({}, "");
+    experimentation.set_model(model);
     experimentation.print_model(params_dir, model_dir);
 }
 

@@ -10,7 +10,7 @@
 #include <eigen3/Eigen/Dense>
 #include <nlohmann/json.hpp>
 
-#include "ASISTMessageConverter.h"
+#include "asist/ASISTMessageConverter.h"
 
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"
@@ -95,7 +95,7 @@ namespace tomcat {
                 const nlohmann::json& json_message,
                 nlohmann::json& json_mission_log) override;
 
-            void fill_observation(const nlohmann::json& json_message) override;
+            void fill_observation(const nlohmann::json& json_message, nlohmann::json& json_mission_log) override;
 
             void prepare_for_new_mission() override;
 

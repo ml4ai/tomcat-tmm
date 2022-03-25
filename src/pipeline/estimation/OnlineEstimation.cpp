@@ -6,6 +6,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "converter/MessageConverter.h"
+
 namespace tomcat {
     namespace model {
 
@@ -128,7 +130,9 @@ namespace tomcat {
                 this->messages_to_process.pop();
                 new_data.hstack(this->message_converter->get_data_from_message(
                     message, this->evidence_metadata));
-                new_data.set_metadata(this->evidence_metadata);
+                nlohmann::json json_metadatas = nlohmann::json::array();
+                json_metadatas.push_back(this->evidence_metadata);
+                new_data.set_metadata(json_metadatas);
             }
 
             return new_data;

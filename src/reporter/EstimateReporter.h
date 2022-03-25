@@ -23,9 +23,9 @@ namespace tomcat {
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            EstimateReporter();
+            explicit EstimateReporter(const nlohmann::json& json_settings);
 
-            virtual ~EstimateReporter();
+            virtual ~EstimateReporter() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -41,6 +41,43 @@ namespace tomcat {
             EstimateReporter(EstimateReporter&&) = default;
 
             EstimateReporter& operator=(EstimateReporter&&) = default;
+
+            //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Create an instance of a concrete reporter.
+             *
+             * @param reporter_name: name of the reporter
+             * @param json_settings: json object containing the reporter
+             * settings
+             *
+             * @return Reporter object
+             */
+            static EstimateReporterPtr
+            factory(const std::string& reporter_name,
+                    const nlohmann::json& json_settings);
+
+            /**
+             * Gets the current timestamp as a string.
+             *
+             * @return Timestamp
+             */
+            static std::string get_current_timestamp();
+
+            /**
+             * gets the timestamp after some seconds.
+             *
+             * @param initial_timestamp: timestamp before the elapsed time
+             * @param elapsed_time: number of seconds to be added to the
+             * initial timestamp
+             *
+             * @return Timestamp
+             */
+            static std::string
+            get_elapsed_timestamp(const std::string& initial_timestamp,
+                                  int elapsed_time);
 
             //------------------------------------------------------------------
             // Virtual functions
@@ -110,24 +147,16 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
-             * Gets the current timestamp as a string.
+             * Copy contents from another reporter.
              *
-             * @return Timestamp
+             * @param reporter: reporter
              */
-            std::string get_current_timestamp() const;
+            void copy(const EstimateReporter& reporter);
 
-            /**
-             * gets the timestamp after some seconds.
-             *
-             * @param initial_timestamp: timestamp before the elapsed time
-             * @param elapsed_time: number of seconds to be added to the
-             * initial timestamp
-             *
-             * @return Timestamp
-             */
-            std::string
-            get_elapsed_timestamp(const std::string& initial_timestamp,
-                                  int elapsed_time) const;
+            //------------------------------------------------------------------
+            // Data members
+            //------------------------------------------------------------------
+            nlohmann::json json_settings;
         };
 
     } // namespace model

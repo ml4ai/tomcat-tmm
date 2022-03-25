@@ -8,7 +8,7 @@
 #include <nlohmann/json.hpp>
 
 #include "pgm/inference/ParticleFilter.h"
-#include "pipeline/estimation/Estimator.h"
+#include "pipeline/estimation/PGMEstimator.h"
 #include "sampling/AncestralSampler.h"
 #include "sampling/Sampler.h"
 #include "utils/Definitions.h"
@@ -27,19 +27,16 @@ namespace tomcat {
          * for evaluation but only for estimation purposes to share computation
          * among different nodes' estimates.
          */
-        class SamplerEstimator : public Estimator {
+        class SamplerEstimator : public PGMEstimator {
           public:
-            //------------------------------------------------------------------
-            // Types, Enums & Constants
-            //------------------------------------------------------------------
 
-            enum FREQUENCY_TYPE { all, fixed, dynamic };
+            inline static const std::string NAME = "sampler";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            SamplerEstimator();
+            SamplerEstimator() = default;
 
             /**
              * Creates an instance of a sampler estimator.
@@ -71,7 +68,7 @@ namespace tomcat {
                              const Eigen::VectorXd& high = EMPTY_VECTOR,
                              FREQUENCY_TYPE frequency_type = all);
 
-            ~SamplerEstimator();
+            ~SamplerEstimator() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -97,31 +94,10 @@ namespace tomcat {
              */
             static Eigen::VectorXd get_prior(const RVNodePtr& node);
 
-            /**
-             * factory function to create a new instance of a custom sampler
-             * estimator from its name
-             *
-             * @param name: estimator name
-             * @param model: model used for estimation
-             * @param json_config: extra configuration
-             * @param frequency_type: frequency at which estimates must be
-             * computed
-
-             *
-             * @return Newly created instance of the custom estimator
-             */
-            static SamplerEstimatorPtr
-            create_custom_estimator(const std::string& name,
-                                    const DBNPtr& model,
-                                    const nlohmann::json& json_config,
-                                    FREQUENCY_TYPE frequency_type = all);
-
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
             void estimate(const EvidenceSet& new_data) override;
-
-            void get_info(nlohmann::json& json) const override;
 
             std::string get_name() const override;
 

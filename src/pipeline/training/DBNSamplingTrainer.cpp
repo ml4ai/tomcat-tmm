@@ -12,7 +12,8 @@ namespace tomcat {
             const shared_ptr<gsl_rng>& random_generator,
             const shared_ptr<Sampler>& sampler,
             int num_samples)
-            : random_generator(random_generator), sampler(sampler),
+            : DBNTrainer(sampler->get_model()),
+              random_generator(random_generator), sampler(sampler),
               num_samples(num_samples) {}
 
         DBNSamplingTrainer::~DBNSamplingTrainer() {}
@@ -21,7 +22,8 @@ namespace tomcat {
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         DBNSamplingTrainer::DBNSamplingTrainer(
-            const DBNSamplingTrainer& trainer) {
+            const DBNSamplingTrainer& trainer)
+            : DBNTrainer(dynamic_pointer_cast<DynamicBayesNet>(this->model)) {
             this->copy_trainer(trainer);
         }
 
@@ -40,6 +42,7 @@ namespace tomcat {
             this->sampler = trainer.sampler;
             this->num_samples = trainer.num_samples;
             this->param_label_to_samples = trainer.param_label_to_samples;
+            this->model = trainer.model;
         }
 
         void DBNSamplingTrainer::prepare() { this->sampler->prepare(); }
@@ -83,10 +86,6 @@ namespace tomcat {
             json["type"] = "sampling";
             json["num_samples"] = this->num_samples;
             this->sampler->get_info(json["algorithm"]);
-        }
-
-        shared_ptr<DynamicBayesNet> DBNSamplingTrainer::get_model() const {
-            return this->sampler->get_model();
         }
 
     } // namespace model

@@ -1,13 +1,7 @@
 #include "SamplerEstimator.h"
 
-#include <iostream>
 #include <thread>
 
-#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
-#include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/MapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
-#include "pipeline/estimation/custom_metrics/TeamQualityDecayEstimator.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {
@@ -18,7 +12,6 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        SamplerEstimator::SamplerEstimator() {}
 
         SamplerEstimator::SamplerEstimator(
             const shared_ptr<DynamicBayesNet>& model,
@@ -27,7 +20,7 @@ namespace tomcat {
             const Eigen::VectorXd& low,
             const Eigen::VectorXd& high,
             FREQUENCY_TYPE frequency_type)
-            : Estimator(model, inference_horizon, node_label, low),
+            : PGMEstimator(model, inference_horizon, node_label, low),
               frequency_type(frequency_type) {
 
             if (low.size() == 0) {
@@ -40,20 +33,18 @@ namespace tomcat {
             }
         }
 
-        SamplerEstimator::~SamplerEstimator() {}
-
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         SamplerEstimator::SamplerEstimator(const SamplerEstimator& estimator) {
-            Estimator::copy_estimator(estimator);
-            this->copy_estimator(estimator);
+            PGMEstimator::copy(estimator);
+            this->copy(estimator);
         }
 
         SamplerEstimator&
         SamplerEstimator::operator=(const SamplerEstimator& estimator) {
-            Estimator::copy_estimator(estimator);
-            this->copy_estimator(estimator);
+            PGMEstimator::copy(estimator);
+            this->copy(estimator);
             return *this;
         }
 
@@ -67,15 +58,15 @@ namespace tomcat {
                 prior = node->get_cpd()->get_distributions()[0]->get_values(0);
             }
             else {
-                const auto& indexing__map =
+                const auto& indexing_map =
                     node->get_cpd()->get_parent_label_to_indexing();
 
-                vector<Eigen::VectorXd> parent_priors(indexing__map.size());
+                vector<Eigen::VectorXd> parent_priors(indexing_map.size());
                 for (const auto& parent_node : node->get_parents()) {
                     const string& parent_label =
                         parent_node->get_metadata()->get_label();
 
-                    parent_priors[indexing__map.at(parent_label).order] =
+                    parent_priors[indexing_map.at(parent_label).order] =
                         get_prior(dynamic_pointer_cast<RandomVariableNode>(
                             parent_node));
                 }
@@ -93,58 +84,19 @@ namespace tomcat {
             return prior;
         }
 
-        SamplerEstimatorPtr SamplerEstimator::create_custom_estimator(
-            const std::string& name,
-            const DBNPtr& model,
-            const nlohmann::json& json_config,
-            FREQUENCY_TYPE frequency_type) {
-
-            SamplerEstimatorPtr estimator;
-            if (name == FinalTeamScoreEstimator::NAME) {
-                estimator =
-                    make_shared<FinalTeamScoreEstimator>(model, frequency_type);
-            }
-            else if (name == MapVersionAssignmentEstimator::NAME) {
-                estimator = make_shared<MapVersionAssignmentEstimator>(
-                    model, frequency_type);
-            }
-            else if (name == IndependentMapVersionAssignmentEstimator::NAME) {
-                estimator =
-                    make_shared<IndependentMapVersionAssignmentEstimator>(
-                        model, frequency_type);
-            }
-            else if (name == NextAreaOnNearbyMarkerEstimator::NAME) {
-                estimator = make_shared<NextAreaOnNearbyMarkerEstimator>(
-                    model, json_config);
-            }
-            else if (name == TeamQualityDecayEstimator::NAME) {
-                estimator = make_shared<TeamQualityDecayEstimator>(
-                    model, frequency_type, json_config);
-            }
-
-            return estimator;
-        }
-
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
-        void SamplerEstimator::copy(const SamplerEstimator& estimator) {
-            Estimator::copy_estimator(estimator);
-        }
+        void SamplerEstimator::copy(const SamplerEstimator& estimator) {}
 
         void SamplerEstimator::estimate(const EvidenceSet& new_data) {
-            new TomcatModelException(
+            throw TomcatModelException(
                 "Whenever working with sampler estimators, "
                 "please use the alternative estimate "
                 "function.");
         }
 
-        void SamplerEstimator::get_info(nlohmann::json& json) const {
-            json["name"] = this->get_name();
-            json["inference_horizon"] = this->inference_horizon;
-        }
-
-        string SamplerEstimator::get_name() const { return "sampler"; }
+        string SamplerEstimator::get_name() const { return NAME; }
 
         bool SamplerEstimator::does_estimation_at(
             int data_point, int time_step, const EvidenceSet& new_data) const {
@@ -174,18 +126,19 @@ namespace tomcat {
                                         int time_step,
                                         ParticleFilter& filter) {
 
+            auto dbn = dynamic_pointer_cast<DynamicBayesNet>(this->get_model());
+
             if (this->inference_horizon == 0) {
                 for (int t = 0; t < particles.get_time_steps(); t++) {
                     // Each dimensionality is computed individually
-                    const auto& metadata = this->get_model()->get_metadata_of(
-                        this->estimates.label);
-                    const auto& node = this->model->get_node(
-                        this->estimates.label,
-                        metadata->get_initial_time_step());
+                    const auto& metadata =
+                        dbn->get_metadata_of(this->estimates.label);
+                    const auto& node =
+                        dbn->get_node(this->estimates.label,
+                                      metadata->get_initial_time_step());
 
                     if (this->estimates.assignment.size() == 0) {
-                        int k = this->get_model()->get_cardinality_of(
-                            this->estimates.label);
+                        int k = dbn->get_cardinality_of(this->estimates.label);
                         Eigen::VectorXd probs =
                             Eigen::VectorXd::Constant(k, NO_OBS);
 
@@ -251,7 +204,7 @@ namespace tomcat {
                 if (this->estimates.assignment.size() == 0) {
                     // Compute estimates for each value the node can take
                     // (assuming the node's distribution is discrete)
-                    int k = this->get_model()->get_cardinality_of(
+                    int k = dbn->get_cardinality_of(
                         this->estimates.label);
 
                     for (int i = 0; i < k; i++) {

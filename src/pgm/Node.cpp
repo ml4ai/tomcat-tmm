@@ -40,6 +40,14 @@ namespace tomcat {
             this->assignment.array() += increment;
         }
 
+        void Node::increment_assignment(const Eigen::MatrixXd& increments) {
+            if (this->assignment.size() == 0) {
+                this->assignment = increments;
+            } else {
+                this->assignment.array() += increments.array();
+            }
+        }
+
         void Node::pop_assignment() {
             if (this->stacked_assignment.size() > 0) {
                 this->assignment = this->stacked_assignment;

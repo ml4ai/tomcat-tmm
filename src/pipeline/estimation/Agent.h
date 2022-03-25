@@ -7,7 +7,6 @@
 
 #include <nlohmann/json.hpp>
 
-#include "converter/MessageConverter.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/estimation/Estimator.h"
 
@@ -32,7 +31,7 @@ namespace tomcat {
              * @param id: agent's ID
              * @param version: agent's version
              */
-            Agent(const std::string& id, const std::string& version = "");
+            explicit Agent(const std::string& id, const std::string& version = "");
 
             virtual ~Agent();
 
@@ -87,6 +86,13 @@ namespace tomcat {
              * @param estimator: Estimator
              */
             void add_estimator(const EstimatorPtr& estimator);
+
+            /**
+             * Whether estimators should print their progress on the screen.
+             *
+             * @param show_progress: true or false
+             */
+            void show_progress(bool show_progress);
 
             //------------------------------------------------------------------
             // Virtual functions

@@ -5,7 +5,8 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <fmt/format.h>
 
-#include "converter/ASISTMultiPlayerMessageConverter.h"
+#include "asist/study2/ASISTMultiPlayerMessageConverter.h"
+#include "pipeline/estimation/ParticleFilterEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -15,24 +16,32 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        ASISTStudy2EstimateReporter::ASISTStudy2EstimateReporter() {}
-
-        ASISTStudy2EstimateReporter::~ASISTStudy2EstimateReporter() {}
+        ASISTStudy2EstimateReporter::ASISTStudy2EstimateReporter(
+            const nlohmann::json& json_settings)
+            : ASISTReporter(json_settings) {}
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
         //----------------------------------------------------------------------
         ASISTStudy2EstimateReporter::ASISTStudy2EstimateReporter(
-            const ASISTStudy2EstimateReporter& reporter) {}
+            const ASISTStudy2EstimateReporter& reporter)
+            : ASISTReporter(reporter.json_settings) {
+            this->copy(reporter);
+        }
 
         ASISTStudy2EstimateReporter& ASISTStudy2EstimateReporter::operator=(
             const ASISTStudy2EstimateReporter& reporter) {
+            this->copy(reporter);
             return *this;
         }
 
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
+        void ASISTStudy2EstimateReporter::copy(
+            const ASISTStudy2EstimateReporter& reporter) {
+            EstimateReporter::copy(reporter);
+        }
 
         vector<nlohmann::json>
         ASISTStudy2EstimateReporter::translate_estimates_to_messages(
@@ -44,7 +53,7 @@ namespace tomcat {
             state_message["header"] = this->get_header_section(agent);
             prediction_message["header"] = this->get_header_section(agent);
 
-            int num_data_points = agent->get_evidence_metadata().size();
+            int num_data_points = (int)agent->get_evidence_metadata().size();
 
             for (int d = 0; d < num_data_points; d++) {
                 state_message["msg"] = this->get_common_msg_section(agent, d);
@@ -56,8 +65,12 @@ namespace tomcat {
 
                 vector<nlohmann::json> predictions;
                 for (const auto& estimator : agent->get_estimators()) {
+                    const auto& pf_estimator =
+                        dynamic_pointer_cast<ParticleFilterEstimator>(
+                            estimator);
+
                     for (const auto& base_estimator :
-                         estimator->get_base_estimators()) {
+                         pf_estimator->get_base_estimators()) {
                         if (const auto& score_estimator =
                                 dynamic_pointer_cast<FinalTeamScoreEstimator>(
                                     base_estimator)) {
@@ -167,7 +180,7 @@ namespace tomcat {
         nlohmann::json ASISTStudy2EstimateReporter::get_header_section(
             const AgentPtr& agent) const {
             nlohmann::json header;
-            header["timestamp"] = this->get_current_timestamp();
+            header["timestamp"] = get_current_timestamp();
             header["message_type"] = "agent";
             header["version"] = agent->get_version();
 
@@ -181,7 +194,7 @@ namespace tomcat {
                 agent->get_evidence_metadata()[data_point]["trial_unique_id"];
             msg_common["experiment_id"] =
                 agent->get_evidence_metadata()[data_point]["experiment_id"];
-            msg_common["timestamp"] = this->get_current_timestamp();
+            msg_common["timestamp"] = get_current_timestamp();
             msg_common["source"] = agent->get_id();
             msg_common["version"] = "1.0";
             msg_common["trial_number"] =
@@ -196,7 +209,6 @@ namespace tomcat {
             msg_common["group"]["start_elapsed_time"] = nullptr;
             msg_common["group"]["duration"] =
                 agent->get_evidence_metadata()[data_point]["step_size"];
-            ;
             msg_common["predictions"] = nlohmann::json::array();
 
             return msg_common;
@@ -239,7 +251,7 @@ namespace tomcat {
                     boost::uuids::uuid u = boost::uuids::random_generator()();
                     json_prediction["unique_id"] = boost::uuids::to_string(u);
                     json_prediction["start_elapsed_time"] =
-                        this->get_milliseconds_at(agent, t, data_point);
+                        get_milliseconds_at(agent, t, data_point);
                     json_prediction["duration"] =
                         agent->get_evidence_metadata()[data_point]["step_size"];
                     json_prediction["subject_type"] = "team";
@@ -276,7 +288,7 @@ namespace tomcat {
         vector<nlohmann::json>
         ASISTStudy2EstimateReporter::get_map_info_predictions(
             const AgentPtr& agent,
-            const EstimatorPtr& estimator,
+            const PGMEstimatorPtr& estimator,
             int time_step,
             int data_point) const {
 
@@ -346,7 +358,7 @@ namespace tomcat {
                             boost::uuids::random_generator()();
                         prediction["unique_id"] = boost::uuids::to_string(u);
                         prediction["start_elapsed_time"] =
-                            this->get_milliseconds_at(agent, t, data_point);
+                            get_milliseconds_at(agent, t, data_point);
                         prediction["duration"] =
                             agent->get_evidence_metadata()[data_point]
                                                           ["step_size"];
@@ -377,7 +389,7 @@ namespace tomcat {
         vector<nlohmann::json>
         ASISTStudy2EstimateReporter::get_marker_legend_predictions(
             const AgentPtr& agent,
-            const EstimatorPtr& estimator,
+            const PGMEstimatorPtr& estimator,
             int time_step,
             int data_point) const {
 
@@ -414,7 +426,7 @@ namespace tomcat {
                             boost::uuids::random_generator()();
                         prediction["unique_id"] = boost::uuids::to_string(u);
                         prediction["start_elapsed_time"] =
-                            this->get_milliseconds_at(agent, t, data_point);
+                            get_milliseconds_at(agent, t, data_point);
                         prediction["duration"] =
                             agent->get_evidence_metadata()[data_point]
                                                           ["step_size"];
@@ -561,24 +573,6 @@ namespace tomcat {
                 d++;
             }
             this->m7_initialized = true;
-        }
-
-        string ASISTStudy2EstimateReporter::get_timestamp_at(
-            const AgentPtr& agent, int time_step, int data_point) const {
-            const string& initial_timestamp =
-                agent->get_evidence_metadata()[data_point]["initial_timestamp"];
-            int elapsed_time =
-                time_step *
-                (int)agent->get_evidence_metadata()[data_point]["step_size"];
-
-            return this->get_elapsed_timestamp(initial_timestamp, elapsed_time);
-        }
-
-        int ASISTStudy2EstimateReporter::get_milliseconds_at(
-            const AgentPtr& agent, int time_step, int data_point) const {
-            int step_size =
-                agent->get_evidence_metadata()[data_point]["step_size"];
-            return time_step * step_size * 1000;
         }
 
     } // namespace model

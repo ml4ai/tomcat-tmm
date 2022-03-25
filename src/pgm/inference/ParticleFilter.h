@@ -90,7 +90,8 @@ namespace tomcat {
              * marginals.
              */
             std::pair<EvidenceSet, EvidenceSet>
-            forward_particles(int num_time_steps, EvidenceSet data = {});
+            forward_particles(int num_time_steps,
+                              EvidenceSet data = EvidenceSet());
 
             /**
              * Prepare to start generating particles from scratch.

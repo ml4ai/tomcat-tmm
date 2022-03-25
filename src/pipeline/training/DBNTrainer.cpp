@@ -10,9 +10,7 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        DBNTrainer::DBNTrainer() {}
-
-        DBNTrainer::~DBNTrainer() {}
+        DBNTrainer::DBNTrainer(const DBNPtr& model) : ModelTrainer(model) {}
 
         //----------------------------------------------------------------------
         // Member functions
@@ -46,9 +44,10 @@ namespace tomcat {
         void DBNTrainer::update_model(const unique_ptr<int>& sample_idx,
                                       int split_idx,
                                       bool force) {
-            shared_ptr<DynamicBayesNet> model = this->get_model();
+            shared_ptr<DynamicBayesNet> dbn =
+                dynamic_pointer_cast<DynamicBayesNet>(this->model);
 
-            for (const auto& node : model->get_parameter_nodes()) {
+            for (const auto& node : dbn->get_parameter_nodes()) {
                 shared_ptr<RandomVariableNode> rv_node =
                     dynamic_pointer_cast<RandomVariableNode>(node);
                 if (!rv_node->is_frozen() || force) {

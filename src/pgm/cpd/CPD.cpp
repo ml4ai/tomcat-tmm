@@ -1663,6 +1663,77 @@ namespace tomcat {
             full_pdfs.block(initial_row, 0, num_rows, 1) = pdfs;
         }
 
+        Eigen::VectorXd
+        CPD::get_cdfs(const shared_ptr<const RandomVariableNode>& cpd_owner,
+                      int num_jobs,
+                      int parameter_idx,
+                      bool reverse) const {
+
+            int num_samples = cpd_owner->get_size();
+            Eigen::VectorXi distribution_indices =
+                this->get_indexed_distribution_indices(cpd_owner->get_parents(),
+                                                       num_samples);
+            Eigen::VectorXd cdfs(num_samples);
+            mutex cdfs_mutex;
+            if (num_jobs == 1) {
+                // Run in the main thread
+                this->run_cdf_thread(cpd_owner,
+                                     distribution_indices,
+                                     parameter_idx,
+                                     reverse,
+                                     cdfs,
+                                     make_pair(0, num_samples),
+                                     cdfs_mutex);
+            }
+            else {
+                const auto processing_blocks =
+                    get_parallel_processing_blocks(num_jobs, num_samples);
+                vector<thread> threads;
+                for (int i = 0; i < processing_blocks.size(); i++) {
+                    thread cdfs_thread(&CPD::run_cdf_thread,
+                                       this,
+                                       ref(cpd_owner),
+                                       ref(distribution_indices),
+                                       parameter_idx,
+                                       reverse,
+                                       ref(cdfs),
+                                       ref(processing_blocks.at(i)),
+                                       ref(cdfs_mutex));
+                    threads.push_back(move(cdfs_thread));
+                }
+
+                for (auto& samples_thread : threads) {
+                    samples_thread.join();
+                }
+            }
+
+            return cdfs;
+        }
+
+        void CPD::run_cdf_thread(
+            const shared_ptr<const RandomVariableNode>& cpd_owner,
+            const Eigen::VectorXi& distribution_indices,
+            int parameter_idx,
+            bool reverse,
+            Eigen::VectorXd& full_cdfs,
+            const pair<int, int>& processing_block,
+            mutex& cdf_mutex) const {
+
+            int initial_row = processing_block.first;
+            int num_rows = processing_block.second;
+
+            Eigen::VectorXd cdfs(num_rows, 1);
+            for (int i = initial_row; i < initial_row + num_rows; i++) {
+                const auto& distribution =
+                    this->distributions[distribution_indices[i]];
+                cdfs[i - initial_row] = distribution->get_cdf(
+                    cpd_owner->get_assignment()(i, 0), reverse);
+            }
+
+            scoped_lock lock(cdf_mutex);
+            full_cdfs.block(initial_row, 0, num_rows, 1) = cdfs;
+        }
+
         //------------------------------------------------------------------
         // Getters & Setters
         //------------------------------------------------------------------

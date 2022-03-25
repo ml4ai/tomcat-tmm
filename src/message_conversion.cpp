@@ -7,9 +7,9 @@
 
 #include <boost/program_options.hpp>
 
-#include "converter/ASISTMultiPlayerMessageConverter.h"
-#include "converter/ASISTSinglePlayerMessageConverter.h"
-#include "converter/ASISTStudy3MessageConverter.h"
+#include "asist/study1/ASISTSinglePlayerMessageConverter.h"
+#include "asist/study2/ASISTMultiPlayerMessageConverter.h"
+#include "asist/study3/ASISTStudy3MessageConverter.h"
 
 using namespace tomcat::model;
 using namespace std;

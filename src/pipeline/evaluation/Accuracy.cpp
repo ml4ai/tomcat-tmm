@@ -8,9 +8,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Accuracy::Accuracy(const shared_ptr<Estimator>& estimator,
+        Accuracy::Accuracy(const shared_ptr<PGMEstimator>& estimator,
                            double threshold,
-                           FREQUENCY_TYPE frequency_type)
+                           Estimator::FREQUENCY_TYPE frequency_type)
             : Measure(estimator, threshold, frequency_type) {}
 
         Accuracy::~Accuracy() {}
@@ -45,12 +45,12 @@ namespace tomcat {
                     this->get_confusion_matrices(test_data);
 
                 evaluation.evaluation = Eigen::MatrixXd::Constant(
-                    1, confusion_matrices.size(), NO_OBS);
+                    1, (int) confusion_matrices.size(), NO_OBS);
 
                 // Side by side matrices
                 evaluation.confusion_matrix = Eigen::MatrixXi::Constant(
                     confusion_matrices[0].rows(),
-                    confusion_matrices.size() * confusion_matrices[0].cols(),
+                    (int) confusion_matrices.size() * confusion_matrices[0].cols(),
                     NO_OBS);
 
                 for (int i = 0; i < confusion_matrices.size(); i++) {

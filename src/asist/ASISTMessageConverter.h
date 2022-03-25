@@ -10,7 +10,7 @@
 #include <eigen3/Eigen/Dense>
 #include <nlohmann/json.hpp>
 
-#include "MessageConverter.h"
+#include "converter/MessageConverter.h"
 
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"
@@ -49,6 +49,34 @@ namespace tomcat {
             ASISTMessageConverter(ASISTMessageConverter&&) = default;
 
             ASISTMessageConverter& operator=(ASISTMessageConverter&&) = default;
+
+            //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Checks if a message if from the type informed
+             *
+             * @param json_message: message
+             * @param type: type
+             *
+             * @return
+             */
+            static bool is_message_of(const nlohmann::json& json_message,
+                                      const std::string& type);
+
+            /**
+             * Checks if a message if from the type and sub-type informed
+             *
+             * @param json_message: message
+             * @param type: type
+             * @param sub_type: sub-type
+             *
+             * @return
+             */
+            static bool is_message_of(const nlohmann::json& json_message,
+                                      const std::string& type,
+                                      const std::string& sub_type);
 
             //------------------------------------------------------------------
             // Member functions
@@ -186,9 +214,10 @@ namespace tomcat {
              * Parse message and fill the appropriate observation tensor.
              *
              * @param json_message: json message with a particular observation.
+             * @param json_message: json message to update mission metadata
              */
-            virtual void
-            fill_observation(const nlohmann::json& json_message) = 0;
+            virtual void fill_observation(const nlohmann::json& json_message,
+                                          nlohmann::json& json_mission_log) = 0;
 
             /**
              * Clea nup before new mission starts

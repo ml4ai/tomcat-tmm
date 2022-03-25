@@ -7,10 +7,11 @@
 #include <nlohmann/json.hpp>
 
 #include "pipeline/estimation/Agent.h"
-#include "reporter/EstimateReporter.h"
-#include "pipeline/estimation/custom_metrics/FinalTeamScoreEstimator.h"
-#include "pipeline/estimation/custom_metrics/IndependentMapVersionAssignmentEstimator.h"
-#include "pipeline/estimation/custom_metrics/NextAreaOnNearbyMarkerEstimator.h"
+#include "asist/ASISTReporter.h"
+#include "FinalTeamScoreEstimator.h"
+#include "IndependentMapVersionAssignmentEstimator.h"
+#include "NextAreaOnNearbyMarkerEstimator.h"
+#include "pipeline/estimation/PGMEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -18,15 +19,18 @@ namespace tomcat {
         /**
          * Represents a TMM reporter for study 2 of the ASIST program.
          */
-        class ASISTStudy2EstimateReporter : public EstimateReporter {
+        class ASISTStudy2EstimateReporter : public ASISTReporter {
           public:
+
+            inline static const std::string NAME = "asist_study2_reporter";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            ASISTStudy2EstimateReporter();
+            explicit ASISTStudy2EstimateReporter(const nlohmann::json& json_settings);
 
-            virtual ~ASISTStudy2EstimateReporter();
+            ~ASISTStudy2EstimateReporter() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -72,6 +76,13 @@ namespace tomcat {
             //------------------------------------------------------------------
 
             /**
+             * Copy contents from another reporter.
+             *
+             * @param reporter: reporter
+             */
+            void copy(const ASISTStudy2EstimateReporter& reporter);
+
+            /**
              * Adds information about the prediction of the final team score to
              * the list of predictions.
              *
@@ -99,7 +110,7 @@ namespace tomcat {
              */
             std::vector<nlohmann::json>
             get_map_info_predictions(const AgentPtr& agent,
-                                     const EstimatorPtr& estimator,
+                                     const PGMEstimatorPtr& estimator,
                                      int time_step,
                                      int data_point) const;
 
@@ -115,7 +126,7 @@ namespace tomcat {
              */
             std::vector<nlohmann::json>
             get_marker_legend_predictions(const AgentPtr& agent,
-                                          const EstimatorPtr& estimator,
+                                          const PGMEstimatorPtr& estimator,
                                           int time_step,
                                           int data_point) const;
 
@@ -135,35 +146,6 @@ namespace tomcat {
                     estimator,
                 int time_step,
                 int data_point) const;
-
-            /**
-             * Calculates the timestamp at a given time step within the mission.
-             *
-             * @param agent: agent responsible for the predictions
-             * @param time_step: time step
-             * @param data_point: mission trial index (if multiple missions are
-             * being processed at the same time)
-             *
-             * @return Initial timestamp + elapsed time
-             */
-            std::string get_timestamp_at(const AgentPtr& agent,
-                                         int time_step,
-                                         int data_point) const;
-
-            /**
-             * Calculates the milliseconds at a given time step within the
-             * mission.
-             *
-             * @param agent: agent responsible for the predictions
-             * @param time_step: time step
-             * @param data_point: mission trial index (if multiple missions are
-             * being processed at the same time)
-             *
-             * @return Time step * step size * 1000
-             */
-            int get_milliseconds_at(const AgentPtr& agent,
-                                    int time_step,
-                                    int data_point) const;
 
             /**
              * Store event info from the evidence set metadata the first time an

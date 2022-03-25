@@ -7,7 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include "pgm/EvidenceSet.h"
-#include "pipeline/estimation/Estimator.h"
+#include "pipeline/estimation/PGMEstimator.h"
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"
 
@@ -41,22 +41,10 @@ namespace tomcat {
         class Measure {
           public:
             //------------------------------------------------------------------
-            // Types, Enums & Constants
-            //------------------------------------------------------------------
-
-            enum FREQUENCY_TYPE { all, last, fixed, dynamic };
-
-            //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            /**
-             * Creates an empty measure.
-             *
-             * @param threshold: Probability threshold for predicting or
-             * inferring the occurrence of an assignment as true
-             */
-            Measure();
+            Measure() = default;
 
             /**
              * Creates an abstract measure.
@@ -67,11 +55,11 @@ namespace tomcat {
              * @param frequency_type: frequency at which estimates must be
              * computed
              */
-            Measure(const std::shared_ptr<Estimator>& estimator,
+            explicit Measure(const std::shared_ptr<PGMEstimator>& estimator,
                     double threshold = 0.5,
-                    FREQUENCY_TYPE frequency_type = all);
+                    Estimator::FREQUENCY_TYPE frequency_type = Estimator::all);
 
-            virtual ~Measure();
+            virtual ~Measure() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -150,13 +138,13 @@ namespace tomcat {
             //------------------------------------------------------------------
             // The estimates computed and stored in the estimator will be used
             // to evaluate the measure.
-            std::shared_ptr<Estimator> estimator;
+            std::shared_ptr<PGMEstimator> estimator;
 
             // Probability threshold for predicting or inferring the occurrence
             // of an assignment as true
             double threshold = 0.5;
 
-            FREQUENCY_TYPE frequency_type;
+            Estimator::FREQUENCY_TYPE frequency_type;
             std::unordered_set<int> fixed_steps;
         };
 

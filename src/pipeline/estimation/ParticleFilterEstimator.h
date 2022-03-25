@@ -9,6 +9,7 @@
 
 #include "pgm/inference/ParticleFilter.h"
 #include "pipeline/estimation/SamplerEstimator.h"
+#include "pipeline/estimation/PGMEstimator.h"
 
 namespace tomcat {
     namespace model {
@@ -23,8 +24,11 @@ namespace tomcat {
          * share computation among different nodes' estimates. The individual
          * sampler estimators can be used for evaluation purposes.
          */
-        class ParticleFilterEstimator : public Estimator {
+        class ParticleFilterEstimator : public PGMEstimator {
           public:
+
+            inline static const std::string NAME = "particle_filter";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -72,14 +76,16 @@ namespace tomcat {
 
             void estimate(const EvidenceSet& new_data) override;
 
-            void get_info(nlohmann::json& json) const override;
+            void get_info(nlohmann::json& json_estimators) const override;
+
+            void set_show_progress(bool show_progress) override;
 
             std::string get_name() const override;
 
             bool is_computing_estimates_for(
                 const std::string& node_label) const override;
 
-            std::vector<std::shared_ptr<Estimator>>
+            std::vector<std::shared_ptr<PGMEstimator>>
             get_base_estimators() override;
 
             /**
@@ -106,11 +112,11 @@ namespace tomcat {
             // Data members
             //------------------------------------------------------------------
 
-            int num_particles;
+            int num_particles{};
 
             std::shared_ptr<gsl_rng> random_generator;
 
-            int num_jobs;
+            int num_jobs{};
 
             int last_time_step = -1;
 

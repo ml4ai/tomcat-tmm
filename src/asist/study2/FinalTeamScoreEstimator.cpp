@@ -1,6 +1,6 @@
 #include "FinalTeamScoreEstimator.h"
 
-#include "converter/ASISTMultiPlayerMessageConverter.h"
+#include "asist/study2/ASISTMultiPlayerMessageConverter.h"
 #include "utils/EigenExtensions.h"
 
 namespace tomcat {

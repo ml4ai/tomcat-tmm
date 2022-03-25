@@ -286,6 +286,13 @@ namespace tomcat {
                 shared_from_this(), num_jobs, parameter_idx);
         }
 
+        Eigen::VectorXd RandomVariableNode::get_cdfs(int num_jobs,
+                                                     int parameter_idx,
+                                                     bool reversed) const {
+            return this->cpd->get_cdfs(
+                shared_from_this(), num_jobs, parameter_idx, reversed);
+        }
+
         void RandomVariableNode::update_parents_sufficient_statistics() {
             this->cpd->update_sufficient_statistics(shared_from_this());
         }

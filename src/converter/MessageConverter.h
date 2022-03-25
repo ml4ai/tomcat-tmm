@@ -24,7 +24,6 @@ namespace tomcat {
         class MessageConverter {
           public:
             inline static std::string LOG_FILE = "conversion_log.json";
-            inline static std::string METADATA_FILE = "metadata.json";
 
             //------------------------------------------------------------------
             // Constructors & Destructor

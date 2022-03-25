@@ -14,12 +14,21 @@ namespace tomcat {
     namespace model {
 
         /**
-         * This class contains a map between node labels in a DBN and values
+         * This class contains a map between variable names and values
          * stored into 3-dimensional tensors (value dimensionality, number data
          * points, time steps).
+         *
+         * It also supports non-matricial data stored as a list of json objects
+         * (one per time step). The json object contains the data on a
+         * dictionary-like format. This might be used with custom models that
+         * needs to make use of data that can not be stored as a tensor.
          */
         class EvidenceSet {
           public:
+            inline const static std::string METADATA_FILE = "metadata.json";
+            inline const static std::string DICT_LIKE_DATA_FILE =
+                "dict_like_data.json";
+
             //------------------------------------------------------------------
             // Constructors & Destructor
             //------------------------------------------------------------------
@@ -30,7 +39,7 @@ namespace tomcat {
              * @param event_based: whether the data is based on events or time
              * steps.
              */
-            EvidenceSet(bool event_based = false);
+            explicit EvidenceSet(bool event_based = false);
 
             /**
              * Creates an DBNData object with data from files in a given folder.
@@ -40,10 +49,21 @@ namespace tomcat {
              * @param event_based: whether the data is based on events or time
              * steps.
              */
-            EvidenceSet(const std::string& data_folder_path,
-                        bool event_based = false);
+            explicit EvidenceSet(const std::string& data_folder_path,
+                                 bool event_based = false);
 
-            ~EvidenceSet();
+            /**
+             * Create a dataset with non-matricial data.
+             *
+             * @param new_dict_like_data: non-matricial data
+             * @param event_based: whether the data is based on events or time
+             * steps.
+             */
+            explicit EvidenceSet(const std::vector<std::vector<nlohmann::json>>&
+                                     new_dict_like_data,
+                                 bool event_based = false);
+
+            ~EvidenceSet() = default;
 
             //------------------------------------------------------------------
             // Copy & Move constructors/assignments
@@ -308,6 +328,9 @@ namespace tomcat {
 
             bool is_event_based() const;
 
+            const std::vector<std::vector<nlohmann::json>>&
+            get_dict_like_data() const;
+
           private:
             inline static std::string TIME_2_EVENT_MAP_FILE =
                 "time_2_event_map.json";
@@ -323,6 +346,43 @@ namespace tomcat {
              */
             void init_from_folder(const std::string& data_folder_path);
 
+            /**
+             * Save matrix data to a directory
+             *
+             * @param output_dir: directory to save
+             */
+            void save_matrix_data(const std::string& output_dir) const;
+
+            /**
+             * Save metadata to a directory
+             *
+             * @param output_dir: directory to save
+             */
+            void save_metadata(const std::string& output_dir) const;
+
+            /**
+             * Save event mapping info to a directory
+             *
+             * @param output_dir: directory to save
+             */
+            void save_event_mapping(const std::string& output_dir) const;
+
+            /**
+             * Save dictionary-like data to a directory
+             *
+             * @param output_dir: directory to save
+             */
+            void save_dict_like_data(const std::string& output_dir) const;
+
+            /**
+             * Sets a dict-like data to the set, updates time steps and number
+             * of points.
+             * @param new_dict_like_data
+             */
+            void
+            set_dict_like_data(const std::vector<std::vector<nlohmann::json>>&
+                                   new_dict_like_data);
+
             //------------------------------------------------------------------
             // Data members
             //------------------------------------------------------------------
@@ -332,14 +392,15 @@ namespace tomcat {
 
             std::unordered_map<std::string, Tensor3> node_label_to_data;
 
-            // Any relevant information regarding the evidence can be added
-            // here
-            nlohmann::json metadata;
-
             bool event_based;
 
             std::vector<std::set<std::pair<int, int>>>
                 time_2_event_per_data_point;
+
+            // General information about the dataset
+            nlohmann::json metadata;
+
+            std::vector<std::vector<nlohmann::json>> dict_like_data;
         };
 
     } // namespace model

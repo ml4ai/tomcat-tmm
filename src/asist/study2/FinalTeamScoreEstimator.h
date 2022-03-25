@@ -25,7 +25,7 @@ namespace tomcat {
              * computed
              *
              */
-            FinalTeamScoreEstimator(
+            explicit FinalTeamScoreEstimator(
                 const std::shared_ptr<DynamicBayesNet>& model,
                 FREQUENCY_TYPE frequency_type = all);
 
@@ -54,7 +54,10 @@ namespace tomcat {
             std::string get_name() const override;
 
             /**
-             * Estimate the final score based on the particles generated until
+             * Estimate the final score based on the particle
+             *
+             *
+             * s generated until
              * the end of the mission related to victim rescue.
              *
              * @param new_data: observations
