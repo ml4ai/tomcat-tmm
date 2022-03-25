@@ -74,17 +74,6 @@ namespace tomcat {
             static nlohmann::json get_player_list(const AgentPtr& agent,
                                                   int data_point);
 
-            //------------------------------------------------------------------
-            // Member functions
-            //------------------------------------------------------------------
-
-            /**
-             * Copy contents from another reporter.
-             *
-             * @param reporter: reporter
-             */
-            void copy(const ASISTStudy3InterventionReporter& reporter);
-
             /**
              * Adds values to fields common to all interventions in the data
              * section of an intervention message.
@@ -96,10 +85,10 @@ namespace tomcat {
              * @param data_point: index of the trial being processed, if
              * estimates are being computed for multiple trials.
              */
-            void add_common_data_section(nlohmann::json& message,
-                                         const AgentPtr& agent,
-                                         int time_step,
-                                         int data_point) const;
+            static void add_common_data_section(nlohmann::json& message,
+                                                const AgentPtr& agent,
+                                                int time_step,
+                                                int data_point);
 
             /**
              * Creates a template intervention message.
@@ -112,8 +101,19 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            nlohmann::json get_template_intervention_message(
-                const AgentPtr& agent, int time_step, int data_point) const;
+            static nlohmann::json get_template_intervention_message(
+                const AgentPtr& agent, int time_step, int data_point);
+
+            //------------------------------------------------------------------
+            // Member functions
+            //------------------------------------------------------------------
+
+            /**
+             * Copy contents from another reporter.
+             *
+             * @param reporter: reporter
+             */
+            void copy(const ASISTStudy3InterventionReporter& reporter);
 
             /**
              * Assembles ToMCAT's introduction as an intervention.

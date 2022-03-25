@@ -1,3 +1,3 @@
-./build/bin/start_agent --model_dir "data/asist/study3_spiral3/models/" --broker_json "data/asist/study3_spiral3/online/broker.json" --agent_json "data/asist/study3_spiral3/agents/team_quality_online_agent.json" --params_dir "data/asist/study3_spiral3/parameters" --map_json "data/asist/study3_spiral3/maps/Saturn_2.1_3D_sm_v1.0.json" --seconds 900 --step_size 1 --particles 2000 --jobs 10 --study_num 3
+./build/bin/start_agent --model_dir "data/asist/study3_intervention1/model" --params_dir "data/asist/study3_intervention1/parameter" --agent_json "data/asist/study3_intervention1/agent/agent_settings.json" --broker_json "data/asist/study3_intervention1/online/broker_settings.json" --reporter "asist_study3_reporter" --reporter_settings_json "data/asist/study3_intervention1/reporter/reporter_settings.json" --seconds=900 --jobs=1 --players=3 --study_num=3
 
 

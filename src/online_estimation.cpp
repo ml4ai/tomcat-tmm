@@ -28,6 +28,7 @@ void start_agent(const string& model_dir,
                  const string& map_json,
                  const string& reporter_type,
                  const string& reporter_settings_json,
+                 const string& eval_dir,
                  int study_num,
                  int num_seconds,
                  int time_step_size,
@@ -65,7 +66,8 @@ void start_agent(const string& model_dir,
             num_seconds, time_step_size, map_json, num_players);
     }
 
-    Experimentation experimentation(random_generator, "");
+    Experimentation experimentation(random_generator,
+                                    EstimateReporter::get_current_timestamp());
     int num_time_steps = num_seconds / time_step_size;
     experimentation.set_online_estimation_process(agent_json,
                                                   model_dir,
@@ -74,7 +76,7 @@ void start_agent(const string& model_dir,
                                                   broker_json,
                                                   converter,
                                                   reporter);
-    experimentation.start_real_time_estimation(params_dir);
+    experimentation.start_real_time_estimation(params_dir, eval_dir);
 }
 
 int main(int argc, char* argv[]) {
@@ -85,6 +87,7 @@ int main(int argc, char* argv[]) {
     string map_json;
     string reporter_type;
     string reporter_settings_json;
+    string eval_dir;
     unsigned int num_seconds;
     unsigned int time_step_size;
     unsigned int num_jobs;
@@ -133,10 +136,14 @@ int main(int argc, char* argv[]) {
         "Study number for message conversion and reporter definition: 1, 2 or "
         "3")("reporter",
              po::value<string>(&reporter_type)->default_value(""),
-             "asist_study_2\nasist_study_3")(
+             "asist_study2_reporter\nasist_study3_reporter")(
         "reporter_settings_json",
         po::value<string>(&reporter_settings_json)->default_value(""),
-        "Filepath to a json file containing reporter settings.");
+        "Filepath to a json file containing reporter settings.")(
+        "eval_dir",
+        po::value<string>(&eval_dir)->default_value(""),
+        "Directory where the evaluation file and report (if "
+        "requested) will be saved.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -153,6 +160,7 @@ int main(int argc, char* argv[]) {
                 map_json,
                 reporter_type,
                 reporter_settings_json,
+                eval_dir,
                 (int)study_num,
                 (int)num_seconds,
                 (int)time_step_size,

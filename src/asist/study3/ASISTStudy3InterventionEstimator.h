@@ -5,8 +5,8 @@
 
 #include <nlohmann/json.hpp>
 
-#include "asist/study3/ASISTStudy3InterventionModel.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/Model.h"
 #include "pipeline/estimation/Estimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
 #include "utils/Definitions.h"
@@ -27,8 +27,7 @@ namespace tomcat::model {
         // Constructors & Destructor
         //------------------------------------------------------------------
 
-        explicit ASISTStudy3InterventionEstimator(
-            const std::shared_ptr<ASISTStudy3InterventionModel>& model);
+        explicit ASISTStudy3InterventionEstimator(const ModelPtr& model);
 
         ~ASISTStudy3InterventionEstimator() = default;
 
@@ -78,6 +77,12 @@ namespace tomcat::model {
         //------------------------------------------------------------------
         // Virtual member functions
         //------------------------------------------------------------------
+
+        //------------------------------------------------------------------
+        // Getters & Setters
+        //------------------------------------------------------------------
+
+        int get_last_time_step() const;
 
       protected:
         //------------------------------------------------------------------
@@ -143,7 +148,9 @@ namespace tomcat::model {
         // Data members
         //------------------------------------------------------------------
 
-        double encouragement_cdf = 0;
+        int last_time_step = -1;
+        bool first_mission = true;
+        Eigen::VectorXd encouragement_cdf = Eigen::VectorXd(0);
 
         //        std::shared_ptr<ASISTStudy3InterventionModel>
         //        intervention_model; int num_encouragements_first_mission = 0;

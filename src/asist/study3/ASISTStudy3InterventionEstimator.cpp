@@ -4,6 +4,7 @@
 
 #include "asist/study3/ASISTStudy3InterventionModel.h"
 #include "asist/study3/ASISTStudy3MessageConverter.h"
+#include "utils/EigenExtensions.h"
 #include "utils/JSONChecker.h"
 
 namespace tomcat {
@@ -15,8 +16,15 @@ namespace tomcat {
         // Constructors
         //----------------------------------------------------------------------
         ASISTStudy3InterventionEstimator::ASISTStudy3InterventionEstimator(
-            const shared_ptr<ASISTStudy3InterventionModel>& model)
-            : Estimator(model) {}
+            const ModelPtr& model)
+            : Estimator(model) {
+
+            if (!dynamic_pointer_cast<ASISTStudy3InterventionModel>(model)) {
+                throw TomcatModelException(
+                    fmt::format("ASISTStudy3InterventionEstimator requires "
+                                "an ASISTStudy3InterventionModel."));
+            }
+        }
 
         //----------------------------------------------------------------------
         // Copy & Move constructors/assignments
@@ -45,6 +53,8 @@ namespace tomcat {
             const ASISTStudy3InterventionEstimator& estimator) {
             Estimator::copy(estimator);
 
+            this->last_time_step = estimator.last_time_step;
+
             //            this->room_id_to_idx = estimator.room_id_to_idx;
             //            this->room_ids = estimator.room_ids;
             //            this->threat_room_belief_estimators =
@@ -54,6 +64,10 @@ namespace tomcat {
         void ASISTStudy3InterventionEstimator::estimate(
             const EvidenceSet& new_data) {
 
+            this->first_mission =
+                new_data.get_metadata()[0]["mission_order"] == 1;
+
+            this->last_time_step += new_data.get_time_steps();
             const auto& metadata = new_data.get_metadata();
 
             check_field(metadata[0], "mission_order");
@@ -76,12 +90,32 @@ namespace tomcat {
 
                 encouragement_node->increment_assignment(increments);
             }
+            else {
+                if (encouragement_node->get_size() == 0) {
+                    // The agent crashed and data from mission 1 was lost.
+                    // Assume there was no encouragement utterances to force
+                    // intervention.
+                    encouragement_node->set_assignment(increments);
+                }
+            }
         }
 
         void
         ASISTStudy3InterventionEstimator::get_info(nlohmann::json& json) const {
-            json["name"] = this->get_name();
-            json["encouragement_cdf"] = this->encouragement_cdf;
+            nlohmann::json json_info;
+            json_info["name"] = this->get_name();
+            if (this->first_mission) {
+                json_info["num_encouragements"] = to_string(
+                    dynamic_pointer_cast<ASISTStudy3InterventionModel>(
+                        this->model)
+                        ->get_encouragement_node()
+                        ->get_assignment());
+            }
+            else {
+                json_info["encouragement_cdf"] =
+                    to_string(this->encouragement_cdf);
+            }
+            json.push_back(json_info);
         }
 
         string ASISTStudy3InterventionEstimator::get_name() const {
@@ -89,6 +123,7 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionEstimator::prepare() {
+            this->last_time_step = -1;
             //            // belief about threat rooms
             //            for (auto& estimators :
             //            this->threat_room_belief_estimators) {
@@ -103,8 +138,16 @@ namespace tomcat {
             auto& encouragement_node =
                 dynamic_pointer_cast<ASISTStudy3InterventionModel>(this->model)
                     ->get_encouragement_node();
-            this->encouragement_cdf = encouragement_node->get_pdfs(1, 0)(0);
-            return encouragement_node->get_pdfs(1, 0);
+            this->encouragement_cdf = encouragement_node->get_cdfs(1, 0, false);
+            return this->encouragement_cdf;
+        }
+
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        int ASISTStudy3InterventionEstimator::get_last_time_step() const {
+            return last_time_step;
         }
 
         //        void ASISTStudy3InterventionEstimator::parse_map(

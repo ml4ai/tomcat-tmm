@@ -54,11 +54,14 @@ namespace tomcat {
              * use this to compute the timestamp of the message relative to the
              * time stamp at the beginning of the mission. By doing it turns the
              * behaviour reproducible.
+             * @param data_point: index of the trial being processed, if
+             * estimates are being computed for multiple trials.
              */
             static void add_header_section(nlohmann::json& message,
                                            const AgentPtr& agent,
                                            const std::string& message_type,
-                                           int time_step);
+                                           int time_step,
+                                           int data_point);
 
             /**
              * Adds a msg section to a json message complying with the ASIST
@@ -85,11 +88,13 @@ namespace tomcat {
              *
              * @param agent: agent responsible for the predictions
              * @param time_step: time step
+             * @param data_point: data point
              *
              * @return Initial timestamp + elapsed time
              */
             static std::string get_timestamp_at(const AgentPtr& agent,
-                                                int time_step);
+                                                int time_step,
+                                                int data_point);
 
             /**
              * Calculates the milliseconds at a given time step within the

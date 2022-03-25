@@ -54,7 +54,10 @@ namespace tomcat {
             std::string get_name() const override;
 
             /**
-             * Estimate the final score based on the particles generated until
+             * Estimate the final score based on the particle
+             *
+             *
+             * s generated until
              * the end of the mission related to victim rescue.
              *
              * @param new_data: observations

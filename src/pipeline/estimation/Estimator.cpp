@@ -69,10 +69,11 @@ namespace tomcat {
                         "Estimator {} is only defined for DBN models.",
                         estimator_name));
                 }
-            } else {
+            }
+            else {
                 if (estimator_name == ASISTStudy3InterventionEstimator::NAME) {
-//                    estimator = make_shared<ASISTStudy3InterventionEstimator>(
-//                        model);
+                    estimator =
+                        make_shared<ASISTStudy3InterventionEstimator>(model);
                 }
             }
 
@@ -92,7 +93,7 @@ namespace tomcat {
 
         void Estimator::cleanup() {}
 
-        void Estimator::keep_estimates(){}
+        void Estimator::keep_estimates() {}
 
         void Estimator::set_show_progress(bool show_progress) {
             this->show_progress = show_progress;

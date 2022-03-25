@@ -153,22 +153,15 @@ namespace tomcat {
                                    const std::string& train_dir);
 
             /**
-             * Evaluates a pre-trained model and save the evaluations to a
-             * json file in a given directory.
+             * Starts an online agent
              *
              * @param params_dir: directory where the parameters of a
              * pre-trained model are saved
-             * @param num_folds: number of folds (>1 for experiments with
-             * cross-validation)
              * @param eval_dir: directory where the final evaluation file
              * must be saved
-             * @param data: test data (training data if the baseline
-             * estimator is chosen), or full data fo experiments with
-             * cross-validation
-             * @param baseline: whether to use the baseline estimator based
-             * on frequencies of values of training samples
              */
-            void start_real_time_estimation(const std::string& params_dir);
+            void start_real_time_estimation(const std::string& params_dir,
+                                            const std::string& eval_dir);
 
             /**
              * Generates data samples from a pre-trained model.

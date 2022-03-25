@@ -29,12 +29,8 @@ namespace tomcat {
             const vector<vector<nlohmann::json>>& new_dict_like_data,
             bool event_based)
             : event_based(event_based) {
-            this->dict_like_data = new_dict_like_data;
 
-            this->num_data_points = (int)new_dict_like_data.size();
-            this->time_steps = (int)new_dict_like_data.size() > 0
-                                   ? (int)new_dict_like_data[0].size()
-                                   : 0;
+            this->set_dict_like_data(new_dict_like_data);
         }
 
         //----------------------------------------------------------------------
@@ -183,6 +179,26 @@ namespace tomcat {
                             this->add_data(node_label, data);
                         }
                     }
+                    else if (filename == DICT_LIKE_DATA_FILE) {
+                        fstream log_file;
+                        log_file.open(file.path().string());
+                        if (log_file.is_open()) {
+                            const auto& json_dict_data =
+                                nlohmann::json::parse(log_file);
+                            vector<vector<nlohmann::json>> new_dict_like_data;
+                            for (const auto& json_series :
+                                 json_dict_data["data_points"]) {
+                                vector<nlohmann::json> series;
+                                for (const auto& dict_like_single_data :
+                                     json_series["data_series"]) {
+                                    series.push_back(dict_like_single_data);
+                                }
+                                new_dict_like_data.push_back(series);
+                            }
+                            this->set_dict_like_data(new_dict_like_data);
+                            log_file.close();
+                        }
+                    }
                 }
             }
         }
@@ -279,13 +295,23 @@ namespace tomcat {
 
         void EvidenceSet::save(const string& output_dir) const {
             fs::create_directories(output_dir);
+
+            this->save_matrix_data(output_dir);
+            this->save_metadata(output_dir);
+            this->save_event_mapping(output_dir);
+            this->save_dict_like_data(output_dir);
+        }
+
+        void
+        EvidenceSet::save_matrix_data(const std::string& output_dir) const {
             for (auto& [node_label, data] : this->node_label_to_data) {
                 string filename = node_label;
                 string filepath = get_filepath(output_dir, filename);
                 save_tensor_to_file(filepath, data);
             }
+        }
 
-            // Save metadata
+        void EvidenceSet::save_metadata(const std::string& output_dir) const {
             if (!this->metadata.empty()) {
                 string metadata_filepath =
                     get_filepath(output_dir, METADATA_FILE);
@@ -294,8 +320,10 @@ namespace tomcat {
                 mmetadata_file << setw(4) << this->metadata;
                 mmetadata_file.close();
             }
+        }
 
-            // Save event mapping
+        void
+        EvidenceSet::save_event_mapping(const std::string& output_dir) const {
             if (this->event_based) {
                 nlohmann::json map_per_point = nlohmann::json::array();
                 for (const auto& time_2_events :
@@ -317,6 +345,32 @@ namespace tomcat {
                 mapping_file.open(mapping_filepath);
                 mapping_file << setw(4) << map_per_point;
                 mapping_file.close();
+            }
+        }
+
+        void
+        EvidenceSet::save_dict_like_data(const std::string& output_dir) const {
+            // First we embed the vector structure to an array inside a json.
+            if (!this->dict_like_data.empty()) {
+                nlohmann::json json_dict_data;
+                json_dict_data["data_points"] = nlohmann::json::array();
+                int i = 0;
+                for (const auto& dict_data_per_time : this->dict_like_data) {
+                    nlohmann::json json_series;
+                    json_series["data_series"] = nlohmann::json::array();
+
+                    for (const auto& single_dict_data : dict_data_per_time) {
+                        json_series["data_series"].push_back(single_dict_data);
+                    }
+
+                    json_dict_data["data_points"].push_back(json_series);
+                }
+
+                string filepath = get_filepath(output_dir, DICT_LIKE_DATA_FILE);
+                ofstream file;
+                file.open(filepath);
+                file << setw(4) << json_dict_data;
+                file.close();
             }
         }
 
@@ -344,9 +398,15 @@ namespace tomcat {
             }
 
             // Merge dict-like data
-            this->dict_like_data.insert(this->dict_like_data.end(),
-                                        other.get_dict_like_data().begin(),
-                                        other.get_dict_like_data().end());
+            if (this->dict_like_data.empty()) {
+                this->dict_like_data = other.dict_like_data;
+                this->time_steps = other.time_steps;
+            }
+            else {
+                this->dict_like_data.insert(this->dict_like_data.end(),
+                                            other.get_dict_like_data().begin(),
+                                            other.get_dict_like_data().end());
+            }
 
             this->num_data_points += other.num_data_points;
         }
@@ -365,9 +425,17 @@ namespace tomcat {
             }
 
             // Merge dict-like data
-            for (int i = 0; i < this->dict_like_data.size(); i++) {
-                this->dict_like_data[i].insert(this->dict_like_data[i].end(),
-                                               other.get_dict_like_data()[i]);
+            if (this->dict_like_data.empty()) {
+                this->dict_like_data = other.dict_like_data;
+                this->num_data_points = other.num_data_points;
+            }
+            else {
+                for (int i = 0; i < this->dict_like_data.size(); i++) {
+                    this->dict_like_data[i].insert(
+                        this->dict_like_data[i].end(),
+                        other.get_dict_like_data()[i].begin(),
+                        other.get_dict_like_data()[i].end());
+                }
             }
 
             this->time_steps += other.get_time_steps();
@@ -432,6 +500,16 @@ namespace tomcat {
                                   other_set.get_metadata().begin(),
                                   other_set.get_metadata().end());
             this->vstack(other_set);
+        }
+
+        void EvidenceSet::set_dict_like_data(
+            const vector<vector<nlohmann::json>>& new_dict_like_data) {
+            this->dict_like_data = new_dict_like_data;
+
+            this->num_data_points = (int)new_dict_like_data.size();
+            this->time_steps = (int)new_dict_like_data.size() > 0
+                                   ? (int)new_dict_like_data[0].size()
+                                   : 0;
         }
 
         //----------------------------------------------------------------------

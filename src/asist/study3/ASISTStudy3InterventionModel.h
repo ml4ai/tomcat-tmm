@@ -50,7 +50,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Getters & Setters
             //------------------------------------------------------------------
-            const std::unique_ptr<RandomVariableNode>&
+            const std::shared_ptr<RandomVariableNode>&
             get_encouragement_node() const;
 
           private:
@@ -98,7 +98,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
-            std::unique_ptr<RandomVariableNode> encouragement_node;
+            std::shared_ptr<RandomVariableNode> encouragement_node;
         };
 
     } // namespace model

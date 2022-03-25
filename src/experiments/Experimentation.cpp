@@ -2,6 +2,7 @@
 
 #include <boost/filesystem.hpp>
 #include <fmt/format.h>
+#include <gsl/gsl_errno.h>
 #include <nlohmann/json.hpp>
 
 #include "pipeline/DataSplitter.h"
@@ -36,7 +37,9 @@ namespace tomcat {
         //----------------------------------------------------------------------
         Experimentation::Experimentation(const shared_ptr<gsl_rng>& gen,
                                          const string& experiment_id)
-            : random_generator(gen), experiment_id(experiment_id) {}
+            : random_generator(gen), experiment_id(experiment_id) {
+            gsl_set_error_handler_off();
+        }
 
         Experimentation::~Experimentation() {}
 
@@ -597,7 +600,7 @@ namespace tomcat {
         }
 
         void Experimentation::start_real_time_estimation(
-            const std::string& params_dir) {
+            const std::string& params_dir, const string& eval_dir) {
             // Data comes from the message bus
             EvidenceSet empty_set;
             shared_ptr<DataSplitter> data_splitter =
@@ -605,8 +608,23 @@ namespace tomcat {
 
             this->estimation->get_agent()->show_progress(false);
 
-            Pipeline pipeline;
-            pipeline.set_data_splitter(data_splitter);
+            unique_ptr<Pipeline> pipeline;
+            if (eval_dir.empty()) {
+                pipeline = make_unique<Pipeline>();
+            }
+            else {
+                fs::create_directories(eval_dir);
+                string filepath =
+                    fmt::format("{}/{}.json", eval_dir, this->experiment_id);
+                ofstream output_file;
+                output_file.open(filepath);
+
+                this->estimation->set_display_estimates(true);
+                pipeline =
+                    make_unique<Pipeline>(this->experiment_id, output_file);
+            }
+
+            pipeline->set_data_splitter(data_splitter);
             if (!params_dir.empty()) {
                 shared_ptr<ModelTrainer> loader;
                 if (const auto& dbn =
@@ -617,10 +635,10 @@ namespace tomcat {
                     loader =
                         make_shared<ModelLoader>(this->model, params_dir, true);
                 }
-                pipeline.set_model_trainer(loader);
+                pipeline->set_model_trainer(loader);
             }
-            pipeline.set_estimation_process(this->estimation);
-            pipeline.execute();
+            pipeline->set_estimation_process(this->estimation);
+            pipeline->execute();
         }
 
         void Experimentation::generate_synthetic_data(

@@ -54,6 +54,7 @@ namespace tomcat {
 
             boost::filesystem::create_directories(data_dir);
 
+            // Reload log and metadata to keep update with more conversions
             nlohmann::json json_log;
             string log_filepath = get_filepath(data_dir, LOG_FILE);
             ifstream log_file(log_filepath);
@@ -63,8 +64,12 @@ namespace tomcat {
             log_file.close();
 
             EvidenceSet data(data_dir);
+            nlohmann::json json_mission_metadatas = data.get_metadata();
             for (const auto& mission_filename : unprocessed_filenames) {
-                nlohmann::json json_mission_log;
+                nlohmann::json json_mission_metadata;
+
+                nlohmann::json json_file_log;
+                json_file_log["filename"] = mission_filename;
 
                 try {
                     const string filepath =
@@ -79,7 +84,7 @@ namespace tomcat {
                     this->start_new_mission();
                     for (const auto& [timestamp, message] : messages) {
                         EvidenceSet new_data = this->get_data_from_message(
-                            message, json_mission_log);
+                            message, json_mission_metadata);
                         if (!new_data.empty()) {
                             this->do_offline_conversion_extra_validations();
 
@@ -107,13 +112,12 @@ namespace tomcat {
 
                     data.vstack(mission_data);
 
-                    json_mission_log["filename"] = mission_filename;
-                    json_log["files_converted"].push_back(json_mission_log);
+                    json_log["files_converted"].push_back(json_file_log);
+                    json_mission_metadatas.push_back(json_mission_metadata);
                 }
                 catch (TomcatModelException& exp) {
-                    json_mission_log["filename"] = mission_filename;
-                    json_mission_log["error"] = exp.message;
-                    json_log["files_not_converted"].push_back(json_mission_log);
+                    json_file_log["error"] = exp.message;
+                    json_log["files_not_converted"].push_back(json_file_log);
                 }
 
                 // Save every processed file to avoid having to convert again in
@@ -123,7 +127,7 @@ namespace tomcat {
                 out_log_file << setw(4) << json_log;
                 out_log_file.close();
 
-                data.set_metadata(json_log["files_converted"]);
+                data.set_metadata(json_mission_metadatas);
                 data.save(data_dir);
 
                 ++progress;

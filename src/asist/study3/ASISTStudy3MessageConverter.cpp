@@ -95,6 +95,8 @@ namespace tomcat {
             topics.insert("observations/events/mission");
             topics.insert("observations/state");
             topics.insert("agent/dialog");
+            topics.insert("observations/events/player/role_selected");
+            topics.insert("observations/events/mission/planning");
 
             return topics;
         }
@@ -104,13 +106,13 @@ namespace tomcat {
             nlohmann::json& json_mission_log) {
 
             EvidenceSet data;
-            if (is_message_of(json_message, "trial", "Event:MissionState")) {
+            if (is_message_of(json_message, "trial")) {
                 const string& sub_type = json_message["msg"]["sub_type"];
 
                 if (boost::iequals(sub_type, "start")) {
                     check_field(json_message["data"], "trial_number");
-                    check_field(json_message["data"], "experiment_id");
-                    check_field(json_message["data"], "trial_id");
+                    check_field(json_message["msg"], "experiment_id");
+                    check_field(json_message["msg"], "trial_id");
                     check_field(json_message["data"], "name");
                     check_field(json_message["data"], "map_block_filename");
                     check_field(json_message["data"], "client_info");
@@ -120,17 +122,19 @@ namespace tomcat {
                     json_mission_log["trial"] =
                         json_message["data"]["trial_number"];
                     json_mission_log["experiment_id"] =
-                        json_message["data"]["experiment_id"];
+                        json_message["msg"]["experiment_id"];
                     json_mission_log["trial_id"] =
-                        json_message["data"]["trial_unique_id"];
+                        json_message["msg"]["trial_id"];
                     json_mission_log["team"] = name.substr(0, name.find('_'));
 
                     const string& map_filename =
                         json_message["data"]["map_block_filename"];
                     if (map_filename.find("SaturnA") != string::npos) {
+                        this->first_mission = true;
                         json_mission_log["mission_order"] = 1;
                     }
                     else if (map_filename.find("SaturnB") != string::npos) {
+                        this->first_mission = false;
                         json_mission_log["mission_order"] = 2;
                     }
                     else {

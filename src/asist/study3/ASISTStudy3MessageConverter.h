@@ -222,6 +222,7 @@ namespace tomcat {
             int num_players;
             int next_time_step;
             int num_players_with_role;
+            bool first_mission = true;
 
             std::unordered_map<std::string, int> player_id_to_index;
             std::vector<Player> players;

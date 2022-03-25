@@ -25,7 +25,9 @@ namespace tomcat {
          */
         class EvidenceSet {
           public:
-            inline static std::string METADATA_FILE = "metadata.json";
+            inline const static std::string METADATA_FILE = "metadata.json";
+            inline const static std::string DICT_LIKE_DATA_FILE =
+                "dict_like_data.json";
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -343,6 +345,43 @@ namespace tomcat {
              * @param data_folder_path: folder where the data files are stored
              */
             void init_from_folder(const std::string& data_folder_path);
+
+            /**
+             * Save matrix data to a directory
+             *
+             * @param output_dir: directory to save
+             */
+            void save_matrix_data(const std::string& output_dir) const;
+
+            /**
+             * Save metadata to a directory
+             *
+             * @param output_dir: directory to save
+             */
+            void save_metadata(const std::string& output_dir) const;
+
+            /**
+             * Save event mapping info to a directory
+             *
+             * @param output_dir: directory to save
+             */
+            void save_event_mapping(const std::string& output_dir) const;
+
+            /**
+             * Save dictionary-like data to a directory
+             *
+             * @param output_dir: directory to save
+             */
+            void save_dict_like_data(const std::string& output_dir) const;
+
+            /**
+             * Sets a dict-like data to the set, updates time steps and number
+             * of points.
+             * @param new_dict_like_data
+             */
+            void
+            set_dict_like_data(const std::vector<std::vector<nlohmann::json>>&
+                                   new_dict_like_data);
 
             //------------------------------------------------------------------
             // Data members

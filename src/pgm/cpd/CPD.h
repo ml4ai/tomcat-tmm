@@ -513,6 +513,25 @@ namespace tomcat {
                      int num_jobs,
                      int parameter_idx) const;
 
+            /**
+             * Returns the cdfs computed for the assignments of the cpw owner.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param num_jobs: number of threads created for parallel
+             * sampling. If 1, no parallel processing is performed and the code
+             * runs in the main thread
+             * @param parameter_idx: index of the parameter's assignment to
+             * consider
+             * @param reverse: right tail
+             *
+             * @return Vector of PDFs
+             */
+            virtual Eigen::VectorXd
+            get_cdfs(const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                     int num_jobs,
+                     int parameter_idx,
+                     bool reverse) const;
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -918,6 +937,30 @@ namespace tomcat {
                 const std::shared_ptr<const RandomVariableNode>& cpd_owner,
                 const Eigen::VectorXi& distribution_indices,
                 int parameter_idx,
+                Eigen::VectorXd& full_pdfs,
+                const std::pair<int, int>& processing_block,
+                std::mutex& pdf_mutex) const;
+
+            /**
+             * Computes cdfs for the assignments of a CPD owner in a separate
+             * thread.
+             *
+             * @param cpd_owner: node that owns the CPD
+             * @param distribution_indices: indices of the distributions from
+             * this CPD to be used
+             * @param parameter_idx: row of the node's assignment that holds the
+             * parameters of the distribution
+             * @param reverse: right tail
+             * @param full_pdfs: vector of pdfs to be updated by this function
+             * @param processing_block: block of data to process in this thread
+             * @param pdf_mutex: mutex to control writing in the
+             * full_pdfs vector
+             */
+            void run_cdf_thread(
+                const std::shared_ptr<const RandomVariableNode>& cpd_owner,
+                const Eigen::VectorXi& distribution_indices,
+                int parameter_idx,
+                bool reverse,
                 Eigen::VectorXd& full_pdfs,
                 const std::pair<int, int>& processing_block,
                 std::mutex& pdf_mutex) const;

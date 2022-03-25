@@ -1,5 +1,7 @@
 #include "Model.h"
 
+#include <fmt/format.h>
+
 #include "asist/study3/ASISTStudy3InterventionModel.h"
 
 namespace tomcat {
@@ -16,7 +18,8 @@ namespace tomcat {
                 return make_shared<ASISTStudy3InterventionModel>(json_settings);
             }
 
-            return nullptr;
+            throw TomcatModelException(
+                fmt::format("Custom model {} does not exist.", model_name));
         }
 
     } // namespace model

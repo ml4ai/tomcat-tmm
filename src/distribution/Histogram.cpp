@@ -12,15 +12,13 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
-        Histogram::Histogram(const shared_ptr<Node>& samples,
-                             int num_bins)
+        Histogram::Histogram(const shared_ptr<Node>& samples, int num_bins)
             : Distribution({samples}), num_bins(num_bins) {}
 
         Histogram::Histogram(shared_ptr<Node>&& samples, int num_bins)
             : Distribution({move(samples)}), num_bins(num_bins) {}
 
-        Histogram::Histogram(const Eigen::VectorXd& samples,
-                             int num_bins)
+        Histogram::Histogram(const Eigen::VectorXd& samples, int num_bins)
             : num_bins(num_bins) {
 
             this->num_samples = samples.size();
@@ -84,8 +82,8 @@ namespace tomcat {
             }
         }
 
-        unique_ptr<gsl_histogram> Histogram::build_histogram(
-            const Eigen::VectorXd& samples) const {
+        unique_ptr<gsl_histogram>
+        Histogram::build_histogram(const Eigen::VectorXd& samples) const {
             double min_value = samples.minCoeff();
             double max_value = samples.maxCoeff() + 1;
 
@@ -210,14 +208,20 @@ namespace tomcat {
 
             if (this->histogram) {
                 size_t* bin = new size_t(0);
-                gsl_histogram_find(this->histogram.get(), value, bin);
-                pdf = gsl_histogram_get(this->histogram.get(), *bin);
-                double* lb = new double (0);
-                double* ub = new double (0);
-                gsl_histogram_get_range(this->histogram.get(), *bin, lb, ub);
+                if (gsl_histogram_find(this->histogram.get(), value, bin) ==
+                    GSL_SUCCESS) {
+                    pdf = gsl_histogram_get(this->histogram.get(), *bin);
+                    double* lb = new double(0);
+                    double* ub = new double(0);
+                    gsl_histogram_get_range(
+                        this->histogram.get(), *bin, lb, ub);
 
-                double bin_width = *ub - *lb;
-                pdf /= this->num_samples * bin_width;
+                    double bin_width = *ub - *lb;
+                    pdf /= this->num_samples * bin_width;
+                }
+                else {
+                    pdf = 0;
+                }
             }
             else {
                 // Builds histogram on-the-fly
@@ -226,10 +230,15 @@ namespace tomcat {
                 unique_ptr<gsl_histogram> temp_histogram =
                     this->build_histogram(samples);
                 size_t* bin = new size_t(0);
-                gsl_histogram_find(temp_histogram.get(), value, bin);
-                pdf = gsl_histogram_get(temp_histogram.get(), *bin) /
-                      samples.size();
-                gsl_histogram_free(temp_histogram.get());
+                if (gsl_histogram_find(temp_histogram.get(), value, bin) ==
+                    GSL_SUCCESS) {
+                    pdf = gsl_histogram_get(temp_histogram.get(), *bin) /
+                          (double)samples.size();
+                    gsl_histogram_free(temp_histogram.get());
+                }
+                else {
+                    pdf = 0;
+                }
             }
 
             return pdf;
@@ -240,8 +249,13 @@ namespace tomcat {
 
             if (this->histogram) {
                 size_t* bin = new size_t(0);
-                gsl_histogram_find(this->histogram.get(), value, bin);
-                cdf = this->histogram_cdf[*bin];
+                if (gsl_histogram_find(this->histogram.get(), value, bin) ==
+                    GSL_SUCCESS) {
+                    cdf = this->histogram_cdf[*bin];
+                }
+                else {
+                    cdf = 0;
+                }
             }
             else {
                 // Builds histogram on-the-fly
@@ -250,9 +264,14 @@ namespace tomcat {
                         this->parameters[0]->get_assignment().row(0));
                 auto cdfs = this->build_histogram_cdf(temp_histogram);
                 size_t* bin = new size_t(0);
-                gsl_histogram_find(temp_histogram.get(), value, bin);
-                cdf = cdfs[*bin];
-                gsl_histogram_free(temp_histogram.get());
+                if (gsl_histogram_find(temp_histogram.get(), value, bin) ==
+                    GSL_SUCCESS) {
+                    cdf = cdfs[*bin];
+                    gsl_histogram_free(temp_histogram.get());
+                }
+                else {
+                    cdf = 0;
+                }
             }
 
             if (reverse) {

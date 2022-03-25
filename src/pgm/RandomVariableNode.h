@@ -171,6 +171,20 @@ namespace tomcat {
             Eigen::VectorXd get_pdfs(int num_jobs, int parameter_idx) const;
 
             /**
+             * Gets pdfs associated with the node's assignments.
+             *
+             * @param num_jobs: number of threads to be used in this
+             * computation.
+             * @param parameter_idx: index of the parameter's assignments to
+             * consider as parameters of the distributions in the CPD.
+             * @param reverse: right tail
+             *
+             * @return Pdfs.
+             */
+            Eigen::VectorXd
+            get_cdfs(int num_jobs, int parameter_idx, bool reverse) const;
+
+            /**
              * Update sufficient statistics of parent parameter nodes with this
              * node's assignment(s).
              *

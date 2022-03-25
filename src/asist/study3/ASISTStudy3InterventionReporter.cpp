@@ -52,6 +52,40 @@ namespace tomcat {
             return player_ids;
         }
 
+        void ASISTStudy3InterventionReporter::add_common_data_section(
+            nlohmann::json& message,
+            const AgentPtr& agent,
+            int time_step,
+            int data_point) {
+
+            boost::uuids::uuid u = boost::uuids::random_generator()();
+            message["id"] = boost::uuids::to_string(u);
+            message["created"] = get_timestamp_at(agent, time_step, data_point);
+            message["start"] = -1;
+            message["duration"] = 1;
+            message["receivers"] = get_player_list(agent, data_point);
+            message["type"] = "string";
+            message["renderers"] = nlohmann::json::array();
+            message["renderers"].push_back("Minecraft_Chat");
+        }
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::get_template_intervention_message(
+            const AgentPtr& agent, int time_step, int data_point) {
+            nlohmann::json intervention_message;
+            add_header_section(
+                intervention_message, agent, "agent", time_step, data_point);
+            add_msg_section(intervention_message,
+                            agent,
+                            "Intervention:Chat",
+                            time_step,
+                            data_point);
+            add_common_data_section(
+                intervention_message, agent, time_step, data_point);
+
+            return intervention_message;
+        }
+
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
@@ -70,47 +104,68 @@ namespace tomcat {
             // and we need to generate report messages for each one
             // of them.
 
+            if (agent->get_evidence_metadata()[0]["mission_order"] == 1) {
+                // We only intervene in mission 2
+                return {};
+            }
+
             vector<nlohmann::json> messages;
             auto estimator =
                 dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
                     agent->get_estimators()[0]);
 
-            if (this->introduced) {
-                // The agent only checks for interventions after it has
-                // introduced himself to the team.
+            int initial_time_step = time_step;
+            int final_time_step = estimator->get_last_time_step();
+            if (time_step == NO_OBS) {
+                initial_time_step = 0;
+            }
 
-                // TODO - study if we will queue interventions or push all
-                // triggered ones to the testbed at the same time.
-                if (!this->intervened_on_motivation &&
-                    time_step >= this->json_settings["motivation_time_step"]) {
-                    this->intervened_on_motivation = true;
+            for (int t = initial_time_step; t <= final_time_step; t++) {
+                if (this->introduced) {
+                    // The agent only checks for interventions after it has
+                    // introduced himself to the team.
 
-                    double min_percentile =
-                        (double)this
-                            ->json_settings["motivation_min_percentile"] /
-                        100;
+                    // TODO - study if we will queue interventions or push all
+                    // triggered ones to the testbed at the same time.
+                    if (!this->intervened_on_motivation &&
+                        t >= this->json_settings["motivation_time_step"]) {
+                        this->intervened_on_motivation = true;
 
-                    const auto& cdfs = estimator->get_encouragement_cdfs();
-                    for (int d = 0; d < agent->get_evidence_metadata().size();
-                         d++) {
-                        if (cdfs(d) <= min_percentile) {
-                            messages.push_back(
-                                this->get_motivation_intervention_message(
-                                    agent, time_step, d));
+                        double min_percentile =
+                            (double)this
+                                ->json_settings["motivation_min_percentile"] /
+                            100;
+
+                        const auto& cdfs = estimator->get_encouragement_cdfs();
+                        for (int d = 0;
+                             d < agent->get_evidence_metadata().size();
+                             d++) {
+                            if (cdfs(d) <= min_percentile) {
+                                auto motivation_msg =
+                                    this->get_motivation_intervention_message(
+                                        agent, t, d);
+                                motivation_msg["data"]["explanation"] =
+                                    fmt::format(
+                                        (string)this
+                                            ->json_settings["explanations"]
+                                                           ["motivation"],
+                                        cdfs(d));
+                                messages.push_back(motivation_msg);
+                            }
                         }
                     }
                 }
-            }
-            else {
-                if (time_step >=
-                    this->json_settings["introduction_time_step"]) {
-                    this->introduced = true;
+                else {
+                    if (t >= this->json_settings["introduction_time_step"]) {
+                        this->introduced = true;
 
-                    for (int d = 0; d < agent->get_evidence_metadata().size();
-                         d++) {
-                        messages.push_back(
-                            this->get_introductory_intervention_message(
-                                agent, time_step, d));
+                        for (int d = 0;
+                             d < agent->get_evidence_metadata().size();
+                             d++) {
+                            messages.push_back(
+                                this->get_introductory_intervention_message(
+                                    agent, t, d));
+                        }
                     }
                 }
             }
@@ -270,22 +325,6 @@ namespace tomcat {
         }
 
         nlohmann::json
-        ASISTStudy3InterventionReporter::get_template_intervention_message(
-            const AgentPtr& agent, int time_step, int data_point) const {
-            nlohmann::json intervention_message;
-            add_header_section(intervention_message, agent, "agent", time_step);
-            add_msg_section(intervention_message,
-                            agent,
-                            "Intervention:Chat",
-                            time_step,
-                            data_point);
-            add_common_data_section(
-                intervention_message, agent, time_step, data_point);
-
-            return intervention_message;
-        }
-
-        nlohmann::json
         ASISTStudy3InterventionReporter::get_introductory_intervention_message(
             const AgentPtr& agent, int time_step, int data_point) const {
             nlohmann::json intervention_message =
@@ -293,6 +332,8 @@ namespace tomcat {
                     agent, time_step, data_point);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["introduction"];
+            intervention_message["data"]["explanation"] =
+                this->json_settings["explanations"]["introduction"];
 
             return intervention_message;
         }
@@ -319,24 +360,6 @@ namespace tomcat {
         void ASISTStudy3InterventionReporter::prepare() {
             this->introduced = false;
             this->intervened_on_motivation = false;
-        }
-
-        void ASISTStudy3InterventionReporter::add_common_data_section(
-            nlohmann::json& message,
-            const AgentPtr& agent,
-            int time_step,
-            int data_point) const {
-
-            boost::uuids::uuid u = boost::uuids::random_generator()();
-            message["id"] = boost::uuids::to_string(u);
-            message["source"] = agent->get_id();
-            message["created"] = get_timestamp_at(agent, time_step);
-            message["start"] = -1;
-            message["duration"] = 1;
-            message["receivers"] = this->get_player_list(agent, data_point);
-            message["type"] = "string";
-            message["renderers"] = nlohmann::json::array();
-            message["renderers"].push_back("Minecraft_Chat");
         }
 
     } // namespace model
