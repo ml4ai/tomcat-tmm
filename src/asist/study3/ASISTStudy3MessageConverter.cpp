@@ -384,7 +384,9 @@ namespace tomcat {
 
             this->num_encouragement_utterances = 0;
 
-            EvidenceSet data({{dict_data}});
+            vector<vector<nlohmann::json>> dict_data_vec(1);
+            dict_data_vec[0].push_back(dict_data);
+            EvidenceSet data(dict_data_vec);
 
             this->next_time_step += 1;
             return data;
