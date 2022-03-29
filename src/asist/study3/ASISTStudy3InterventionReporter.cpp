@@ -121,53 +121,8 @@ namespace tomcat {
             }
 
             for (int t = initial_time_step; t <= final_time_step; t++) {
-                if (this->introduced) {
-                    // The agent only checks for interventions after it has
-                    // introduced himself to the team.
-
-                    // TODO - study if we will queue interventions or push all
-                    // triggered ones to the testbed at the same time.
-                    if (!this->intervened_on_motivation &&
-                        t >= this->json_settings["motivation_time_step"]) {
-                        this->intervened_on_motivation = true;
-
-                        double min_percentile =
-                            (double)this
-                                ->json_settings["motivation_min_percentile"] /
-                            100;
-
-                        const auto& cdfs = estimator->get_encouragement_cdfs();
-                        for (int d = 0;
-                             d < agent->get_evidence_metadata().size();
-                             d++) {
-                            if (cdfs(d) <= min_percentile) {
-                                auto motivation_msg =
-                                    this->get_motivation_intervention_message(
-                                        agent, t, d);
-                                motivation_msg["data"]["explanation"] =
-                                    fmt::format(
-                                        (string)this
-                                            ->json_settings["explanations"]
-                                                           ["motivation"],
-                                        cdfs(d));
-                                messages.push_back(motivation_msg);
-                            }
-                        }
-                    }
-                }
-                else {
-                    if (t >= this->json_settings["introduction_time_step"]) {
-                        this->introduced = true;
-
-                        for (int d = 0;
-                             d < agent->get_evidence_metadata().size();
-                             d++) {
-                            messages.push_back(
-                                this->get_introductory_intervention_message(
-                                    agent, t, d));
-                        }
-                    }
-                }
+                this->intervene_on_introduction(agent, t, messages);
+                this->intervene_on_motivation(agent, t, messages);
             }
 
             //
@@ -322,6 +277,65 @@ namespace tomcat {
             //            }
 
             return messages;
+        }
+
+        void ASISTStudy3InterventionReporter::intervene_on_introduction(
+            const AgentPtr& agent,
+            int time_step,
+            vector<nlohmann::json>& messages) {
+
+            if (!this->json_settings["activations"]["introduction"]) {
+                return;
+            }
+
+            if (!this->introduced &&
+                time_step >= this->json_settings["introduction_time_step"]) {
+                this->introduced = true;
+
+                for (int d = 0; d < agent->get_evidence_metadata().size();
+                     d++) {
+                    messages.push_back(
+                        this->get_introductory_intervention_message(
+                            agent, time_step, d));
+                }
+            }
+        }
+
+        void ASISTStudy3InterventionReporter::intervene_on_motivation(
+            const AgentPtr& agent,
+            int time_step,
+            vector<nlohmann::json>& messages) {
+
+            if (!this->json_settings["activations"]["motivation"]) {
+                return;
+            }
+
+            if (!this->intervened_on_motivation &&
+                time_step >= this->json_settings["motivation_time_step"]) {
+                this->intervened_on_motivation = true;
+
+                double min_percentile =
+                    (double)this->json_settings["motivation_min_percentile"] /
+                    100;
+
+                auto estimator =
+                    dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
+                        agent->get_estimators()[0]);
+                const auto& cdfs = estimator->get_encouragement_cdfs();
+                for (int d = 0; d < agent->get_evidence_metadata().size();
+                     d++) {
+                    if (cdfs(d) <= min_percentile) {
+                        auto motivation_msg =
+                            this->get_motivation_intervention_message(
+                                agent, time_step, d);
+                        motivation_msg["data"]["explanation"] = fmt::format(
+                            (string)this
+                                ->json_settings["explanations"]["motivation"],
+                            cdfs(d));
+                        messages.push_back(motivation_msg);
+                    }
+                }
+            }
         }
 
         nlohmann::json

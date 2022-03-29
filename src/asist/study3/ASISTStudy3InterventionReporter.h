@@ -116,6 +116,29 @@ namespace tomcat {
             void copy(const ASISTStudy3InterventionReporter& reporter);
 
             /**
+             * Handles intervention of type "Introduction"
+             *
+             * @param agent: ASI
+             * @param time_step: time step of the intervention
+             * @param messages: list of intervention messages in the time step
+             */
+            void
+            intervene_on_introduction(const AgentPtr& agent,
+                                      int time_step,
+                                      std::vector<nlohmann::json>& messages);
+
+            /**
+             * Handles intervention of type "Motivation"
+             *
+             * @param agent: ASI
+             * @param time_step: time step of the intervention
+             * @param messages: list of intervention messages in the time step
+             */
+            void intervene_on_motivation(const AgentPtr& agent,
+                                         int time_step,
+                                         std::vector<nlohmann::json>& messages);
+
+            /**
              * Assembles ToMCAT's introduction as an intervention.
              *
              * @param agent: ASI
