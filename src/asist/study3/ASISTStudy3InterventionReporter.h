@@ -139,6 +139,18 @@ namespace tomcat {
                                          std::vector<nlohmann::json>& messages);
 
             /**
+             * Handles intervention of type "Communication Marker"
+             *
+             * @param agent: ASI
+             * @param time_step: time step of the intervention
+             * @param messages: list of intervention messages in the time step
+             */
+            void intervene_on_communication_marker(
+                const AgentPtr& agent,
+                int time_step,
+                std::vector<nlohmann::json>& messages);
+
+            /**
              * Assembles ToMCAT's introduction as an intervention.
              *
              * @param agent: ASI
@@ -164,6 +176,20 @@ namespace tomcat {
              * @return: json intervention message
              */
             nlohmann::json get_motivation_intervention_message(
+                const AgentPtr& agent, int time_step, int data_point) const;
+
+            /**
+             * Assembles communication marker intervention.
+             *
+             * @param agent: ASI
+             * @param time_step: time step at which the message is being
+             * generated
+             * @param data_point: index of the trial being processed, if
+             * estimates are being computed for multiple trials.
+             *
+             * @return: json intervention message
+             */
+            nlohmann::json get_communication_marker_intervention_message(
                 const AgentPtr& agent, int time_step, int data_point) const;
 
             //------------------------------------------------------------------

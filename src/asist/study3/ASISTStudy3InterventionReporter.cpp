@@ -3,6 +3,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <cctype>
 #include <fmt/format.h>
 
 #include "asist/study3/ASISTStudy3InterventionEstimator.h"
@@ -338,6 +339,35 @@ namespace tomcat {
             }
         }
 
+        void ASISTStudy3InterventionReporter::intervene_on_communication_marker(
+            const AgentPtr& agent,
+            int time_step,
+            vector<nlohmann::json>& messages) {
+
+            if (!this->json_settings["activations"]["communication_marker"]) {
+                return;
+            }
+
+            auto estimator =
+                dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
+                    agent->get_estimators()[0]);
+
+            const auto& unspoken_markers = estimator->get_unspoken_markers();
+            for (int d = 0; d < agent->get_evidence_metadata().size(); d++) {
+                auto intervention_msg =
+                    this->get_communication_marker_intervention_message(
+                        agent, time_step, d);
+                for (const auto& marker_info : unspoken_markers[d]) {
+                    string player_color = marker_info.player_color;
+                    player_color[0] = toupper(player_color[0]);
+                    intervention_msg["data"]["content"] =
+                        fmt::format((string)intervention_msg["data"]["content"],
+                                    player_color);
+                    messages.push_back(intervention_msg);
+                }
+            }
+        }
+
         nlohmann::json
         ASISTStudy3InterventionReporter::get_introductory_intervention_message(
             const AgentPtr& agent, int time_step, int data_point) const {
@@ -360,6 +390,18 @@ namespace tomcat {
                     agent, time_step, data_point);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["motivation"];
+
+            return intervention_message;
+        }
+
+        nlohmann::json ASISTStudy3InterventionReporter::
+            get_communication_marker_intervention_message(
+                const AgentPtr& agent, int time_step, int data_point) const {
+            nlohmann::json intervention_message =
+                this->get_template_intervention_message(
+                    agent, time_step, data_point);
+            intervention_message["data"]["content"] =
+                this->json_settings["prompts"]["communication_intervention"];
 
             return intervention_message;
         }
