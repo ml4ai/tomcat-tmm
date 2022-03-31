@@ -11,6 +11,8 @@ namespace tomcat {
     namespace model {
 
         using namespace std;
+        using Labels = ASISTStudy3MessageConverter::Labels;
+        using MarkerType = ASISTStudy3MessageConverter::MarkerType;
 
         //----------------------------------------------------------------------
         // Constructors
@@ -45,6 +47,60 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Static functions
         //----------------------------------------------------------------------
+        bool ASISTStudy3InterventionEstimator::did_player_speak_about_marker(
+            int player_order,
+            const Marker& unspoken_marker,
+            int data_point,
+            int time_step,
+            const EvidenceSet& new_data) {}
+
+        ASISTStudy3InterventionEstimator::Marker
+        ASISTStudy3InterventionEstimator::get_last_placed_marker(
+            int player_order,
+            int data_point,
+            int time_step,
+            const EvidenceSet& new_data) {
+
+            const string& label = Labels::LAST_PLACED_MARKERS;
+            const auto& json_last_placed_markers =
+                new_data.get_dict_like_data()[data_point][time_step][label];
+
+            const auto& json_marker = json_last_placed_markers[player_order];
+            if (!json_marker.empty()) {
+                Position pos((double)json_marker["x"],
+                             (double)json_marker["z"]);
+                MarkerType type =
+                    ASISTStudy3MessageConverter::MARKER_TEXT_TO_TYPE.at(
+                        (string)json_marker["type"]);
+
+                return Marker(type, pos);
+            }
+
+            return Marker();
+        }
+
+        bool
+        ASISTStudy3InterventionEstimator::did_player_change_area(
+            int player_order,
+            int data_point,
+            int time_step,
+            const EvidenceSet& new_data) {}
+
+        bool
+        ASISTStudy3InterventionEstimator::did_player_interact_with_victim(
+            int player_order,
+            int data_point,
+            int time_step,
+            const EvidenceSet& new_data) {}
+
+        bool
+        ASISTStudy3InterventionEstimator::is_player_far_apart(
+            int player_order,
+            Position position,
+            int max_distance,
+            int data_point,
+            int time_step,
+            const EvidenceSet& new_data) {}
 
         //----------------------------------------------------------------------
         // Member functions
@@ -66,8 +122,14 @@ namespace tomcat {
 
             this->first_mission =
                 new_data.get_metadata()[0]["mission_order"] == 1;
-
             this->last_time_step += new_data.get_time_steps();
+
+            this->estimate_motivation(new_data);
+            this->estimate_unspoken_markers(new_data);
+        }
+
+        void ASISTStudy3InterventionEstimator::estimate_motivation(
+            const EvidenceSet& new_data) {
             const auto& metadata = new_data.get_metadata();
 
             check_field(metadata[0], "mission_order");
@@ -81,8 +143,7 @@ namespace tomcat {
             if (metadata[0]["mission_order"] == 1) {
                 for (int d = 0; d < new_data.get_num_data_points(); d++) {
                     for (int t = 0; t < new_data.get_time_steps(); t++) {
-                        const string& label =
-                            ASISTStudy3MessageConverter::Labels::ENCOURAGEMENT;
+                        const string& label = Labels::ENCOURAGEMENT;
                         increments[d] +=
                             (int)new_data.get_dict_like_data()[d][t][label];
                     }
@@ -96,6 +157,71 @@ namespace tomcat {
                     // Assume there was no encouragement utterances to force
                     // intervention.
                     encouragement_node->set_assignment(increments);
+                }
+            }
+        }
+
+        void ASISTStudy3InterventionEstimator::estimate_unspoken_markers(
+            const EvidenceSet& new_data) {
+
+            for (int d = 0; d < new_data.get_num_data_points(); d++) {
+                for (int t = 0; t < new_data.get_time_steps(); t++) {
+                    for (int player_order = 0; player_order < 3;
+                         player_order++) {
+
+                        // If the player spoke about an active marker, remove it
+                        // from the list.
+                        const auto& unspoken_marker =
+                            this->active_unspoken_markers[d][player_order];
+                        if (unspoken_marker.type != MarkerType::NONE) {
+                            if (did_player_speak_about_marker(player_order,
+                                                              unspoken_marker,
+                                                              d,
+                                                              t,
+                                                              new_data)) {
+                                this->active_unspoken_markers[d][player_order] =
+                                    Marker();
+                            }
+                        }
+
+                        // Check if a new marker was placed and needs to be
+                        // monitored for communication.
+                        Marker new_marker = get_last_placed_marker(
+                            player_order, d, t, new_data);
+                        const auto& last_marker =
+                            this->last_placed_markers[d][player_order];
+                        if (new_marker.is_none()) {
+                            bool cond1 = did_player_change_area(
+                                player_order, d, t, new_data);
+                            bool cond2 = did_player_interact_with_victim(
+                                player_order, d, t, new_data);
+                            bool cond3 = !last_marker.is_none() &&
+                                         is_player_far_apart(player_order,
+                                                             last_marker.position,
+                                                             MAX_DIST,
+                                                             d,
+                                                             t,
+                                                             new_data);
+                            if (cond1 || cond2 || cond3) {
+                                this->active_unspoken_markers[d][player_order] =
+                                    last_marker;
+                            }
+                        }
+                        else {
+                            if (!last_marker.is_none() &&
+                                last_marker.type != new_marker.type) {
+                                // The player placed a marker that is different
+                                // from the marker it had placed before. Add the
+                                // previous marker to the list of unspoken
+                                // markers.
+                                this->active_unspoken_markers[d][player_order] =
+                                    last_marker;
+                            }
+
+                            this->last_placed_markers[d][player_order] =
+                                new_marker;
+                        }
+                    }
                 }
             }
         }
@@ -148,6 +274,11 @@ namespace tomcat {
 
         int ASISTStudy3InterventionEstimator::get_last_time_step() const {
             return last_time_step;
+        }
+
+        const vector<vector<ASISTStudy3InterventionEstimator::Marker>>&
+        ASISTStudy3InterventionEstimator::get_active_unspoken_markers() const {
+            return active_unspoken_markers;
         }
 
         //        void ASISTStudy3InterventionEstimator::parse_map(

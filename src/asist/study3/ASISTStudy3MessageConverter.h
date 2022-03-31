@@ -24,10 +24,57 @@ namespace tomcat {
          */
         class ASISTStudy3MessageConverter : public ASISTMessageConverter {
           public:
-            // Labels used in the variables collected
             struct Labels {
-                inline const static std::string ENCOURAGEMENT = "Encouragement";
+                inline const static std::string ENCOURAGEMENT = "encouragement";
+                inline const static std::string LAST_PLACED_MARKERS =
+                    "last_placed_markers";
             };
+
+            struct MarkerTypeTexts {
+                inline const static std::string NO_VICTIM = "no_victim";
+                inline const static std::string VICTIM_A = "victim_a";
+                inline const static std::string VICTIM_B = "victim_b";
+                inline const static std::string VICTIM_C = "victim_c";
+                inline const static std::string REGULAR_VICTIM =
+                    "regular_victim";
+                inline const static std::string SOS = "sos";
+                inline const static std::string RUBBLE = "rubble";
+                inline const static std::string THREAT_ROOM = "threat_room";
+            };
+
+            enum MarkerType {
+                NONE,
+                NO_VICTIM,
+                VICTIM_A,
+                VICTIM_B,
+                VICTIM_C,
+                REGULAR_VICTIM,
+                SOS,
+                RUBBLE,
+                THREAT_ROOM
+            };
+
+            inline const static std::unordered_map<MarkerType, std::string>
+                MARKER_TYPE_TO_TEXT = {
+                    {MarkerType::NO_VICTIM, MarkerTypeTexts::NO_VICTIM},
+                    {MarkerType::VICTIM_A, MarkerTypeTexts::VICTIM_A},
+                    {MarkerType::VICTIM_B, MarkerTypeTexts::VICTIM_B},
+                    {MarkerType::VICTIM_C, MarkerTypeTexts::VICTIM_C},
+                    {MarkerType::REGULAR_VICTIM, MarkerTypeTexts::REGULAR_VICTIM},
+                    {MarkerType::SOS, MarkerTypeTexts::SOS},
+                    {MarkerType::RUBBLE, MarkerTypeTexts::RUBBLE},
+                    {MarkerType::THREAT_ROOM, MarkerTypeTexts::THREAT_ROOM}};
+
+            inline const static std::unordered_map<std::string, MarkerType>
+                MARKER_TEXT_TO_TYPE = {
+                    {MarkerTypeTexts::NO_VICTIM, MarkerType::NO_VICTIM},
+                    {MarkerTypeTexts::VICTIM_A, MarkerType::VICTIM_A},
+                    {MarkerTypeTexts::VICTIM_B, MarkerType::VICTIM_B},
+                    {MarkerTypeTexts::VICTIM_C, MarkerType::VICTIM_C},
+                    {MarkerTypeTexts::REGULAR_VICTIM, MarkerType::REGULAR_VICTIM},
+                    {MarkerTypeTexts::SOS, MarkerType::SOS},
+                    {MarkerTypeTexts::RUBBLE, MarkerType::RUBBLE},
+                    {MarkerTypeTexts::THREAT_ROOM, MarkerType::THREAT_ROOM}};
 
             //------------------------------------------------------------------
             // Constructors & Destructor

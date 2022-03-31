@@ -5,6 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/Model.h"
 #include "pipeline/estimation/Estimator.h"
@@ -47,10 +48,6 @@ namespace tomcat::model {
         operator=(ASISTStudy3InterventionEstimator&&) = default;
 
         //------------------------------------------------------------------
-        // Static functions
-        //------------------------------------------------------------------
-
-        //------------------------------------------------------------------
         // Member functions
         //------------------------------------------------------------------
         void estimate(const EvidenceSet& new_data) override;
@@ -84,6 +81,9 @@ namespace tomcat::model {
 
         int get_last_time_step() const;
 
+        const std::vector<std::vector<Marker>>&
+        get_active_unspoken_markers() const;
+
       protected:
         //------------------------------------------------------------------
         // Member functions
@@ -102,8 +102,89 @@ namespace tomcat::model {
 
       private:
         //------------------------------------------------------------------
+        // Types & Consts
+        //------------------------------------------------------------------
+        const static int MAX_DIST = 5;
+
+        //------------------------------------------------------------------
+        // Structs
+        //------------------------------------------------------------------
+        struct Position {
+            double x;
+            double z;
+
+            Position() : x(0), z(0) {}
+
+            Position(double x, double z) : x(x), z(z) {}
+        };
+
+        struct Marker {
+            ASISTStudy3MessageConverter::MarkerType type;
+            Position position;
+
+            Marker()
+                : type(ASISTStudy3MessageConverter::MarkerType::NONE),
+                  position(Position()) {}
+
+            Marker(ASISTStudy3MessageConverter::MarkerType type,
+                   const Position& position)
+                : type(type), position(position) {}
+
+            bool is_none() const {
+                return this->type ==
+                       ASISTStudy3MessageConverter::MarkerType::NONE;
+            }
+        };
+
+        //------------------------------------------------------------------
+        // Static functions
+        //------------------------------------------------------------------
+        static bool did_player_speak_about_marker(int player_order,
+                                                  const Marker& unspoken_marker,
+                                                  int data_point,
+                                                  int time_step,
+                                                  const EvidenceSet& new_data);
+
+        static Marker get_last_placed_marker(int player_order,
+                                             int data_point,
+                                             int time_step,
+                                             const EvidenceSet& new_data);
+
+        static bool did_player_change_area(int player_order,
+                                           int data_point,
+                                           int time_step,
+                                           const EvidenceSet& new_data);
+
+        static bool
+        did_player_interact_with_victim(int player_order,
+                                        int data_point,
+                                        int time_step,
+                                        const EvidenceSet& new_data);
+
+        static bool is_player_far_apart(int player_order,
+                                         Position position,
+                                         int max_distance,
+                                         int data_point,
+                                         int time_step,
+                                         const EvidenceSet& new_data);
+
+        //------------------------------------------------------------------
         // Member functions
         //------------------------------------------------------------------
+
+        /**
+         * Estimate if team is motivated.
+         *
+         * @param new_data: evidence
+         */
+        void estimate_motivation(const EvidenceSet& new_data);
+
+        /**
+         * Estimate if players placed markers and did not talk about it.
+         *
+         * @param new_data: evidence
+         */
+        void estimate_unspoken_markers(const EvidenceSet& new_data);
 
         //        /**
         //         * Parses the map to identify and store room ids.
@@ -151,6 +232,9 @@ namespace tomcat::model {
         int last_time_step = -1;
         bool first_mission = true;
         Eigen::VectorXd encouragement_cdf = Eigen::VectorXd(0);
+
+        std::vector<std::vector<Marker>> last_placed_markers;
+        std::vector<std::vector<Marker>> active_unspoken_markers;
 
         //        std::shared_ptr<ASISTStudy3InterventionModel>
         //        intervention_model; int num_encouragements_first_mission = 0;

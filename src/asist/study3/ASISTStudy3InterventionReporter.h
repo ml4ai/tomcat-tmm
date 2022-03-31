@@ -104,6 +104,16 @@ namespace tomcat {
             static nlohmann::json get_template_intervention_message(
                 const AgentPtr& agent, int time_step, int data_point);
 
+            /**
+             * Returns the player color to add to a message based on its order. The map follows the RGB order.
+             * That is 0 - Red, 1 - Green, 2 - Blue
+             *
+             * @param player_order: player's index in a list
+             *
+             * @return Player's color (callsign)
+             */
+            static std::string player_order_to_color(int player_order);
+
             //------------------------------------------------------------------
             // Member functions
             //------------------------------------------------------------------
@@ -195,8 +205,7 @@ namespace tomcat {
              * generated
              * @param data_point: index of the trial being processed, if
              * estimates are being computed for multiple trials.
-             * @param player_id: player to which the intervention should be
-             * targeted
+             * @param player_order: player's index
              *
              * @return: json intervention message
              */
@@ -204,14 +213,17 @@ namespace tomcat {
                 const AgentPtr& agent,
                 int time_step,
                 int data_point,
-                const std::string& player_id) const;
+                int player_order) const;
 
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
-            std::vector<std::unordered_map<std::string, std::string>>
-                player_ids_to_colors;
-            std::vector<nlohmann::json> player_lists;
+            // Player id per each RGB color. A list per trial.
+            std::vector<std::vector<std::string>> player_ids_per_color;
+
+            // Json objects with a list of player ids to address the whole team.
+            // A list per trial.
+            std::vector<nlohmann::json> player_ids;
 
             bool introduced = false;
             bool intervened_on_motivation = false;
