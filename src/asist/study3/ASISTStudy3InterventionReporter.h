@@ -116,6 +116,15 @@ namespace tomcat {
             void copy(const ASISTStudy3InterventionReporter& reporter);
 
             /**
+             * Stores player info for quick retrieval. It assumes the agent does
+             * not change over the course of a mission. Which is true for the
+             * current implementation.
+             *
+             * @param agent: ASI
+             */
+            void store_player_info(const AgentPtr& agent);
+
+            /**
              * Handles intervention of type "Introduction"
              *
              * @param agent: ASI
@@ -186,15 +195,24 @@ namespace tomcat {
              * generated
              * @param data_point: index of the trial being processed, if
              * estimates are being computed for multiple trials.
+             * @param player_id: player to which the intervention should be
+             * targeted
              *
              * @return: json intervention message
              */
             nlohmann::json get_communication_marker_intervention_message(
-                const AgentPtr& agent, int time_step, int data_point) const;
+                const AgentPtr& agent,
+                int time_step,
+                int data_point,
+                const std::string& player_id) const;
 
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
+            std::vector<std::unordered_map<std::string, std::string>>
+                player_ids_to_colors;
+            std::vector<nlohmann::json> player_lists;
+
             bool introduced = false;
             bool intervened_on_motivation = false;
         };

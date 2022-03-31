@@ -136,6 +136,9 @@ namespace tomcat {
                     else if (map_filename.find("SaturnB") != string::npos) {
                         this->first_mission = false;
                         json_mission_log["mission_order"] = 2;
+                        // experiment_mission.
+                        // Saturn A and C are mission 1
+                        // Saturn B and D are mission 2
                     }
                     else {
                         throw TomcatModelException(

@@ -59,15 +59,17 @@ namespace tomcat {
             int time_step,
             int data_point) {
 
+            nlohmann::json json_data;
             boost::uuids::uuid u = boost::uuids::random_generator()();
-            message["id"] = boost::uuids::to_string(u);
-            message["created"] = get_timestamp_at(agent, time_step, data_point);
-            message["start"] = -1;
-            message["duration"] = 1;
-            message["receivers"] = get_player_list(agent, data_point);
-            message["type"] = "string";
-            message["renderers"] = nlohmann::json::array();
-            message["renderers"].push_back("Minecraft_Chat");
+            json_data["id"] = boost::uuids::to_string(u);
+            json_data["created"] =
+                get_timestamp_at(agent, time_step, data_point);
+            json_data["start"] = -1;
+            json_data["duration"] = 1;
+            json_data["type"] = "string";
+            json_data["renderers"] = nlohmann::json::array();
+            json_data["renderers"].push_back("Minecraft_Chat");
+            message["data"] = json_data;
         }
 
         nlohmann::json
@@ -93,6 +95,22 @@ namespace tomcat {
         void ASISTStudy3InterventionReporter::copy(
             const ASISTStudy3InterventionReporter& reporter) {
             EstimateReporter::copy(reporter);
+        }
+
+        void ASISTStudy3InterventionReporter::store_player_info(
+            const AgentPtr& agent) {
+            int d = 0;
+            for (const auto& json_trial : agent->get_evidence_metadata()) {
+                unordered_map<string, string> player_id_to_color;
+                for (const auto& json_player : json_trial["players"]) {
+                    string player_color = json_player["color"];
+                    toupper(player_color[0]);
+                    player_id_to_color[(string)json_player["id"]] =
+                        player_color;
+                }
+                this->player_ids_to_colors.push_back(player_id_to_color);
+                this->player_lists.push_back(get_player_list(agent, d++));
+            }
         }
 
         vector<nlohmann::json>
@@ -354,15 +372,17 @@ namespace tomcat {
 
             const auto& unspoken_markers = estimator->get_unspoken_markers();
             for (int d = 0; d < agent->get_evidence_metadata().size(); d++) {
-                auto intervention_msg =
-                    this->get_communication_marker_intervention_message(
-                        agent, time_step, d);
                 for (const auto& marker_info : unspoken_markers[d]) {
-                    string player_color = marker_info.player_color;
-                    player_color[0] = toupper(player_color[0]);
-                    intervention_msg["data"]["content"] =
-                        fmt::format((string)intervention_msg["data"]["content"],
-                                    player_color);
+                    auto intervention_msg =
+                        this->get_communication_marker_intervention_message(
+                            agent, time_step, d, marker_info.player_color);
+                    //                    string player_color =
+                    //                    marker_info.player_color;
+                    //                    player_color[0] =
+                    //                    toupper(player_color[0]);
+                    //                    intervention_msg["data"]["content"] =
+                    //                        fmt::format((string)intervention_msg["data"]["content"],
+                    //                                    player_color);
                     messages.push_back(intervention_msg);
                 }
             }
@@ -378,6 +398,7 @@ namespace tomcat {
                 this->json_settings["prompts"]["introduction"];
             intervention_message["data"]["explanation"] =
                 this->json_settings["explanations"]["introduction"];
+            intervention_message["receivers"] = this->player_lists[data_point];
 
             return intervention_message;
         }
@@ -390,18 +411,29 @@ namespace tomcat {
                     agent, time_step, data_point);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["motivation"];
+            intervention_message["receivers"] = this->player_lists[data_point];
 
             return intervention_message;
         }
 
         nlohmann::json ASISTStudy3InterventionReporter::
             get_communication_marker_intervention_message(
-                const AgentPtr& agent, int time_step, int data_point) const {
+                const AgentPtr& agent,
+                int time_step,
+                int data_point,
+                const std::string& player_id) const {
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(
                     agent, time_step, data_point);
-            intervention_message["data"]["content"] =
+            const string& prompt =
                 this->json_settings["prompts"]["communication_intervention"];
+
+            string player_color =
+                this->player_ids_to_colors.at(data_point).at(player_id);
+            intervention_message["data"]["content"] =
+                fmt::format(prompt, player_color);
+            intervention_message["receivers"] = nlohmann::json::array();
+            intervention_message["receivers"].push_back(player_color);
 
             return intervention_message;
         }
