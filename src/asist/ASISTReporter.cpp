@@ -32,10 +32,11 @@ namespace tomcat {
                                                const string& message_type,
                                                int time_step,
                                                int data_point) {
-
-            message["timestamp"] = get_timestamp_at(agent, time_step, data_point);
-            message["message_type"] = message_type;
-            message["version"] = agent->get_version();
+            nlohmann::json json_header;
+            json_header["timestamp"] = get_timestamp_at(agent, time_step, data_point);
+            json_header["message_type"] = message_type;
+            json_header["version"] = agent->get_version();
+            message["header"] = json_header;
         }
 
         void ASISTReporter::add_msg_section(nlohmann::json& message,
@@ -43,17 +44,18 @@ namespace tomcat {
                                             const string& sub_type,
                                             int time_step,
                                             int data_point) {
-
-            message["trial_id"] =
+            nlohmann::json json_msg;
+            json_msg["trial_id"] =
                 agent->get_evidence_metadata()[data_point]["trial_id"];
-            message["experiment_id"] =
+            json_msg["experiment_id"] =
                 agent->get_evidence_metadata()[data_point]["experiment_id"];
-            message["timestamp"] = get_timestamp_at(agent, time_step, data_point);
-            message["source"] = agent->get_id();
-            message["version"] = "1.0";
-            message["trial_number"] =
+            json_msg["timestamp"] = get_timestamp_at(agent, time_step, data_point);
+            json_msg["source"] = agent->get_id();
+            json_msg["version"] = "1.0";
+            json_msg["trial_number"] =
                 agent->get_evidence_metadata()[data_point]["trial"];
-            message["sub_type"] = sub_type;
+            json_msg["sub_type"] = sub_type;
+            message["msg"] = json_msg;
         }
 
         string ASISTReporter::get_timestamp_at(const AgentPtr& agent,

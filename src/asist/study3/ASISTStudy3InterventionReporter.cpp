@@ -58,15 +58,18 @@ namespace tomcat {
             int time_step,
             int data_point) {
 
+            nlohmann::json json_data;
             boost::uuids::uuid u = boost::uuids::random_generator()();
-            message["id"] = boost::uuids::to_string(u);
-            message["created"] = get_timestamp_at(agent, time_step, data_point);
-            message["start"] = -1;
-            message["duration"] = 1;
-            message["receivers"] = get_player_list(agent, data_point);
-            message["type"] = "string";
-            message["renderers"] = nlohmann::json::array();
-            message["renderers"].push_back("Minecraft_Chat");
+            json_data["id"] = boost::uuids::to_string(u);
+            json_data["created"] =
+                get_timestamp_at(agent, time_step, data_point);
+            json_data["start"] = -1;
+            json_data["duration"] = 1;
+            json_data["type"] = "string";
+            json_data["receivers"] = get_player_list(agent, data_point);
+            json_data["renderers"] = nlohmann::json::array();
+            json_data["renderers"].push_back("Minecraft_Chat");
+            message["data"] = json_data;
         }
 
         nlohmann::json
