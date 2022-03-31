@@ -67,6 +67,15 @@ namespace tomcat::model {
          */
         Eigen::VectorXd get_encouragement_cdfs();
 
+        /**
+         * Removes current active unspoken marker from the list.
+         *
+         * @param player_order: index of the player that has an active unspoken
+         * marker
+         * @param data_point: trial data index
+         */
+        void clear_active_unspoken_marker(int player_order, int data_point);
+
         //------------------------------------------------------------------
         // Getters & Setters
         //------------------------------------------------------------------
@@ -116,6 +125,10 @@ namespace tomcat::model {
             Position() : x(0), z(0) {}
 
             Position(double x, double z) : x(x), z(z) {}
+
+            double distance_to(const Position& pos) const {
+                return sqrt(this->x * pos.x + this->z * pos.z);
+            }
         };
 
         struct Marker {
@@ -150,11 +163,6 @@ namespace tomcat::model {
                                              int time_step,
                                              const EvidenceSet& new_data);
 
-        static bool did_player_change_area(int player_order,
-                                           int data_point,
-                                           int time_step,
-                                           const EvidenceSet& new_data);
-
         static bool
         did_player_interact_with_victim(int player_order,
                                         int data_point,
@@ -162,15 +170,22 @@ namespace tomcat::model {
                                         const EvidenceSet& new_data);
 
         static bool is_player_far_apart(int player_order,
-                                         Position position,
-                                         int max_distance,
-                                         int data_point,
-                                         int time_step,
-                                         const EvidenceSet& new_data);
+                                        Position position,
+                                        int max_distance,
+                                        int data_point,
+                                        int time_step,
+                                        const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Member functions
         //------------------------------------------------------------------
+
+        /**
+         * Initialize containers with the number of trials being estimated.
+         *
+         * @param new_data: evidence
+         */
+        void initialize_containers(const EvidenceSet& new_data);
 
         /**
          * Estimate if team is motivated.
@@ -186,53 +201,31 @@ namespace tomcat::model {
          */
         void estimate_unspoken_markers(const EvidenceSet& new_data);
 
-        //        /**
-        //         * Parses the map to identify and store room ids.
-        //         *
-        //         * @param map_filepath: path to the descriptive file of the
-        //         map used in
-        //         * the mission
-        //         */
-        //        void parse_map(const std::string& map_filepath);
-        //
-        //        /**
-        //         * Initialize all estimators used by the intervention
-        //         estimator.
-        //         *
-        //         * @param threat_room_model_filepath: path to the json file
-        //         containing
-        //         * the model definition for belief about threat rooms
-        //         */
-        //        void
-        //        create_belief_estimators(const std::string&
-        //        threat_room_model_filepath);
-        //
-        //        /**
-        //         * Initializes estimators that deal with belief about threat
-        //         rooms.
-        //         *
-        //         * @param threat_room_model_filepath: path to the json file
-        //         containing
-        //         * the model definition for belief about threat rooms
-        //         */
-        //        void create_threat_room_belief_estimators(
-        //            const std::string& threat_room_model_filepath);
-        //
-        //        /**
-        //         * Estimate beliefs about threat rooms given new evidence.
-        //         *
-        //         * @param new_dat: new evidence data
-        //         */
-        //        void update_threat_room_beliefs(const EvidenceSet& new_data);
+        /**
+         * Checks if a player changed area in the map.
+         *
+         * @param player_order: player's index
+         * @param data_point: trial data index
+         * @param time_step: time step
+         * @param new_data: evidence
+         * @return
+         */
+        bool did_player_change_area(int player_order,
+                                    int data_point,
+                                    int time_step,
+                                    const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Data members
         //------------------------------------------------------------------
 
+        bool containers_initialized = false;
+
         int last_time_step = -1;
         bool first_mission = true;
         Eigen::VectorXd encouragement_cdf = Eigen::VectorXd(0);
 
+        std::vector<std::vector<std::string>> last_areas;
         std::vector<std::vector<Marker>> last_placed_markers;
         std::vector<std::vector<Marker>> active_unspoken_markers;
 

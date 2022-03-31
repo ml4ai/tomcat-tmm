@@ -28,6 +28,12 @@ namespace tomcat {
                 inline const static std::string ENCOURAGEMENT = "encouragement";
                 inline const static std::string LAST_PLACED_MARKERS =
                     "last_placed_markers";
+                inline const static std::string AREA = "area";
+                inline const static std::string PLAYER_POSITION =
+                    "player_position";
+                inline const static std::string VICTIM_INTERACTION =
+                    "victim_interaction";
+                inline const static std::string SPOKEN_MARKER = "spoken_marker";
             };
 
             struct MarkerTypeTexts {
@@ -60,7 +66,8 @@ namespace tomcat {
                     {MarkerType::VICTIM_A, MarkerTypeTexts::VICTIM_A},
                     {MarkerType::VICTIM_B, MarkerTypeTexts::VICTIM_B},
                     {MarkerType::VICTIM_C, MarkerTypeTexts::VICTIM_C},
-                    {MarkerType::REGULAR_VICTIM, MarkerTypeTexts::REGULAR_VICTIM},
+                    {MarkerType::REGULAR_VICTIM,
+                     MarkerTypeTexts::REGULAR_VICTIM},
                     {MarkerType::SOS, MarkerTypeTexts::SOS},
                     {MarkerType::RUBBLE, MarkerTypeTexts::RUBBLE},
                     {MarkerType::THREAT_ROOM, MarkerTypeTexts::THREAT_ROOM}};
@@ -71,7 +78,8 @@ namespace tomcat {
                     {MarkerTypeTexts::VICTIM_A, MarkerType::VICTIM_A},
                     {MarkerTypeTexts::VICTIM_B, MarkerType::VICTIM_B},
                     {MarkerTypeTexts::VICTIM_C, MarkerType::VICTIM_C},
-                    {MarkerTypeTexts::REGULAR_VICTIM, MarkerType::REGULAR_VICTIM},
+                    {MarkerTypeTexts::REGULAR_VICTIM,
+                     MarkerType::REGULAR_VICTIM},
                     {MarkerTypeTexts::SOS, MarkerType::SOS},
                     {MarkerTypeTexts::RUBBLE, MarkerType::RUBBLE},
                     {MarkerTypeTexts::THREAT_ROOM, MarkerType::THREAT_ROOM}};

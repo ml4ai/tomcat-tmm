@@ -408,11 +408,16 @@ namespace tomcat {
             const auto& unspoken_markers =
                 estimator->get_active_unspoken_markers();
             for (int d = 0; d < agent->get_evidence_metadata().size(); d++) {
-                for (int p = 0; p < unspoken_markers[d].size(); p++) {
+                for (int player_order = 0;
+                     player_order < unspoken_markers[d].size();
+                     player_order++) {
                     auto intervention_msg =
                         this->get_communication_marker_intervention_message(
-                            agent, time_step, d, p);
+                            agent, time_step, d, player_order);
                     messages.push_back(intervention_msg);
+
+                    // The agent only intervenes once on each unspoken marker
+                    estimator->clear_active_unspoken_marker(player_order, d);
                 }
             }
         }

@@ -52,7 +52,23 @@ namespace tomcat {
             const Marker& unspoken_marker,
             int data_point,
             int time_step,
-            const EvidenceSet& new_data) {}
+            const EvidenceSet& new_data) {
+
+            const string& marker_type_text =
+                new_data
+                    .get_dict_like_data()[data_point][time_step]
+                                         [Labels::SPOKEN_MARKER][player_order];
+
+            if (!marker_type_text.empty()) {
+                MarkerType spoken_marker_type =
+                    ASISTStudy3MessageConverter::MARKER_TEXT_TO_TYPE.at(
+                        marker_type_text);
+
+                return unspoken_marker.type == spoken_marker_type;
+            }
+
+            return false;
+        }
 
         ASISTStudy3InterventionEstimator::Marker
         ASISTStudy3InterventionEstimator::get_last_placed_marker(
@@ -61,11 +77,11 @@ namespace tomcat {
             int time_step,
             const EvidenceSet& new_data) {
 
-            const string& label = Labels::LAST_PLACED_MARKERS;
-            const auto& json_last_placed_markers =
-                new_data.get_dict_like_data()[data_point][time_step][label];
+            const auto& json_marker =
+                new_data.get_dict_like_data()[data_point][time_step]
+                                             [Labels::LAST_PLACED_MARKERS]
+                                             [player_order];
 
-            const auto& json_marker = json_last_placed_markers[player_order];
             if (!json_marker.empty()) {
                 Position pos((double)json_marker["x"],
                              (double)json_marker["z"]);
@@ -79,28 +95,35 @@ namespace tomcat {
             return Marker();
         }
 
-        bool
-        ASISTStudy3InterventionEstimator::did_player_change_area(
+        bool ASISTStudy3InterventionEstimator::did_player_interact_with_victim(
             int player_order,
             int data_point,
             int time_step,
-            const EvidenceSet& new_data) {}
+            const EvidenceSet& new_data) {
 
-        bool
-        ASISTStudy3InterventionEstimator::did_player_interact_with_victim(
-            int player_order,
-            int data_point,
-            int time_step,
-            const EvidenceSet& new_data) {}
+            return new_data
+                .get_dict_like_data()[data_point][time_step]
+                                     [Labels::VICTIM_INTERACTION][player_order];
+        }
 
-        bool
-        ASISTStudy3InterventionEstimator::is_player_far_apart(
+        bool ASISTStudy3InterventionEstimator::is_player_far_apart(
             int player_order,
             Position position,
             int max_distance,
             int data_point,
             int time_step,
-            const EvidenceSet& new_data) {}
+            const EvidenceSet& new_data) {
+
+            double x = new_data.get_dict_like_data()[data_point][time_step]
+                                                    [Labels::PLAYER_POSITION]
+                                                    [player_order]["x"];
+            double z = new_data.get_dict_like_data()[data_point][time_step]
+                                                    [Labels::PLAYER_POSITION]
+                                                    [player_order]["z"];
+            Position player_pos(x, z);
+
+            return player_pos.distance_to(position) > max_distance;
+        }
 
         //----------------------------------------------------------------------
         // Member functions
@@ -120,12 +143,32 @@ namespace tomcat {
         void ASISTStudy3InterventionEstimator::estimate(
             const EvidenceSet& new_data) {
 
+            this->initialize_containers(new_data);
+
             this->first_mission =
                 new_data.get_metadata()[0]["mission_order"] == 1;
             this->last_time_step += new_data.get_time_steps();
 
             this->estimate_motivation(new_data);
             this->estimate_unspoken_markers(new_data);
+        }
+
+        void ASISTStudy3InterventionEstimator::initialize_containers(
+            const EvidenceSet& new_data) {
+            if (this->containers_initialized) {
+                this->last_areas =
+                    vector<vector<string>>(new_data.get_num_data_points());
+                this->last_placed_markers =
+                    vector<vector<Marker>>(new_data.get_num_data_points());
+                this->active_unspoken_markers =
+                    vector<vector<Marker>>(new_data.get_num_data_points());
+
+                for (int d = 0; d < new_data.get_num_data_points(); d++) {
+                    this->last_areas[d] = vector<string>(3);
+                    this->last_placed_markers[d] = vector<Marker>(3);
+                    this->active_unspoken_markers[d] = vector<Marker>(3);
+                }
+            }
         }
 
         void ASISTStudy3InterventionEstimator::estimate_motivation(
@@ -143,9 +186,10 @@ namespace tomcat {
             if (metadata[0]["mission_order"] == 1) {
                 for (int d = 0; d < new_data.get_num_data_points(); d++) {
                     for (int t = 0; t < new_data.get_time_steps(); t++) {
-                        const string& label = Labels::ENCOURAGEMENT;
                         increments[d] +=
-                            (int)new_data.get_dict_like_data()[d][t][label];
+                            (int)new_data
+                                .get_dict_like_data()[d][t]
+                                                     [Labels::ENCOURAGEMENT];
                     }
                 }
 
@@ -169,8 +213,6 @@ namespace tomcat {
                     for (int player_order = 0; player_order < 3;
                          player_order++) {
 
-                        // If the player spoke about an active marker, remove it
-                        // from the list.
                         const auto& unspoken_marker =
                             this->active_unspoken_markers[d][player_order];
                         if (unspoken_marker.type != MarkerType::NONE) {
@@ -179,8 +221,8 @@ namespace tomcat {
                                                               d,
                                                               t,
                                                               new_data)) {
-                                this->active_unspoken_markers[d][player_order] =
-                                    Marker();
+                                this->clear_active_unspoken_marker(player_order,
+                                                                   d);
                             }
                         }
 
@@ -195,13 +237,14 @@ namespace tomcat {
                                 player_order, d, t, new_data);
                             bool cond2 = did_player_interact_with_victim(
                                 player_order, d, t, new_data);
-                            bool cond3 = !last_marker.is_none() &&
-                                         is_player_far_apart(player_order,
-                                                             last_marker.position,
-                                                             MAX_DIST,
-                                                             d,
-                                                             t,
-                                                             new_data);
+                            bool cond3 =
+                                !last_marker.is_none() &&
+                                is_player_far_apart(player_order,
+                                                    last_marker.position,
+                                                    MAX_DIST,
+                                                    d,
+                                                    t,
+                                                    new_data);
                             if (cond1 || cond2 || cond3) {
                                 this->active_unspoken_markers[d][player_order] =
                                     last_marker;
@@ -224,6 +267,21 @@ namespace tomcat {
                     }
                 }
             }
+        }
+
+        bool ASISTStudy3InterventionEstimator::did_player_change_area(
+            int player_order,
+            int data_point,
+            int time_step,
+            const EvidenceSet& new_data) {
+
+            const string& curr_area =
+                new_data.get_dict_like_data()[data_point][time_step]
+                                             [Labels::AREA][player_order];
+            const string& last_area =
+                this->last_areas[data_point][player_order];
+
+            return curr_area != last_area;
         }
 
         void
@@ -250,13 +308,7 @@ namespace tomcat {
 
         void ASISTStudy3InterventionEstimator::prepare() {
             this->last_time_step = -1;
-            //            // belief about threat rooms
-            //            for (auto& estimators :
-            //            this->threat_room_belief_estimators) {
-            //                for (auto& estimator : estimators) {
-            //                    estimator.prepare();
-            //                }
-            //            }
+            this->containers_initialized = false;
         }
 
         Eigen::VectorXd
@@ -266,6 +318,11 @@ namespace tomcat {
                     ->get_encouragement_node();
             this->encouragement_cdf = encouragement_node->get_cdfs(1, 0, false);
             return this->encouragement_cdf;
+        }
+
+        void ASISTStudy3InterventionEstimator::clear_active_unspoken_marker(
+            int player_order, int data_point) {
+            this->active_unspoken_markers[data_point][player_order] = Marker();
         }
 
         //----------------------------------------------------------------------
