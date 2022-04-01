@@ -24,16 +24,23 @@ namespace tomcat {
          */
         class ASISTStudy3MessageConverter : public ASISTMessageConverter {
           public:
+            //------------------------------------------------------------------
+            // Structs
+            //------------------------------------------------------------------
             struct Labels {
                 inline const static std::string ENCOURAGEMENT = "encouragement";
                 inline const static std::string LAST_PLACED_MARKERS =
                     "last_placed_markers";
-                inline const static std::string AREA = "area";
-                inline const static std::string PLAYER_POSITION =
+                inline const static std::string REMOVED_MARKERS =
+                    "removed_markers";
+                inline const static std::string LOCATION_CHANGES =
+                    "location_changes";
+                inline const static std::string PLAYER_POSITIONS =
                     "player_position";
-                inline const static std::string VICTIM_INTERACTION =
+                inline const static std::string VICTIM_INTERACTIONS =
                     "victim_interaction";
-                inline const static std::string SPOKEN_MARKER = "spoken_marker";
+                inline const static std::string SPOKEN_MARKERS =
+                    "spoken_marker";
             };
 
             struct MarkerTypeTexts {
@@ -83,6 +90,74 @@ namespace tomcat {
                     {MarkerTypeTexts::SOS, MarkerType::SOS},
                     {MarkerTypeTexts::RUBBLE, MarkerType::RUBBLE},
                     {MarkerTypeTexts::THREAT_ROOM, MarkerType::THREAT_ROOM}};
+
+            struct Position {
+                double x;
+                double z;
+
+                Position() : x(0), z(0) {}
+
+                Position(double x, double z) : x(x), z(z) {}
+
+                explicit Position(const nlohmann::json& serialized_position) {
+                    this->x = serialized_position["x"];
+                    this->z = serialized_position["z"];
+                }
+
+                double distance_to(const Position& pos) const {
+                    return sqrt(this->x * pos.x + this->z * pos.z);
+                }
+
+                nlohmann::json serialize() const {
+                    nlohmann::json json_marker;
+                    json_marker["x"] = this->x;
+                    json_marker["z"] = this->z;
+                    return json_marker;
+                }
+
+                bool operator==(const Position& position) const {
+                    return position.x == this->x and position.z == this->z;
+                }
+            };
+
+            struct Marker {
+                ASISTStudy3MessageConverter::MarkerType type;
+                Position position;
+
+                Marker()
+                    : type(ASISTStudy3MessageConverter::MarkerType::NONE),
+                      position(Position()) {}
+
+                Marker(ASISTStudy3MessageConverter::MarkerType type,
+                       const Position& position)
+                    : type(type), position(position) {}
+
+                explicit Marker(const nlohmann::json& serialized_marker) {
+                    this->type =
+                        MARKER_TEXT_TO_TYPE.at(serialized_marker["type"]);
+                    this->position = Position(serialized_marker["position"]);
+                }
+
+                bool is_none() const {
+                    return this->type ==
+                           ASISTStudy3MessageConverter::MarkerType::NONE;
+                }
+
+                nlohmann::json serialize() const {
+                    nlohmann::json json_marker;
+                    if (!this->is_none()) {
+                        json_marker["type"] =
+                            MARKER_TYPE_TO_TEXT.at(this->type);
+                        json_marker["position"] = this->position.serialize();
+                    }
+                    return json_marker;
+                }
+
+                bool operator==(const Marker& marker) const {
+                    return marker.position == this->position and
+                           marker.type == this->type;
+                }
+            };
 
             //------------------------------------------------------------------
             // Constructors & Destructor
@@ -201,31 +276,36 @@ namespace tomcat {
              */
             void parse_map(const std::string& map_filepath);
 
-            /**
-             * Fills map info and marker legend for each one of the
-             * participants in the trial.
-             *
-             * @param json_client_info: json object containing information
-             * about the kind of map and marker legend received per player
-             */
             void parse_players(const nlohmann::json& json_client_info);
 
-            /**
-             * Update utterance evidence
-             *
-             * @param json_message: json containing the utterance information
-             */
             void parse_utterance_message(const nlohmann::json& json_message);
 
-            /**
-             * Update player's role
-             *
-             * @param json_message: json containing the role information
-             * @param json_mission_log: metadata for the mission
-             */
             void
             parse_role_selection_message(const nlohmann::json& json_message,
                                          nlohmann::json& json_mission_log);
+
+            void
+            parse_marker_placed_message(const nlohmann::json& json_message);
+
+            void
+            parse_marker_removed_message(const nlohmann::json& json_message);
+
+            void
+            parse_player_position_message(const nlohmann::json& json_message);
+
+            void parse_new_location_message(const nlohmann::json& json_message);
+
+            void
+            parse_victim_placement_message(const nlohmann::json& json_message);
+
+            void
+            parse_victim_pickedup_message(const nlohmann::json& json_message);
+
+            void
+            parse_victim_triage_message(const nlohmann::json& json_message);
+
+            void
+            parse_victim_proximity_message(const nlohmann::json& json_message);
 
             /**
              * Gets the observations accumulated so far and creates an evidence
@@ -284,6 +364,13 @@ namespace tomcat {
 
             // Data
             int num_encouragement_utterances;
+
+            std::vector<std::vector<Marker>> placed_markers;
+            std::vector<std::vector<Marker>> removed_markers;
+            std::vector<Position> player_positions;
+            std::vector<bool> location_changes;
+            std::vector<bool> victim_interactions;
+            std::vector<std::unordered_set<MarkerType>> spoken_markers;
         };
 
     } // namespace model

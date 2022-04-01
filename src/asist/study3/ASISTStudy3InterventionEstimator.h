@@ -90,7 +90,7 @@ namespace tomcat::model {
 
         int get_last_time_step() const;
 
-        const std::vector<std::vector<Marker>>&
+        const std::vector<std::vector<ASISTStudy3MessageConverter::Marker>>&
         get_active_unspoken_markers() const;
 
       protected:
@@ -116,52 +116,20 @@ namespace tomcat::model {
         const static int MAX_DIST = 5;
 
         //------------------------------------------------------------------
-        // Structs
-        //------------------------------------------------------------------
-        struct Position {
-            double x;
-            double z;
-
-            Position() : x(0), z(0) {}
-
-            Position(double x, double z) : x(x), z(z) {}
-
-            double distance_to(const Position& pos) const {
-                return sqrt(this->x * pos.x + this->z * pos.z);
-            }
-        };
-
-        struct Marker {
-            ASISTStudy3MessageConverter::MarkerType type;
-            Position position;
-
-            Marker()
-                : type(ASISTStudy3MessageConverter::MarkerType::NONE),
-                  position(Position()) {}
-
-            Marker(ASISTStudy3MessageConverter::MarkerType type,
-                   const Position& position)
-                : type(type), position(position) {}
-
-            bool is_none() const {
-                return this->type ==
-                       ASISTStudy3MessageConverter::MarkerType::NONE;
-            }
-        };
-
-        //------------------------------------------------------------------
         // Static functions
         //------------------------------------------------------------------
-        static bool did_player_speak_about_marker(int player_order,
-                                                  const Marker& unspoken_marker,
-                                                  int data_point,
-                                                  int time_step,
-                                                  const EvidenceSet& new_data);
+        static bool did_player_speak_about_marker(
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& unspoken_marker,
+            int data_point,
+            int time_step,
+            const EvidenceSet& new_data);
 
-        static Marker get_last_placed_marker(int player_order,
-                                             int data_point,
-                                             int time_step,
-                                             const EvidenceSet& new_data);
+        static ASISTStudy3MessageConverter::Marker
+        get_last_placed_marker(int player_order,
+                               int data_point,
+                               int time_step,
+                               const EvidenceSet& new_data);
 
         static bool
         did_player_interact_with_victim(int player_order,
@@ -169,12 +137,24 @@ namespace tomcat::model {
                                         int time_step,
                                         const EvidenceSet& new_data);
 
-        static bool is_player_far_apart(int player_order,
-                                        Position position,
-                                        int max_distance,
-                                        int data_point,
-                                        int time_step,
-                                        const EvidenceSet& new_data);
+        static bool is_player_far_apart(
+            int player_order,
+            const ASISTStudy3MessageConverter::Position& position,
+            int max_distance,
+            int data_point,
+            int time_step,
+            const EvidenceSet& new_data);
+
+        static std::vector<ASISTStudy3MessageConverter::Marker>
+        get_removed_markers(int player_order,
+                            int data_point,
+                            int time_step,
+                            const EvidenceSet& new_data);
+
+        static bool did_player_change_area(int player_order,
+                                           int data_point,
+                                           int time_step,
+                                           const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Member functions
@@ -201,20 +181,6 @@ namespace tomcat::model {
          */
         void estimate_unspoken_markers(const EvidenceSet& new_data);
 
-        /**
-         * Checks if a player changed area in the map.
-         *
-         * @param player_order: player's index
-         * @param data_point: trial data index
-         * @param time_step: time step
-         * @param new_data: evidence
-         * @return
-         */
-        bool did_player_change_area(int player_order,
-                                    int data_point,
-                                    int time_step,
-                                    const EvidenceSet& new_data);
-
         //------------------------------------------------------------------
         // Data members
         //------------------------------------------------------------------
@@ -225,26 +191,10 @@ namespace tomcat::model {
         bool first_mission = true;
         Eigen::VectorXd encouragement_cdf = Eigen::VectorXd(0);
 
-        std::vector<std::vector<std::string>> last_areas;
-        std::vector<std::vector<Marker>> last_placed_markers;
-        std::vector<std::vector<Marker>> active_unspoken_markers;
-
-        //        std::shared_ptr<ASISTStudy3InterventionModel>
-        //        intervention_model; int num_encouragements_first_mission = 0;
-        //
-        //        // Indices of each role
-        //        const static int NUM_ROLES = 3;
-        //
-        //        const static int MEDIC = 0;
-        //        const static int TRANSPORTER = 1;
-        //        const static int ENGINEER = 2;
-        //
-        //        std::unordered_map<std::string, int> room_id_to_idx;
-        //        std::vector<std::string> room_ids;
-        //
-        //        // Stores belief estimates about threat rooms per player and
-        //        room. std::vector<std::vector<SumProductEstimator>>
-        //            threat_room_belief_estimators;
+        std::vector<std::vector<ASISTStudy3MessageConverter::Marker>>
+            last_placed_markers;
+        std::vector<std::vector<ASISTStudy3MessageConverter::Marker>>
+            active_unspoken_markers;
     };
 
 } // namespace tomcat::model

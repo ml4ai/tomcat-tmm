@@ -68,13 +68,13 @@ namespace tomcat {
             this->player_id_to_index.clear();
 
             this->num_encouragement_utterances = 0;
-
-            //            this->team_score = Tensor3(0);
-            //            this->players.clear();
-            //            this->player_id_to_number.clear();
-            //            this->player_role.clear();
-            //            this->player_position.clear();
-            //            this->player_seconds_in_map_section.clear();
+            this->placed_markers = vector<vector<Marker>>(this->num_players);
+            this->removed_markers = vector<vector<Marker>>(this->num_players);
+            this->player_positions = vector<Position>(this->num_players);
+            this->location_changes = vector<bool>(this->num_players, false);
+            this->victim_interactions = vector<bool>(this->num_players, false);
+            this->spoken_markers =
+                vector<unordered_set<MarkerType>>(this->num_players);
         }
 
         void
@@ -97,6 +97,13 @@ namespace tomcat {
             topics.insert("agent/dialog");
             topics.insert("observations/events/player/role_selected");
             topics.insert("observations/events/mission/planning");
+            topics.insert("observations/events/player/marker_placed");
+            topics.insert("observations/events/player/marker_removed");
+            topics.insert("observations/events/player/location");
+            topics.insert("observations/events/player/victim_placed");
+            topics.insert("observations/events/player/victim_picked_up");
+            topics.insert("observations/events/player/triage");
+            topics.insert("observations/events/player/proximity_block");
 
             return topics;
         }
@@ -178,6 +185,66 @@ namespace tomcat {
             return data;
         }
 
+        EvidenceSet ASISTStudy3MessageConverter::parse_after_mission_start(
+            const nlohmann::json& json_message,
+            nlohmann::json& json_mission_log) {
+
+            EvidenceSet data;
+
+            if (is_message_of(json_message, "observation", "state")) {
+                check_field(json_message["data"], "mission_timer");
+
+                const string& timer = json_message["data"]["mission_timer"];
+                int elapsed_seconds = this->get_elapsed_time(timer);
+
+                if (elapsed_seconds >= 0 && this->elapsed_seconds < 0) {
+                    // t = 0 (First time step). We store the timestamp when the
+                    // mission really started.
+                    const string& timestamp = json_message["msg"]["timestamp"];
+                    json_mission_log["initial_timestamp"] = timestamp;
+                    json_mission_log["initial_elapsed_milliseconds"] =
+                        json_message["data"]["elapsed_milliseconds"];
+
+                    data = this->collect_time_step_evidence();
+                    this->elapsed_seconds = 0;
+                }
+
+                // Collect evidence when there's a time step transition
+                for (int t = this->elapsed_seconds + this->time_step_size;
+                     t <= elapsed_seconds;
+                     t++) {
+                    data.hstack(this->collect_time_step_evidence());
+
+                    this->elapsed_seconds += this->time_step_size;
+                    if (this->elapsed_seconds >=
+                        this->time_steps * this->time_step_size - 1) {
+                        this->write_to_log_on_mission_finished(
+                            json_mission_log);
+                        this->mission_finished = true;
+                        break;
+                    }
+                }
+            }
+            else if (is_message_of(
+                         json_message, "event", "Event:MissionState")) {
+                check_field(json_message["data"]["mission_state"],
+                            "mission_state");
+
+                const string& mission_state =
+                    json_message["data"]["mission_state"];
+                if (boost::iequals(mission_state, "stop")) {
+                    this->write_to_log_on_mission_finished(json_mission_log);
+                    this->mission_finished = true;
+                }
+            }
+
+            if (!this->mission_finished) {
+                this->fill_observation(json_message, json_mission_log);
+            }
+
+            return data;
+        }
+
         void ASISTStudy3MessageConverter::parse_players(
             const nlohmann::json& json_client_info) {
 
@@ -197,15 +264,47 @@ namespace tomcat {
             const nlohmann::json& json_message,
             nlohmann::json& json_mission_log) {
 
-            if (is_message_of(json_message, "event", "Event:dialogue_event")) {
-                if (this->mission_started) {
+            if (this->mission_started) {
+                if (is_message_of(
+                        json_message, "event", "Event:dialogue_event")) {
                     this->parse_utterance_message(json_message);
                 }
-            }
-            else if (is_message_of(
-                         json_message, "event", "Event:RoleSelected")) {
-                this->parse_role_selection_message(json_message,
-                                                   json_mission_log);
+                else if (is_message_of(
+                             json_message, "event", "Event:RoleSelected")) {
+                    this->parse_role_selection_message(json_message,
+                                                       json_mission_log);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:MarkerPlaced")) {
+                    this->parse_marker_placed_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:MarkerRemoved")) {
+                    this->parse_marker_removed_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:location")) {
+                    this->parse_new_location_message(json_message);
+                }
+                else if (is_message_of(json_message, "observation", "state")) {
+                    this->parse_player_position_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:VictimPlaced")) {
+                    this->parse_victim_placement_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:VictimPickedUp")) {
+                    this->parse_victim_pickedup_message(json_message);
+                }
+                else if (is_message_of(json_message, "event", "Event:Triage")) {
+                    this->parse_victim_triage_message(json_message);
+                }
+                else if (is_message_of(json_message,
+                                       "event",
+                                       "Event:ProximityBlockInteraction")) {
+                    this->parse_victim_proximity_message(json_message);
+                }
             }
         }
 
@@ -305,64 +404,118 @@ namespace tomcat {
             }
         }
 
-        EvidenceSet ASISTStudy3MessageConverter::parse_after_mission_start(
-            const nlohmann::json& json_message,
-            nlohmann::json& json_mission_log) {
+        void ASISTStudy3MessageConverter::parse_marker_placed_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "marker_x");
+            check_field(json_message["data"], "marker_z");
+            check_field(json_message["data"], "participant_id");
+            check_field(json_message["data"], "type");
 
-            EvidenceSet data;
+            MarkerType type =
+                MARKER_TEXT_TO_TYPE.at((string)json_message["data"]["type"]);
+            Position pos((double)json_message["data"]["marker_x"],
+                         (double)json_message["data"]["marker_z"]);
+            Marker marker(type, pos);
 
-            if (is_message_of(json_message, "observation", "state")) {
-                check_field(json_message["data"], "mission_timer");
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
 
-                const string& timer = json_message["data"]["mission_timer"];
-                int elapsed_seconds = this->get_elapsed_time(timer);
+            this->placed_markers[player_order].push_back(marker);
+        }
 
-                if (elapsed_seconds >= 0 && this->elapsed_seconds < 0) {
-                    // t = 0 (First time step). We store the timestamp when the
-                    // mission really started.
-                    const string& timestamp = json_message["msg"]["timestamp"];
-                    json_mission_log["initial_timestamp"] = timestamp;
-                    json_mission_log["initial_elapsed_milliseconds"] =
-                        json_message["data"]["elapsed_milliseconds"];
+        void ASISTStudy3MessageConverter::parse_marker_removed_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "marker_x");
+            check_field(json_message["data"], "marker_z");
+            check_field(json_message["data"], "participant_id");
+            check_field(json_message["data"], "type");
 
-                    data = this->collect_time_step_evidence();
-                    this->elapsed_seconds = 0;
-                }
+            MarkerType type =
+                MARKER_TEXT_TO_TYPE.at((string)json_message["data"]["type"]);
+            Position pos((double)json_message["data"]["marker_x"],
+                         (double)json_message["data"]["marker_z"]);
+            Marker marker(type, pos);
 
-                // Collect evidence when there's a time step transition
-                for (int t = this->elapsed_seconds + this->time_step_size;
-                     t <= elapsed_seconds;
-                     t++) {
-                    data.hstack(this->collect_time_step_evidence());
-
-                    this->elapsed_seconds += this->time_step_size;
-                    if (this->elapsed_seconds >=
-                        this->time_steps * this->time_step_size - 1) {
-                        this->write_to_log_on_mission_finished(
-                            json_mission_log);
-                        this->mission_finished = true;
-                        break;
+            // If the marker was just placed, remove it from the list of markers
+            // placed instead.
+            for (int i = 0; i < this->num_players; i++) {
+                for (int j = 0; j < this->placed_markers[i].size(); j++) {
+                    if (marker == this->placed_markers[i][j]) {
+                        this->placed_markers[i].erase(
+                            this->placed_markers[i].begin() + j);
+                        return;
                     }
                 }
             }
-            else if (is_message_of(
-                         json_message, "event", "Event:MissionState")) {
-                check_field(json_message["data"]["mission_state"],
-                            "mission_state");
 
-                const string& mission_state =
-                    json_message["data"]["mission_state"];
-                if (boost::iequals(mission_state, "stop")) {
-                    this->write_to_log_on_mission_finished(json_mission_log);
-                    this->mission_finished = true;
-                }
-            }
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
 
-            if (!this->mission_finished) {
-                this->fill_observation(json_message, json_mission_log);
-            }
+            this->removed_markers[player_order].push_back(marker);
+        }
 
-            return data;
+        void ASISTStudy3MessageConverter::parse_player_position_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "x");
+            check_field(json_message["data"], "z");
+            check_field(json_message["data"], "participant_id");
+
+            Position pos((double)json_message["data"]["x"],
+                         (double)json_message["data"]["z"]);
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->player_positions[player_order] = pos;
+        }
+
+        void ASISTStudy3MessageConverter::parse_new_location_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->location_changes[player_order] = true;
+        }
+
+        void ASISTStudy3MessageConverter::parse_victim_placement_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->victim_interactions[player_order] = true;
+        }
+
+        void ASISTStudy3MessageConverter::parse_victim_pickedup_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->victim_interactions[player_order] = true;
+        }
+
+        void ASISTStudy3MessageConverter::parse_victim_triage_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->victim_interactions[player_order] = true;
+        }
+
+        void ASISTStudy3MessageConverter::parse_victim_proximity_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->victim_interactions[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_scoreboard_message(
@@ -384,8 +537,68 @@ namespace tomcat {
 
             dict_data[Labels::ENCOURAGEMENT] =
                 this->num_encouragement_utterances;
-
             this->num_encouragement_utterances = 0;
+
+            nlohmann::json json_last_placed_markers = nlohmann::json::array();
+            nlohmann::json json_removed_markers = nlohmann::json::array();
+            nlohmann::json json_location_changes = nlohmann::json::array();
+            nlohmann::json json_victim_interactions = nlohmann::json::array();
+            nlohmann::json json_player_positions = nlohmann::json::array();
+            nlohmann::json json_spoken_markers = nlohmann::json::array();
+            for (int player_order = 0; player_order < this->num_players;
+                 player_order++) {
+                // Placed markers
+                if (!this->placed_markers[player_order].empty()) {
+                    // Just save the last one placed
+                    json_last_placed_markers.push_back(
+                        this->placed_markers[player_order].back().serialize());
+                }
+                else {
+                    json_last_placed_markers.push_back(nlohmann::json());
+                }
+                this->placed_markers[player_order].clear();
+
+                // Removed markers
+                nlohmann::json json_markers = nlohmann::json::array();
+                for (const auto& marker : this->removed_markers[player_order]) {
+                    json_markers.push_back(marker.serialize());
+                }
+                json_removed_markers.push_back(json_markers);
+                this->removed_markers[player_order].clear();
+
+                // Location changes
+                json_location_changes.push_back(
+                    (bool)this->location_changes[player_order]);
+                this->location_changes[player_order] = false;
+
+                // Victim interactions
+                json_victim_interactions.push_back(
+                    (bool)this->victim_interactions[player_order]);
+                this->victim_interactions[player_order] = false;
+
+                // Player positions
+                json_player_positions.push_back(
+                    this->player_positions[player_order].serialize());
+
+                // Spoken markers
+                nlohmann::json json_marker_types = nlohmann::json::array();
+                for (const auto& marker_type :
+                     this->spoken_markers[player_order]) {
+                    json_marker_types.push_back(
+                        MARKER_TYPE_TO_TEXT.at(marker_type));
+                }
+                json_spoken_markers.push_back(json_marker_types);
+                this->spoken_markers[player_order].clear();
+            }
+
+            dict_data[Labels::LAST_PLACED_MARKERS] = json_last_placed_markers;
+            dict_data[Labels::REMOVED_MARKERS] = json_removed_markers;
+            dict_data[Labels::LOCATION_CHANGES] = json_location_changes;
+            dict_data[Labels::VICTIM_INTERACTIONS] = json_victim_interactions;
+            dict_data[Labels::PLAYER_POSITIONS] = json_player_positions;
+            dict_data[Labels::SPOKEN_MARKERS] = json_spoken_markers;
+
+            // Clear data that should not persist across time steps
 
             vector<vector<nlohmann::json>> dict_data_vec(1);
             dict_data_vec[0].push_back(dict_data);

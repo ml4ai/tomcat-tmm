@@ -140,7 +140,7 @@ namespace tomcat {
             const AgentPtr& agent, int time_step) {
 
             // In the online setting the number of data points will be
-            // equals to 1 (1 trial being processed). However, in the
+            // equals to 1 (one trial being processed). However, in the
             // offline setting we might be processing multiple trials at the
             // same time, and we need to generate report messages for each
             // one of them.
@@ -165,170 +165,6 @@ namespace tomcat {
                 this->intervene_on_introduction(agent, t, messages);
                 this->intervene_on_motivation(agent, t, messages);
             }
-
-            //
-            //            // Interventions after 2.5, 5 and 8 minutes since
-            //            the mission start if (EXISTS(time_step,
-            //            this->all_intervention_times)) {
-            //                nlohmann::json intervention_message;
-            //                intervention_message["header"] =
-            //                    this->get_header_section(agent, "agent");
-            //                intervention_message["msg"] =
-            //                    this->get_msg_section(agent,
-            //                    "Intervention:Chat");
-            //                intervention_message["data"] =
-            //                    this->get_common_data_section(agent,
-            //                    time_step);
-            //
-            //                if (time_step == this->intro_time) {
-            //                    // Introduce agent
-            //                    intervention_message["data"]["content"] =
-            //                        this->get_introductory_speech();
-            //                    intervention_message["data"]["explanation"]["text"]
-            //                    =
-            //                        "ToMCAT introduces itself to the
-            //                        team.";
-            //                    messages.push_back(intervention_message);
-            //                }
-            //
-            //                if (time_step == this->closing_time) {
-            //                    // Say goodbye
-            //                    intervention_message["data"]["content"] =
-            //                        this->get_closing_speech();
-            //                    intervention_message["data"]["explanation"]["text"]
-            //                    =
-            //                        "ToMCAT says goodbye to the team
-            //                        letting them know how " "well they
-            //                        performed compared to other teams.";
-            //                    messages.push_back(intervention_message);
-            //                }
-            //
-            //                if (EXISTS(time_step,
-            //                this->mission_timer_alert_times)) {
-            //                    // Say goodbye
-            //                    intervention_message["data"]["content"] =
-            //                        this->get_mission_timer_alert_speech(time_step);
-            //                    intervention_message["data"]["explanation"]["text"]
-            //                    =
-            //                        "It warns the team about the remaining
-            //                        time of the " "mission halfway through
-            //                        it and 2 minutes before it " "ends.";
-            //                    messages.push_back(intervention_message);
-            //                }
-            //
-            //                for (const auto& estimator :
-            //                agent->get_estimators()) {
-            //                    for (const auto& base_estimator :
-            //                         estimator->get_base_estimators()) {
-            //
-            //                        if
-            //                        (base_estimator->get_estimates().label
-            //                        ==
-            //                            "TeamQuality") {
-            //                            if (EXISTS(time_step,
-            //                                       this->performance_feedback_times))
-            //                                       {
-            //
-            //                                auto [current_quality,
-            //                                confidence]
-            //                                =
-            //                                    this->get_estimated_team_quality(
-            //                                        base_estimator,
-            //                                        time_step);
-            //                                intervention_message["data"]["content"]
-            //                                =
-            //                                    this->get_team_quality_speech(
-            //                                        current_quality,
-            //                                        confidence);
-            //                                intervention_message["data"]["duration"]
-            //                                = 90; intervention_message
-            //                                    ["data"]["explanation"]["text"]
-            //                                    =
-            //                                        "Gives feedback to the
-            //                                        team based on " "their
-            //                                        " "quality. The
-            //                                        feedback is inferred "
-            //                                        "from the current "
-            //                                        "team score, mission
-            //                                        timer and amount " "of
-            //                                        seconds each player "
-            //                                        "has spent do far in
-            //                                        each one of the 6 "
-            //                                        "sections of the
-            //                                        map.";
-            //                                this->last_quality =
-            //                                current_quality;
-            //                                messages.push_back(intervention_message);
-            //                            }
-            //                        }
-            //                        else if
-            //                        (base_estimator->get_estimates().label
-            //                        ==
-            //                                 "TeamQualityDecay") {
-            //                            if (EXISTS(time_step,
-            //                                       this->map_section_check_times))
-            //                                       {
-            //
-            //                                int player_number = 0;
-            //                                const auto& json_players =
-            //                                    agent->get_evidence_metadata()["players"];
-            //                                for (const auto json_player :
-            //                                json_players) {
-            //                                    // This intervention is
-            //                                    per player.
-            //                                    intervention_message["data"]["receivers"]
-            //                                        .clear();
-            //
-            //                                    double quality_decay =
-            //                                        this->get_team_quality_decay(
-            //                                            base_estimator,
-            //                                            time_step,
-            //                                            player_number++);
-            //
-            //                                    if (quality_decay > 0.5) {
-            //                                        intervention_message
-            //                                            ["data"]["receivers"]
-            //                                                .push_back(json_player["id"]);
-            //                                        intervention_message["data"]["conten"
-            //                                                                     "t"]
-            //                                                                     =
-            //                                            this->get_team_quality_decay_speech();
-            //                                        intervention_message["data"]
-            //                                                            ["duration"]
-            //                                                            =
-            //                                                            60;
-            //                                        intervention_message
-            //                                            ["data"]["explanation"]["text"]
-            //                                            =
-            //                                                "For each
-            //                                                player, it
-            //                                                infers "
-            //                                                "whether
-            //                                                staying in the
-            //                                                " "current map
-            //                                                section
-            //                                                degrades "
-            //                                                "the team
-            //                                                quality by
-            //                                                more than "
-            //                                                "50%. If it
-            //                                                does, it
-            //                                                informs " "the
-            //                                                player that it
-            //                                                is better "
-            //                                                "to explore a
-            //                                                different area
-            //                                                " "of the
-            //                                                map.";
-            //                                        messages.push_back(
-            //                                            intervention_message);
-            //                                    }
-            //                                }
-            //                            }
-            //                        }
-            //                    }
-            //                }
-            //            }
 
             return messages;
         }
@@ -430,7 +266,7 @@ namespace tomcat {
                     agent, time_step, data_point);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["introduction"];
-            intervention_message["data"]["explanation"] =
+            intervention_message["data"]["explanation"]["info"] =
                 this->json_settings["explanations"]["introduction"];
             intervention_message["receivers"] = this->player_ids[data_point];
 
