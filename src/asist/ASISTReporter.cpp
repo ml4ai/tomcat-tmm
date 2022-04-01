@@ -51,9 +51,7 @@ namespace tomcat {
                 agent->get_evidence_metadata()[data_point]["experiment_id"];
             json_msg["timestamp"] = get_timestamp_at(agent, time_step, data_point);
             json_msg["source"] = agent->get_id();
-            json_msg["version"] = "1.0";
-            json_msg["trial_number"] =
-                agent->get_evidence_metadata()[data_point]["trial"];
+            json_msg["version"] = agent->get_version();
             json_msg["sub_type"] = sub_type;
             message["msg"] = json_msg;
         }

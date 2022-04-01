@@ -64,11 +64,12 @@ namespace tomcat {
             json_data["created"] =
                 get_timestamp_at(agent, time_step, data_point);
             json_data["start"] = -1;
-            json_data["duration"] = 1;
+            json_data["duration"] = 10000;
             json_data["type"] = "string";
             json_data["receivers"] = get_player_list(agent, data_point);
             json_data["renderers"] = nlohmann::json::array();
             json_data["renderers"].push_back("Minecraft_Chat");
+            json_data["source"] = agent->get_id();
             message["data"] = json_data;
         }
 
@@ -331,7 +332,7 @@ namespace tomcat {
                         auto motivation_msg =
                             this->get_motivation_intervention_message(
                                 agent, time_step, d);
-                        motivation_msg["data"]["explanation"] = fmt::format(
+                        motivation_msg["data"]["explanation"]["info"] = fmt::format(
                             (string)this
                                 ->json_settings["explanations"]["motivation"],
                             cdfs(d));
@@ -349,7 +350,7 @@ namespace tomcat {
                     agent, time_step, data_point);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["introduction"];
-            intervention_message["data"]["explanation"] =
+            intervention_message["data"]["explanation"]["info"] =
                 this->json_settings["explanations"]["introduction"];
 
             return intervention_message;
