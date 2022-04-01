@@ -49,6 +49,50 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+
+        ASISTStudy3MessageConverter::MarkerType
+        ASISTStudy3MessageConverter::marker_text_to_type(
+            const string& textual_type) {
+            string type_no_color =
+                textual_type.substr(textual_type.find('_') + 1);
+
+            MarkerType type;
+
+            if (type_no_color == "regularvictim") {
+                type = MarkerType::REGULAR_VICTIM;
+            }
+            else if (type_no_color == "criticalvictim") {
+                type = MarkerType::VICTIM_C;
+            }
+            else if (type_no_color == "novictim") {
+                type = MarkerType::NO_VICTIM;
+            }
+            else if (type_no_color == "threat") {
+                type = MarkerType::THREAT_ROOM;
+            }
+            else if (type_no_color == "bonedamage") {
+                type = MarkerType::VICTIM_B;
+            }
+            else if (type_no_color == "abrasion") {
+                type = MarkerType::VICTIM_A;
+            }
+            else if (type_no_color == "sos") {
+                type = MarkerType::SOS;
+            }
+            else if (type_no_color == "rubble") {
+                type = MarkerType::RUBBLE;
+            }
+            else {
+                throw TomcatModelException(
+                    fmt::format("Invalid marker type {}.", textual_type));
+            }
+
+            return type;
+        }
+
+        //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
         void ASISTStudy3MessageConverter::copy_converter(
@@ -264,15 +308,15 @@ namespace tomcat {
             const nlohmann::json& json_message,
             nlohmann::json& json_mission_log) {
 
+            if (is_message_of(json_message, "event", "Event:RoleSelected")) {
+                this->parse_role_selection_message(json_message,
+                                                   json_mission_log);
+            }
+
             if (this->mission_started) {
                 if (is_message_of(
                         json_message, "event", "Event:dialogue_event")) {
                     this->parse_utterance_message(json_message);
-                }
-                else if (is_message_of(
-                             json_message, "event", "Event:RoleSelected")) {
-                    this->parse_role_selection_message(json_message,
-                                                       json_mission_log);
                 }
                 else if (is_message_of(
                              json_message, "event", "Event:MarkerPlaced")) {
@@ -412,7 +456,7 @@ namespace tomcat {
             check_field(json_message["data"], "type");
 
             MarkerType type =
-                MARKER_TEXT_TO_TYPE.at((string)json_message["data"]["type"]);
+                marker_text_to_type((string)json_message["data"]["type"]);
             Position pos((double)json_message["data"]["marker_x"],
                          (double)json_message["data"]["marker_z"]);
             Marker marker(type, pos);
@@ -431,7 +475,7 @@ namespace tomcat {
             check_field(json_message["data"], "type");
 
             MarkerType type =
-                MARKER_TEXT_TO_TYPE.at((string)json_message["data"]["type"]);
+                marker_text_to_type((string)json_message["data"]["type"]);
             Position pos((double)json_message["data"]["marker_x"],
                          (double)json_message["data"]["marker_z"]);
             Marker marker(type, pos);
@@ -641,5 +685,6 @@ namespace tomcat {
             int player_index = this->player_id_to_index[player_id];
             return this->players[player_index];
         }
+
     } // namespace model
 } // namespace tomcat

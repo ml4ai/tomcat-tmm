@@ -9,6 +9,7 @@
 
 #include "asist/ASISTReporter.h"
 #include "pipeline/estimation/Agent.h"
+#include "asist/study3/ASISTStudy3MessageConverter.h"
 
 namespace tomcat {
     namespace model {
@@ -66,13 +67,10 @@ namespace tomcat {
              * Return a string with the participant ids separated by comma.
              *
              * @param agent: Agent
-             * @param data_point: index of the trial being processed, if
-             * estimates are being computed for multiple trials.
              *
              * @return: List of participant ids
              */
-            static nlohmann::json get_player_list(const AgentPtr& agent,
-                                                  int data_point);
+            static nlohmann::json get_player_list(const AgentPtr& agent);
 
             /**
              * Adds values to fields common to all interventions in the data
@@ -96,13 +94,11 @@ namespace tomcat {
              * @param agent: ASI
              * @param time_step: time step at which the message is being
              * generated
-             * @param data_point: index of the trial being processed, if
-             * estimates are being computed for multiple trials.
              *
              * @return: json intervention message
              */
             static nlohmann::json get_template_intervention_message(
-                const AgentPtr& agent, int time_step, int data_point);
+                const AgentPtr& agent, int time_step);
 
             /**
              * Returns the player color to add to a message based on its order. The map follows the RGB order.
@@ -175,13 +171,11 @@ namespace tomcat {
              * @param agent: ASI
              * @param time_step: time step at which the message is being
              * generated
-             * @param data_point: index of the trial being processed, if
-             * estimates are being computed for multiple trials.
              *
              * @return: json intervention message
              */
             nlohmann::json get_introductory_intervention_message(
-                const AgentPtr& agent, int time_step, int data_point) const;
+                const AgentPtr& agent, int time_step) const;
 
             /**
              * Assembles motivation intervention.
@@ -189,13 +183,11 @@ namespace tomcat {
              * @param agent: ASI
              * @param time_step: time step at which the message is being
              * generated
-             * @param data_point: index of the trial being processed, if
-             * estimates are being computed for multiple trials.
              *
              * @return: json intervention message
              */
             nlohmann::json get_motivation_intervention_message(
-                const AgentPtr& agent, int time_step, int data_point) const;
+                const AgentPtr& agent, int time_step) const;
 
             /**
              * Assembles communication marker intervention.
@@ -203,30 +195,31 @@ namespace tomcat {
              * @param agent: ASI
              * @param time_step: time step at which the message is being
              * generated
-             * @param data_point: index of the trial being processed, if
-             * estimates are being computed for multiple trials.
              * @param player_order: player's index
+             * @param marker: unspoken marker
              *
              * @return: json intervention message
              */
             nlohmann::json get_communication_marker_intervention_message(
                 const AgentPtr& agent,
                 int time_step,
-                int data_point,
-                int player_order) const;
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& marker) const;
 
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
             // Player id per each RGB color. A list per trial.
-            std::vector<std::vector<std::string>> player_ids_per_color;
+            std::vector<std::string> player_ids_per_color;
 
             // Json objects with a list of player ids to address the whole team.
             // A list per trial.
-            std::vector<nlohmann::json> player_ids;
+            nlohmann::json player_ids;
 
+            bool player_info_initialized = false;
             bool introduced = false;
             bool intervened_on_motivation = false;
+
         };
 
     } // namespace model

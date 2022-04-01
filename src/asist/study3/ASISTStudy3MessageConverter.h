@@ -44,15 +44,15 @@ namespace tomcat {
             };
 
             struct MarkerTypeTexts {
-                inline const static std::string NO_VICTIM = "no_victim";
-                inline const static std::string VICTIM_A = "victim_a";
-                inline const static std::string VICTIM_B = "victim_b";
-                inline const static std::string VICTIM_C = "victim_c";
+                inline const static std::string NO_VICTIM = "no victim";
+                inline const static std::string VICTIM_A = "A";
+                inline const static std::string VICTIM_B = "B";
+                inline const static std::string VICTIM_C = "critical victim";
                 inline const static std::string REGULAR_VICTIM =
-                    "regular_victim";
+                    "regular victim";
                 inline const static std::string SOS = "sos";
                 inline const static std::string RUBBLE = "rubble";
-                inline const static std::string THREAT_ROOM = "threat_room";
+                inline const static std::string THREAT_ROOM = "threat";
             };
 
             enum MarkerType {
@@ -263,6 +263,22 @@ namespace tomcat {
                 std::string role = "";
                 int index = -1;
             };
+
+            //------------------------------------------------------------------
+            // Static functions
+            //------------------------------------------------------------------
+
+            /**
+             * Converts a textual representation of a marker type to an instance
+             * of marker type without the associated player color.
+             *
+             * @param textual_type: player color and marker type in textual
+             * format
+             *
+             * @return Marker type
+             */
+            static ASISTStudy3MessageConverter::MarkerType
+            marker_text_to_type(const std::string& textual_type);
 
             //------------------------------------------------------------------
             // Member functions

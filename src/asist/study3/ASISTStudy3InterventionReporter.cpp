@@ -3,7 +3,6 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <cctype>
 #include <fmt/format.h>
 
 #include "asist/study3/ASISTStudy3InterventionEstimator.h"
@@ -40,13 +39,12 @@ namespace tomcat {
         // Static functions
         //----------------------------------------------------------------------
 
-        nlohmann::json
-        ASISTStudy3InterventionReporter::get_player_list(const AgentPtr& agent,
-                                                         int data_point) {
+        nlohmann::json ASISTStudy3InterventionReporter::get_player_list(
+            const AgentPtr& agent) {
             nlohmann::json player_ids = nlohmann::json::array();
 
             for (const auto& json_player :
-                 agent->get_evidence_metadata()[data_point]["players"]) {
+                 agent->get_evidence_metadata()[0]["players"]) {
                 player_ids.push_back(json_player["id"]);
             }
 
@@ -74,17 +72,13 @@ namespace tomcat {
 
         nlohmann::json
         ASISTStudy3InterventionReporter::get_template_intervention_message(
-            const AgentPtr& agent, int time_step, int data_point) {
+            const AgentPtr& agent, int time_step) {
             nlohmann::json intervention_message;
             add_header_section(
-                intervention_message, agent, "agent", time_step, data_point);
-            add_msg_section(intervention_message,
-                            agent,
-                            "Intervention:Chat",
-                            time_step,
-                            data_point);
-            add_common_data_section(
-                intervention_message, agent, time_step, data_point);
+                intervention_message, agent, "agent", time_step, 0);
+            add_msg_section(
+                intervention_message, agent, "Intervention:Chat", time_step, 0);
+            add_common_data_section(intervention_message, agent, time_step, 0);
 
             return intervention_message;
         }
@@ -95,10 +89,10 @@ namespace tomcat {
             if (player_order == 0) {
                 return "Red";
             }
-            else if (player_order == 0) {
+            else if (player_order == 1) {
                 return "Green";
             }
-            else if (player_order == 0) {
+            else if (player_order == 2) {
                 return "Blue";
             }
 
@@ -115,23 +109,23 @@ namespace tomcat {
 
         void ASISTStudy3InterventionReporter::store_player_info(
             const AgentPtr& agent) {
-            int d = 0;
-            for (const auto& json_trial : agent->get_evidence_metadata()) {
-                vector<string> ids(3);
+            if (!this->player_info_initialized) {
+                const auto& json_trial = agent->get_evidence_metadata()[0];
+                this->player_ids_per_color = vector<string>(3);
                 for (const auto& json_player : json_trial["players"]) {
                     const string& player_color = json_player["color"];
                     if (boost::iequals(player_color, "red")) {
-                        ids[0] = json_player["id"];
+                        this->player_ids_per_color[0] = json_player["id"];
                     }
                     else if (boost::iequals(player_color, "green")) {
-                        ids[1] = json_player["id"];
+                        this->player_ids_per_color[1] = json_player["id"];
                     }
                     else if (boost::iequals(player_color, "blue")) {
-                        ids[2] = json_player["id"];
+                        this->player_ids_per_color[2] = json_player["id"];
                     }
                 }
-                this->player_ids_per_color.push_back(ids);
-                this->player_ids.push_back(get_player_list(agent, d++));
+                this->player_ids = get_player_list(agent);
+                this->player_info_initialized = true;
             }
         }
 
@@ -150,6 +144,8 @@ namespace tomcat {
                 return {};
             }
 
+            this->store_player_info(agent);
+
             vector<nlohmann::json> messages;
             auto estimator =
                 dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
@@ -164,6 +160,10 @@ namespace tomcat {
             for (int t = initial_time_step; t <= final_time_step; t++) {
                 this->intervene_on_introduction(agent, t, messages);
                 this->intervene_on_motivation(agent, t, messages);
+
+                if (this->introduced) {
+                    this->intervene_on_communication_marker(agent, t, messages);
+                }
             }
 
             return messages;
@@ -182,12 +182,8 @@ namespace tomcat {
                 time_step >= this->json_settings["introduction_time_step"]) {
                 this->introduced = true;
 
-                for (int d = 0; d < agent->get_evidence_metadata().size();
-                     d++) {
-                    messages.push_back(
-                        this->get_introductory_intervention_message(
-                            agent, time_step, d));
-                }
+                messages.push_back(this->get_introductory_intervention_message(
+                    agent, time_step));
             }
         }
 
@@ -211,19 +207,16 @@ namespace tomcat {
                 auto estimator =
                     dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
                         agent->get_estimators()[0]);
-                const auto& cdfs = estimator->get_encouragement_cdfs();
-                for (int d = 0; d < agent->get_evidence_metadata().size();
-                     d++) {
-                    if (cdfs(d) <= min_percentile) {
-                        auto motivation_msg =
-                            this->get_motivation_intervention_message(
-                                agent, time_step, d);
-                        motivation_msg["data"]["explanation"] = fmt::format(
-                            (string)this
-                                ->json_settings["explanations"]["motivation"],
-                            cdfs(d));
-                        messages.push_back(motivation_msg);
-                    }
+                double cdf = estimator->get_encouragement_cdf();
+                if (cdf <= min_percentile) {
+                    auto motivation_msg =
+                        this->get_motivation_intervention_message(agent,
+                                                                  time_step);
+                    motivation_msg["data"]["explanation"] = fmt::format(
+                        (string)this
+                            ->json_settings["explanations"]["motivation"],
+                        cdf);
+                    messages.push_back(motivation_msg);
                 }
             }
         }
@@ -243,45 +236,43 @@ namespace tomcat {
 
             const auto& unspoken_markers =
                 estimator->get_active_unspoken_markers();
-            for (int d = 0; d < agent->get_evidence_metadata().size(); d++) {
-                for (int player_order = 0;
-                     player_order < unspoken_markers[d].size();
-                     player_order++) {
+            for (int player_order = 0; player_order < 3; player_order++) {
+                const auto& marker = unspoken_markers.at(player_order);
+                if (!marker.is_none()) {
                     auto intervention_msg =
                         this->get_communication_marker_intervention_message(
-                            agent, time_step, d, player_order);
+                            agent, time_step, player_order, marker);
                     messages.push_back(intervention_msg);
 
-                    // The agent only intervenes once on each unspoken marker
-                    estimator->clear_active_unspoken_marker(player_order, d);
+                    // The agent only intervenes once on each unspoken
+                    // marker
+                    estimator->clear_active_unspoken_marker(player_order);
                 }
             }
         }
 
         nlohmann::json
         ASISTStudy3InterventionReporter::get_introductory_intervention_message(
-            const AgentPtr& agent, int time_step, int data_point) const {
+            const AgentPtr& agent, int time_step) const {
             nlohmann::json intervention_message =
-                this->get_template_intervention_message(
-                    agent, time_step, data_point);
+                this->get_template_intervention_message(agent, time_step);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["introduction"];
             intervention_message["data"]["explanation"]["info"] =
                 this->json_settings["explanations"]["introduction"];
-            intervention_message["receivers"] = this->player_ids[data_point];
+            intervention_message["receivers"] = this->player_ids;
 
             return intervention_message;
         }
 
         nlohmann::json
         ASISTStudy3InterventionReporter::get_motivation_intervention_message(
-            const AgentPtr& agent, int time_step, int data_point) const {
+            const AgentPtr& agent, int time_step) const {
             nlohmann::json intervention_message =
-                this->get_template_intervention_message(
-                    agent, time_step, data_point);
+                this->get_template_intervention_message(agent, time_step);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["motivation"];
-            intervention_message["receivers"] = this->player_ids[data_point];
+            intervention_message["receivers"] = this->player_ids;
 
             return intervention_message;
         }
@@ -290,18 +281,21 @@ namespace tomcat {
             get_communication_marker_intervention_message(
                 const AgentPtr& agent,
                 int time_step,
-                int data_point,
-                int player_order) const {
-            nlohmann::json intervention_message =
-                this->get_template_intervention_message(
-                    agent, time_step, data_point);
-            const string& prompt =
-                this->json_settings["prompts"]["communication_intervention"];
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& marker) const {
 
+            nlohmann::json intervention_message =
+                this->get_template_intervention_message(agent, time_step);
+            const string& prompt =
+                this->json_settings["prompts"]["communication_marker"];
             string player_color = player_order_to_color(player_order);
-            string player_id = player_ids_per_color[data_point][player_order];
+            string marker_type =
+                ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                    marker.type);
+
+            string player_id = player_ids_per_color[player_order];
             intervention_message["data"]["content"] =
-                fmt::format(prompt, player_color);
+                fmt::format(prompt, player_color, marker_type);
             intervention_message["receivers"] = nlohmann::json::array();
             intervention_message["receivers"].push_back(player_id);
 
@@ -316,6 +310,7 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionReporter::prepare() {
+            this->player_info_initialized = false;
             this->introduced = false;
             this->intervened_on_motivation = false;
         }

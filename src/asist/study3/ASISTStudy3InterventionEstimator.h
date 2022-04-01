@@ -62,19 +62,17 @@ namespace tomcat::model {
          * Get the CDF of the number of encouragement utterances identified in
          * mission 1.
          *
-         * @return CDFs. One per trial if multiple trials are being processed at
-         * the same time.
+         * @return CDF
          */
-        Eigen::VectorXd get_encouragement_cdfs();
+        double get_encouragement_cdf();
 
         /**
          * Removes current active unspoken marker from the list.
          *
          * @param player_order: index of the player that has an active unspoken
          * marker
-         * @param data_point: trial data index
          */
-        void clear_active_unspoken_marker(int player_order, int data_point);
+        void clear_active_unspoken_marker(int player_order);
 
         //------------------------------------------------------------------
         // Getters & Setters
@@ -90,7 +88,7 @@ namespace tomcat::model {
 
         int get_last_time_step() const;
 
-        const std::vector<std::vector<ASISTStudy3MessageConverter::Marker>>&
+        const std::vector<ASISTStudy3MessageConverter::Marker>&
         get_active_unspoken_markers() const;
 
       protected:
@@ -121,38 +119,28 @@ namespace tomcat::model {
         static bool did_player_speak_about_marker(
             int player_order,
             const ASISTStudy3MessageConverter::Marker& unspoken_marker,
-            int data_point,
             int time_step,
             const EvidenceSet& new_data);
 
-        static ASISTStudy3MessageConverter::Marker
-        get_last_placed_marker(int player_order,
-                               int data_point,
-                               int time_step,
-                               const EvidenceSet& new_data);
+        static ASISTStudy3MessageConverter::Marker get_last_placed_marker(
+            int player_order, int time_step, const EvidenceSet& new_data);
 
-        static bool
-        did_player_interact_with_victim(int player_order,
-                                        int data_point,
-                                        int time_step,
-                                        const EvidenceSet& new_data);
+        static bool did_player_interact_with_victim(
+            int player_order, int time_step, const EvidenceSet& new_data);
 
         static bool is_player_far_apart(
             int player_order,
             const ASISTStudy3MessageConverter::Position& position,
             int max_distance,
-            int data_point,
             int time_step,
             const EvidenceSet& new_data);
 
         static std::vector<ASISTStudy3MessageConverter::Marker>
         get_removed_markers(int player_order,
-                            int data_point,
                             int time_step,
                             const EvidenceSet& new_data);
 
         static bool did_player_change_area(int player_order,
-                                           int data_point,
                                            int time_step,
                                            const EvidenceSet& new_data);
 
@@ -189,11 +177,10 @@ namespace tomcat::model {
 
         int last_time_step = -1;
         bool first_mission = true;
-        Eigen::VectorXd encouragement_cdf = Eigen::VectorXd(0);
+        double encouragement_cdf = 0;
 
-        std::vector<std::vector<ASISTStudy3MessageConverter::Marker>>
-            last_placed_markers;
-        std::vector<std::vector<ASISTStudy3MessageConverter::Marker>>
+        std::vector<ASISTStudy3MessageConverter::Marker> last_placed_markers;
+        std::vector<ASISTStudy3MessageConverter::Marker>
             active_unspoken_markers;
     };
 
