@@ -292,8 +292,8 @@ namespace tomcat {
             intervention_message["data"]["receivers"] = this->player_ids;
 
             // TODO - remove
-            intervention_message["topic"] =
-                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+//            intervention_message["topic"] =
+//                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
@@ -312,8 +312,8 @@ namespace tomcat {
             intervention_message["data"]["receivers"] = this->player_ids;
 
             // TODO - remove
-            intervention_message["topic"] =
-                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+//            intervention_message["topic"] =
+//                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
@@ -344,8 +344,8 @@ namespace tomcat {
             intervention_message["data"]["receivers"].push_back(player_id);
 
             // TODO - remove
-            intervention_message["topic"] =
-                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+//            intervention_message["topic"] =
+//                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
