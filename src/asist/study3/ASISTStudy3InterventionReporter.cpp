@@ -64,10 +64,11 @@ namespace tomcat {
             json_data["created"] =
                 get_timestamp_at(agent, time_step, data_point);
             json_data["start"] = -1;
-            json_data["duration"] = 1;
+            json_data["duration"] = 10000;
             json_data["type"] = "string";
             json_data["renderers"] = nlohmann::json::array();
             json_data["renderers"].push_back("Minecraft_Chat");
+            json_data["source"] = agent->get_id();
             message["data"] = json_data;
         }
 
