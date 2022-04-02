@@ -55,12 +55,37 @@ namespace tomcat {
             int time_step,
             const EvidenceSet& new_data) {
 
-            const auto& spoken_markers = unordered_set<MarkerType>(
-                new_data
-                    .get_dict_like_data()[0][time_step][Labels::SPOKEN_MARKERS]
-                                         [player_order]);
+            const auto& json_dialog =
+                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
+                                             [player_order];
 
-            return EXISTS(unspoken_marker.type, spoken_markers);
+            if (unspoken_marker.type == MarkerType::NO_VICTIM &&
+                (bool)json_dialog["no_victim"]) {
+                return true;
+            } else if (unspoken_marker.type == MarkerType::REGULAR_VICTIM &&
+                     (bool)json_dialog["regular_victim"]) {
+                return true;
+            } else if (unspoken_marker.type == MarkerType::VICTIM_C &&
+                (bool)json_dialog["critical_victim"]) {
+                return true;
+            } else if (unspoken_marker.type == MarkerType::VICTIM_A &&
+                     (bool)json_dialog["victim_a"]) {
+                return true;
+            } else if (unspoken_marker.type == MarkerType::VICTIM_B &&
+                     (bool)json_dialog["victim_b"]) {
+                return true;
+            } else if (unspoken_marker.type == MarkerType::RUBBLE &&
+                     (bool)json_dialog["obstacle"]) {
+                return true;
+            } else if (unspoken_marker.type == MarkerType::THREAT_ROOM &&
+                     (bool)json_dialog["threat"]) {
+                return true;
+            } else if (unspoken_marker.type == MarkerType::SOS &&
+                     (bool)json_dialog["help_needed"]) {
+                return true;
+            }
+
+            return false;
         }
 
         Marker ASISTStudy3InterventionEstimator::get_last_placed_marker(
@@ -225,13 +250,14 @@ namespace tomcat {
                             did_player_change_area(player_order, t, new_data);
                         bool cond2 = did_player_interact_with_victim(
                             player_order, t, new_data);
-                        bool cond3 = !last_marker.is_none() &&
-                                     is_player_far_apart(player_order,
-                                                         last_marker.position,
-                                                         MAX_DIST,
-                                                         t,
-                                                         new_data);
-                        if (cond1 || cond2 || cond3) {
+                        //                        bool cond3 =
+                        //                        !last_marker.is_none() &&
+                        //                                     is_player_far_apart(player_order,
+                        //                                                         last_marker.position,
+                        //                                                         MAX_DIST,
+                        //                                                         t,
+                        //                                                         new_data);
+                        if (cond1 || cond2) {
                             this->active_unspoken_markers[player_order] =
                                 last_marker;
                         }

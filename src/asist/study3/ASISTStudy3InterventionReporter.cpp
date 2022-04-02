@@ -6,6 +6,7 @@
 #include <fmt/format.h>
 
 #include "asist/study3/ASISTStudy3InterventionEstimator.h"
+#include "utils/JSONChecker.h"
 
 namespace tomcat {
     namespace model {
@@ -139,8 +140,14 @@ namespace tomcat {
             // same time, and we need to generate report messages for each
             // one of them.
 
-            if (agent->get_evidence_metadata()[0]["mission_order"] == 1) {
-                // We only intervene in mission 2
+            check_field(this->json_settings, "missions_to_intervene");
+
+            int mission_order =
+                agent->get_evidence_metadata()[0]["mission_order"];
+            unordered_set<int> missions_to_intervene = unordered_set<int>(
+                this->json_settings["missions_to_intervene"]);
+
+            if (!EXISTS(mission_order, missions_to_intervene)) {
                 return {};
             }
 
@@ -174,6 +181,10 @@ namespace tomcat {
             int time_step,
             vector<nlohmann::json>& messages) {
 
+            check_field(this->json_settings, "activations");
+            check_field(this->json_settings, "introduction_time_step");
+            check_field(this->json_settings["activations"], "introduction");
+
             if (!this->json_settings["activations"]["introduction"]) {
                 return;
             }
@@ -191,6 +202,13 @@ namespace tomcat {
             const AgentPtr& agent,
             int time_step,
             vector<nlohmann::json>& messages) {
+
+            check_field(this->json_settings, "activations");
+            check_field(this->json_settings["activations"], "motivation");
+            check_field(this->json_settings, "motivation_time_step");
+            check_field(this->json_settings, "motivation_min_percentile");
+            check_field(this->json_settings, "explanations");
+            check_field(this->json_settings["explanations"], "motivation");
 
             if (!this->json_settings["activations"]["motivation"]) {
                 return;
@@ -226,6 +244,10 @@ namespace tomcat {
             int time_step,
             vector<nlohmann::json>& messages) {
 
+            check_field(this->json_settings, "activations");
+            check_field(this->json_settings["activations"],
+                        "communication_marker");
+
             if (!this->json_settings["activations"]["communication_marker"]) {
                 return;
             }
@@ -254,13 +276,23 @@ namespace tomcat {
         nlohmann::json
         ASISTStudy3InterventionReporter::get_introductory_intervention_message(
             const AgentPtr& agent, int time_step) const {
+
+            check_field(this->json_settings, "prompts");
+            check_field(this->json_settings["prompts"], "introduction");
+            check_field(this->json_settings, "explanations");
+            check_field(this->json_settings["explanations"], "introduction");
+
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(agent, time_step);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["introduction"];
             intervention_message["data"]["explanation"]["info"] =
                 this->json_settings["explanations"]["introduction"];
-            intervention_message["receivers"] = this->player_ids;
+            intervention_message["data"]["receivers"] = this->player_ids;
+
+            // TODO - remove
+            intervention_message["topic"] =
+                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
@@ -268,11 +300,19 @@ namespace tomcat {
         nlohmann::json
         ASISTStudy3InterventionReporter::get_motivation_intervention_message(
             const AgentPtr& agent, int time_step) const {
+
+            check_field(this->json_settings, "prompts");
+            check_field(this->json_settings["prompts"], "motivation");
+
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(agent, time_step);
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["motivation"];
-            intervention_message["receivers"] = this->player_ids;
+            intervention_message["data"]["receivers"] = this->player_ids;
+
+            // TODO - remove
+            intervention_message["topic"] =
+                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
@@ -283,6 +323,9 @@ namespace tomcat {
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker) const {
+
+            check_field(this->json_settings, "prompts");
+            check_field(this->json_settings["prompts"], "communication_marker");
 
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(agent, time_step);
@@ -296,8 +339,12 @@ namespace tomcat {
             string player_id = player_ids_per_color[player_order];
             intervention_message["data"]["content"] =
                 fmt::format(prompt, player_color, marker_type);
-            intervention_message["receivers"] = nlohmann::json::array();
-            intervention_message["receivers"].push_back(player_id);
+            intervention_message["data"]["receivers"] = nlohmann::json::array();
+            intervention_message["data"]["receivers"].push_back(player_id);
+
+            // TODO - remove
+            intervention_message["topic"] =
+                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }

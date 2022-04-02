@@ -39,8 +39,8 @@ namespace tomcat {
                     "player_position";
                 inline const static std::string VICTIM_INTERACTIONS =
                     "victim_interaction";
-                inline const static std::string SPOKEN_MARKERS =
-                    "spoken_marker";
+                inline const static std::string DIALOG =
+                    "dialog";
             };
 
             struct MarkerTypeTexts {
@@ -379,14 +379,21 @@ namespace tomcat {
             std::vector<Player> players;
 
             // Data
-            int num_encouragement_utterances;
+            int num_encouragement_utterances = 0;
 
             std::vector<std::vector<Marker>> placed_markers;
             std::vector<std::vector<Marker>> removed_markers;
             std::vector<Position> player_positions;
             std::vector<bool> location_changes;
             std::vector<bool> victim_interactions;
-            std::vector<std::unordered_set<MarkerType>> spoken_markers;
+            std::vector<bool> mention_to_critical_victim;
+            std::vector<bool> mention_to_regular_victim;
+            std::vector<bool> mention_to_victim_a;
+            std::vector<bool> mention_to_victim_b;
+            std::vector<bool> mention_to_threat;
+            std::vector<bool> mention_to_no_victim;
+            std::vector<bool> mention_to_obstacle;
+            std::vector<bool> mention_to_help;
         };
 
     } // namespace model
