@@ -112,6 +112,7 @@ namespace tomcat::model {
         // Types & Consts
         //------------------------------------------------------------------
         const static int MAX_DIST = 5;
+        const static int VICINITY_MAX_RADIUS = 5;
 
         //------------------------------------------------------------------
         // Static functions

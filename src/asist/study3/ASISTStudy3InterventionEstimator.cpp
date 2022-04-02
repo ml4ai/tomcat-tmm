@@ -62,25 +62,32 @@ namespace tomcat {
             if (unspoken_marker.type == MarkerType::NO_VICTIM &&
                 (bool)json_dialog["no_victim"]) {
                 return true;
-            } else if (unspoken_marker.type == MarkerType::REGULAR_VICTIM &&
+            }
+            else if (unspoken_marker.type == MarkerType::REGULAR_VICTIM &&
                      (bool)json_dialog["regular_victim"]) {
                 return true;
-            } else if (unspoken_marker.type == MarkerType::VICTIM_C &&
-                (bool)json_dialog["critical_victim"]) {
+            }
+            else if (unspoken_marker.type == MarkerType::VICTIM_C &&
+                     (bool)json_dialog["critical_victim"]) {
                 return true;
-            } else if (unspoken_marker.type == MarkerType::VICTIM_A &&
+            }
+            else if (unspoken_marker.type == MarkerType::VICTIM_A &&
                      (bool)json_dialog["victim_a"]) {
                 return true;
-            } else if (unspoken_marker.type == MarkerType::VICTIM_B &&
+            }
+            else if (unspoken_marker.type == MarkerType::VICTIM_B &&
                      (bool)json_dialog["victim_b"]) {
                 return true;
-            } else if (unspoken_marker.type == MarkerType::RUBBLE &&
+            }
+            else if (unspoken_marker.type == MarkerType::RUBBLE &&
                      (bool)json_dialog["obstacle"]) {
                 return true;
-            } else if (unspoken_marker.type == MarkerType::THREAT_ROOM &&
+            }
+            else if (unspoken_marker.type == MarkerType::THREAT_ROOM &&
                      (bool)json_dialog["threat"]) {
                 return true;
-            } else if (unspoken_marker.type == MarkerType::SOS &&
+            }
+            else if (unspoken_marker.type == MarkerType::SOS &&
                      (bool)json_dialog["help_needed"]) {
                 return true;
             }
@@ -220,7 +227,7 @@ namespace tomcat {
 
                     const auto& unspoken_marker =
                         this->active_unspoken_markers[player_order];
-                    if (unspoken_marker.type != MarkerType::NONE) {
+                    if (!unspoken_marker.is_none()) {
                         if (did_player_speak_about_marker(
                                 player_order, unspoken_marker, t, new_data)) {
                             this->clear_active_unspoken_marker(player_order);
@@ -250,29 +257,21 @@ namespace tomcat {
                             did_player_change_area(player_order, t, new_data);
                         bool cond2 = did_player_interact_with_victim(
                             player_order, t, new_data);
-                        //                        bool cond3 =
-                        //                        !last_marker.is_none() &&
-                        //                                     is_player_far_apart(player_order,
-                        //                                                         last_marker.position,
-                        //                                                         MAX_DIST,
-                        //                                                         t,
-                        //                                                         new_data);
+
                         if (cond1 || cond2) {
                             this->active_unspoken_markers[player_order] =
                                 last_marker;
                         }
                     }
                     else {
-                        if (!last_marker.is_none() &&
-                            last_marker.type != new_marker.type) {
-                            // The player placed a marker that is different
-                            // from the marker it had placed before. Add the
-                            // previous marker to the list of unspoken
-                            // markers.
+                        if (new_marker.position.distance_to(
+                                last_marker.position) > VICINITY_MAX_RADIUS) {
+                            // Avoid keep intervening if the participant is
+                            // placing several markers close to each other. They
+                            // convey the same information.
                             this->active_unspoken_markers[player_order] =
                                 last_marker;
                         }
-
                         this->last_placed_markers[player_order] = new_marker;
                     }
                 }
