@@ -10,6 +10,7 @@
 #include "pipeline/Pipeline.h"
 #include "pipeline/estimation/OfflineEstimation.h"
 #include "pipeline/estimation/OnlineEstimation.h"
+#include "pipeline/estimation/OnlineLogger.h"
 #include "pipeline/estimation/ParticleFilterEstimator.h"
 #include "pipeline/estimation/SamplerEstimator.h"
 #include "pipeline/estimation/SumProductEstimator.h"
@@ -198,7 +199,8 @@ namespace tomcat {
             int max_time_step,
             const string& message_broker_config_filepath,
             const MsgConverterPtr& converter,
-            const EstimateReporterPtr& estimate_reporter) {
+            const EstimateReporterPtr& estimate_reporter,
+            const string& log_dir) {
 
             AgentPtr agent = this->create_agent(
                 agent_config_filepath, model_dir, num_jobs, max_time_step);
@@ -211,15 +213,26 @@ namespace tomcat {
                 nlohmann::json broker = nlohmann::json::parse(file);
                 config.address = broker["address"];
                 config.port = broker["port"];
-                config.estimates_topic = broker["estimates_topic"];
-                config.log_topic = broker["log_topic"];
+                config.intervention_topic = broker["estimates_topic"];
                 config.num_connection_trials = broker["num_connection_trials"];
                 config.milliseconds_before_retrial =
                     broker["milliseconds_before_connection_retrial"];
             }
 
+            OnlineLoggerPtr logger;
+            if (!log_dir.empty()) {
+                fs::create_directories(log_dir);
+                string log_filepath =
+                    fmt::format("{}/{}.txt", log_dir, this->experiment_id);
+                logger = make_shared<OnlineLogger>(log_filepath);
+                estimate_reporter->set_logger(logger);
+                for (auto& estimator : agent->get_estimators()) {
+                    estimator->set_logger(logger);
+                }
+            }
+
             this->estimation = make_shared<OnlineEstimation>(
-                agent, config, converter, estimate_reporter);
+                agent, config, converter, estimate_reporter, logger);
         }
 
         AgentPtr

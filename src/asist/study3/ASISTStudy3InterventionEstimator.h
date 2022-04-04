@@ -28,7 +28,7 @@ namespace tomcat::model {
         // Constructors & Destructor
         //------------------------------------------------------------------
 
-        explicit ASISTStudy3InterventionEstimator(const ModelPtr& model);
+        ASISTStudy3InterventionEstimator(const ModelPtr& model);
 
         ~ASISTStudy3InterventionEstimator() = default;
 
@@ -169,6 +169,13 @@ namespace tomcat::model {
          * @param new_data: evidence
          */
         void estimate_unspoken_markers(const EvidenceSet& new_data);
+
+        /**
+         * Log mission info.
+         *
+         * @param new_data: evidence
+         */
+        void log_mission_start(const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Data members

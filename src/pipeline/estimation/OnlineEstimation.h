@@ -1,19 +1,19 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <thread>
 #include <unordered_set>
-#include <functional>
 
 #include <nlohmann/json.hpp>
 
 #include "EstimationProcess.h"
-
 #include "pipeline/estimation/Agent.h"
+#include "pipeline/estimation/OnlineLogger.h"
 #include "utils/Definitions.h"
 #include "utils/Mosquitto.h"
-#include "utils/SynchronizedQueue.h"
 #include "utils/OnlineConfig.h"
+#include "utils/SynchronizedQueue.h"
 
 namespace tomcat {
     namespace model {
@@ -38,11 +38,14 @@ namespace tomcat {
              * messages to observations
              * @param reporter: class responsible for reporting estimates
              * computed during the process
+             * @param logger: logger to store information during online
+             * estimation
              */
             OnlineEstimation(const AgentPtr& agent,
                              const MessageBrokerConfiguration& config,
                              const MsgConverterPtr& message_converter,
-                             const EstimateReporterPtr& reporter);
+                             const EstimateReporterPtr& reporter,
+                             const OnlineLoggerPtr& logger);
 
             ~OnlineEstimation();
 
@@ -142,6 +145,8 @@ namespace tomcat {
 
             // Information about the trial being processed
             nlohmann::json evidence_metadata;
+
+            OnlineLoggerPtr logger;
         };
 
     } // namespace model

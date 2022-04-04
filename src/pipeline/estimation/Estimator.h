@@ -13,6 +13,7 @@
 #include "pipeline/Model.h"
 #include "utils/Definitions.h"
 #include "utils/Tensor3.h"
+#include "pipeline/estimation/OnlineLogger.h"
 
 namespace tomcat {
     namespace model {
@@ -104,6 +105,13 @@ namespace tomcat {
              */
             virtual void set_show_progress(bool show_progress);
 
+            /**
+             * Sets a logger for online estimation
+             *
+             * @param logger
+             */
+            virtual void set_logger(const OnlineLoggerPtr& logger);
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -161,6 +169,8 @@ namespace tomcat {
             // Whether a progress bar must be shown as the estimations are
             // happening
             bool show_progress = true;
+
+            OnlineLoggerPtr logger;
         };
 
     } // namespace model

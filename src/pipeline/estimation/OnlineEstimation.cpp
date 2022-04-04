@@ -4,6 +4,7 @@
 #include <sstream>
 #include <thread>
 
+#include "fmt/format.h"
 #include <nlohmann/json.hpp>
 
 #include "converter/MessageConverter.h"
@@ -20,9 +21,10 @@ namespace tomcat {
             const AgentPtr& agent,
             const MessageBrokerConfiguration& config,
             const MsgConverterPtr& message_converter,
-            const EstimateReporterPtr& reporter)
+            const EstimateReporterPtr& reporter,
+            const OnlineLoggerPtr& logger)
             : EstimationProcess(agent, reporter), config(config),
-              message_converter(message_converter) {
+              message_converter(message_converter), logger(logger) {
 
             // This callback function will be invoked every time the converter
             // parses messages that need immediate responses.
@@ -65,10 +67,16 @@ namespace tomcat {
             Mosquitto::copy_wrapper(estimation);
             this->config = estimation.config;
             this->message_converter = estimation.message_converter;
+            this->logger = estimation.logger;
         }
 
         void OnlineEstimation::estimate(const EvidenceSet& test_data) {
             this->set_max_seconds_without_messages(this->config.timeout);
+            if (this->logger) {
+                this->logger->log(fmt::format("Trying to connect to {}:{}...",
+                                              this->config.address,
+                                              this->config.port));
+            }
             this->connect(this->config.address,
                           this->config.port,
                           60,
@@ -78,7 +86,12 @@ namespace tomcat {
                  this->message_converter->get_used_topics()) {
                 this->subscribe(topic);
             }
-            cout << "Waiting for mission to start..." << endl;
+            string log_msg = "Waiting for mission to start...";
+            cout << log_msg << endl;
+            if (this->logger) {
+                this->logger->log("Connection established!");
+                this->logger->log(log_msg);
+            }
             thread estimation_thread(&OnlineEstimation::run_estimation_thread,
                                      this);
             this->loop();
@@ -95,27 +108,24 @@ namespace tomcat {
                     this->get_next_data_from_pending_messages();
                 if (!new_data.empty()) {
                     if (this->last_time_step < 0) {
-                        cout << "Agent " << this->agent->get_id()
-                             << " is awake and working..." << endl;
+                        stringstream log_msg;
+                        log_msg << "Agent " << this->agent->get_id()
+                                << " is awake and working...";
+                        cout << log_msg.str() << endl;
+                        if (this->logger) {
+                            this->logger->log(log_msg.str());
+                        }
                     }
                     this->agent->estimate(new_data);
                     this->last_time_step++;
                     this->publish_last_estimates();
                     if (this->message_converter->is_mission_finished()) {
-                        if (this->config.log_topic != "" && this->reporter) {
-                            stringstream ss;
-                            ss << "The maximum time step defined for the "
-                                  "mission has been reached. Waiting for a new "
-                                  "mission to start...";
-                            auto message = this->reporter->build_log_message(
-                                this->agent, ss.str());
-                            if (!message.empty()) {
-                                this->publish(this->config.log_topic,
-                                              message.dump());
-                            }
+                        string log_msg =
+                            "Waiting for a new mission to start...";
+                        cout << log_msg << endl;
+                        if (this->logger) {
+                            this->logger->log(log_msg);
                         }
-
-                        cout << "Waiting for a new mission to start..." << endl;
                         this->prepare();
                     }
                 }
@@ -142,7 +152,7 @@ namespace tomcat {
             auto messages = this->reporter->translate_estimates_to_messages(
                 this->agent, this->last_time_step);
             for (const auto& message : messages) {
-                this->publish(this->config.estimates_topic, message.dump());
+                this->publish(this->config.intervention_topic, message.dump());
             }
         }
 
@@ -161,6 +171,9 @@ namespace tomcat {
         }
 
         void OnlineEstimation::on_error(const string& error_message) {
+            if (this->logger) {
+                this->logger->log(error_message);
+            }
             this->close();
             throw TomcatModelException(error_message);
         }
@@ -173,13 +186,10 @@ namespace tomcat {
         }
 
         void OnlineEstimation::on_time_out() {
-            if (this->config.log_topic != "" && this->reporter) {
-                stringstream ss;
-                ss << "Connection time out!";
-                string message =
-                    this->reporter->build_log_message(this->agent, ss.str())
-                        .dump();
-                this->publish(this->config.log_topic, ss.str());
+            string log_msg = "Connection time out!";
+            cout << log_msg << endl;
+            if (this->logger) {
+                this->logger->log(log_msg);
             }
         }
 

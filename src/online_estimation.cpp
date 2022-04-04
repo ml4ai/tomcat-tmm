@@ -8,6 +8,7 @@
 #include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "experiments/Experimentation.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/estimation/OnlineLogger.h"
 #include "reporter/EstimateReporter.h"
 
 /**
@@ -29,6 +30,7 @@ void start_agent(const string& model_dir,
                  const string& reporter_type,
                  const string& reporter_settings_json,
                  const string& eval_dir,
+                 const string& log_dir,
                  int study_num,
                  int num_seconds,
                  int time_step_size,
@@ -67,7 +69,7 @@ void start_agent(const string& model_dir,
     }
 
     Experimentation experimentation(random_generator,
-                                    EstimateReporter::get_current_timestamp());
+                                    Timer::get_current_timestamp());
     int num_time_steps = num_seconds / time_step_size;
     experimentation.set_online_estimation_process(agent_json,
                                                   model_dir,
@@ -75,7 +77,8 @@ void start_agent(const string& model_dir,
                                                   num_time_steps - 1,
                                                   broker_json,
                                                   converter,
-                                                  reporter);
+                                                  reporter,
+                                                  log_dir);
     experimentation.start_real_time_estimation(params_dir, eval_dir);
 }
 
@@ -88,6 +91,7 @@ int main(int argc, char* argv[]) {
     string reporter_type;
     string reporter_settings_json;
     string eval_dir;
+    string log_dir;
     unsigned int num_seconds;
     unsigned int time_step_size;
     unsigned int num_jobs;
@@ -143,7 +147,10 @@ int main(int argc, char* argv[]) {
         "eval_dir",
         po::value<string>(&eval_dir)->default_value(""),
         "Directory where the evaluation file and report (if "
-        "requested) will be saved.");
+        "requested) will be saved.")(
+        "log_dir",
+        po::value<string>(&log_dir)->default_value("")->required(),
+        "Directory where the log file must be created.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -161,6 +168,7 @@ int main(int argc, char* argv[]) {
                 reporter_type,
                 reporter_settings_json,
                 eval_dir,
+                log_dir,
                 (int)study_num,
                 (int)num_seconds,
                 (int)time_step_size,

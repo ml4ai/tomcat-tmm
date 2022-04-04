@@ -292,8 +292,8 @@ namespace tomcat {
             intervention_message["data"]["receivers"] = this->player_ids;
 
             // TODO - remove
-//            intervention_message["topic"] =
-//                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+            //            intervention_message["topic"] =
+            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
@@ -312,8 +312,8 @@ namespace tomcat {
             intervention_message["data"]["receivers"] = this->player_ids;
 
             // TODO - remove
-//            intervention_message["topic"] =
-//                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+            //            intervention_message["topic"] =
+            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
@@ -344,17 +344,10 @@ namespace tomcat {
             intervention_message["data"]["receivers"].push_back(player_id);
 
             // TODO - remove
-//            intervention_message["topic"] =
-//                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+            //            intervention_message["topic"] =
+            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
-        }
-
-        nlohmann::json ASISTStudy3InterventionReporter::build_log_message(
-            const AgentPtr& agent, const string& log) const {
-            // No predefined format for the ASIST program
-            nlohmann::json message;
-            return message;
         }
 
         void ASISTStudy3InterventionReporter::prepare() {

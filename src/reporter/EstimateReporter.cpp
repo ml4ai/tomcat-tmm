@@ -44,11 +44,6 @@ namespace tomcat {
             return reporter;
         }
 
-        string EstimateReporter::get_current_timestamp() {
-            pt::ptime time = pt::microsec_clock::universal_time();
-            return pt::to_iso_extended_string(time) + "Z";
-        }
-
         string
         EstimateReporter::get_elapsed_timestamp(const string& initial_timestamp,
                                                 int elapsed_time) {
@@ -96,6 +91,14 @@ namespace tomcat {
         }
 
         void EstimateReporter::prepare() {}
+
+        //----------------------------------------------------------------------
+        // Getters & Setters
+        //----------------------------------------------------------------------
+
+        void EstimateReporter::set_logger(const OnlineLoggerPtr& new_logger) {
+            this->logger = new_logger;
+        }
 
     } // namespace model
 } // namespace tomcat

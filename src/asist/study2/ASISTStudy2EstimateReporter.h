@@ -54,9 +54,6 @@ namespace tomcat {
             translate_estimates_to_messages(const AgentPtr& agent,
                                             int time_step);
 
-            nlohmann::json build_log_message(const AgentPtr& agent,
-                                             const std::string& log) const;
-
           protected:
             //------------------------------------------------------------------
             // Member functions

@@ -35,7 +35,6 @@ namespace tomcat {
         //----------------------------------------------------------------------
         ASISTStudy3InterventionEstimator::ASISTStudy3InterventionEstimator(
             const ASISTStudy3InterventionEstimator& estimator) {
-
             this->copy(estimator);
         }
 
@@ -185,6 +184,8 @@ namespace tomcat {
                 this->last_placed_markers = vector<Marker>(3);
                 this->active_unspoken_markers = vector<Marker>(3);
                 this->containers_initialized = true;
+
+                this->log_mission_start(new_data);
             }
         }
 
@@ -207,6 +208,11 @@ namespace tomcat {
                 }
 
                 encouragement_node->increment_assignment(increments);
+
+                if (increments > 0) {
+                    this->logger->log(fmt::format(
+                        "{} encouragement extractions detected.", increments));
+                }
             }
             else {
                 if (encouragement_node->get_size() == 0) {
@@ -324,6 +330,19 @@ namespace tomcat {
             }
 
             this->active_unspoken_markers[player_order] = Marker();
+        }
+
+        void ASISTStudy3InterventionEstimator::log_mission_start(
+            const EvidenceSet& new_data) {
+            int mission_order = new_data.get_metadata()[0]["mission_order"];
+            const string& trial = new_data.get_metadata()[0]["trial"];
+            const string& experiment_id =
+                new_data.get_metadata()[0]["experiment_id"];
+            this->logger->log(fmt::format(
+                "Mission {} from trial {} and experiment id {} started.",
+                mission_order,
+                trial,
+                experiment_id));
         }
 
         //----------------------------------------------------------------------

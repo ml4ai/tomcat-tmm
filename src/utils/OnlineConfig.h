@@ -14,8 +14,7 @@ namespace tomcat {
             int port;
             int num_connection_trials;
             int milliseconds_before_retrial;
-            std::string estimates_topic;
-            std::string log_topic;
+            std::string intervention_topic;
         };
     } // namespace model
 } // namespace tomcat
