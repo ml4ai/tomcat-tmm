@@ -49,6 +49,50 @@ namespace tomcat {
         }
 
         //----------------------------------------------------------------------
+        // Static functions
+        //----------------------------------------------------------------------
+
+        ASISTStudy3MessageConverter::MarkerType
+        ASISTStudy3MessageConverter::marker_text_to_type(
+            const string& textual_type) {
+            string type_no_color =
+                textual_type.substr(textual_type.find('_') + 1);
+
+            MarkerType type;
+
+            if (type_no_color == "regularvictim") {
+                type = MarkerType::REGULAR_VICTIM;
+            }
+            else if (type_no_color == "criticalvictim") {
+                type = MarkerType::VICTIM_C;
+            }
+            else if (type_no_color == "novictim") {
+                type = MarkerType::NO_VICTIM;
+            }
+            else if (type_no_color == "threat") {
+                type = MarkerType::THREAT_ROOM;
+            }
+            else if (type_no_color == "bonedamage") {
+                type = MarkerType::VICTIM_B;
+            }
+            else if (type_no_color == "abrasion") {
+                type = MarkerType::VICTIM_A;
+            }
+            else if (type_no_color == "sos") {
+                type = MarkerType::SOS;
+            }
+            else if (type_no_color == "rubble") {
+                type = MarkerType::RUBBLE;
+            }
+            else {
+                throw TomcatModelException(
+                    fmt::format("Invalid marker type {}.", textual_type));
+            }
+
+            return type;
+        }
+
+        //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
         void ASISTStudy3MessageConverter::copy_converter(
@@ -68,13 +112,21 @@ namespace tomcat {
             this->player_id_to_index.clear();
 
             this->num_encouragement_utterances = 0;
-
-            //            this->team_score = Tensor3(0);
-            //            this->players.clear();
-            //            this->player_id_to_number.clear();
-            //            this->player_role.clear();
-            //            this->player_position.clear();
-            //            this->player_seconds_in_map_section.clear();
+            this->placed_markers = vector<vector<Marker>>(this->num_players);
+            this->removed_markers = vector<vector<Marker>>(this->num_players);
+            this->player_positions = vector<Position>(this->num_players);
+            this->location_changes = vector<bool>(this->num_players, false);
+            this->victim_interactions = vector<bool>(this->num_players, false);
+            this->mention_to_critical_victim =
+                vector<bool>(this->num_players, false);
+            this->mention_to_regular_victim =
+                vector<bool>(this->num_players, false);
+            this->mention_to_victim_a = vector<bool>(this->num_players, false);
+            this->mention_to_victim_b = vector<bool>(this->num_players, false);
+            this->mention_to_threat = vector<bool>(this->num_players, false);
+            this->mention_to_no_victim = vector<bool>(this->num_players, false);
+            this->mention_to_obstacle = vector<bool>(this->num_players, false);
+            this->mention_to_help = vector<bool>(this->num_players, false);
         }
 
         void
@@ -97,6 +149,13 @@ namespace tomcat {
             topics.insert("agent/dialog");
             topics.insert("observations/events/player/role_selected");
             topics.insert("observations/events/mission/planning");
+            topics.insert("observations/events/player/marker_placed");
+            topics.insert("observations/events/player/marker_removed");
+            topics.insert("observations/events/player/location");
+            topics.insert("observations/events/player/victim_placed");
+            topics.insert("observations/events/player/victim_picked_up");
+            topics.insert("observations/events/player/triage");
+            topics.insert("observations/events/player/proximity_block");
 
             return topics;
         }
@@ -114,7 +173,7 @@ namespace tomcat {
                     check_field(json_message["msg"], "experiment_id");
                     check_field(json_message["msg"], "trial_id");
                     check_field(json_message["data"], "name");
-                    check_field(json_message["data"], "map_block_filename");
+                    check_field(json_message["data"], "experiment_mission");
                     check_field(json_message["data"], "client_info");
 
                     const string& name = json_message["data"]["name"];
@@ -128,12 +187,14 @@ namespace tomcat {
                     json_mission_log["team"] = name.substr(0, name.find('_'));
 
                     const string& map_filename =
-                        json_message["data"]["map_block_filename"];
-                    if (map_filename.find("SaturnA") != string::npos) {
+                        json_message["data"]["experiment_mission"];
+                    if (map_filename.find("Saturn_A") != string::npos ||
+                        map_filename.find("Saturn_C") != string::npos) {
                         this->first_mission = true;
                         json_mission_log["mission_order"] = 1;
                     }
-                    else if (map_filename.find("SaturnB") != string::npos) {
+                    else if (map_filename.find("Saturn_B") != string::npos ||
+                             map_filename.find("Saturn_D") != string::npos) {
                         this->first_mission = false;
                         json_mission_log["mission_order"] = 2;
                     }
@@ -173,133 +234,6 @@ namespace tomcat {
             }
 
             return data;
-        }
-
-        void ASISTStudy3MessageConverter::parse_players(
-            const nlohmann::json& json_client_info) {
-
-            for (const auto& info_per_player : json_client_info) {
-                check_field(info_per_player, "participant_id");
-                check_field(info_per_player, "callsign");
-
-                Player player((string)info_per_player["participant_id"],
-                              (string)info_per_player["callsign"]);
-
-                this->players[player.index] = player;
-                this->player_id_to_index[player.id] = player.index;
-            }
-        }
-
-        void ASISTStudy3MessageConverter::fill_observation(
-            const nlohmann::json& json_message,
-            nlohmann::json& json_mission_log) {
-
-            if (is_message_of(json_message, "event", "Event:dialogue_event")) {
-                if (this->mission_started) {
-                    this->parse_utterance_message(json_message);
-                }
-            }
-            else if (is_message_of(
-                         json_message, "event", "Event:RoleSelected")) {
-                this->parse_role_selection_message(json_message,
-                                                   json_mission_log);
-            }
-        }
-
-        //
-        //            string player_id;
-        //            int player_number = -1;
-        //
-        //            if (EXISTS("participant_id", json_message["data"])) {
-        //                if (json_message["data"]["participant_id"] == nullptr)
-        //                {
-        //                    if (json_message["msg"]["sub_type"] != "FoV") {
-        //                        throw TomcatModelException("Participant ID is
-        //                        null.");
-        //                    }
-        //                    // If it's FoV, we just ignore FoV Messages.
-        //                    return;
-        //                }
-        //                player_id = json_message["data"]["participant_id"];
-        //                if (EXISTS(player_id, this->player_id_to_number)) {
-        //                    player_number =
-        //                    this->player_id_to_number[player_id];
-        //                }
-        //            }
-        //
-        //            if (player_id != "") {
-        //                // Player evidence
-        //                if (json_message["header"]["message_type"] == "event"
-        //                &&
-        //                    json_message["msg"]["sub_type"] ==
-        //                    "Event:RoleSelected") {
-        //                    this->parse_role_selection_message(json_message,
-        //                                                       player_number);
-        //                }
-        //                else if (json_message["header"]["message_type"] ==
-        //                             "observation" &&
-        //                         json_message["msg"]["sub_type"] == "state") {
-        //                    this->parse_player_state_message(json_message,
-        //                                                     player_number);
-        //                }
-        //            }
-        //        }
-
-        void ASISTStudy3MessageConverter::parse_utterance_message(
-            const nlohmann::json& json_message) {
-            check_field(json_message["data"], "extractions");
-
-            for (const auto& json_extraction :
-                 json_message["data"]["extractions"]) {
-                check_field(json_extraction, "labels");
-
-                for (const auto& label : json_extraction["labels"]) {
-                    if (boost::iequals((string)label, "Encouragement")) {
-                        this->num_encouragement_utterances++;
-                    }
-                }
-            }
-        }
-
-        void ASISTStudy3MessageConverter::parse_role_selection_message(
-            const nlohmann::json& json_message,
-            nlohmann::json& json_mission_log) {
-            check_field(json_message["data"], "new_role");
-            check_field(json_message["data"], "participant_id");
-
-            const string& new_role = json_message["data"]["new_role"];
-            Player& player = this->get_player_by_id(
-                (string)json_message["data"]["participant_id"]);
-
-            if (player.role.empty()) {
-                this->num_players_with_role++;
-            }
-
-            if (boost::iequals(new_role, "transport_specialist")) {
-                player.role = "transporter";
-            }
-            else if (boost::iequals(new_role, "engineering_specialist")) {
-                player.role = "engineer";
-            }
-            else if (boost::iequals(new_role, "medical_specialist")) {
-                player.role = "medic";
-            }
-            else {
-                throw TomcatModelException(
-                    fmt::format("Role {} invalid.", new_role));
-            }
-
-            if (this->num_players_with_role == this->num_players) {
-                json_mission_log["players"] = nlohmann::json::array();
-
-                for (const auto& p : this->players) {
-                    nlohmann::json json_player;
-                    json_player["id"] = p.id;
-                    json_player["color"] = p.color;
-                    json_player["role"] = p.role;
-                    json_mission_log["players"].push_back(json_player);
-                }
-            }
         }
 
         EvidenceSet ASISTStudy3MessageConverter::parse_after_mission_start(
@@ -362,6 +296,329 @@ namespace tomcat {
             return data;
         }
 
+        void ASISTStudy3MessageConverter::parse_players(
+            const nlohmann::json& json_client_info) {
+
+            for (const auto& info_per_player : json_client_info) {
+                check_field(info_per_player, "participant_id");
+                check_field(info_per_player, "callsign");
+
+                const string& id = info_per_player["participant_id"];
+
+                if (!id.empty()) {
+                    Player player(id, (string)info_per_player["callsign"]);
+
+                    this->players[player.index] = player;
+                    this->player_id_to_index[player.id] = player.index;
+
+                    // TODO - remove when the dialog agent fixes the
+                    // inconsistency with the participant_id
+                    this->player_id_to_index[(
+                        string)info_per_player["playername"]] = player.index;
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::fill_observation(
+            const nlohmann::json& json_message,
+            nlohmann::json& json_mission_log) {
+
+            if (is_message_of(json_message, "event", "Event:RoleSelected")) {
+                this->parse_role_selection_message(json_message,
+                                                   json_mission_log);
+            }
+
+            if (this->mission_started) {
+                if (is_message_of(
+                        json_message, "event", "Event:dialogue_event")) {
+                    this->parse_utterance_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:MarkerPlaced")) {
+                    this->parse_marker_placed_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:MarkerRemoved")) {
+                    this->parse_marker_removed_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:location")) {
+                    this->parse_new_location_message(json_message);
+                }
+                else if (is_message_of(json_message, "observation", "state")) {
+                    this->parse_player_position_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:VictimPlaced")) {
+                    this->parse_victim_placement_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:VictimPickedUp")) {
+                    this->parse_victim_pickedup_message(json_message);
+                }
+                else if (is_message_of(json_message, "event", "Event:Triage")) {
+                    this->parse_victim_triage_message(json_message);
+                }
+                else if (is_message_of(json_message,
+                                       "event",
+                                       "Event:ProximityBlockInteraction")) {
+                    this->parse_victim_proximity_message(json_message);
+                }
+            }
+        }
+
+        //
+        //            string player_id;
+        //            int player_number = -1;
+        //
+        //            if (EXISTS("participant_id", json_message["data"])) {
+        //                if (json_message["data"]["participant_id"] == nullptr)
+        //                {
+        //                    if (json_message["msg"]["sub_type"] != "FoV") {
+        //                        throw TomcatModelException("Participant ID is
+        //                        null.");
+        //                    }
+        //                    // If it's FoV, we just ignore FoV Messages.
+        //                    return;
+        //                }
+        //                player_id = json_message["data"]["participant_id"];
+        //                if (EXISTS(player_id, this->player_id_to_number)) {
+        //                    player_number =
+        //                    this->player_id_to_number[player_id];
+        //                }
+        //            }
+        //
+        //            if (player_id != "") {
+        //                // Player evidence
+        //                if (json_message["header"]["message_type"] == "event"
+        //                &&
+        //                    json_message["msg"]["sub_type"] ==
+        //                    "Event:RoleSelected") {
+        //                    this->parse_role_selection_message(json_message,
+        //                                                       player_number);
+        //                }
+        //                else if (json_message["header"]["message_type"] ==
+        //                             "observation" &&
+        //                         json_message["msg"]["sub_type"] == "state") {
+        //                    this->parse_player_state_message(json_message,
+        //                                                     player_number);
+        //                }
+        //            }
+        //        }
+
+        void ASISTStudy3MessageConverter::parse_utterance_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "extractions");
+            check_field(json_message["data"], "participant_id");
+
+            if (!EXISTS((string)json_message["data"]["participant_id"],
+                        this->player_id_to_index)) {
+                // The dialog agent also parses chat messages not associated to
+                // any of the players.
+                return;
+            }
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            for (const auto& json_extraction :
+                 json_message["data"]["extractions"]) {
+                check_field(json_extraction, "labels");
+
+                for (const auto& label : json_extraction["labels"]) {
+                    if (boost::iequals((string)label, "Encouragement")) {
+                        this->num_encouragement_utterances++;
+                    }
+                    else if (boost::iequals((string)label, "CriticalVictim")) {
+                        this->mention_to_critical_victim[player_order] = true;
+                    }
+                    else if (boost::iequals((string)label, "RegularVictim")) {
+                        this->mention_to_regular_victim[player_order] = true;
+                    }
+                    else if (boost::iequals((string)label, "VictimTypeA")) {
+                        this->mention_to_victim_b[player_order] = true;
+                    }
+                    else if (boost::iequals((string)label, "VictimTypeB")) {
+                        this->mention_to_victim_b[player_order] = true;
+                    }
+                    else if (boost::iequals((string)label, "NoVictim")) {
+                        this->mention_to_no_victim[player_order] = true;
+                    }
+                    else if (boost::iequals((string)label, "Stuck") ||
+                             boost::iequals((string)label, "HelpRequest") ||
+                             boost::iequals((string)label, "NeedAction") ||
+                             boost::iequals((string)label, "NeedItem") ||
+                             boost::iequals((string)label, "NeedRole")) {
+                        this->mention_to_help[player_order] = true;
+                    }
+                    else if (boost::iequals((string)label, "ThreatRoom") ||
+                             boost::iequals((string)label,
+                                            "ThreatRoomMarker") ||
+                             boost::iequals((string)label, "ThreatSign")) {
+                        this->mention_to_threat[player_order] = true;
+                    }
+                    else if (boost::iequals((string)label, "Obstacle")) {
+                        this->mention_to_obstacle[player_order] = true;
+                    }
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_role_selection_message(
+            const nlohmann::json& json_message,
+            nlohmann::json& json_mission_log) {
+            check_field(json_message["data"], "new_role");
+            check_field(json_message["data"], "participant_id");
+
+            const string& new_role = json_message["data"]["new_role"];
+            Player& player = this->get_player_by_id(
+                (string)json_message["data"]["participant_id"]);
+
+            if (player.role.empty()) {
+                this->num_players_with_role++;
+            }
+
+            if (boost::iequals(new_role, "transport_specialist")) {
+                player.role = "transporter";
+            }
+            else if (boost::iequals(new_role, "engineering_specialist")) {
+                player.role = "engineer";
+            }
+            else if (boost::iequals(new_role, "medical_specialist")) {
+                player.role = "medic";
+            }
+            else {
+                throw TomcatModelException(
+                    fmt::format("Role {} invalid.", new_role));
+            }
+
+            if (this->num_players_with_role == this->num_players) {
+                json_mission_log["players"] = nlohmann::json::array();
+
+                for (const auto& p : this->players) {
+                    nlohmann::json json_player;
+                    json_player["id"] = p.id;
+                    json_player["color"] = p.color;
+                    json_player["role"] = p.role;
+                    json_mission_log["players"].push_back(json_player);
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_marker_placed_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "marker_x");
+            check_field(json_message["data"], "marker_z");
+            check_field(json_message["data"], "participant_id");
+            check_field(json_message["data"], "type");
+
+            MarkerType type =
+                marker_text_to_type((string)json_message["data"]["type"]);
+            Position pos((double)json_message["data"]["marker_x"],
+                         (double)json_message["data"]["marker_z"]);
+            Marker marker(type, pos);
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->placed_markers[player_order].push_back(marker);
+        }
+
+        void ASISTStudy3MessageConverter::parse_marker_removed_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "marker_x");
+            check_field(json_message["data"], "marker_z");
+            check_field(json_message["data"], "participant_id");
+            check_field(json_message["data"], "type");
+
+            MarkerType type =
+                marker_text_to_type((string)json_message["data"]["type"]);
+            Position pos((double)json_message["data"]["marker_x"],
+                         (double)json_message["data"]["marker_z"]);
+            Marker marker(type, pos);
+
+            // If the marker was just placed, remove it from the list of markers
+            // placed instead.
+            for (int i = 0; i < this->num_players; i++) {
+                for (int j = 0; j < this->placed_markers[i].size(); j++) {
+                    if (marker == this->placed_markers[i][j]) {
+                        this->placed_markers[i].erase(
+                            this->placed_markers[i].begin() + j);
+                        return;
+                    }
+                }
+            }
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->removed_markers[player_order].push_back(marker);
+        }
+
+        void ASISTStudy3MessageConverter::parse_player_position_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "x");
+            check_field(json_message["data"], "z");
+            check_field(json_message["data"], "participant_id");
+
+            Position pos((double)json_message["data"]["x"],
+                         (double)json_message["data"]["z"]);
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->player_positions[player_order] = pos;
+        }
+
+        void ASISTStudy3MessageConverter::parse_new_location_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->location_changes[player_order] = true;
+        }
+
+        void ASISTStudy3MessageConverter::parse_victim_placement_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->victim_interactions[player_order] = true;
+        }
+
+        void ASISTStudy3MessageConverter::parse_victim_pickedup_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->victim_interactions[player_order] = true;
+        }
+
+        void ASISTStudy3MessageConverter::parse_victim_triage_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->victim_interactions[player_order] = true;
+        }
+
+        void ASISTStudy3MessageConverter::parse_victim_proximity_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            this->victim_interactions[player_order] = true;
+        }
+
         void ASISTStudy3MessageConverter::parse_scoreboard_message(
             const nlohmann::json& json_message) {
             //            int score =
@@ -381,8 +638,87 @@ namespace tomcat {
 
             dict_data[Labels::ENCOURAGEMENT] =
                 this->num_encouragement_utterances;
-
             this->num_encouragement_utterances = 0;
+
+            nlohmann::json json_last_placed_markers = nlohmann::json::array();
+            nlohmann::json json_removed_markers = nlohmann::json::array();
+            nlohmann::json json_location_changes = nlohmann::json::array();
+            nlohmann::json json_victim_interactions = nlohmann::json::array();
+            nlohmann::json json_player_positions = nlohmann::json::array();
+            nlohmann::json json_dialog = nlohmann::json::array();
+            for (int player_order = 0; player_order < this->num_players;
+                 player_order++) {
+                // Placed markers
+                if (!this->placed_markers[player_order].empty()) {
+                    // Just save the last one placed
+                    json_last_placed_markers.push_back(
+                        this->placed_markers[player_order].back().serialize());
+                }
+                else {
+                    json_last_placed_markers.push_back(nlohmann::json());
+                }
+                this->placed_markers[player_order].clear();
+
+                // Removed markers
+                nlohmann::json json_markers = nlohmann::json::array();
+                for (const auto& marker : this->removed_markers[player_order]) {
+                    json_markers.push_back(marker.serialize());
+                }
+                json_removed_markers.push_back(json_markers);
+                this->removed_markers[player_order].clear();
+
+                // Location changes
+                json_location_changes.push_back(
+                    (bool)this->location_changes[player_order]);
+                this->location_changes[player_order] = false;
+
+                // Victim interactions
+                json_victim_interactions.push_back(
+                    (bool)this->victim_interactions[player_order]);
+                this->victim_interactions[player_order] = false;
+
+                // Player positions
+                json_player_positions.push_back(
+                    this->player_positions[player_order].serialize());
+
+                // Dialog
+                nlohmann::json json_mentions;
+                json_mentions["no_victim"] =
+                    (bool)this->mention_to_no_victim.at(player_order);
+                json_mentions["regular_victim"] =
+                    (bool)this->mention_to_regular_victim.at(player_order);
+                json_mentions["critical_victim"] =
+                    (bool)this->mention_to_critical_victim.at(player_order);
+                json_mentions["victim_a"] =
+                    (bool)this->mention_to_victim_a.at(player_order);
+                json_mentions["victim_b"] =
+                    (bool)this->mention_to_victim_b.at(player_order);
+                json_mentions["obstacle"] =
+                    (bool)this->mention_to_obstacle.at(player_order);
+                json_mentions["threat"] =
+                    (bool)this->mention_to_threat.at(player_order);
+                json_mentions["help_needed"] =
+                    (bool)this->mention_to_help.at(player_order);
+                json_dialog.push_back(json_mentions);
+
+                this->mention_to_no_victim[player_order] = false;
+                this->mention_to_regular_victim[player_order] = false;
+                this->mention_to_critical_victim[player_order] = false;
+                this->mention_to_victim_a[player_order] = false;
+                this->mention_to_victim_b[player_order] = false;
+                this->mention_to_obstacle[player_order] = false;
+                this->mention_to_threat[player_order] = false;
+                this->mention_to_help[player_order] = false;
+            }
+
+            dict_data[Labels::LAST_PLACED_MARKERS] = json_last_placed_markers;
+            dict_data[Labels::REMOVED_MARKERS] = json_removed_markers;
+            dict_data[Labels::LOCATION_CHANGES] = json_location_changes;
+            dict_data[Labels::VICTIM_INTERACTIONS] = json_victim_interactions;
+            dict_data[Labels::PLAYER_POSITIONS] = json_player_positions;
+            dict_data[Labels::DIALOG] = json_dialog;
+
+            // Clear data that should not persist across time steps
 
             vector<vector<nlohmann::json>> dict_data_vec(1);
             dict_data_vec[0].push_back(dict_data);
@@ -425,5 +761,6 @@ namespace tomcat {
             int player_index = this->player_id_to_index[player_id];
             return this->players[player_index];
         }
+
     } // namespace model
 } // namespace tomcat

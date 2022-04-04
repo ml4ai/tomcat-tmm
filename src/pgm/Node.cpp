@@ -37,13 +37,19 @@ namespace tomcat {
         }
 
         void Node::increment_assignment(int increment) {
-            this->assignment.array() += increment;
+            if (this->assignment.size() == 0) {
+                this->assignment = Eigen::MatrixXd::Constant(1, 1, increment);
+            }
+            else {
+                this->assignment.array() += increment;
+            }
         }
 
         void Node::increment_assignment(const Eigen::MatrixXd& increments) {
             if (this->assignment.size() == 0) {
                 this->assignment = increments;
-            } else {
+            }
+            else {
                 this->assignment.array() += increments.array();
             }
         }

@@ -5,6 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/Model.h"
 #include "pipeline/estimation/Estimator.h"
@@ -47,10 +48,6 @@ namespace tomcat::model {
         operator=(ASISTStudy3InterventionEstimator&&) = default;
 
         //------------------------------------------------------------------
-        // Static functions
-        //------------------------------------------------------------------
-
-        //------------------------------------------------------------------
         // Member functions
         //------------------------------------------------------------------
         void estimate(const EvidenceSet& new_data) override;
@@ -65,10 +62,17 @@ namespace tomcat::model {
          * Get the CDF of the number of encouragement utterances identified in
          * mission 1.
          *
-         * @return CDFs. One per trial if multiple trials are being processed at
-         * the same time.
+         * @return CDF
          */
-        Eigen::VectorXd get_encouragement_cdfs();
+        double get_encouragement_cdf();
+
+        /**
+         * Removes current active unspoken marker from the list.
+         *
+         * @param player_order: index of the player that has an active unspoken
+         * marker
+         */
+        void clear_active_unspoken_marker(int player_order);
 
         //------------------------------------------------------------------
         // Getters & Setters
@@ -83,6 +87,9 @@ namespace tomcat::model {
         //------------------------------------------------------------------
 
         int get_last_time_step() const;
+
+        const std::vector<ASISTStudy3MessageConverter::Marker>&
+        get_active_unspoken_markers() const;
 
       protected:
         //------------------------------------------------------------------
@@ -102,72 +109,80 @@ namespace tomcat::model {
 
       private:
         //------------------------------------------------------------------
+        // Types & Consts
+        //------------------------------------------------------------------
+        const static int MAX_DIST = 5;
+        const static int VICINITY_MAX_RADIUS = 5;
+
+        //------------------------------------------------------------------
+        // Static functions
+        //------------------------------------------------------------------
+        static bool did_player_speak_about_marker(
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& unspoken_marker,
+            int time_step,
+            const EvidenceSet& new_data);
+
+        static ASISTStudy3MessageConverter::Marker get_last_placed_marker(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
+        static bool did_player_interact_with_victim(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
+        static bool is_player_far_apart(
+            int player_order,
+            const ASISTStudy3MessageConverter::Position& position,
+            int max_distance,
+            int time_step,
+            const EvidenceSet& new_data);
+
+        static std::vector<ASISTStudy3MessageConverter::Marker>
+        get_removed_markers(int player_order,
+                            int time_step,
+                            const EvidenceSet& new_data);
+
+        static bool did_player_change_area(int player_order,
+                                           int time_step,
+                                           const EvidenceSet& new_data);
+
+        //------------------------------------------------------------------
         // Member functions
         //------------------------------------------------------------------
 
-        //        /**
-        //         * Parses the map to identify and store room ids.
-        //         *
-        //         * @param map_filepath: path to the descriptive file of the
-        //         map used in
-        //         * the mission
-        //         */
-        //        void parse_map(const std::string& map_filepath);
-        //
-        //        /**
-        //         * Initialize all estimators used by the intervention
-        //         estimator.
-        //         *
-        //         * @param threat_room_model_filepath: path to the json file
-        //         containing
-        //         * the model definition for belief about threat rooms
-        //         */
-        //        void
-        //        create_belief_estimators(const std::string&
-        //        threat_room_model_filepath);
-        //
-        //        /**
-        //         * Initializes estimators that deal with belief about threat
-        //         rooms.
-        //         *
-        //         * @param threat_room_model_filepath: path to the json file
-        //         containing
-        //         * the model definition for belief about threat rooms
-        //         */
-        //        void create_threat_room_belief_estimators(
-        //            const std::string& threat_room_model_filepath);
-        //
-        //        /**
-        //         * Estimate beliefs about threat rooms given new evidence.
-        //         *
-        //         * @param new_dat: new evidence data
-        //         */
-        //        void update_threat_room_beliefs(const EvidenceSet& new_data);
+        /**
+         * Initialize containers with the number of trials being estimated.
+         *
+         * @param new_data: evidence
+         */
+        void initialize_containers(const EvidenceSet& new_data);
+
+        /**
+         * Estimate if team is motivated.
+         *
+         * @param new_data: evidence
+         */
+        void estimate_motivation(const EvidenceSet& new_data);
+
+        /**
+         * Estimate if players placed markers and did not talk about it.
+         *
+         * @param new_data: evidence
+         */
+        void estimate_unspoken_markers(const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Data members
         //------------------------------------------------------------------
 
+        bool containers_initialized = false;
+
         int last_time_step = -1;
         bool first_mission = true;
-        Eigen::VectorXd encouragement_cdf = Eigen::VectorXd(0);
+        double encouragement_cdf = 0;
 
-        //        std::shared_ptr<ASISTStudy3InterventionModel>
-        //        intervention_model; int num_encouragements_first_mission = 0;
-        //
-        //        // Indices of each role
-        //        const static int NUM_ROLES = 3;
-        //
-        //        const static int MEDIC = 0;
-        //        const static int TRANSPORTER = 1;
-        //        const static int ENGINEER = 2;
-        //
-        //        std::unordered_map<std::string, int> room_id_to_idx;
-        //        std::vector<std::string> room_ids;
-        //
-        //        // Stores belief estimates about threat rooms per player and
-        //        room. std::vector<std::vector<SumProductEstimator>>
-        //            threat_room_belief_estimators;
+        std::vector<ASISTStudy3MessageConverter::Marker> last_placed_markers;
+        std::vector<ASISTStudy3MessageConverter::Marker>
+            active_unspoken_markers;
     };
 
 } // namespace tomcat::model

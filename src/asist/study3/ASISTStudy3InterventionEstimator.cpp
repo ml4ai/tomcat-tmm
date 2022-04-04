@@ -11,6 +11,10 @@ namespace tomcat {
     namespace model {
 
         using namespace std;
+        using Labels = ASISTStudy3MessageConverter::Labels;
+        using MarkerType = ASISTStudy3MessageConverter::MarkerType;
+        using Marker = ASISTStudy3MessageConverter::Marker;
+        using Position = ASISTStudy3MessageConverter::Position;
 
         //----------------------------------------------------------------------
         // Constructors
@@ -45,6 +49,111 @@ namespace tomcat {
         //----------------------------------------------------------------------
         // Static functions
         //----------------------------------------------------------------------
+        bool ASISTStudy3InterventionEstimator::did_player_speak_about_marker(
+            int player_order,
+            const Marker& unspoken_marker,
+            int time_step,
+            const EvidenceSet& new_data) {
+
+            const auto& json_dialog =
+                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
+                                             [player_order];
+
+            if (unspoken_marker.type == MarkerType::NO_VICTIM &&
+                (bool)json_dialog["no_victim"]) {
+                return true;
+            }
+            else if (unspoken_marker.type == MarkerType::REGULAR_VICTIM &&
+                     (bool)json_dialog["regular_victim"]) {
+                return true;
+            }
+            else if (unspoken_marker.type == MarkerType::VICTIM_C &&
+                     (bool)json_dialog["critical_victim"]) {
+                return true;
+            }
+            else if (unspoken_marker.type == MarkerType::VICTIM_A &&
+                     (bool)json_dialog["victim_a"]) {
+                return true;
+            }
+            else if (unspoken_marker.type == MarkerType::VICTIM_B &&
+                     (bool)json_dialog["victim_b"]) {
+                return true;
+            }
+            else if (unspoken_marker.type == MarkerType::RUBBLE &&
+                     (bool)json_dialog["obstacle"]) {
+                return true;
+            }
+            else if (unspoken_marker.type == MarkerType::THREAT_ROOM &&
+                     (bool)json_dialog["threat"]) {
+                return true;
+            }
+            else if (unspoken_marker.type == MarkerType::SOS &&
+                     (bool)json_dialog["help_needed"]) {
+                return true;
+            }
+
+            return false;
+        }
+
+        Marker ASISTStudy3InterventionEstimator::get_last_placed_marker(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            const auto& json_marker =
+                new_data.get_dict_like_data()[0][time_step]
+                                             [Labels::LAST_PLACED_MARKERS]
+                                             [player_order];
+
+            if (!json_marker.empty()) {
+                return Marker(json_marker);
+            }
+
+            return Marker();
+        }
+
+        bool ASISTStudy3InterventionEstimator::did_player_interact_with_victim(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            return new_data
+                .get_dict_like_data()[0][time_step][Labels::VICTIM_INTERACTIONS]
+                                     [player_order];
+        }
+
+        bool ASISTStudy3InterventionEstimator::is_player_far_apart(
+            int player_order,
+            const Position& position,
+            int max_distance,
+            int time_step,
+            const EvidenceSet& new_data) {
+
+            Position player_pos(
+                new_data.get_dict_like_data()[0][time_step]
+                                             [Labels::PLAYER_POSITIONS]
+                                             [player_order]);
+            return player_pos.distance_to(position) > max_distance;
+        }
+
+        vector<Marker> ASISTStudy3InterventionEstimator::get_removed_markers(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            vector<Marker> removed_markers;
+            const auto& json_markers =
+                new_data
+                    .get_dict_like_data()[0][time_step][Labels::REMOVED_MARKERS]
+                                         [player_order];
+            for (const auto& json_marker : json_markers) {
+                removed_markers.push_back(Marker(json_marker));
+            }
+
+            return removed_markers;
+        }
+
+        bool ASISTStudy3InterventionEstimator::did_player_change_area(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            return new_data
+                .get_dict_like_data()[0][time_step][Labels::LOCATION_CHANGES]
+                                     [player_order];
+        }
 
         //----------------------------------------------------------------------
         // Member functions
@@ -54,20 +163,33 @@ namespace tomcat {
             Estimator::copy(estimator);
 
             this->last_time_step = estimator.last_time_step;
-
-            //            this->room_id_to_idx = estimator.room_id_to_idx;
-            //            this->room_ids = estimator.room_ids;
-            //            this->threat_room_belief_estimators =
-            //                estimator.threat_room_belief_estimators;
+            // TODO
         }
 
         void ASISTStudy3InterventionEstimator::estimate(
             const EvidenceSet& new_data) {
 
+            this->initialize_containers(new_data);
+
             this->first_mission =
                 new_data.get_metadata()[0]["mission_order"] == 1;
-
             this->last_time_step += new_data.get_time_steps();
+
+            this->estimate_motivation(new_data);
+            this->estimate_unspoken_markers(new_data);
+        }
+
+        void ASISTStudy3InterventionEstimator::initialize_containers(
+            const EvidenceSet& new_data) {
+            if (!this->containers_initialized) {
+                this->last_placed_markers = vector<Marker>(3);
+                this->active_unspoken_markers = vector<Marker>(3);
+                this->containers_initialized = true;
+            }
+        }
+
+        void ASISTStudy3InterventionEstimator::estimate_motivation(
+            const EvidenceSet& new_data) {
             const auto& metadata = new_data.get_metadata();
 
             check_field(metadata[0], "mission_order");
@@ -76,16 +198,12 @@ namespace tomcat {
                 dynamic_pointer_cast<ASISTStudy3InterventionModel>(this->model)
                     ->get_encouragement_node();
 
-            Eigen::VectorXd increments =
-                Eigen::VectorXd::Zero(new_data.get_num_data_points());
+            int increments = 0;
             if (metadata[0]["mission_order"] == 1) {
-                for (int d = 0; d < new_data.get_num_data_points(); d++) {
-                    for (int t = 0; t < new_data.get_time_steps(); t++) {
-                        const string& label =
-                            ASISTStudy3MessageConverter::Labels::ENCOURAGEMENT;
-                        increments[d] +=
-                            (int)new_data.get_dict_like_data()[d][t][label];
-                    }
+                for (int t = 0; t < new_data.get_time_steps(); t++) {
+                    increments +=
+                        (int)new_data
+                            .get_dict_like_data()[0][t][Labels::ENCOURAGEMENT];
                 }
 
                 encouragement_node->increment_assignment(increments);
@@ -95,7 +213,67 @@ namespace tomcat {
                     // The agent crashed and data from mission 1 was lost.
                     // Assume there was no encouragement utterances to force
                     // intervention.
-                    encouragement_node->set_assignment(increments);
+                    encouragement_node->set_assignment(
+                        Eigen::VectorXd::Zero(1));
+                }
+            }
+        }
+
+        void ASISTStudy3InterventionEstimator::estimate_unspoken_markers(
+            const EvidenceSet& new_data) {
+
+            for (int t = 0; t < new_data.get_time_steps(); t++) {
+                for (int player_order = 0; player_order < 3; player_order++) {
+
+                    const auto& unspoken_marker =
+                        this->active_unspoken_markers[player_order];
+                    if (!unspoken_marker.is_none()) {
+                        if (did_player_speak_about_marker(
+                                player_order, unspoken_marker, t, new_data)) {
+                            this->clear_active_unspoken_marker(player_order);
+                        }
+                    }
+
+                    // If the player removed the last marker they placed,
+                    // remove it from the list.
+                    for (const auto& marker :
+                         get_removed_markers(player_order, t, new_data)) {
+
+                        if (marker == this->last_placed_markers[player_order]) {
+                            // Clear last marker
+                            this->last_placed_markers[player_order] = Marker();
+                            break;
+                        }
+                    }
+
+                    // Check if a new marker was placed and needs to be
+                    // monitored for communication.
+                    Marker new_marker =
+                        get_last_placed_marker(player_order, t, new_data);
+                    const auto& last_marker =
+                        this->last_placed_markers[player_order];
+                    if (new_marker.is_none()) {
+                        bool cond1 =
+                            did_player_change_area(player_order, t, new_data);
+                        bool cond2 = did_player_interact_with_victim(
+                            player_order, t, new_data);
+
+                        if (cond1 || cond2) {
+                            this->active_unspoken_markers[player_order] =
+                                last_marker;
+                        }
+                    }
+                    else {
+                        if (new_marker.position.distance_to(
+                                last_marker.position) > VICINITY_MAX_RADIUS) {
+                            // Avoid keep intervening if the participant is
+                            // placing several markers close to each other. They
+                            // convey the same information.
+                            this->active_unspoken_markers[player_order] =
+                                last_marker;
+                        }
+                        this->last_placed_markers[player_order] = new_marker;
+                    }
                 }
             }
         }
@@ -112,8 +290,7 @@ namespace tomcat {
                         ->get_assignment());
             }
             else {
-                json_info["encouragement_cdf"] =
-                    to_string(this->encouragement_cdf);
+                json_info["encouragement_cdf"] = this->encouragement_cdf;
             }
             json.push_back(json_info);
         }
@@ -124,22 +301,29 @@ namespace tomcat {
 
         void ASISTStudy3InterventionEstimator::prepare() {
             this->last_time_step = -1;
-            //            // belief about threat rooms
-            //            for (auto& estimators :
-            //            this->threat_room_belief_estimators) {
-            //                for (auto& estimator : estimators) {
-            //                    estimator.prepare();
-            //                }
-            //            }
+            this->containers_initialized = false;
         }
 
-        Eigen::VectorXd
-        ASISTStudy3InterventionEstimator::get_encouragement_cdfs() {
+        double ASISTStudy3InterventionEstimator::get_encouragement_cdf() {
             auto& encouragement_node =
                 dynamic_pointer_cast<ASISTStudy3InterventionModel>(this->model)
                     ->get_encouragement_node();
-            this->encouragement_cdf = encouragement_node->get_cdfs(1, 0, false);
+            this->encouragement_cdf =
+                encouragement_node->get_cdfs(1, 0, false)(0);
             return this->encouragement_cdf;
+        }
+
+        void ASISTStudy3InterventionEstimator::clear_active_unspoken_marker(
+            int player_order) {
+
+            if (this->active_unspoken_markers[player_order] ==
+                this->last_placed_markers[player_order]) {
+                // Remove if from the last placed marker as well because we
+                // don't want to keep track of it anymore.
+                this->last_placed_markers[player_order] = Marker();
+            }
+
+            this->active_unspoken_markers[player_order] = Marker();
         }
 
         //----------------------------------------------------------------------
@@ -148,6 +332,11 @@ namespace tomcat {
 
         int ASISTStudy3InterventionEstimator::get_last_time_step() const {
             return last_time_step;
+        }
+
+        const vector<Marker>&
+        ASISTStudy3InterventionEstimator::get_active_unspoken_markers() const {
+            return active_unspoken_markers;
         }
 
         //        void ASISTStudy3InterventionEstimator::parse_map(
