@@ -10,6 +10,7 @@
 #include "asist/ASISTReporter.h"
 #include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "pipeline/estimation/Agent.h"
+#include "asist/study3/ASISTStudy3InterventionLogger.h"
 
 namespace tomcat {
     namespace model {
@@ -52,6 +53,8 @@ namespace tomcat {
                                             int time_step) override;
 
             void prepare() override;
+
+            void set_logger(const OnlineLoggerPtr& logger) override;
 
           private:
             //------------------------------------------------------------------
@@ -208,11 +211,13 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
-            // Player id per each RGB color. A list per trial.
+
+            std::shared_ptr<ASISTStudy3InterventionLogger> custom_logger;
+
+            // Player id per each RGB color.
             std::vector<std::string> player_ids_per_color;
 
             // Json objects with a list of player ids to address the whole team.
-            // A list per trial.
             nlohmann::json player_ids;
 
             bool player_info_initialized = false;

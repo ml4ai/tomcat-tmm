@@ -108,7 +108,7 @@ namespace tomcat {
             /**
              * Sets a logger for online estimation
              *
-             * @param logger
+             * @param logger: logger
              */
             virtual void set_logger(const OnlineLoggerPtr& logger);
 

@@ -95,8 +95,8 @@ namespace tomcat {
 
         void Estimator::keep_estimates() {}
 
-        void Estimator::set_show_progress(bool new_show_progress) {
-            this->show_progress = new_show_progress;
+        void Estimator::set_show_progress(bool show_progress) {
+            this->show_progress = show_progress;
         }
 
         void Estimator::set_logger(const OnlineLoggerPtr& new_logger) {

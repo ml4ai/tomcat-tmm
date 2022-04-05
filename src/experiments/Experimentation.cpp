@@ -21,7 +21,6 @@
 #include "pipeline/training/DBNLoader.h"
 #include "pipeline/training/DBNSamplingTrainer.h"
 #include "pipeline/training/ModelLoader.h"
-#include "reporter/EstimateReporter.h"
 #include "sampling/GibbsSampler.h"
 #include "utils/Definitions.h"
 #include "utils/FileHandler.h"
@@ -200,7 +199,7 @@ namespace tomcat {
             const string& message_broker_config_filepath,
             const MsgConverterPtr& converter,
             const EstimateReporterPtr& estimate_reporter,
-            const string& log_dir) {
+            const OnlineLoggerPtr& logger) {
 
             AgentPtr agent = this->create_agent(
                 agent_config_filepath, model_dir, num_jobs, max_time_step);
@@ -219,12 +218,7 @@ namespace tomcat {
                     broker["milliseconds_before_connection_retrial"];
             }
 
-            OnlineLoggerPtr logger;
-            if (!log_dir.empty()) {
-                fs::create_directories(log_dir);
-                string log_filepath =
-                    fmt::format("{}/{}.txt", log_dir, this->experiment_id);
-                logger = make_shared<OnlineLogger>(log_filepath);
+            if (logger) {
                 estimate_reporter->set_logger(logger);
                 for (auto& estimator : agent->get_estimators()) {
                     estimator->set_logger(logger);

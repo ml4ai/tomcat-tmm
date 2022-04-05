@@ -26,7 +26,7 @@ namespace tomcat {
              * logged to.
              *
              */
-            OnlineLogger(const std::string& log_filepath);
+            explicit OnlineLogger(const std::string& log_filepath);
 
             virtual ~OnlineLogger();
 
@@ -49,6 +49,8 @@ namespace tomcat {
             virtual void create_header();
 
             virtual void log(const std::string& text);
+
+            virtual void log_first_evidence_set(const EvidenceSet& data);
 
           protected:
             //------------------------------------------------------------------

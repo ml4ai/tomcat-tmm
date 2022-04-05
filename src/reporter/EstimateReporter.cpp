@@ -1,6 +1,5 @@
 #include "EstimateReporter.h"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
@@ -92,13 +91,10 @@ namespace tomcat {
 
         void EstimateReporter::prepare() {}
 
-        //----------------------------------------------------------------------
-        // Getters & Setters
-        //----------------------------------------------------------------------
-
         void EstimateReporter::set_logger(const OnlineLoggerPtr& new_logger) {
             this->logger = new_logger;
         }
+
 
     } // namespace model
 } // namespace tomcat

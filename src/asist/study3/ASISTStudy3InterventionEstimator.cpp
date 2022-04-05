@@ -184,8 +184,6 @@ namespace tomcat {
                 this->last_placed_markers = vector<Marker>(3);
                 this->active_unspoken_markers = vector<Marker>(3);
                 this->containers_initialized = true;
-
-                this->log_mission_start(new_data);
             }
         }
 
@@ -237,6 +235,14 @@ namespace tomcat {
                         if (did_player_speak_about_marker(
                                 player_order, unspoken_marker, t, new_data)) {
                             this->clear_active_unspoken_marker(player_order);
+                            this->custom_logger->log_cancel_intervention(
+                                t,
+                                fmt::format(
+                                    "{} spoke about {}.",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order),
+                                    ASISTStudy3MessageConverter::
+                                        MARKER_TYPE_TO_TEXT.at(
+                                            unspoken_marker.type)));
                         }
                     }
 
@@ -264,9 +270,30 @@ namespace tomcat {
                         bool cond2 = did_player_interact_with_victim(
                             player_order, t, new_data);
 
+                        // Log info
                         if (cond1 || cond2) {
                             this->active_unspoken_markers[player_order] =
                                 last_marker;
+
+                            string action;
+                            if (cond1 && cond2) {
+                                action = fmt::format(
+                                    "{} changed area and interacted with "
+                                    "victim.",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+                            }
+                            else if (cond1) {
+                                action = fmt::format(
+                                    "{} changed area.",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+                            }
+                            else {
+                                action = fmt::format(
+                                    "{} interacted with victim.",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+                            }
+
+                            this->custom_logger->log(t, action);
                         }
                     }
                     else {
@@ -310,6 +337,23 @@ namespace tomcat {
             this->containers_initialized = false;
         }
 
+        void ASISTStudy3InterventionEstimator::set_logger(
+            const OnlineLoggerPtr& logger) {
+            Estimator::set_logger(logger);
+            if (const auto& tmp =
+                    dynamic_pointer_cast<ASISTStudy3InterventionLogger>(
+                        logger)) {
+                // We store a reference to the logger into a local variable to
+                // avoid casting throughout the code.
+                this->custom_logger = tmp;
+            }
+            else {
+                throw TomcatModelException(
+                    "The ASISTStudy3InterventionEstimator requires a "
+                    "logger of type ASISTStudy3InterventionLogger.");
+            }
+        }
+
         double ASISTStudy3InterventionEstimator::get_encouragement_cdf() {
             auto& encouragement_node =
                 dynamic_pointer_cast<ASISTStudy3InterventionModel>(this->model)
@@ -330,19 +374,6 @@ namespace tomcat {
             }
 
             this->active_unspoken_markers[player_order] = Marker();
-        }
-
-        void ASISTStudy3InterventionEstimator::log_mission_start(
-            const EvidenceSet& new_data) {
-            int mission_order = new_data.get_metadata()[0]["mission_order"];
-            const string& trial = new_data.get_metadata()[0]["trial"];
-            const string& experiment_id =
-                new_data.get_metadata()[0]["experiment_id"];
-            this->logger->log(fmt::format(
-                "Mission {} from trial {} and experiment id {} started.",
-                mission_order,
-                trial,
-                experiment_id));
         }
 
         //----------------------------------------------------------------------

@@ -2,15 +2,19 @@
 
 #include <iomanip>
 
+#include <boost/filesystem.hpp>
+
 namespace tomcat {
     namespace model {
 
         using namespace std;
+        namespace fs = boost::filesystem;
 
         //----------------------------------------------------------------------
         // Constructors & Destructor
         //----------------------------------------------------------------------
         OnlineLogger::OnlineLogger(const string& log_filepath) {
+            fs::create_directories(fs::path(log_filepath).parent_path());
             this->log_file.open(log_filepath, ios_base::app);
         }
 
@@ -41,6 +45,21 @@ namespace tomcat {
             this->log_file << std::setw(30) << left
                            << Timer::get_current_timestamp() << " | ";
             this->log_file << std::setw(100) << left << text << " |";
+            this->log_file << "\n";
+            this->log_file.flush();
+        }
+
+        void OnlineLogger::log_first_evidence_set(const EvidenceSet& data) {
+            if (!this->initialized) {
+                this->create_header();
+                this->initialized = true;
+            }
+
+            this->log_file << std::setw(30) << left
+                           << Timer::get_current_timestamp() << " | ";
+            this->log_file << std::setw(100) << left
+                           << "First evidence set received."
+                           << " |";
             this->log_file << "\n";
             this->log_file.flush();
         }

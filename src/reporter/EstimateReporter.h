@@ -107,6 +107,13 @@ namespace tomcat {
              */
             virtual void prepare();
 
+            /**
+             * Sets a logger for online estimation
+             *
+             * @param logger: logger
+             */
+            virtual void set_logger(const OnlineLoggerPtr& logger);
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -123,11 +130,6 @@ namespace tomcat {
             virtual std::vector<nlohmann::json>
             translate_estimates_to_messages(const AgentPtr& agent,
                                             int time_step) = 0;
-
-            //------------------------------------------------------------------
-            // Getters & Setters
-            //------------------------------------------------------------------
-            void set_logger(const OnlineLoggerPtr& logger);
 
           protected:
             //------------------------------------------------------------------

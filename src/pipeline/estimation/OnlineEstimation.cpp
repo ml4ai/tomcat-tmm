@@ -114,6 +114,7 @@ namespace tomcat {
                         cout << log_msg.str() << endl;
                         if (this->logger) {
                             this->logger->log(log_msg.str());
+                            this->logger->log_first_evidence_set(new_data);
                         }
                     }
                     this->agent->estimate(new_data);

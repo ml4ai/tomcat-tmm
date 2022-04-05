@@ -270,6 +270,11 @@ namespace tomcat {
                     // The agent only intervenes once on each unspoken
                     // marker
                     estimator->clear_active_unspoken_marker(player_order);
+                    this->custom_logger->log_trigger_intervention(
+                        time_step,
+                        fmt::format(
+                            "Intervene on Communication Marker for player {}.",
+                            player_order_to_color(player_order)));
                 }
             }
         }
@@ -354,6 +359,23 @@ namespace tomcat {
             this->player_info_initialized = false;
             this->introduced = false;
             this->intervened_on_motivation = false;
+        }
+
+        void ASISTStudy3InterventionReporter::set_logger(
+            const OnlineLoggerPtr& logger) {
+            ASISTReporter::set_logger(logger);
+            if (const auto& tmp =
+                    dynamic_pointer_cast<ASISTStudy3InterventionLogger>(
+                        logger)) {
+                // We store a reference to the logger into a local variable to
+                // avoid casting throughout the code.
+                this->custom_logger = tmp;
+            }
+            else {
+                throw TomcatModelException(
+                    "The ASISTStudy3InterventionEstimator requires a "
+                    "logger of type ASISTStudy3InterventionLogger.");
+            }
         }
 
     } // namespace model

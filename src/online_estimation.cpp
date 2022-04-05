@@ -6,6 +6,7 @@
 #include "asist/study1/ASISTSinglePlayerMessageConverter.h"
 #include "asist/study2/ASISTMultiPlayerMessageConverter.h"
 #include "asist/study3/ASISTStudy3MessageConverter.h"
+#include "asist/study3/ASISTStudy3InterventionLogger.h"
 #include "experiments/Experimentation.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/estimation/OnlineLogger.h"
@@ -68,8 +69,25 @@ void start_agent(const string& model_dir,
             num_seconds, time_step_size, map_json, num_players);
     }
 
+    const string experiment_id = Timer::get_current_timestamp();
+    OnlineLoggerPtr logger;
+    if (!log_dir.empty()) {
+        string log_filepath =
+            fmt::format("{}/{}.txt", log_dir, experiment_id);
+
+        if (study_num == 3) {
+            auto custom_logger = make_shared<ASISTStudy3InterventionLogger>(log_filepath);
+            custom_logger->set_time_step_size(time_step_size);
+            custom_logger->set_num_time_steps(num_seconds);
+            logger = custom_logger;
+        }
+        else {
+            logger = make_shared<OnlineLogger>(log_filepath);
+        }
+    }
+
     Experimentation experimentation(random_generator,
-                                    Timer::get_current_timestamp());
+                                    experiment_id);
     int num_time_steps = num_seconds / time_step_size;
     experimentation.set_online_estimation_process(agent_json,
                                                   model_dir,
@@ -78,7 +96,7 @@ void start_agent(const string& model_dir,
                                                   broker_json,
                                                   converter,
                                                   reporter,
-                                                  log_dir);
+                                                  logger);
     experimentation.start_real_time_estimation(params_dir, eval_dir);
 }
 

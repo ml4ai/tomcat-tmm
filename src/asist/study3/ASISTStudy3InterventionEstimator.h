@@ -5,6 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "asist/study3/ASISTStudy3InterventionLogger.h"
 #include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/Model.h"
@@ -23,6 +24,9 @@ namespace tomcat::model {
       public:
         inline static const std::string NAME =
             "asist_study3_intervention_estimator";
+
+        inline const static std::vector<std::string> PLAYER_ORDER_TO_COLOR = {
+            "Red", "Green", "Blue"};
 
         //------------------------------------------------------------------
         // Constructors & Destructor
@@ -57,6 +61,8 @@ namespace tomcat::model {
         std::string get_name() const override;
 
         void prepare() override;
+
+        void set_logger(const OnlineLoggerPtr& logger) override;
 
         /**
          * Get the CDF of the number of encouragement utterances identified in
@@ -170,16 +176,11 @@ namespace tomcat::model {
          */
         void estimate_unspoken_markers(const EvidenceSet& new_data);
 
-        /**
-         * Log mission info.
-         *
-         * @param new_data: evidence
-         */
-        void log_mission_start(const EvidenceSet& new_data);
-
         //------------------------------------------------------------------
         // Data members
         //------------------------------------------------------------------
+
+        std::shared_ptr<ASISTStudy3InterventionLogger> custom_logger;
 
         bool containers_initialized = false;
 
