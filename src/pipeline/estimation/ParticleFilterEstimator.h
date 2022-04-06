@@ -80,6 +80,8 @@ namespace tomcat {
 
             void set_show_progress(bool show_progress) override;
 
+            void set_logger(const OnlineLoggerPtr& logger) override;
+
             std::string get_name() const override;
 
             bool is_computing_estimates_for(

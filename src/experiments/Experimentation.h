@@ -120,6 +120,8 @@ namespace tomcat {
              * message broker to model readable data
              * @param estimate_reporter: produces json messages with estimates
              * in a specific format
+             * @param logger: object that handles log generation throughout the
+             * estimation process
              */
             void set_online_estimation_process(
                 const std::string& agent_config_filepath,
@@ -128,7 +130,8 @@ namespace tomcat {
                 int max_time_step,
                 const std::string& message_broker_config_filepath,
                 const MsgConverterPtr& converter,
-                const EstimateReporterPtr& estimate_reporter);
+                const EstimateReporterPtr& estimate_reporter,
+                const OnlineLoggerPtr& logger);
 
             /**
              * Evaluates a pre-trained model and save the evaluations to a

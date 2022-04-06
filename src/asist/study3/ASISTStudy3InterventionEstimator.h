@@ -5,6 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "asist/study3/ASISTStudy3InterventionLogger.h"
 #include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/Model.h"
@@ -24,11 +25,14 @@ namespace tomcat::model {
         inline static const std::string NAME =
             "asist_study3_intervention_estimator";
 
+        inline const static std::vector<std::string> PLAYER_ORDER_TO_COLOR = {
+            "Red", "Green", "Blue"};
+
         //------------------------------------------------------------------
         // Constructors & Destructor
         //------------------------------------------------------------------
 
-        explicit ASISTStudy3InterventionEstimator(const ModelPtr& model);
+        ASISTStudy3InterventionEstimator(const ModelPtr& model);
 
         ~ASISTStudy3InterventionEstimator() = default;
 
@@ -58,13 +62,22 @@ namespace tomcat::model {
 
         void prepare() override;
 
+        void set_logger(const OnlineLoggerPtr& logger) override;
+
         /**
          * Get the CDF of the number of encouragement utterances identified in
          * mission 1.
          *
          * @return CDF
          */
-        double get_encouragement_cdf();
+        double get_encouragement_cdf() const;
+
+        /**
+         * Get the number of encouragement utterances identified so far.
+         *
+         * @return Number of encouragement utterances
+         */
+        int get_num_encouragements() const;
 
         /**
          * Removes current active unspoken marker from the list.
@@ -174,11 +187,12 @@ namespace tomcat::model {
         // Data members
         //------------------------------------------------------------------
 
+        std::shared_ptr<ASISTStudy3InterventionLogger> custom_logger;
+
         bool containers_initialized = false;
 
         int last_time_step = -1;
         bool first_mission = true;
-        double encouragement_cdf = 0;
 
         std::vector<ASISTStudy3MessageConverter::Marker> last_placed_markers;
         std::vector<ASISTStudy3MessageConverter::Marker>

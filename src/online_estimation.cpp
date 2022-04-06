@@ -5,9 +5,11 @@
 
 #include "asist/study1/ASISTSinglePlayerMessageConverter.h"
 #include "asist/study2/ASISTMultiPlayerMessageConverter.h"
+#include "asist/study3/ASISTStudy3InterventionLogger.h"
 #include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "experiments/Experimentation.h"
 #include "pgm/EvidenceSet.h"
+#include "pipeline/estimation/OnlineLogger.h"
 #include "reporter/EstimateReporter.h"
 
 /**
@@ -21,7 +23,8 @@ using namespace tomcat::model;
 using namespace std;
 namespace po = boost::program_options;
 
-void start_agent(const string& model_dir,
+void start_agent(const string& experiment_id,
+                 const string& model_dir,
                  const string& agent_json,
                  const string& params_dir,
                  const string& broker_json,
@@ -29,6 +32,7 @@ void start_agent(const string& model_dir,
                  const string& reporter_type,
                  const string& reporter_settings_json,
                  const string& eval_dir,
+                 const string& log_dir,
                  int study_num,
                  int num_seconds,
                  int time_step_size,
@@ -66,8 +70,25 @@ void start_agent(const string& model_dir,
             num_seconds, time_step_size, map_json, num_players);
     }
 
-    Experimentation experimentation(random_generator,
-                                    EstimateReporter::get_current_timestamp());
+    string exp_id =
+        experiment_id.empty() ? Timer::get_current_timestamp() : experiment_id;
+    OnlineLoggerPtr logger;
+    if (!log_dir.empty()) {
+        string log_filepath = fmt::format("{}/{}.txt", log_dir, exp_id);
+
+        if (study_num == 3) {
+            auto custom_logger =
+                make_shared<ASISTStudy3InterventionLogger>(log_filepath);
+            custom_logger->set_time_step_size(time_step_size);
+            custom_logger->set_num_time_steps(num_seconds);
+            logger = custom_logger;
+        }
+        else {
+            logger = make_shared<OnlineLogger>(log_filepath);
+        }
+    }
+
+    Experimentation experimentation(random_generator, exp_id);
     int num_time_steps = num_seconds / time_step_size;
     experimentation.set_online_estimation_process(agent_json,
                                                   model_dir,
@@ -75,11 +96,13 @@ void start_agent(const string& model_dir,
                                                   num_time_steps - 1,
                                                   broker_json,
                                                   converter,
-                                                  reporter);
+                                                  reporter,
+                                                  logger);
     experimentation.start_real_time_estimation(params_dir, eval_dir);
 }
 
 int main(int argc, char* argv[]) {
+    string experiment_id;
     string model_dir;
     string agent_json;
     string params_dir;
@@ -88,6 +111,7 @@ int main(int argc, char* argv[]) {
     string reporter_type;
     string reporter_settings_json;
     string eval_dir;
+    string log_dir;
     unsigned int num_seconds;
     unsigned int time_step_size;
     unsigned int num_jobs;
@@ -101,9 +125,11 @@ int main(int argc, char* argv[]) {
         "predictions in real time, as new relevant messages are published to "
         "a message bus. ToMCAT can publish back to the message bus if a "
         "reporter is "
-        "provided.")("model_dir",
-                     po::value<string>(&model_dir)->required(),
-                     "Directory where the agent's model definition is saved.")(
+        "provided.")(
+        "exp_id", po::value<string>(&experiment_id), "Experiment identifier.")(
+        "model_dir",
+        po::value<string>(&model_dir)->default_value(""),
+        "Directory where the agent's model definition is saved.")(
         "agent_json",
         po::value<string>(&agent_json)->required(),
         "Filepath of the json file containing definitions about the agent")(
@@ -143,7 +169,10 @@ int main(int argc, char* argv[]) {
         "eval_dir",
         po::value<string>(&eval_dir)->default_value(""),
         "Directory where the evaluation file and report (if "
-        "requested) will be saved.");
+        "requested) will be saved.")(
+        "log_dir",
+        po::value<string>(&log_dir)->default_value("")->required(),
+        "Directory where the log file must be created.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -153,7 +182,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    start_agent(model_dir,
+    start_agent(experiment_id,
+                model_dir,
                 agent_json,
                 params_dir,
                 broker_json,
@@ -161,6 +191,7 @@ int main(int argc, char* argv[]) {
                 reporter_type,
                 reporter_settings_json,
                 eval_dir,
+                log_dir,
                 (int)study_num,
                 (int)num_seconds,
                 (int)time_step_size,

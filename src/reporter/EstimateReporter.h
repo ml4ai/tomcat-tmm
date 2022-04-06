@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 
 #include "pipeline/estimation/Agent.h"
+#include "pipeline/estimation/OnlineLogger.h"
 #include "utils/OnlineConfig.h"
 
 namespace tomcat {
@@ -60,13 +61,6 @@ namespace tomcat {
                     const nlohmann::json& json_settings);
 
             /**
-             * Gets the current timestamp as a string.
-             *
-             * @return Timestamp
-             */
-            static std::string get_current_timestamp();
-
-            /**
              * gets the timestamp after some seconds.
              *
              * @param initial_timestamp: timestamp before the elapsed time
@@ -113,6 +107,13 @@ namespace tomcat {
              */
             virtual void prepare();
 
+            /**
+             * Sets a logger for online estimation
+             *
+             * @param logger: logger
+             */
+            virtual void set_logger(const OnlineLoggerPtr& logger);
+
             //------------------------------------------------------------------
             // Pure virtual functions
             //------------------------------------------------------------------
@@ -130,17 +131,6 @@ namespace tomcat {
             translate_estimates_to_messages(const AgentPtr& agent,
                                             int time_step) = 0;
 
-            /**
-             * Builds a log message with a given text.
-             *
-             * @param agent: agent responsible for calculating the estimates
-             *
-             * @return Log message.
-             */
-            virtual nlohmann::json
-            build_log_message(const AgentPtr& agent,
-                              const std::string& log) const = 0;
-
           protected:
             //------------------------------------------------------------------
             // Member functions
@@ -157,6 +147,8 @@ namespace tomcat {
             // Data members
             //------------------------------------------------------------------
             nlohmann::json json_settings;
+
+            OnlineLoggerPtr logger;
         };
 
     } // namespace model

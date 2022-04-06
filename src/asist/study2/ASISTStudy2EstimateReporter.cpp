@@ -170,17 +170,10 @@ namespace tomcat {
             return messages;
         }
 
-        nlohmann::json ASISTStudy2EstimateReporter::build_log_message(
-            const AgentPtr& agent, const string& log) const {
-            // No predefined format for the ASIST program
-            nlohmann::json message;
-            return message;
-        }
-
         nlohmann::json ASISTStudy2EstimateReporter::get_header_section(
             const AgentPtr& agent) const {
             nlohmann::json header;
-            header["timestamp"] = get_current_timestamp();
+            header["timestamp"] = Timer::get_current_timestamp();
             header["message_type"] = "agent";
             header["version"] = agent->get_version();
 
@@ -194,7 +187,7 @@ namespace tomcat {
                 agent->get_evidence_metadata()[data_point]["trial_unique_id"];
             msg_common["experiment_id"] =
                 agent->get_evidence_metadata()[data_point]["experiment_id"];
-            msg_common["timestamp"] = get_current_timestamp();
+            msg_common["timestamp"] = Timer::get_current_timestamp();
             msg_common["source"] = agent->get_id();
             msg_common["version"] = "1.0";
             msg_common["trial_number"] =

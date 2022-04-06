@@ -65,6 +65,7 @@ namespace tomcat {
         class Measure;
         class ParticleFilterEstimator;
         class PGMEstimator;
+        class OnlineLogger;
 
         typedef std::shared_ptr<Estimator> EstimatorPtr;
         typedef std::vector<EstimatorPtr> EstimatorPtrVec;
@@ -89,6 +90,7 @@ namespace tomcat {
         typedef std::vector<MeasurePtr> MeasurePtrVec;
         typedef std::shared_ptr<ParticleFilterEstimator> ParticleFilterEstimatorPtr;
         typedef std::shared_ptr<PGMEstimator> PGMEstimatorPtr;
+        typedef std::shared_ptr<OnlineLogger> OnlineLoggerPtr;
 
     } // namespace model
 } // namespace tomcat

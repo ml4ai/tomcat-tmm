@@ -99,14 +99,18 @@ namespace tomcat {
             this->show_progress = show_progress;
         }
 
+        void Estimator::set_logger(const OnlineLoggerPtr& new_logger) {
+            this->logger = new_logger;
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
 
-        void Estimator::set_training_data(const EvidenceSet& training_data) {
-            this->training_data = training_data;
+        void
+        Estimator::set_training_data(const EvidenceSet& new_training_data) {
+            this->training_data = new_training_data;
         }
-
         const shared_ptr<Model>& Estimator::get_model() const { return model; }
 
     } // namespace model

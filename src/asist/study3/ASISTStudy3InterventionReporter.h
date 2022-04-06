@@ -8,8 +8,9 @@
 #include <nlohmann/json.hpp>
 
 #include "asist/ASISTReporter.h"
-#include "pipeline/estimation/Agent.h"
 #include "asist/study3/ASISTStudy3MessageConverter.h"
+#include "pipeline/estimation/Agent.h"
+#include "asist/study3/ASISTStudy3InterventionLogger.h"
 
 namespace tomcat {
     namespace model {
@@ -25,8 +26,7 @@ namespace tomcat {
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            ASISTStudy3InterventionReporter(
-                const nlohmann::json& json_settings);
+            ASISTStudy3InterventionReporter(const nlohmann::json& json_settings);
 
             ~ASISTStudy3InterventionReporter() = default;
 
@@ -52,11 +52,9 @@ namespace tomcat {
             translate_estimates_to_messages(const AgentPtr& agent,
                                             int time_step) override;
 
-            nlohmann::json
-            build_log_message(const AgentPtr& agent,
-                              const std::string& log) const override;
-
             void prepare() override;
+
+            void set_logger(const OnlineLoggerPtr& logger) override;
 
           private:
             //------------------------------------------------------------------
@@ -97,12 +95,14 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            static nlohmann::json get_template_intervention_message(
-                const AgentPtr& agent, int time_step);
+            static nlohmann::json
+            get_template_intervention_message(const AgentPtr& agent,
+                                              int time_step);
 
             /**
-             * Returns the player color to add to a message based on its order. The map follows the RGB order.
-             * That is 0 - Red, 1 - Green, 2 - Blue
+             * Returns the player color to add to a message based on its order.
+             * The map follows the RGB order. That is 0 - Red, 1 - Green, 2 -
+             * Blue
              *
              * @param player_order: player's index in a list
              *
@@ -174,8 +174,9 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            nlohmann::json get_introductory_intervention_message(
-                const AgentPtr& agent, int time_step) const;
+            nlohmann::json
+            get_introductory_intervention_message(const AgentPtr& agent,
+                                                  int time_step) const;
 
             /**
              * Assembles motivation intervention.
@@ -186,8 +187,9 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            nlohmann::json get_motivation_intervention_message(
-                const AgentPtr& agent, int time_step) const;
+            nlohmann::json
+            get_motivation_intervention_message(const AgentPtr& agent,
+                                                int time_step) const;
 
             /**
              * Assembles communication marker intervention.
@@ -209,17 +211,18 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
-            // Player id per each RGB color. A list per trial.
+
+            std::shared_ptr<ASISTStudy3InterventionLogger> custom_logger;
+
+            // Player id per each RGB color.
             std::vector<std::string> player_ids_per_color;
 
             // Json objects with a list of player ids to address the whole team.
-            // A list per trial.
             nlohmann::json player_ids;
 
             bool player_info_initialized = false;
             bool introduced = false;
             bool intervened_on_motivation = false;
-
         };
 
     } // namespace model

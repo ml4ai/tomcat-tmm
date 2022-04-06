@@ -1,6 +1,5 @@
 #include "EstimateReporter.h"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
@@ -42,11 +41,6 @@ namespace tomcat {
             }
 
             return reporter;
-        }
-
-        string EstimateReporter::get_current_timestamp() {
-            pt::ptime time = pt::microsec_clock::universal_time();
-            return pt::to_iso_extended_string(time) + "Z";
         }
 
         string
@@ -96,6 +90,11 @@ namespace tomcat {
         }
 
         void EstimateReporter::prepare() {}
+
+        void EstimateReporter::set_logger(const OnlineLoggerPtr& new_logger) {
+            this->logger = new_logger;
+        }
+
 
     } // namespace model
 } // namespace tomcat

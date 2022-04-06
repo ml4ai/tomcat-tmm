@@ -35,7 +35,6 @@ namespace tomcat {
         //----------------------------------------------------------------------
         ASISTStudy3InterventionEstimator::ASISTStudy3InterventionEstimator(
             const ASISTStudy3InterventionEstimator& estimator) {
-
             this->copy(estimator);
         }
 
@@ -173,10 +172,9 @@ namespace tomcat {
 
             this->first_mission =
                 new_data.get_metadata()[0]["mission_order"] == 1;
-            this->last_time_step += new_data.get_time_steps();
-
             this->estimate_motivation(new_data);
             this->estimate_unspoken_markers(new_data);
+            this->last_time_step += new_data.get_time_steps();
         }
 
         void ASISTStudy3InterventionEstimator::initialize_containers(
@@ -200,6 +198,11 @@ namespace tomcat {
 
             int increments = 0;
             if (metadata[0]["mission_order"] == 1) {
+                if (this->last_time_step < 0) {
+                    encouragement_node->set_assignment(Eigen::VectorXd::Zero(1));
+                    this->custom_logger->log_watch_motivation_intervention(0);
+                }
+
                 for (int t = 0; t < new_data.get_time_steps(); t++) {
                     increments +=
                         (int)new_data
@@ -207,9 +210,17 @@ namespace tomcat {
                 }
 
                 encouragement_node->increment_assignment(increments);
+
+                if (increments > 0) {
+                    this->custom_logger->log_update_motivation_intervention(
+                        this->last_time_step + new_data.get_time_steps(),
+                        increments);
+                }
             }
             else {
                 if (encouragement_node->get_size() == 0) {
+                    this->custom_logger->log_empty_encouragements(
+                        this->last_time_step + new_data.get_time_steps());
                     // The agent crashed and data from mission 1 was lost.
                     // Assume there was no encouragement utterances to force
                     // intervention.
@@ -226,11 +237,16 @@ namespace tomcat {
                 for (int player_order = 0; player_order < 3; player_order++) {
 
                     const auto& unspoken_marker =
-                        this->active_unspoken_markers[player_order];
+                        this->last_placed_markers[player_order];
                     if (!unspoken_marker.is_none()) {
                         if (did_player_speak_about_marker(
                                 player_order, unspoken_marker, t, new_data)) {
-                            this->clear_active_unspoken_marker(player_order);
+                            this->custom_logger
+                                ->log_player_spoke_about_watched_marker(
+                                    this->last_time_step + t + 1,
+                                    player_order,
+                                    unspoken_marker);
+                            this->last_placed_markers[player_order] = Marker();
                         }
                     }
 
@@ -241,38 +257,58 @@ namespace tomcat {
 
                         if (marker == this->last_placed_markers[player_order]) {
                             // Clear last marker
+                            this->custom_logger
+                                ->log_player_removed_watched_marker(
+                                    this->last_time_step + t + 1,
+                                    player_order,
+                                    marker);
                             this->last_placed_markers[player_order] = Marker();
                             break;
                         }
                     }
 
-                    // Check if a new marker was placed and needs to be
-                    // monitored for communication.
-                    Marker new_marker =
-                        get_last_placed_marker(player_order, t, new_data);
                     const auto& last_marker =
                         this->last_placed_markers[player_order];
-                    if (new_marker.is_none()) {
-                        bool cond1 =
-                            did_player_change_area(player_order, t, new_data);
-                        bool cond2 = did_player_interact_with_victim(
-                            player_order, t, new_data);
-
-                        if (cond1 || cond2) {
-                            this->active_unspoken_markers[player_order] =
-                                last_marker;
-                        }
+                    Marker new_marker =
+                        get_last_placed_marker(player_order, t, new_data);
+                    bool area_changed =
+                        did_player_change_area(player_order, t, new_data);
+                    bool victim_interaction = did_player_interact_with_victim(
+                        player_order, t, new_data);
+                    bool marker_placed = !new_marker.is_none();
+                    bool count_as_new_marker = false;
+                    if (!last_marker.is_none() && marker_placed) {
+                        count_as_new_marker =
+                            new_marker.position.distance_to(
+                                last_marker.position) > VICINITY_MAX_RADIUS;
                     }
-                    else {
-                        if (new_marker.position.distance_to(
-                                last_marker.position) > VICINITY_MAX_RADIUS) {
-                            // Avoid keep intervening if the participant is
-                            // placing several markers close to each other. They
-                            // convey the same information.
-                            this->active_unspoken_markers[player_order] =
-                                last_marker;
-                        }
+
+                    if (marker_placed) {
+                        // Log that the player placed a new marker
                         this->last_placed_markers[player_order] = new_marker;
+
+                        this->custom_logger->log_watch_marker(
+                            this->last_time_step + t + 1,
+                            player_order,
+                            new_marker);
+                    }
+
+                    bool active_intervention =
+                        !last_marker.is_none() &&
+                        (area_changed || victim_interaction ||
+                         (marker_placed && count_as_new_marker));
+
+                    if (active_intervention) {
+                        this->active_unspoken_markers[player_order] =
+                            last_marker;
+
+                        this->custom_logger->log_activate_marker_intervention(
+                            this->last_time_step + t + 1,
+                            player_order,
+                            last_marker,
+                            area_changed,
+                            victim_interaction,
+                            marker_placed);
                     }
                 }
             }
@@ -280,19 +316,21 @@ namespace tomcat {
 
         void
         ASISTStudy3InterventionEstimator::get_info(nlohmann::json& json) const {
-            nlohmann::json json_info;
-            json_info["name"] = this->get_name();
-            if (this->first_mission) {
-                json_info["num_encouragements"] = to_string(
-                    dynamic_pointer_cast<ASISTStudy3InterventionModel>(
-                        this->model)
-                        ->get_encouragement_node()
-                        ->get_assignment());
-            }
-            else {
-                json_info["encouragement_cdf"] = this->encouragement_cdf;
-            }
-            json.push_back(json_info);
+            // TODO - maybe it is not necessary
+            //            nlohmann::json json_info;
+            //            json_info["name"] = this->get_name();
+            //            if (this->first_mission) {
+            //                json_info["num_encouragements"] = to_string(
+            //                    dynamic_pointer_cast<ASISTStudy3InterventionModel>(
+            //                        this->model)
+            //                        ->get_encouragement_node()
+            //                        ->get_assignment());
+            //            }
+            //            else {
+            //                json_info["encouragement_cdf"] =
+            //                this->encouragement_cdf;
+            //            }
+            //            json.push_back(json_info);
         }
 
         string ASISTStudy3InterventionEstimator::get_name() const {
@@ -304,13 +342,35 @@ namespace tomcat {
             this->containers_initialized = false;
         }
 
-        double ASISTStudy3InterventionEstimator::get_encouragement_cdf() {
+        void ASISTStudy3InterventionEstimator::set_logger(
+            const OnlineLoggerPtr& logger) {
+            Estimator::set_logger(logger);
+            if (const auto& tmp =
+                    dynamic_pointer_cast<ASISTStudy3InterventionLogger>(
+                        logger)) {
+                // We store a reference to the logger into a local variable to
+                // avoid casting throughout the code.
+                this->custom_logger = tmp;
+            }
+            else {
+                throw TomcatModelException(
+                    "The ASISTStudy3InterventionEstimator requires a "
+                    "logger of type ASISTStudy3InterventionLogger.");
+            }
+        }
+
+        double ASISTStudy3InterventionEstimator::get_encouragement_cdf() const {
             auto& encouragement_node =
                 dynamic_pointer_cast<ASISTStudy3InterventionModel>(this->model)
                     ->get_encouragement_node();
-            this->encouragement_cdf =
-                encouragement_node->get_cdfs(1, 0, false)(0);
-            return this->encouragement_cdf;
+            return encouragement_node->get_cdfs(1, 0, false)(0);
+        }
+
+        int ASISTStudy3InterventionEstimator::get_num_encouragements() const {
+            auto& encouragement_node =
+                dynamic_pointer_cast<ASISTStudy3InterventionModel>(this->model)
+                    ->get_encouragement_node();
+            return (int)encouragement_node->get_assignment()(0, 0);
         }
 
         void ASISTStudy3InterventionEstimator::clear_active_unspoken_marker(

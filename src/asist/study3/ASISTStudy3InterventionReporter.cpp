@@ -196,6 +196,7 @@ namespace tomcat {
 
                 messages.push_back(this->get_introductory_intervention_message(
                     agent, time_step));
+                this->custom_logger->log_intervene_on_introduction(time_step);
             }
         }
 
@@ -227,6 +228,7 @@ namespace tomcat {
                     dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
                         agent->get_estimators()[0]);
                 double cdf = estimator->get_encouragement_cdf();
+                int num_encouragements = estimator->get_num_encouragements();
                 if (cdf <= min_percentile) {
                     auto motivation_msg =
                         this->get_motivation_intervention_message(agent,
@@ -236,6 +238,13 @@ namespace tomcat {
                             ->json_settings["explanations"]["motivation"],
                         cdf);
                     messages.push_back(motivation_msg);
+
+                    this->custom_logger->log_intervene_on_motivation(
+                        time_step, num_encouragements, cdf);
+                }
+                else {
+                    this->custom_logger->log_cancel_motivation_intervention(
+                        time_step, num_encouragements, cdf);
                 }
             }
         }
@@ -270,6 +279,8 @@ namespace tomcat {
                     // The agent only intervenes once on each unspoken
                     // marker
                     estimator->clear_active_unspoken_marker(player_order);
+                    this->custom_logger->log_intervene_on_marker(time_step,
+                                                                 player_order);
                 }
             }
         }
@@ -292,8 +303,8 @@ namespace tomcat {
             intervention_message["data"]["receivers"] = this->player_ids;
 
             // TODO - remove
-//            intervention_message["topic"] =
-//                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+            //            intervention_message["topic"] =
+            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
@@ -312,8 +323,8 @@ namespace tomcat {
             intervention_message["data"]["receivers"] = this->player_ids;
 
             // TODO - remove
-//            intervention_message["topic"] =
-//                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+            //            intervention_message["topic"] =
+            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
@@ -344,23 +355,33 @@ namespace tomcat {
             intervention_message["data"]["receivers"].push_back(player_id);
 
             // TODO - remove
-//            intervention_message["topic"] =
-//                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+            //            intervention_message["topic"] =
+            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
-        }
-
-        nlohmann::json ASISTStudy3InterventionReporter::build_log_message(
-            const AgentPtr& agent, const string& log) const {
-            // No predefined format for the ASIST program
-            nlohmann::json message;
-            return message;
         }
 
         void ASISTStudy3InterventionReporter::prepare() {
             this->player_info_initialized = false;
             this->introduced = false;
             this->intervened_on_motivation = false;
+        }
+
+        void ASISTStudy3InterventionReporter::set_logger(
+            const OnlineLoggerPtr& logger) {
+            ASISTReporter::set_logger(logger);
+            if (const auto& tmp =
+                    dynamic_pointer_cast<ASISTStudy3InterventionLogger>(
+                        logger)) {
+                // We store a reference to the logger into a local variable to
+                // avoid casting throughout the code.
+                this->custom_logger = tmp;
+            }
+            else {
+                throw TomcatModelException(
+                    "The ASISTStudy3InterventionEstimator requires a "
+                    "logger of type ASISTStudy3InterventionLogger.");
+            }
         }
 
     } // namespace model

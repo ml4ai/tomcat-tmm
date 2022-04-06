@@ -202,22 +202,29 @@ namespace tomcat {
             this->last_time_step += new_data.get_time_steps();
         }
 
-        void ParticleFilterEstimator::get_info(nlohmann::json& json_estimators) const {
-            for (const auto& base_estimator: this->base_estimators) {
+        void ParticleFilterEstimator::get_info(
+            nlohmann::json& json_estimators) const {
+            for (const auto& base_estimator : this->base_estimators) {
                 base_estimator->get_info(json_estimators);
             }
         }
 
         void ParticleFilterEstimator::set_show_progress(bool show_progress) {
             this->show_progress = show_progress;
-            for (auto& base_estimator: this->base_estimators) {
+            for (auto& base_estimator : this->base_estimators) {
                 base_estimator->set_show_progress(show_progress);
             }
         }
 
-        string ParticleFilterEstimator::get_name() const {
-            return NAME;
+        void
+        ParticleFilterEstimator::set_logger(const OnlineLoggerPtr& logger) {
+            this->logger = logger;
+            for (auto& base_estimator : this->base_estimators) {
+                base_estimator->set_logger(logger);
+            }
         }
+
+        string ParticleFilterEstimator::get_name() const { return NAME; }
 
         bool ParticleFilterEstimator::is_computing_estimates_for(
             const std::string& node_label) const {
