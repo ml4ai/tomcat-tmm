@@ -196,6 +196,7 @@ namespace tomcat {
 
                 messages.push_back(this->get_introductory_intervention_message(
                     agent, time_step));
+                this->custom_logger->log_intervene_on_introduction(time_step);
             }
         }
 
@@ -227,6 +228,7 @@ namespace tomcat {
                     dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
                         agent->get_estimators()[0]);
                 double cdf = estimator->get_encouragement_cdf();
+                int num_encouragements = estimator->get_num_encouragements();
                 if (cdf <= min_percentile) {
                     auto motivation_msg =
                         this->get_motivation_intervention_message(agent,
@@ -236,6 +238,13 @@ namespace tomcat {
                             ->json_settings["explanations"]["motivation"],
                         cdf);
                     messages.push_back(motivation_msg);
+
+                    this->custom_logger->log_intervene_on_motivation(
+                        time_step, num_encouragements, cdf);
+                }
+                else {
+                    this->custom_logger->log_cancel_motivation_intervention(
+                        time_step, num_encouragements, cdf);
                 }
             }
         }
@@ -270,11 +279,8 @@ namespace tomcat {
                     // The agent only intervenes once on each unspoken
                     // marker
                     estimator->clear_active_unspoken_marker(player_order);
-                    this->custom_logger->log_trigger_intervention(
-                        time_step,
-                        fmt::format(
-                            "Intervene on Communication Marker for player {}.",
-                            player_order_to_color(player_order)));
+                    this->custom_logger->log_intervene_on_marker(time_step,
+                                                                 player_order);
                 }
             }
         }

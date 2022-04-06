@@ -5,8 +5,8 @@
 
 #include "asist/study1/ASISTSinglePlayerMessageConverter.h"
 #include "asist/study2/ASISTMultiPlayerMessageConverter.h"
-#include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "asist/study3/ASISTStudy3InterventionLogger.h"
+#include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "experiments/Experimentation.h"
 #include "pgm/EvidenceSet.h"
 #include "pipeline/estimation/OnlineLogger.h"
@@ -23,7 +23,8 @@ using namespace tomcat::model;
 using namespace std;
 namespace po = boost::program_options;
 
-void start_agent(const string& model_dir,
+void start_agent(const string& experiment_id,
+                 const string& model_dir,
                  const string& agent_json,
                  const string& params_dir,
                  const string& broker_json,
@@ -69,14 +70,15 @@ void start_agent(const string& model_dir,
             num_seconds, time_step_size, map_json, num_players);
     }
 
-    const string experiment_id = Timer::get_current_timestamp();
+    string exp_id =
+        experiment_id.empty() ? Timer::get_current_timestamp() : experiment_id;
     OnlineLoggerPtr logger;
     if (!log_dir.empty()) {
-        string log_filepath =
-            fmt::format("{}/{}.txt", log_dir, experiment_id);
+        string log_filepath = fmt::format("{}/{}.txt", log_dir, exp_id);
 
         if (study_num == 3) {
-            auto custom_logger = make_shared<ASISTStudy3InterventionLogger>(log_filepath);
+            auto custom_logger =
+                make_shared<ASISTStudy3InterventionLogger>(log_filepath);
             custom_logger->set_time_step_size(time_step_size);
             custom_logger->set_num_time_steps(num_seconds);
             logger = custom_logger;
@@ -86,8 +88,7 @@ void start_agent(const string& model_dir,
         }
     }
 
-    Experimentation experimentation(random_generator,
-                                    experiment_id);
+    Experimentation experimentation(random_generator, exp_id);
     int num_time_steps = num_seconds / time_step_size;
     experimentation.set_online_estimation_process(agent_json,
                                                   model_dir,
@@ -101,6 +102,7 @@ void start_agent(const string& model_dir,
 }
 
 int main(int argc, char* argv[]) {
+    string experiment_id;
     string model_dir;
     string agent_json;
     string params_dir;
@@ -123,9 +125,11 @@ int main(int argc, char* argv[]) {
         "predictions in real time, as new relevant messages are published to "
         "a message bus. ToMCAT can publish back to the message bus if a "
         "reporter is "
-        "provided.")("model_dir",
-                     po::value<string>(&model_dir)->required(),
-                     "Directory where the agent's model definition is saved.")(
+        "provided.")(
+        "exp_id", po::value<string>(&experiment_id), "Experiment identifier.")(
+        "model_dir",
+        po::value<string>(&model_dir)->default_value(""),
+        "Directory where the agent's model definition is saved.")(
         "agent_json",
         po::value<string>(&agent_json)->required(),
         "Filepath of the json file containing definitions about the agent")(
@@ -178,7 +182,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    start_agent(model_dir,
+    start_agent(experiment_id,
+                model_dir,
                 agent_json,
                 params_dir,
                 broker_json,

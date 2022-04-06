@@ -35,6 +35,7 @@ namespace tomcat {
             this->log_file << "Text\t";
             this->log_file << "Watch\t";
             this->log_file << "Cancel\t";
+            this->log_file << "Activate\t";
             this->log_file << "Intervene\t";
             this->log_file << "\n";
         }
@@ -63,6 +64,138 @@ namespace tomcat {
                 experiment_id));
         }
 
+        void ASISTStudy3InterventionLogger::log_intervene_on_introduction(
+            int time_step) {
+            string text = "Introduction intervention.";
+            this->log_trigger_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::log_intervene_on_motivation(
+            int time_step, int num_encouragements, double probability) {
+            string text = fmt::format(
+                "Motivation intervention. p(encouragement < {}) = {}",
+                num_encouragements,
+                probability);
+            this->log_trigger_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::log_watch_motivation_intervention(
+            int time_step) {
+            string text =
+                "Started counting number of encouragement utterances.";
+            this->log_watch_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::log_cancel_motivation_intervention(
+            int time_step, int num_encouragements, double probability) {
+            string text = fmt::format(
+                "Motivation intervention. p(encouragement < {}) = {}",
+                num_encouragements,
+                probability);
+            this->log_cancel_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::log_update_motivation_intervention(
+            int time_step, int num_encouragements) {
+            string text = fmt::format("{} encouragement utterances detected.",
+                                      num_encouragements);
+            this->log_watch_intervention(time_step, text);
+        }
+
+        void
+        ASISTStudy3InterventionLogger::log_empty_encouragements(int time_step) {
+            string text =
+                "No encouragement detected. Agent was probably restarted.";
+            this->log_watch_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::log_intervene_on_marker(
+            int time_step, int player_order) {
+
+            string text =
+                fmt::format("Communication-marker intervention for player {}.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order));
+            this->log_trigger_intervention(time_step, text);
+        }
+
+        void
+        ASISTStudy3InterventionLogger::log_player_spoke_about_watched_marker(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker) {
+
+            string text =
+                fmt::format("{} spoke about {}.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order),
+                            ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                                marker.type));
+            this->log_cancel_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::log_player_removed_watched_marker(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker) {
+
+            string text =
+                fmt::format("{} removed {} marker.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order),
+                            ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                                marker.type));
+            this->log_cancel_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::log_watch_marker(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker) {
+
+            string text =
+                fmt::format("{} placed {} marker.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order),
+                            ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                                marker.type));
+            this->log_watch_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::log_activate_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& active_marker,
+            bool area_changed,
+            bool victim_interaction,
+            bool marker_placed) {
+
+            string text;
+            const string& player_color = PLAYER_ORDER_TO_COLOR.at(player_order);
+            if (area_changed && victim_interaction) {
+                text = fmt::format("{} changed area and interacted with "
+                                   "victim",
+                                   player_color);
+            }
+            else if (area_changed && marker_placed) {
+                text = fmt::format("{} changed area and placed a new marker",
+                                   player_color);
+            }
+            else if (area_changed) {
+                text = fmt::format("{} changed area", player_color);
+            }
+            else if (victim_interaction) {
+                text = fmt::format("{} interacted with victim", player_color);
+            }
+            else if (marker_placed) {
+                text = fmt::format("{} placed a marker", player_color);
+            }
+
+            text =
+                fmt::format("{}. {} marker gets ready for intervention.",
+                            text,
+                            ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                                active_marker.type));
+
+            this->log_activate_intervention(time_step, text);
+        }
+
         void ASISTStudy3InterventionLogger::log_watch_intervention(
             int time_step, const string& text) {
             this->log_common_info(time_step_to_mission_timer(time_step), text);
@@ -80,11 +213,20 @@ namespace tomcat {
             this->log_file.flush();
         }
 
-        void ASISTStudy3InterventionLogger::log_trigger_intervention(
+        void ASISTStudy3InterventionLogger::log_activate_intervention(
             int time_step, const string& text) {
             this->log_common_info(time_step_to_mission_timer(time_step), text);
             this->log_file << "\t\t"; // watch and cancel
-            this->log_file << "X";    // intervene
+            this->log_file << "X";    // activate
+            this->log_file << "\n";
+            this->log_file.flush();
+        }
+
+        void ASISTStudy3InterventionLogger::log_trigger_intervention(
+            int time_step, const string& text) {
+            this->log_common_info(time_step_to_mission_timer(time_step), text);
+            this->log_file << "\t\t\t"; // watch, cancel, activate
+            this->log_file << "X";      // intervene
             this->log_file << "\n";
             this->log_file.flush();
         }

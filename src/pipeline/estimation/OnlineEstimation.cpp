@@ -125,6 +125,7 @@ namespace tomcat {
                             "Waiting for a new mission to start...";
                         cout << log_msg << endl;
                         if (this->logger) {
+                            this->logger->log(">>>MISSION END<<<");
                             this->logger->log(log_msg);
                         }
                         this->prepare();

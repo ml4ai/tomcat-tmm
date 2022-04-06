@@ -70,7 +70,14 @@ namespace tomcat::model {
          *
          * @return CDF
          */
-        double get_encouragement_cdf();
+        double get_encouragement_cdf() const;
+
+        /**
+         * Get the number of encouragement utterances identified so far.
+         *
+         * @return Number of encouragement utterances
+         */
+        int get_num_encouragements() const;
 
         /**
          * Removes current active unspoken marker from the list.
@@ -186,7 +193,6 @@ namespace tomcat::model {
 
         int last_time_step = -1;
         bool first_mission = true;
-        double encouragement_cdf = 0;
 
         std::vector<ASISTStudy3MessageConverter::Marker> last_placed_markers;
         std::vector<ASISTStudy3MessageConverter::Marker>
