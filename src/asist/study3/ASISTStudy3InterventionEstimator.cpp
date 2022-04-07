@@ -154,6 +154,24 @@ namespace tomcat {
                                      [player_order];
         }
 
+        bool ASISTStudy3InterventionEstimator::does_player_need_help(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            //            TODO - return new_data
+            //                .get_dict_like_data()[0][time_step][Labels::LOCATION_CHANGES]
+            //                                     [player_order];
+            return false;
+        }
+
+        bool ASISTStudy3InterventionEstimator::did_player_ask_for_help(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            //            TODO - return new_data
+            //                .get_dict_like_data()[0][time_step][Labels::LOCATION_CHANGES]
+            //                                     [player_order];
+            return false;
+        }
+
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
@@ -174,6 +192,7 @@ namespace tomcat {
                 new_data.get_metadata()[0]["mission_order"] == 1;
             this->estimate_motivation(new_data);
             this->estimate_unspoken_markers(new_data);
+            this->estimate_ask_for_help(new_data);
             this->last_time_step += new_data.get_time_steps();
         }
 
@@ -199,7 +218,8 @@ namespace tomcat {
             int increments = 0;
             if (metadata[0]["mission_order"] == 1) {
                 if (this->last_time_step < 0) {
-                    encouragement_node->set_assignment(Eigen::VectorXd::Zero(1));
+                    encouragement_node->set_assignment(
+                        Eigen::VectorXd::Zero(1));
                     this->custom_logger->log_watch_motivation_intervention(0);
                 }
 
@@ -314,6 +334,62 @@ namespace tomcat {
             }
         }
 
+        void ASISTStudy3InterventionEstimator::estimate_ask_for_help(
+            const EvidenceSet& new_data) {
+
+            for (int t = 0; t < new_data.get_time_steps(); t++) {
+                for (int player_order = 0; player_order < 3; player_order++) {
+                    if (does_player_need_help(player_order, t, new_data)) {
+                        if (this->watched_help_request[player_order] >= 0) {
+                            // We are already watching this player for help
+                            // request.
+                            if (this->last_time_step + t + 1 -
+                                    this->watched_help_request[player_order] >
+                                ASK_FOR_HELP_LATENCY) {
+                                // It has passed enough time. Restart watching
+                                // time and activate intervention.
+                                this->watched_help_request[player_order] =
+                                    this->last_time_step + t + 1;
+                                this->active_help_request[player_order] = true;
+
+                                this->custom_logger
+                                    ->log_activate_ask_for_help_intervention(
+                                        this->last_time_step + t + 1,
+                                        player_order,
+                                        ASK_FOR_HELP_LATENCY);
+                            }
+                        }
+                        else {
+                            // This player was not in a situation that needed
+                            // help previously
+                            this->watched_help_request[player_order] =
+                                this->last_time_step + t + 1;
+
+                            this->custom_logger
+                                ->log_watch_ask_for_help_intervention(
+                                    this->last_time_step + t + 1, player_order);
+                        }
+                    }
+
+                    bool area_changed =
+                        did_player_change_area(player_order, t, new_data);
+                    bool help_requested =
+                        did_player_ask_for_help(player_order, t, new_data);
+                    if (area_changed || help_requested) {
+                        this->active_help_request[player_order] = false;
+                        this->watched_help_request[player_order] = -1;
+
+                        this->custom_logger
+                            ->log_cancel_ask_for_help_intervention(
+                                this->last_time_step + t + 1,
+                                player_order,
+                                area_changed,
+                                help_requested);
+                    }
+                }
+            }
+        }
+
         void
         ASISTStudy3InterventionEstimator::get_info(nlohmann::json& json) const {
             // TODO - maybe it is not necessary
@@ -386,6 +462,11 @@ namespace tomcat {
             this->active_unspoken_markers[player_order] = Marker();
         }
 
+        void ASISTStudy3InterventionEstimator::clear_active_ask_for_help(
+            int player_order) {
+            this->active_help_request[player_order] = false;
+        }
+
         //----------------------------------------------------------------------
         // Getters & Setters
         //----------------------------------------------------------------------
@@ -397,6 +478,11 @@ namespace tomcat {
         const vector<Marker>&
         ASISTStudy3InterventionEstimator::get_active_unspoken_markers() const {
             return active_unspoken_markers;
+        }
+
+        const vector<bool>&
+        ASISTStudy3InterventionEstimator::get_active_help_request() const {
+            return active_help_request;
         }
 
         //        void ASISTStudy3InterventionEstimator::parse_map(

@@ -22,11 +22,14 @@ namespace tomcat::model {
      */
     class ASISTStudy3InterventionEstimator : public Estimator {
       public:
+        //------------------------------------------------------------------
+        // Types & Consts
+        //------------------------------------------------------------------
+        inline static const int VICINITY_MAX_RADIUS = 5;
+        inline static const int ASK_FOR_HELP_LATENCY = 10;
+
         inline static const std::string NAME =
             "asist_study3_intervention_estimator";
-
-        inline const static std::vector<std::string> PLAYER_ORDER_TO_COLOR = {
-            "Red", "Green", "Blue"};
 
         //------------------------------------------------------------------
         // Constructors & Destructor
@@ -87,6 +90,14 @@ namespace tomcat::model {
          */
         void clear_active_unspoken_marker(int player_order);
 
+        /**
+         * Inactivates ask-for-help intervention
+         *
+         * @param player_order: index of the player that has an active unspoken
+         * marker
+         */
+        void clear_active_ask_for_help(int player_order);
+
         //------------------------------------------------------------------
         // Getters & Setters
         //------------------------------------------------------------------
@@ -103,6 +114,8 @@ namespace tomcat::model {
 
         const std::vector<ASISTStudy3MessageConverter::Marker>&
         get_active_unspoken_markers() const;
+
+        const std::vector<bool>& get_active_help_request() const;
 
       protected:
         //------------------------------------------------------------------
@@ -121,12 +134,6 @@ namespace tomcat::model {
         //------------------------------------------------------------------
 
       private:
-        //------------------------------------------------------------------
-        // Types & Consts
-        //------------------------------------------------------------------
-        const static int MAX_DIST = 5;
-        const static int VICINITY_MAX_RADIUS = 5;
-
         //------------------------------------------------------------------
         // Static functions
         //------------------------------------------------------------------
@@ -158,6 +165,14 @@ namespace tomcat::model {
                                            int time_step,
                                            const EvidenceSet& new_data);
 
+        static bool does_player_need_help(int player_order,
+                                          int time_step,
+                                          const EvidenceSet& new_data);
+
+        static bool did_player_ask_for_help(int player_order,
+                                            int time_step,
+                                            const EvidenceSet& new_data);
+
         //------------------------------------------------------------------
         // Member functions
         //------------------------------------------------------------------
@@ -183,6 +198,13 @@ namespace tomcat::model {
          */
         void estimate_unspoken_markers(const EvidenceSet& new_data);
 
+        /**
+         * Estimate if players ask for help when they need it.
+         *
+         * @param new_data: evidence
+         */
+        void estimate_ask_for_help(const EvidenceSet& new_data);
+
         //------------------------------------------------------------------
         // Data members
         //------------------------------------------------------------------
@@ -197,6 +219,8 @@ namespace tomcat::model {
         std::vector<ASISTStudy3MessageConverter::Marker> last_placed_markers;
         std::vector<ASISTStudy3MessageConverter::Marker>
             active_unspoken_markers;
+        std::vector<int> watched_help_request;
+        std::vector<bool> active_help_request;
     };
 
 } // namespace tomcat::model

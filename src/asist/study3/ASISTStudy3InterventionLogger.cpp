@@ -118,6 +118,15 @@ namespace tomcat {
             this->log_trigger_intervention(time_step, text);
         }
 
+        void ASISTStudy3InterventionLogger::log_intervene_on_ask_for_help(
+            int time_step, int player_order) {
+
+            string text =
+                fmt::format("Ask-for-help intervention for player {}.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order));
+            this->log_trigger_intervention(time_step, text);
+        }
+
         void
         ASISTStudy3InterventionLogger::log_player_spoke_about_watched_marker(
             int time_step,
@@ -194,6 +203,46 @@ namespace tomcat {
                                 active_marker.type));
 
             this->log_activate_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::log_watch_ask_for_help_intervention(
+            int time_step, int player_order) {
+            string text = fmt::format("{} needs help.",
+                                      PLAYER_ORDER_TO_COLOR.at(player_order));
+            this->log_watch_intervention(time_step, text);
+        }
+
+        void
+        ASISTStudy3InterventionLogger::log_activate_ask_for_help_intervention(
+            int time_step, int player_order, int latency) {
+            string text =
+                fmt::format("{} did not ask for help in the last {} seconds.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order),
+                            latency);
+            this->log_activate_intervention(time_step, text);
+        }
+
+        void
+        ASISTStudy3InterventionLogger::log_cancel_ask_for_help_intervention(
+            int time_step,
+            int player_order,
+            bool area_changed,
+            bool help_requested) {
+            string text;
+
+            if (area_changed) {
+                fmt::format("{} changed area.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+            else if (help_requested) {
+                fmt::format("{} asked for help.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+
+            text =
+                fmt::format("{}. Canceling ask-for-help intervention.", text);
+
+            this->log_cancel_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::log_watch_intervention(

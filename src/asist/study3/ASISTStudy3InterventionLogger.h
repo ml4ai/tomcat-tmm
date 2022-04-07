@@ -95,6 +95,20 @@ namespace tomcat {
                 bool victim_interaction,
                 bool marker_placed);
 
+            void log_intervene_on_ask_for_help(int time_step, int player_order);
+
+            void log_watch_ask_for_help_intervention(int time_step,
+                                                     int player_order);
+
+            void log_activate_ask_for_help_intervention(int time_step,
+                                                        int player_order,
+                                                        int latency);
+
+            void log_cancel_ask_for_help_intervention(int time_step,
+                                                      int player_order,
+                                                      bool area_changed,
+                                                      bool help_requested);
+
             void log_cancel_intervention(int time_step,
                                          const std::string& text);
 

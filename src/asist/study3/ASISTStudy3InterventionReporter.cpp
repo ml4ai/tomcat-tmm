@@ -285,6 +285,38 @@ namespace tomcat {
             }
         }
 
+        void ASISTStudy3InterventionReporter::intervene_on_ask_for_help(
+            const AgentPtr& agent,
+            int time_step,
+            vector<nlohmann::json>& messages) {
+
+            check_field(this->json_settings, "activations");
+            check_field(this->json_settings["activations"], "ask_for_help");
+
+            if (!this->json_settings["activations"]["ask_for_help"]) {
+                return;
+            }
+
+            auto estimator =
+                dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
+                    agent->get_estimators()[0]);
+
+            const auto& help_requests = estimator->get_active_help_request();
+            for (int player_order = 0; player_order < 3; player_order++) {
+                if (help_requests.at(player_order)) {
+                    auto intervention_msg =
+                        this->get_ask_for_help_intervention_message(
+                            agent, time_step, player_order);
+
+                    messages.push_back(intervention_msg);
+
+                    estimator->clear_active_ask_for_help(player_order);
+                    this->custom_logger->log_intervene_on_marker(time_step,
+                                                                 player_order);
+                }
+            }
+        }
+
         nlohmann::json
         ASISTStudy3InterventionReporter::get_introductory_intervention_message(
             const AgentPtr& agent, int time_step) const {
@@ -338,6 +370,9 @@ namespace tomcat {
 
             check_field(this->json_settings, "prompts");
             check_field(this->json_settings["prompts"], "communication_marker");
+            check_field(this->json_settings, "explanations");
+            check_field(this->json_settings["explanations"],
+                        "communication_marker");
 
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(agent, time_step);
@@ -353,6 +388,42 @@ namespace tomcat {
                 fmt::format(prompt, player_color, marker_type);
             intervention_message["data"]["receivers"] = nlohmann::json::array();
             intervention_message["data"]["receivers"].push_back(player_id);
+            const string& explanation =
+                this->json_settings["explanation"]["ask_for_help"];
+            intervention_message["data"]["explanation"] = explanation;
+
+            // TODO - remove
+            //            intervention_message["topic"] =
+            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+
+            return intervention_message;
+        }
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::get_ask_for_help_intervention_message(
+            const AgentPtr& agent, int time_step, int player_order) const {
+
+            check_field(this->json_settings, "prompts");
+            check_field(this->json_settings["prompts"], "ask_for_help");
+            check_field(this->json_settings, "explanations");
+            check_field(this->json_settings["explanations"], "ask_for_help");
+
+            nlohmann::json intervention_message =
+                this->get_template_intervention_message(agent, time_step);
+            const string& prompt =
+                this->json_settings["prompts"]["ask_for_help"];
+            string player_color = player_order_to_color(player_order);
+
+            string player_id = player_ids_per_color[player_order];
+            intervention_message["data"]["content"] =
+                fmt::format(prompt, player_color);
+            intervention_message["data"]["receivers"] = nlohmann::json::array();
+            intervention_message["data"]["receivers"].push_back(player_id);
+            const string& explanation =
+                this->json_settings["explanation"]["ask_for_help"];
+            intervention_message["data"]["explanation"] = fmt::format(
+                explanation,
+                ASISTStudy3InterventionEstimator::ASK_FOR_HELP_LATENCY);
 
             // TODO - remove
             //            intervention_message["topic"] =
