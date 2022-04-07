@@ -39,8 +39,7 @@ namespace tomcat {
                     "player_position";
                 inline const static std::string VICTIM_INTERACTIONS =
                     "victim_interaction";
-                inline const static std::string DIALOG =
-                    "dialog";
+                inline const static std::string DIALOG = "dialog";
             };
 
             struct MarkerTypeTexts {
@@ -105,7 +104,8 @@ namespace tomcat {
                 }
 
                 double distance_to(const Position& pos) const {
-                    return sqrt(this->x * pos.x + this->z * pos.z);
+                    return sqrt(pow(this->x - pos.x, 2) +
+                                pow(this->z - pos.z, 2));
                 }
 
                 nlohmann::json serialize() const {
