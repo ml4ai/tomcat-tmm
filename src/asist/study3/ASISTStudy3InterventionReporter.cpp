@@ -338,6 +338,9 @@ namespace tomcat {
 
             check_field(this->json_settings, "prompts");
             check_field(this->json_settings["prompts"], "communication_marker");
+            check_field(this->json_settings, "explanations");
+            check_field(this->json_settings["explanations"],
+                        "communication_marker");
 
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(agent, time_step);
@@ -351,6 +354,8 @@ namespace tomcat {
             string player_id = player_ids_per_color[player_order];
             intervention_message["data"]["content"] =
                 fmt::format(prompt, player_color, marker_type);
+            intervention_message["data"]["explanation"]["info"] =
+                this->json_settings["explanations"]["communication_marker"];
             intervention_message["data"]["receivers"] = nlohmann::json::array();
             intervention_message["data"]["receivers"].push_back(player_id);
 
