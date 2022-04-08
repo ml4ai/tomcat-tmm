@@ -283,16 +283,6 @@ namespace tomcat {
                                 last_marker.position) > VICINITY_MAX_RADIUS;
                     }
 
-                    if (marker_placed) {
-                        // Log that the player placed a new marker
-                        this->last_placed_markers[player_order] = new_marker;
-
-                        this->custom_logger->log_watch_marker(
-                            this->last_time_step + t + 1,
-                            player_order,
-                            new_marker);
-                    }
-
                     bool active_intervention =
                         !last_marker.is_none() &&
                         (area_changed || victim_interaction ||
@@ -309,6 +299,16 @@ namespace tomcat {
                             area_changed,
                             victim_interaction,
                             marker_placed);
+                    }
+
+                    if (marker_placed) {
+                        // Log that the player placed a new marker
+                        this->last_placed_markers[player_order] = new_marker;
+
+                        this->custom_logger->log_watch_marker(
+                            this->last_time_step + t + 1,
+                            player_order,
+                            new_marker);
                     }
                 }
             }
