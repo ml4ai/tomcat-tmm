@@ -127,6 +127,13 @@ namespace tomcat {
             this->mention_to_no_victim = vector<bool>(this->num_players, false);
             this->mention_to_obstacle = vector<bool>(this->num_players, false);
             this->mention_to_help = vector<bool>(this->num_players, false);
+            this->collapsed_block_ids.clear();
+            this->collapsed_block_positions.clear();
+            this->critical_victim_proximity =
+                vector<double>(this->num_players, INT_MAX);
+            this->collapsed_rubble_observed =
+                vector<string>(this->num_players, "");
+            this->collapsed_rubble_destruction_interaction = "";
         }
 
         void
@@ -156,6 +163,9 @@ namespace tomcat {
             topics.insert("observations/events/player/victim_picked_up");
             topics.insert("observations/events/player/triage");
             topics.insert("observations/events/player/proximity_block");
+            topics.insert("agent/pygl_fov/player/3d/summary");
+            topics.insert("observations/events/player/rubble_collapse");
+            topics.insert("observations/events/player/tool_used");
 
             return topics;
         }
@@ -363,6 +373,17 @@ namespace tomcat {
                                        "event",
                                        "Event:ProximityBlockInteraction")) {
                     this->parse_victim_proximity_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:RubbleCollapse")) {
+                    this->parse_rubble_collapse_message(json_message);
+                }
+                else if (is_message_of(json_message, "observation", "FoV")) {
+                    this->parse_fov_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:ToolUsed")) {
+                    this->parse_tool_used_message(json_message);
                 }
             }
         }
@@ -619,6 +640,105 @@ namespace tomcat {
             this->victim_interaction[player_order] = true;
         }
 
+        void ASISTStudy3MessageConverter::parse_rubble_collapse_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "fromBlock_x");
+            check_field(json_message["data"], "toBlock_x");
+            check_field(json_message["data"], "fromBlock_z");
+            check_field(json_message["data"], "toBlock_z");
+            check_field(json_message["data"], "triggerLocation_x");
+            check_field(json_message["data"], "triggerLocation_z");
+
+            int from_x = json_message["data"]["fromBlock_x"];
+            int to_x = json_message["data"]["toBlock_x"];
+            int from_z = json_message["data"]["fromBlock_z"];
+            int to_z = json_message["data"]["toBlock_z"];
+
+            // We keep a list of positions where collapsed rubbles are supposed
+            // to be. We can identify if the player realizes if it's trapped by
+            // checking whether the rubble in their FoV fall into one of those
+            // blocks.
+            Position trigger_pos(
+                (int)json_message["data"]["triggerLocation_x"],
+                (int)json_message["data"]["triggerLocation_z"]);
+            if (!EXISTS(trigger_pos.to_string(), this->collapsed_block_ids)) {
+                // We just need to store the position once to be able to check
+                // if any of the collapsed blocks are in the players' FoV and
+                // whether the engineer is destroying any of them.
+                for (int x = from_x; x <= to_x; x++) {
+                    for (int z = from_z; z <= to_z; z++) {
+                        Position rubble_pos(x, z);
+                        this->collapsed_block_positions[rubble_pos
+                                                            .to_string()] =
+                            trigger_pos.to_string();
+                    }
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_fov_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participant_id");
+            check_field(json_message["data"], "blocks");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
+
+            for (const auto& json_block : json_message["data"]["blocks"]) {
+                check_field(json_block, "type");
+                check_field(json_block, "location");
+
+                Position block_pos((int)json_block["location"][0],
+                                   (int)json_block["location"][2]);
+
+                if (boost::iequals((string)json_block["type"],
+                                   "block_victim_proximity")) {
+
+                    double distance =
+                        this->player_position[player_order].distance_to(
+                            block_pos);
+
+                    // We keep the distance to the closest critical victim in
+                    // the player's FoV
+                    this->critical_victim_proximity[player_order] =
+                        min(this->critical_victim_proximity[player_order],
+                            distance);
+                }
+                else if (boost::iequals((string)json_block["type"], "gravel")) {
+                    if (EXISTS(block_pos.to_string(),
+                               this->collapsed_block_positions)) {
+                        // We store the id of the trigger for the observed
+                        // collapsed rubble.
+                        this->collapsed_rubble_observed[player_order] =
+                            this->collapsed_block_positions[block_pos
+                                                                .to_string()];
+                    }
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_tool_used_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "target_block_x");
+            check_field(json_message["data"], "target_block_z");
+            check_field(json_message["data"], "target_block_type");
+            check_field(json_message["data"], "tool_type");
+
+            if (boost::iequals(
+                    (string)json_message["data"]["target_block_x"]["tool_type"],
+                    "minecraft:gravel")) {
+                Position rubble_pos(
+                    (int)json_message["data"]["target_block_x"],
+                    (int)json_message["data"]["target_block_z"]);
+
+                if (EXISTS(rubble_pos.to_string(),
+                           this->collapsed_block_positions)) {
+                    this->collapsed_rubble_destruction_interaction =
+                        this->collapsed_block_positions[rubble_pos.to_string()];
+                }
+            }
+        }
+
         void ASISTStudy3MessageConverter::parse_scoreboard_message(
             const nlohmann::json& json_message) {
             //            int score =
@@ -646,6 +766,7 @@ namespace tomcat {
             nlohmann::json json_victim_interactions = nlohmann::json::array();
             nlohmann::json json_player_positions = nlohmann::json::array();
             nlohmann::json json_dialog = nlohmann::json::array();
+            nlohmann::json json_fovs = nlohmann::json::array();
             for (int player_order = 0; player_order < this->num_players;
                  player_order++) {
                 // Placed markers
@@ -709,7 +830,23 @@ namespace tomcat {
                 this->mention_to_obstacle[player_order] = false;
                 this->mention_to_threat[player_order] = false;
                 this->mention_to_help[player_order] = false;
+
+                // FoV
+                nlohmann::json json_fov;
+                json_fov["collapsed_rubble_id"] =
+                    this->collapsed_rubble_observed[player_order];
+                json_fov["distance_to_critical_victim"] =
+                    this->critical_victim_proximity[player_order];
+                json_fovs.push_back(json_fov);
+
+                this->collapsed_rubble_observed[player_order].clear();
+                this->critical_victim_proximity[player_order] = INT_MAX;
             }
+
+            nlohmann::json json_rubble_collapse;
+            json_rubble_collapse["destruction_interaction_collapsed_rubble_id"] =
+                this->collapsed_rubble_destruction_interaction;
+            this->collapsed_rubble_destruction_interaction.clear();
 
             dict_data[Labels::LAST_PLACED_MARKERS] = json_last_placed_markers;
             dict_data[Labels::REMOVED_MARKERS] = json_removed_markers;
@@ -717,6 +854,8 @@ namespace tomcat {
             dict_data[Labels::VICTIM_INTERACTIONS] = json_victim_interactions;
             dict_data[Labels::PLAYER_POSITIONS] = json_player_positions;
             dict_data[Labels::DIALOG] = json_dialog;
+            dict_data[Labels::FOV] = json_fovs;
+            dict_data[Labels::RUBBLE_COLLAPSE] = json_rubble_collapse;
 
             // Clear data that should not persist across time steps
 

@@ -171,9 +171,15 @@ namespace tomcat::model {
             int time_step,
             const EvidenceSet& new_data);
 
-        static bool does_player_need_help(int player_order,
-                                          int time_step,
-                                          const EvidenceSet& new_data);
+        static bool does_player_need_help_to_wake_victim(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
+        static bool does_player_need_help_to_exit_room(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
+        static bool get_threat_room_id(int player_order,
+                                       int time_step,
+                                       const EvidenceSet& new_data);
 
         static bool did_player_ask_for_help(int player_order,
                                             int time_step,
@@ -224,7 +230,8 @@ namespace tomcat::model {
 
         std::vector<ASISTStudy3MessageConverter::Marker> watched_markers;
         std::vector<ASISTStudy3MessageConverter::Marker> active_markers;
-        std::vector<int> watched_no_help_requests;
+        std::vector<int> watched_no_critical_victim_help_requests;
+        std::vector<std::pair<int, int>> watched_no_threat_help_requests;
         std::vector<bool> active_no_help_requests;
     };
 

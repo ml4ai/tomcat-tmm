@@ -172,13 +172,35 @@ namespace tomcat {
             return false;
         }
 
-        bool ASISTStudy3InterventionEstimator::does_player_need_help(
+        bool
+        ASISTStudy3InterventionEstimator::does_player_need_help_to_wake_victim(
             int player_order, int time_step, const EvidenceSet& new_data) {
 
-            //            TODO - return new_data
-            //                .get_dict_like_data()[0][time_step][Labels::LOCATION_CHANGES]
-            //                                     [player_order];
-            return false;
+            double distance =
+                new_data.get_dict_like_data()[0][time_step][Labels::FOV]
+                                             [player_order]
+                                             ["distance_to_critical_victim"];
+
+            return distance < VICINITY_MAX_RADIUS;
+        }
+
+        bool
+        ASISTStudy3InterventionEstimator::does_player_need_help_to_exit_room(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            return !new_data
+                        .get_dict_like_data()[0][time_step][Labels::FOV]
+                                             [player_order]
+                                             ["collapsed_rubble_id"]
+                        .empty();
+        }
+
+        bool ASISTStudy3InterventionEstimator::get_threat_room_id(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            return new_data
+                .get_dict_like_data()[0][time_step][Labels::FOV][player_order]
+                                     ["collapsed_rubble_id"];
         }
 
         bool ASISTStudy3InterventionEstimator::did_player_ask_for_help(
@@ -312,8 +334,8 @@ namespace tomcat {
                         marker_placed) {
                         count_as_new_marker =
                             new_marker.position.distance_to(
-                                this->watched_markers[player_order]
-                                    .position) > VICINITY_MAX_RADIUS;
+                                this->watched_markers[player_order].position) >
+                            VICINITY_MAX_RADIUS;
                     }
 
                     if (marker_placed) {
@@ -354,7 +376,8 @@ namespace tomcat {
 
             for (int t = 0; t < new_data.get_time_steps(); t++) {
                 for (int player_order = 0; player_order < 3; player_order++) {
-                    if (does_player_need_help(player_order, t, new_data)) {
+                    if (does_player_need_help_to_wake_victim(
+                            player_order, t, new_data)) {
                         if (this->watched_no_help_requests[player_order] >= 0) {
                             // We are already watching this player for help
                             // request.
@@ -366,7 +389,8 @@ namespace tomcat {
                                 // time and activate intervention.
                                 this->watched_no_help_requests[player_order] =
                                     this->last_time_step + t + 1;
-                                this->active_no_help_requests[player_order] = true;
+                                this->active_no_help_requests[player_order] =
+                                    true;
 
                                 this->custom_logger
                                     ->log_activate_ask_for_help_intervention(
