@@ -127,37 +127,46 @@ namespace tomcat {
             this->log_trigger_intervention(time_step, text);
         }
 
-        void
-        ASISTStudy3InterventionLogger::log_player_spoke_about_watched_marker(
-            int time_step,
-            int player_order,
-            const ASISTStudy3MessageConverter::Marker& marker) {
+        void ASISTStudy3InterventionLogger::
+            log_cancel_communication_marker_intervention(
+                int time_step,
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& marker,
+                bool speech,
+                bool marker_removal) {
 
-            string text =
-                fmt::format("{} spoke about {}.",
-                            PLAYER_ORDER_TO_COLOR.at(player_order),
-                            ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
-                                marker.type));
+            string text;
+
+            if (speech && marker_removal) {
+                text = fmt::format(
+                    "{} spoke about and removed {} marker.",
+                    PLAYER_ORDER_TO_COLOR.at(player_order),
+                    ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                        marker.type));
+            } else if (speech) {
+                text = fmt::format(
+                    "{} spoke about {}.",
+                    PLAYER_ORDER_TO_COLOR.at(player_order),
+                    ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                        marker.type));
+            }
+            else if (marker_removal) {
+                text = fmt::format(
+                    "{} removed {} marker.",
+                    PLAYER_ORDER_TO_COLOR.at(player_order),
+                    ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                        marker.type));
+            }
+
             this->log_cancel_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::log_player_removed_watched_marker(
-            int time_step,
-            int player_order,
-            const ASISTStudy3MessageConverter::Marker& marker) {
 
-            string text =
-                fmt::format("{} removed {} marker.",
-                            PLAYER_ORDER_TO_COLOR.at(player_order),
-                            ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
-                                marker.type));
-            this->log_cancel_intervention(time_step, text);
-        }
-
-        void ASISTStudy3InterventionLogger::log_watch_marker(
-            int time_step,
-            int player_order,
-            const ASISTStudy3MessageConverter::Marker& marker) {
+        void ASISTStudy3InterventionLogger::
+            log_watch_communication_marker_intervention(
+                int time_step,
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& marker) {
 
             string text =
                 fmt::format("{} placed {} marker.",
@@ -167,13 +176,14 @@ namespace tomcat {
             this->log_watch_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::log_activate_marker_intervention(
-            int time_step,
-            int player_order,
-            const ASISTStudy3MessageConverter::Marker& active_marker,
-            bool area_changed,
-            bool victim_interaction,
-            bool marker_placed) {
+        void ASISTStudy3InterventionLogger::
+            log_activate_communication_marker_intervention(
+                int time_step,
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& active_marker,
+                bool area_changed,
+                bool victim_interaction,
+                bool marker_placed) {
 
             string text;
             const string& player_color = PLAYER_ORDER_TO_COLOR.at(player_order);

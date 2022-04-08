@@ -383,9 +383,9 @@ namespace tomcat {
 
             std::vector<std::vector<Marker>> placed_markers;
             std::vector<std::vector<Marker>> removed_markers;
-            std::vector<Position> player_positions;
-            std::vector<bool> location_changes;
-            std::vector<bool> victim_interactions;
+            std::vector<Position> player_position;
+            std::vector<bool> location_change;
+            std::vector<bool> victim_interaction;
             std::vector<bool> mention_to_critical_victim;
             std::vector<bool> mention_to_regular_victim;
             std::vector<bool> mention_to_victim_a;
@@ -394,6 +394,8 @@ namespace tomcat {
             std::vector<bool> mention_to_no_victim;
             std::vector<bool> mention_to_obstacle;
             std::vector<bool> mention_to_help;
+            std::vector<bool> critical_victim_proximity;
+            std::vector<bool> threat_observed;
         };
 
     } // namespace model

@@ -154,6 +154,24 @@ namespace tomcat {
                                      [player_order];
         }
 
+        bool ASISTStudy3InterventionEstimator::did_player_remove_marker(
+            const ASISTStudy3MessageConverter::Marker& marker,
+            int player_order,
+            int time_step,
+            const EvidenceSet& new_data) {
+            bool marker_removed = false;
+
+            for (const auto& removed_marker :
+                 get_removed_markers(player_order, time_step, new_data)) {
+
+                if (marker == removed_marker) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         bool ASISTStudy3InterventionEstimator::does_player_need_help(
             int player_order, int time_step, const EvidenceSet& new_data) {
 
@@ -199,8 +217,10 @@ namespace tomcat {
         void ASISTStudy3InterventionEstimator::initialize_containers(
             const EvidenceSet& new_data) {
             if (!this->containers_initialized) {
-                this->last_placed_markers = vector<Marker>(3);
-                this->active_unspoken_markers = vector<Marker>(3);
+                this->watched_markers = vector<Marker>(3);
+                this->active_markers = vector<Marker>(3);
+                this->watched_no_help_requests = vector<int>(3);
+                this->active_no_help_requests = vector<bool>(3);
                 this->containers_initialized = true;
             }
         }
@@ -256,39 +276,30 @@ namespace tomcat {
             for (int t = 0; t < new_data.get_time_steps(); t++) {
                 for (int player_order = 0; player_order < 3; player_order++) {
 
-                    const auto& unspoken_marker =
-                        this->last_placed_markers[player_order];
-                    if (!unspoken_marker.is_none()) {
-                        if (did_player_speak_about_marker(
-                                player_order, unspoken_marker, t, new_data)) {
+                    if (!this->watched_markers[player_order].is_none()) {
+                        bool marker_removal = did_player_remove_marker(
+                            this->watched_markers[player_order],
+                            player_order,
+                            t,
+                            new_data);
+                        bool speech = did_player_speak_about_marker(
+                            player_order,
+                            this->watched_markers[player_order],
+                            t,
+                            new_data);
+
+                        if (marker_removal || speech) {
                             this->custom_logger
-                                ->log_player_spoke_about_watched_marker(
+                                ->log_cancel_communication_marker_intervention(
                                     this->last_time_step + t + 1,
                                     player_order,
-                                    unspoken_marker);
-                            this->last_placed_markers[player_order] = Marker();
+                                    this->watched_markers[player_order],
+                                    speech,
+                                    marker_removal);
+                            this->watched_markers[player_order] = Marker();
                         }
                     }
 
-                    // If the player removed the last marker they placed,
-                    // remove it from the list.
-                    for (const auto& marker :
-                         get_removed_markers(player_order, t, new_data)) {
-
-                        if (marker == this->last_placed_markers[player_order]) {
-                            // Clear last marker
-                            this->custom_logger
-                                ->log_player_removed_watched_marker(
-                                    this->last_time_step + t + 1,
-                                    player_order,
-                                    marker);
-                            this->last_placed_markers[player_order] = Marker();
-                            break;
-                        }
-                    }
-
-                    const auto& last_marker =
-                        this->last_placed_markers[player_order];
                     Marker new_marker =
                         get_last_placed_marker(player_order, t, new_data);
                     bool area_changed =
@@ -297,38 +308,42 @@ namespace tomcat {
                         player_order, t, new_data);
                     bool marker_placed = !new_marker.is_none();
                     bool count_as_new_marker = false;
-                    if (!last_marker.is_none() && marker_placed) {
+                    if (!this->watched_markers[player_order].is_none() &&
+                        marker_placed) {
                         count_as_new_marker =
                             new_marker.position.distance_to(
-                                last_marker.position) > VICINITY_MAX_RADIUS;
+                                this->watched_markers[player_order]
+                                    .position) > VICINITY_MAX_RADIUS;
                     }
 
                     if (marker_placed) {
                         // Log that the player placed a new marker
-                        this->last_placed_markers[player_order] = new_marker;
+                        this->watched_markers[player_order] = new_marker;
 
-                        this->custom_logger->log_watch_marker(
-                            this->last_time_step + t + 1,
-                            player_order,
-                            new_marker);
+                        this->custom_logger
+                            ->log_watch_communication_marker_intervention(
+                                this->last_time_step + t + 1,
+                                player_order,
+                                new_marker);
                     }
 
                     bool active_intervention =
-                        !last_marker.is_none() &&
+                        !this->watched_markers[player_order].is_none() &&
                         (area_changed || victim_interaction ||
                          (marker_placed && count_as_new_marker));
 
                     if (active_intervention) {
-                        this->active_unspoken_markers[player_order] =
-                            last_marker;
+                        this->active_markers[player_order] =
+                            this->watched_markers[player_order];
 
-                        this->custom_logger->log_activate_marker_intervention(
-                            this->last_time_step + t + 1,
-                            player_order,
-                            last_marker,
-                            area_changed,
-                            victim_interaction,
-                            marker_placed);
+                        this->custom_logger
+                            ->log_activate_communication_marker_intervention(
+                                this->last_time_step + t + 1,
+                                player_order,
+                                this->watched_markers[player_order],
+                                area_changed,
+                                victim_interaction,
+                                marker_placed);
                     }
                 }
             }
@@ -340,17 +355,18 @@ namespace tomcat {
             for (int t = 0; t < new_data.get_time_steps(); t++) {
                 for (int player_order = 0; player_order < 3; player_order++) {
                     if (does_player_need_help(player_order, t, new_data)) {
-                        if (this->watched_help_request[player_order] >= 0) {
+                        if (this->watched_no_help_requests[player_order] >= 0) {
                             // We are already watching this player for help
                             // request.
                             if (this->last_time_step + t + 1 -
-                                    this->watched_help_request[player_order] >
+                                    this->watched_no_help_requests
+                                        [player_order] >
                                 ASK_FOR_HELP_LATENCY) {
                                 // It has passed enough time. Restart watching
                                 // time and activate intervention.
-                                this->watched_help_request[player_order] =
+                                this->watched_no_help_requests[player_order] =
                                     this->last_time_step + t + 1;
-                                this->active_help_request[player_order] = true;
+                                this->active_no_help_requests[player_order] = true;
 
                                 this->custom_logger
                                     ->log_activate_ask_for_help_intervention(
@@ -362,7 +378,7 @@ namespace tomcat {
                         else {
                             // This player was not in a situation that needed
                             // help previously
-                            this->watched_help_request[player_order] =
+                            this->watched_no_help_requests[player_order] =
                                 this->last_time_step + t + 1;
 
                             this->custom_logger
@@ -376,8 +392,8 @@ namespace tomcat {
                     bool help_requested =
                         did_player_ask_for_help(player_order, t, new_data);
                     if (area_changed || help_requested) {
-                        this->active_help_request[player_order] = false;
-                        this->watched_help_request[player_order] = -1;
+                        this->active_no_help_requests[player_order] = false;
+                        this->watched_no_help_requests[player_order] = -1;
 
                         this->custom_logger
                             ->log_cancel_ask_for_help_intervention(
@@ -452,19 +468,19 @@ namespace tomcat {
         void ASISTStudy3InterventionEstimator::clear_active_unspoken_marker(
             int player_order) {
 
-            if (this->active_unspoken_markers[player_order] ==
-                this->last_placed_markers[player_order]) {
+            if (this->active_markers[player_order] ==
+                this->watched_markers[player_order]) {
                 // Remove if from the last placed marker as well because we
                 // don't want to keep track of it anymore.
-                this->last_placed_markers[player_order] = Marker();
+                this->watched_markers[player_order] = Marker();
             }
 
-            this->active_unspoken_markers[player_order] = Marker();
+            this->active_markers[player_order] = Marker();
         }
 
         void ASISTStudy3InterventionEstimator::clear_active_ask_for_help(
             int player_order) {
-            this->active_help_request[player_order] = false;
+            this->active_no_help_requests[player_order] = false;
         }
 
         //----------------------------------------------------------------------
@@ -477,12 +493,12 @@ namespace tomcat {
 
         const vector<Marker>&
         ASISTStudy3InterventionEstimator::get_active_unspoken_markers() const {
-            return active_unspoken_markers;
+            return active_markers;
         }
 
         const vector<bool>&
         ASISTStudy3InterventionEstimator::get_active_help_request() const {
-            return active_help_request;
+            return active_no_help_requests;
         }
 
         //        void ASISTStudy3InterventionEstimator::parse_map(

@@ -114,9 +114,9 @@ namespace tomcat {
             this->num_encouragement_utterances = 0;
             this->placed_markers = vector<vector<Marker>>(this->num_players);
             this->removed_markers = vector<vector<Marker>>(this->num_players);
-            this->player_positions = vector<Position>(this->num_players);
-            this->location_changes = vector<bool>(this->num_players, false);
-            this->victim_interactions = vector<bool>(this->num_players, false);
+            this->player_position = vector<Position>(this->num_players);
+            this->location_change = vector<bool>(this->num_players, false);
+            this->victim_interaction = vector<bool>(this->num_players, false);
             this->mention_to_critical_victim =
                 vector<bool>(this->num_players, false);
             this->mention_to_regular_victim =
@@ -566,7 +566,7 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->player_positions[player_order] = pos;
+            this->player_position[player_order] = pos;
         }
 
         void ASISTStudy3MessageConverter::parse_new_location_message(
@@ -576,7 +576,7 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->location_changes[player_order] = true;
+            this->location_change[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_victim_placement_message(
@@ -586,7 +586,7 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->victim_interactions[player_order] = true;
+            this->victim_interaction[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_victim_pickedup_message(
@@ -596,7 +596,7 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->victim_interactions[player_order] = true;
+            this->victim_interaction[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_victim_triage_message(
@@ -606,7 +606,7 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->victim_interactions[player_order] = true;
+            this->victim_interaction[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_victim_proximity_message(
@@ -616,7 +616,7 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->victim_interactions[player_order] = true;
+            this->victim_interaction[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_scoreboard_message(
@@ -669,17 +669,17 @@ namespace tomcat {
 
                 // Location changes
                 json_location_changes.push_back(
-                    (bool)this->location_changes[player_order]);
-                this->location_changes[player_order] = false;
+                    (bool)this->location_change[player_order]);
+                this->location_change[player_order] = false;
 
                 // Victim interactions
                 json_victim_interactions.push_back(
-                    (bool)this->victim_interactions[player_order]);
-                this->victim_interactions[player_order] = false;
+                    (bool)this->victim_interaction[player_order]);
+                this->victim_interaction[player_order] = false;
 
                 // Player positions
                 json_player_positions.push_back(
-                    this->player_positions[player_order].serialize());
+                    this->player_position[player_order].serialize());
 
                 // Dialog
                 nlohmann::json json_mentions;

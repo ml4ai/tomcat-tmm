@@ -72,22 +72,18 @@ namespace tomcat {
 
             void log_intervene_on_marker(int time_step, int player_order);
 
-            void log_player_spoke_about_watched_marker(
+            void log_cancel_communication_marker_intervention(
                 int time_step,
                 int player_order,
-                const ASISTStudy3MessageConverter::Marker& marker);
+                const ASISTStudy3MessageConverter::Marker& marker,
+                bool speech,
+                bool marker_removal);
 
-            void log_player_removed_watched_marker(
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& marker);
-
-            void
-            log_watch_marker(int time_step,
+            void log_watch_communication_marker_intervention(int time_step,
                              int player_order,
                              const ASISTStudy3MessageConverter::Marker& marker);
 
-            void log_activate_marker_intervention(
+            void log_activate_communication_marker_intervention(
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& active_marker,

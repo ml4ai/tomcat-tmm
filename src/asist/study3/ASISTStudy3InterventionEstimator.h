@@ -165,6 +165,12 @@ namespace tomcat::model {
                                            int time_step,
                                            const EvidenceSet& new_data);
 
+        static bool did_player_remove_marker(
+            const ASISTStudy3MessageConverter::Marker& marker,
+            int player_order,
+            int time_step,
+            const EvidenceSet& new_data);
+
         static bool does_player_need_help(int player_order,
                                           int time_step,
                                           const EvidenceSet& new_data);
@@ -216,11 +222,10 @@ namespace tomcat::model {
         int last_time_step = -1;
         bool first_mission = true;
 
-        std::vector<ASISTStudy3MessageConverter::Marker> last_placed_markers;
-        std::vector<ASISTStudy3MessageConverter::Marker>
-            active_unspoken_markers;
-        std::vector<int> watched_help_request;
-        std::vector<bool> active_help_request;
+        std::vector<ASISTStudy3MessageConverter::Marker> watched_markers;
+        std::vector<ASISTStudy3MessageConverter::Marker> active_markers;
+        std::vector<int> watched_no_help_requests;
+        std::vector<bool> active_no_help_requests;
     };
 
 } // namespace tomcat::model
