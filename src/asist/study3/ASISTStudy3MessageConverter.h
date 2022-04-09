@@ -43,6 +43,8 @@ namespace tomcat {
                 inline const static std::string FOV = "fov";
                 inline const static std::string RUBBLE_COLLAPSE =
                     "rubble_collapse";
+                inline const static std::string LOCATIONS =
+                    "locations";
             };
 
             struct MarkerTypeTexts {
@@ -414,6 +416,7 @@ namespace tomcat {
             std::unordered_set<std::string> collapsed_block_ids;
             std::unordered_map<std::string, std::string>
                 collapsed_block_positions;
+            std::vector<std::unordered_set<std::string>> player_locations;
         };
 
     } // namespace model

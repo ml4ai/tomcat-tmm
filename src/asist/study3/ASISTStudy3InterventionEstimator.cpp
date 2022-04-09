@@ -1,5 +1,7 @@
 #include "ASISTStudy3InterventionEstimator.h"
 
+#include <algorithm>
+
 #include <fmt/format.h>
 
 #include "asist/study3/ASISTStudy3InterventionModel.h"
@@ -159,7 +161,6 @@ namespace tomcat {
             int player_order,
             int time_step,
             const EvidenceSet& new_data) {
-            bool marker_removed = false;
 
             for (const auto& removed_marker :
                  get_removed_markers(player_order, time_step, new_data)) {
@@ -181,6 +182,8 @@ namespace tomcat {
                                              [player_order]
                                              ["distance_to_critical_victim"];
 
+            // If there's another player in the same area, there's no need to
+            // ask for help.
             return distance < VICINITY_MAX_RADIUS;
         }
 
@@ -206,10 +209,72 @@ namespace tomcat {
         bool ASISTStudy3InterventionEstimator::did_player_ask_for_help(
             int player_order, int time_step, const EvidenceSet& new_data) {
 
-            //            TODO - return new_data
-            //                .get_dict_like_data()[0][time_step][Labels::LOCATION_CHANGES]
-            //                                     [player_order];
+            const auto& json_dialog =
+                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
+                                             [player_order];
+
+            return (bool)json_dialog["help_needed"];
+        }
+
+        bool ASISTStudy3InterventionEstimator::is_there_other_player_around(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            unordered_set<string> locations = unordered_set<string>(
+                new_data.get_dict_like_data()[0][time_step][Labels::LOCATIONS]
+                                             [player_order]);
+
+            for (int i = 0; i < 3; i++) {
+                if (i != player_order) {
+                    unordered_set<string> other_player_locations =
+                        unordered_set<string>(
+                            new_data.get_dict_like_data()[0][time_step]
+                                                         [Labels::LOCATIONS]
+                                                         [player_order]);
+
+                    for (const string& loc : locations) {
+                        if (EXISTS(loc, other_player_locations)) {
+                            // If players intersect in at least one location, we
+                            // consider they are in the same area.
+                            return true;
+                        }
+                    }
+                }
+            }
+
             return false;
+        }
+
+        bool ASISTStudy3InterventionEstimator::
+            did_player_speak_about_critical_victim(
+                int player_order, int time_step, const EvidenceSet& new_data) {
+
+            const auto& json_dialog =
+                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
+                                             [player_order];
+
+            return (bool)json_dialog["critical_victim"];
+        }
+
+        bool ASISTStudy3InterventionEstimator::is_player_being_released(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            // TODO
+            const auto& json_dialog =
+                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
+                                             [player_order];
+
+            return (bool)json_dialog["critical_victim"];
+        }
+
+        string ASISTStudy3InterventionEstimator::get_threat_id(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            // TODO
+            const auto& json_dialog =
+                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
+                                             [player_order];
+
+            return "";
         }
 
         //----------------------------------------------------------------------
@@ -231,8 +296,8 @@ namespace tomcat {
             this->first_mission =
                 new_data.get_metadata()[0]["mission_order"] == 1;
             this->estimate_motivation(new_data);
-            this->estimate_unspoken_markers(new_data);
-            this->estimate_ask_for_help(new_data);
+            this->estimate_communication_marker(new_data);
+            this->estimate_help_request(new_data);
             this->last_time_step += new_data.get_time_steps();
         }
 
@@ -240,9 +305,11 @@ namespace tomcat {
             const EvidenceSet& new_data) {
             if (!this->containers_initialized) {
                 this->watched_markers = vector<Marker>(3);
+                this->watched_critical_victims = vector<int>(3);
+                this->watched_threats = vector<pair<string, int>>(3, {"", -1});
                 this->active_markers = vector<Marker>(3);
-                this->watched_no_help_requests = vector<int>(3);
-                this->active_no_help_requests = vector<bool>(3);
+                this->active_no_critical_victim_help_requests = vector<bool>(3);
+                this->active_no_threat_help_requests = vector<bool>(3);
                 this->containers_initialized = true;
             }
         }
@@ -292,7 +359,7 @@ namespace tomcat {
             }
         }
 
-        void ASISTStudy3InterventionEstimator::estimate_unspoken_markers(
+        void ASISTStudy3InterventionEstimator::estimate_communication_marker(
             const EvidenceSet& new_data) {
 
             for (int t = 0; t < new_data.get_time_steps(); t++) {
@@ -371,60 +438,146 @@ namespace tomcat {
             }
         }
 
-        void ASISTStudy3InterventionEstimator::estimate_ask_for_help(
+        void ASISTStudy3InterventionEstimator::estimate_help_request(
             const EvidenceSet& new_data) {
+            this->estimate_critical_victim_help_request(new_data);
+            this->estimate_threat_help_request(new_data);
+        }
 
+        void
+        ASISTStudy3InterventionEstimator::estimate_critical_victim_help_request(
+            const EvidenceSet& new_data) {
             for (int t = 0; t < new_data.get_time_steps(); t++) {
                 for (int player_order = 0; player_order < 3; player_order++) {
+
+                    // Cancel intervention if possible
+                    bool area_changed =
+                        did_player_change_area(player_order, t, new_data);
+                    bool help_requested =
+                        did_player_ask_for_help(player_order, t, new_data);
+                    bool mention_to_critical_victim =
+                        did_player_speak_about_critical_victim(
+                            player_order, t, new_data);
+                    int other_players_around =
+                        is_there_other_player_around(player_order, t, new_data);
+                    if (area_changed || help_requested ||
+                        mention_to_critical_victim || other_players_around) {
+                        this->active_no_critical_victim_help_requests
+                            [player_order] = false;
+                        this->watched_critical_victims[player_order] = -1;
+
+                        this->custom_logger
+                            ->log_cancel_ask_for_help_critical_victim_intervention(
+                                this->last_time_step + t + 1,
+                                player_order,
+                                area_changed,
+                                help_requested,
+                                mention_to_critical_victim,
+                                other_players_around);
+                    }
+
+                    // Watch and activate intervention
                     if (does_player_need_help_to_wake_victim(
+                            player_order, t, new_data) &&
+                        !is_there_other_player_around(
                             player_order, t, new_data)) {
-                        if (this->watched_no_help_requests[player_order] >= 0) {
+                        if (this->watched_critical_victims[player_order] >= 0) {
                             // We are already watching this player for help
-                            // request.
+                            // request regarding critical victim awakening
                             if (this->last_time_step + t + 1 -
-                                    this->watched_no_help_requests
+                                    this->watched_critical_victims
                                         [player_order] >
                                 ASK_FOR_HELP_LATENCY) {
                                 // It has passed enough time. Restart watching
                                 // time and activate intervention.
-                                this->watched_no_help_requests[player_order] =
+                                this->watched_critical_victims[player_order] =
                                     this->last_time_step + t + 1;
-                                this->active_no_help_requests[player_order] =
-                                    true;
+                                this->active_no_critical_victim_help_requests
+                                    [player_order] = true;
 
                                 this->custom_logger
-                                    ->log_activate_ask_for_help_intervention(
+                                    ->log_activate_ask_for_help_critical_victim_intervention(
                                         this->last_time_step + t + 1,
                                         player_order,
                                         ASK_FOR_HELP_LATENCY);
                             }
                         }
                         else {
-                            // This player was not in a situation that needed
-                            // help previously
-                            this->watched_no_help_requests[player_order] =
+                            // This player was not being watched for help
+                            // request regarding saving a critical victim
+                            this->watched_critical_victims[player_order] =
                                 this->last_time_step + t + 1;
 
                             this->custom_logger
-                                ->log_watch_ask_for_help_intervention(
+                                ->log_watch_ask_for_help_critical_victim_intervention(
                                     this->last_time_step + t + 1, player_order);
                         }
                     }
+                }
+            }
+        }
 
+        void ASISTStudy3InterventionEstimator::estimate_threat_help_request(
+            const EvidenceSet& new_data) {
+            for (int t = 0; t < new_data.get_time_steps(); t++) {
+                for (int player_order = 0; player_order < 3; player_order++) {
+                    // Cancel intervention if possible
                     bool area_changed =
                         did_player_change_area(player_order, t, new_data);
                     bool help_requested =
                         did_player_ask_for_help(player_order, t, new_data);
-                    if (area_changed || help_requested) {
-                        this->active_no_help_requests[player_order] = false;
-                        this->watched_no_help_requests[player_order] = -1;
+                    int being_released =
+                        is_player_being_released(player_order, t, new_data);
+                    if (area_changed || help_requested || being_released) {
+                        this->active_no_threat_help_requests[player_order] =
+                            false;
+                        this->watched_threats[player_order] = {"", -1};
 
                         this->custom_logger
-                            ->log_cancel_ask_for_help_intervention(
+                            ->log_cancel_ask_for_help_threat_intervention(
                                 this->last_time_step + t + 1,
                                 player_order,
                                 area_changed,
-                                help_requested);
+                                help_requested,
+                                being_released);
+                    }
+
+                    // Watch and activate
+                    if (does_player_need_help_to_exit_room(
+                            player_order, t, new_data)) {
+                        string threat_id =
+                            get_threat_id(player_order, t, new_data);
+                        if (!this->watched_threats[player_order]
+                                 .first.empty()) {
+                            // We are already watching this player for help
+                            // request regarding exiting a threat room
+                            if (this->last_time_step + t + 1 -
+                                    this->watched_threats[player_order].second >
+                                ASK_FOR_HELP_LATENCY) {
+                                // It has passed enough time. Restart watching
+                                // time and activate intervention.
+                                this->watched_threats[player_order] = {
+                                    threat_id, this->last_time_step + t + 1};
+                                this->active_no_threat_help_requests
+                                    [player_order] = true;
+
+                                this->custom_logger
+                                    ->log_activate_ask_for_help_threat_intervention(
+                                        this->last_time_step + t + 1,
+                                        player_order,
+                                        ASK_FOR_HELP_LATENCY);
+                            }
+                        }
+                        else {
+                            // This player was not being watched for help
+                            // request regarding exiting a threat room
+                            this->watched_threats[player_order] = {
+                                threat_id, this->last_time_step + t + 1};
+
+                            this->custom_logger
+                                ->log_watch_ask_for_help_threat_intervention(
+                                    this->last_time_step + t + 1, player_order);
+                        }
                     }
                 }
             }
@@ -502,9 +655,14 @@ namespace tomcat {
             this->active_markers[player_order] = Marker();
         }
 
-        void ASISTStudy3InterventionEstimator::clear_active_ask_for_help(
+        void ASISTStudy3InterventionEstimator::
+            clear_active_ask_for_help_critical_victim(int player_order) {
+            this->active_no_critical_victim_help_requests[player_order] = false;
+        }
+
+        void ASISTStudy3InterventionEstimator::clear_active_ask_for_help_threat(
             int player_order) {
-            this->active_no_help_requests[player_order] = false;
+            this->active_no_threat_help_requests[player_order] = false;
         }
 
         //----------------------------------------------------------------------

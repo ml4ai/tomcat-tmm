@@ -2,6 +2,7 @@
 
 #include <iomanip>
 
+#include <boost/algorithm/string.hpp>
 #include <fmt/format.h>
 
 namespace tomcat {
@@ -118,15 +119,6 @@ namespace tomcat {
             this->log_trigger_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::log_intervene_on_ask_for_help(
-            int time_step, int player_order) {
-
-            string text =
-                fmt::format("Ask-for-help intervention for player {}.",
-                            PLAYER_ORDER_TO_COLOR.at(player_order));
-            this->log_trigger_intervention(time_step, text);
-        }
-
         void ASISTStudy3InterventionLogger::
             log_cancel_communication_marker_intervention(
                 int time_step,
@@ -137,22 +129,16 @@ namespace tomcat {
 
             string text;
 
-            if (speech && marker_removal) {
+            if (speech) {
                 text = fmt::format(
-                    "{} spoke about and removed {} marker.",
-                    PLAYER_ORDER_TO_COLOR.at(player_order),
-                    ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
-                        marker.type));
-            } else if (speech) {
-                text = fmt::format(
-                    "{} spoke about {}.",
+                    "{} spoke about {}. ",
                     PLAYER_ORDER_TO_COLOR.at(player_order),
                     ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
                         marker.type));
             }
-            else if (marker_removal) {
-                text = fmt::format(
-                    "{} removed {} marker.",
+            if (marker_removal) {
+                text += fmt::format(
+                    "{} removed {} marker. ",
                     PLAYER_ORDER_TO_COLOR.at(player_order),
                     ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
                         marker.type));
@@ -160,7 +146,6 @@ namespace tomcat {
 
             this->log_cancel_intervention(time_step, text);
         }
-
 
         void ASISTStudy3InterventionLogger::
             log_watch_communication_marker_intervention(
@@ -187,27 +172,19 @@ namespace tomcat {
 
             string text;
             const string& player_color = PLAYER_ORDER_TO_COLOR.at(player_order);
-            if (area_changed && victim_interaction) {
-                text = fmt::format("{} changed area and interacted with "
-                                   "victim",
-                                   player_color);
+            if (area_changed) {
+                text = fmt::format("{} changed area. ", player_color);
             }
-            else if (area_changed && marker_placed) {
-                text = fmt::format("{} changed area and placed a new marker",
-                                   player_color);
+            if (victim_interaction) {
+                text +=
+                    fmt::format("{} interacted with victim. ", player_color);
             }
-            else if (area_changed) {
-                text = fmt::format("{} changed area", player_color);
-            }
-            else if (victim_interaction) {
-                text = fmt::format("{} interacted with victim", player_color);
-            }
-            else if (marker_placed) {
-                text = fmt::format("{} placed a marker", player_color);
+            if (marker_placed) {
+                text += fmt::format("{} placed a marker. ", player_color);
             }
 
             text =
-                fmt::format("{}. {} marker gets ready for intervention.",
+                fmt::format("{}{} marker gets ready for intervention.",
                             text,
                             ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
                                 active_marker.type));
@@ -215,49 +192,133 @@ namespace tomcat {
             this->log_activate_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::log_watch_ask_for_help_intervention(
-            int time_step, int player_order) {
-            string text = fmt::format("{} needs help.",
+        void ASISTStudy3InterventionLogger::
+            log_intervene_on_ask_for_help_critical_victim(int time_step,
+                                                          int player_order) {
+
+            string text = fmt::format(
+                "Ask-for-help (critical_victim) intervention for player {}.",
+                PLAYER_ORDER_TO_COLOR.at(player_order));
+            this->log_trigger_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::
+            log_watch_ask_for_help_critical_victim_intervention(
+                int time_step, int player_order) {
+
+            string text = fmt::format("{} needs help to wake critical victim.",
                                       PLAYER_ORDER_TO_COLOR.at(player_order));
             this->log_watch_intervention(time_step, text);
         }
 
-        void
-        ASISTStudy3InterventionLogger::log_activate_ask_for_help_intervention(
-            int time_step, int player_order, int latency) {
+        void ASISTStudy3InterventionLogger::
+            log_activate_ask_for_help_critical_victim_intervention(
+                int time_step, int player_order, int latency) {
+
             string text =
-                fmt::format("{} did not ask for help in the last {} seconds.",
+                fmt::format("{} did not ask for help to wake critical "
+                            "victim in the last {} seconds.",
                             PLAYER_ORDER_TO_COLOR.at(player_order),
                             latency);
             this->log_activate_intervention(time_step, text);
         }
 
-        void
-        ASISTStudy3InterventionLogger::log_cancel_ask_for_help_intervention(
-            int time_step,
-            int player_order,
-            bool area_changed,
-            bool help_requested) {
+        void ASISTStudy3InterventionLogger::
+            log_cancel_ask_for_help_critical_victim_intervention(
+                int time_step,
+                int player_order,
+                bool area_changed,
+                bool help_requested,
+                bool mention_to_critical_victim,
+                bool other_players_around) {
             string text;
 
             if (area_changed) {
-                fmt::format("{} changed area.",
+                fmt::format("{} changed area. ",
                             PLAYER_ORDER_TO_COLOR.at(player_order));
             }
-            else if (help_requested) {
-                fmt::format("{} asked for help.",
-                            PLAYER_ORDER_TO_COLOR.at(player_order));
+            if (help_requested) {
+                text += fmt::format("{} asked for help. ",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+            if (mention_to_critical_victim) {
+                text += fmt::format("{} mentioned critical victim.",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+            if (other_players_around) {
+                text += fmt::format("At least one player {}.",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
             }
 
-            text =
-                fmt::format("{}. Canceling ask-for-help intervention.", text);
+            text = fmt::format(
+                "{}. Canceling ask-for-help (critical victim) intervention.",
+                text);
+
+            this->log_cancel_intervention(time_step, text);
+        }
+
+        void
+        ASISTStudy3InterventionLogger::log_intervene_on_ask_for_help_threat(
+            int time_step, int player_order) {
+
+            string text =
+                fmt::format("Ask-for-help (threat) intervention for player {}.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order));
+            this->log_trigger_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::
+            log_watch_ask_for_help_threat_intervention(int time_step,
+                                                       int player_order) {
+
+            string text = fmt::format("{} needs help to exit threat room.",
+                                      PLAYER_ORDER_TO_COLOR.at(player_order));
+            this->log_watch_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::
+            log_activate_ask_for_help_threat_intervention(int time_step,
+                                                          int player_order,
+                                                          int latency) {
+
+            string text = fmt::format("{} did not ask for help to exit "
+                                      "threat room in the last {} seconds.",
+                                      PLAYER_ORDER_TO_COLOR.at(player_order),
+                                      latency);
+            this->log_activate_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::
+            log_cancel_ask_for_help_threat_intervention(int time_step,
+                                                        int player_order,
+                                                        bool area_changed,
+                                                        bool help_requested,
+                                                        bool being_released) {
+            string text;
+
+            if (area_changed) {
+                fmt::format("{} changed area. ",
+                            PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+            if (help_requested) {
+                text += fmt::format("{} asked for help. ",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+            if (being_released) {
+                text += fmt::format("{} is being released by the engineer.",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+
+            text = fmt::format(
+                "{}. Canceling ask-for-help (threat) intervention.", text);
 
             this->log_cancel_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::log_watch_intervention(
             int time_step, const string& text) {
-            this->log_common_info(time_step_to_mission_timer(time_step), text);
+            this->log_common_info(time_step_to_mission_timer(time_step),
+                                  boost::trim_copy(text));
             this->log_file << "X\t";
             this->log_file << "\n";
             this->log_file.flush();
@@ -265,7 +326,8 @@ namespace tomcat {
 
         void ASISTStudy3InterventionLogger::log_cancel_intervention(
             int time_step, const string& text) {
-            this->log_common_info(time_step_to_mission_timer(time_step), text);
+            this->log_common_info(time_step_to_mission_timer(time_step),
+                                  boost::trim_copy(text));
             this->log_file << "\t";  // watch
             this->log_file << "X\t"; // cancel
             this->log_file << "\n";
@@ -274,7 +336,8 @@ namespace tomcat {
 
         void ASISTStudy3InterventionLogger::log_activate_intervention(
             int time_step, const string& text) {
-            this->log_common_info(time_step_to_mission_timer(time_step), text);
+            this->log_common_info(time_step_to_mission_timer(time_step),
+                                  boost::trim_copy(text));
             this->log_file << "\t\t"; // watch and cancel
             this->log_file << "X";    // activate
             this->log_file << "\n";
@@ -283,7 +346,8 @@ namespace tomcat {
 
         void ASISTStudy3InterventionLogger::log_trigger_intervention(
             int time_step, const string& text) {
-            this->log_common_info(time_step_to_mission_timer(time_step), text);
+            this->log_common_info(time_step_to_mission_timer(time_step),
+                                  boost::trim_copy(text));
             this->log_file << "\t\t\t"; // watch, cancel, activate
             this->log_file << "X";      // intervene
             this->log_file << "\n";
@@ -292,7 +356,8 @@ namespace tomcat {
 
         void ASISTStudy3InterventionLogger::log(int time_step,
                                                 const string& text) {
-            this->log_common_info(time_step_to_mission_timer(time_step), text);
+            this->log_common_info(time_step_to_mission_timer(time_step),
+                                  boost::trim_copy(text));
             this->log_file << "\n";
             this->log_file.flush();
         }

@@ -79,9 +79,10 @@ namespace tomcat {
                 bool speech,
                 bool marker_removal);
 
-            void log_watch_communication_marker_intervention(int time_step,
-                             int player_order,
-                             const ASISTStudy3MessageConverter::Marker& marker);
+            void log_watch_communication_marker_intervention(
+                int time_step,
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& marker);
 
             void log_activate_communication_marker_intervention(
                 int time_step,
@@ -91,19 +92,40 @@ namespace tomcat {
                 bool victim_interaction,
                 bool marker_placed);
 
-            void log_intervene_on_ask_for_help(int time_step, int player_order);
+            void
+            log_intervene_on_ask_for_help_critical_victim(int time_step,
+                                                          int player_order);
 
-            void log_watch_ask_for_help_intervention(int time_step,
-                                                     int player_order);
+            void log_watch_ask_for_help_critical_victim_intervention(
+                int time_step, int player_order);
 
-            void log_activate_ask_for_help_intervention(int time_step,
-                                                        int player_order,
-                                                        int latency);
+            void log_activate_ask_for_help_critical_victim_intervention(
+                int time_step, int player_order, int latency);
 
-            void log_cancel_ask_for_help_intervention(int time_step,
-                                                      int player_order,
-                                                      bool area_changed,
-                                                      bool help_requested);
+            void log_cancel_ask_for_help_critical_victim_intervention(
+                int time_step,
+                int player_order,
+                bool area_changed,
+                bool help_request,
+                bool mention_to_critical_victim,
+                bool other_players_around);
+
+            void
+            log_intervene_on_ask_for_help_threat(int time_step,
+                                                          int player_order);
+
+            void log_watch_ask_for_help_threat_intervention(
+                int time_step, int player_order);
+
+            void log_activate_ask_for_help_threat_intervention(
+                int time_step, int player_order, int latency);
+
+            void log_cancel_ask_for_help_threat_intervention(
+                int time_step,
+                int player_order,
+                bool area_changed,
+                bool help_request,
+                bool being_released);
 
             void log_cancel_intervention(int time_step,
                                          const std::string& text);

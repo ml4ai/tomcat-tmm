@@ -134,6 +134,8 @@ namespace tomcat {
             this->collapsed_rubble_observed =
                 vector<string>(this->num_players, "");
             this->collapsed_rubble_destruction_interaction = "";
+            this->player_locations =
+                vector<unordered_set<string>>(this->num_players);
         }
 
         void
@@ -598,6 +600,29 @@ namespace tomcat {
                 (string)json_message["data"]["participant_id"]);
 
             this->location_change[player_order] = true;
+
+            // Store players' current locations
+            this->player_locations[player_order].clear();
+            if (EXISTS("connections", json_message["data"])) {
+                for (const auto& json_connections :
+                     json_message["data"]["connections"]) {
+                    check_field(json_connections, "connected_locations");
+                    for (const auto& loc_id :
+                         json_connections["connected_locations"]) {
+                        this->player_locations[player_order].insert(
+                            (string)loc_id);
+                    }
+                }
+            }
+
+            if (EXISTS("locations", json_message["data"])) {
+                for (const auto& json_location :
+                     json_message["data"]["locations"]) {
+                    check_field(json_location, "id");
+                    this->player_locations[player_order].insert(
+                        (string)json_location["id"]);
+                }
+            }
         }
 
         void ASISTStudy3MessageConverter::parse_victim_placement_message(
@@ -767,6 +792,7 @@ namespace tomcat {
             nlohmann::json json_player_positions = nlohmann::json::array();
             nlohmann::json json_dialog = nlohmann::json::array();
             nlohmann::json json_fovs = nlohmann::json::array();
+            nlohmann::json json_locations = nlohmann::json::array();
             for (int player_order = 0; player_order < this->num_players;
                  player_order++) {
                 // Placed markers
@@ -841,11 +867,22 @@ namespace tomcat {
 
                 this->collapsed_rubble_observed[player_order].clear();
                 this->critical_victim_proximity[player_order] = INT_MAX;
+
+                // Players' locations
+                nlohmann::json json_player_locations = nlohmann::json::array();
+                for (const string& loc_id :
+                     this->player_locations[player_order]) {
+                    json_player_locations.push_back(loc_id);
+                }
+                json_locations.push_back(json_player_locations);
+                // No need to clear the locations because it will be overwritten
+                // whenever the player moves to a new area.
             }
 
             nlohmann::json json_rubble_collapse;
-            json_rubble_collapse["destruction_interaction_collapsed_rubble_id"] =
-                this->collapsed_rubble_destruction_interaction;
+            json_rubble_collapse
+                ["destruction_interaction_collapsed_rubble_id"] =
+                    this->collapsed_rubble_destruction_interaction;
             this->collapsed_rubble_destruction_interaction.clear();
 
             dict_data[Labels::LAST_PLACED_MARKERS] = json_last_placed_markers;
@@ -856,6 +893,7 @@ namespace tomcat {
             dict_data[Labels::DIALOG] = json_dialog;
             dict_data[Labels::FOV] = json_fovs;
             dict_data[Labels::RUBBLE_COLLAPSE] = json_rubble_collapse;
+            dict_data[Labels::LOCATIONS] = json_locations;
 
             // Clear data that should not persist across time steps
 

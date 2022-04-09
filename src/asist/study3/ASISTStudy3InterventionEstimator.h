@@ -96,7 +96,9 @@ namespace tomcat::model {
          * @param player_order: index of the player that has an active unspoken
          * marker
          */
-        void clear_active_ask_for_help(int player_order);
+        void clear_active_ask_for_help_critical_victim(int player_order);
+
+        void clear_active_ask_for_help_threat(int player_order);
 
         //------------------------------------------------------------------
         // Getters & Setters
@@ -185,6 +187,19 @@ namespace tomcat::model {
                                             int time_step,
                                             const EvidenceSet& new_data);
 
+        static bool is_there_other_player_around(int player_order,
+                                                 int time_step,
+                                                 const EvidenceSet& new_data);
+
+        static bool did_player_speak_about_critical_victim(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
+        static bool is_player_being_released(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
+        static std::string get_threat_id(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
         //------------------------------------------------------------------
         // Member functions
         //------------------------------------------------------------------
@@ -208,14 +223,18 @@ namespace tomcat::model {
          *
          * @param new_data: evidence
          */
-        void estimate_unspoken_markers(const EvidenceSet& new_data);
+        void estimate_communication_marker(const EvidenceSet& new_data);
 
         /**
          * Estimate if players ask for help when they need it.
          *
          * @param new_data: evidence
          */
-        void estimate_ask_for_help(const EvidenceSet& new_data);
+        void estimate_help_request(const EvidenceSet& new_data);
+
+        void estimate_critical_victim_help_request(const EvidenceSet& new_data);
+
+        void estimate_threat_help_request(const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Data members
@@ -230,9 +249,11 @@ namespace tomcat::model {
 
         std::vector<ASISTStudy3MessageConverter::Marker> watched_markers;
         std::vector<ASISTStudy3MessageConverter::Marker> active_markers;
-        std::vector<int> watched_no_critical_victim_help_requests;
-        std::vector<std::pair<int, int>> watched_no_threat_help_requests;
-        std::vector<bool> active_no_help_requests;
+        std::vector<int> watched_critical_victims;
+        std::vector<std::pair<std::string, int>> watched_threats;
+        std::vector<bool> active_no_critical_victim_help_requests;
+        std::vector<bool> active_no_threat_help_requests;
+        std::vector<std::string> player_area;
     };
 
 } // namespace tomcat::model
