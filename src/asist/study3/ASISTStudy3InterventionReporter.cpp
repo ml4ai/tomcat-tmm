@@ -82,6 +82,10 @@ namespace tomcat {
                 intervention_message, agent, "Intervention:Chat", time_step, 0);
             add_common_data_section(intervention_message, agent, time_step, 0);
 
+            // TODO - remove before merging with main branch
+            intervention_message["topic"] =
+                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+
             return intervention_message;
         }
 
@@ -171,6 +175,7 @@ namespace tomcat {
 
                 if (this->introduced) {
                     this->intervene_on_communication_marker(agent, t, messages);
+                    this->intervene_on_ask_for_help(agent, t, messages);
                 }
             }
 
@@ -187,6 +192,7 @@ namespace tomcat {
             check_field(this->json_settings["activations"], "introduction");
 
             if (!this->json_settings["activations"]["introduction"]) {
+                this->introduced = true;
                 return;
             }
 
@@ -301,18 +307,33 @@ namespace tomcat {
                 dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
                     agent->get_estimators()[0]);
 
-            const auto& help_requests = estimator->get_active_help_request();
+            const auto& critical_victim =
+                estimator->get_active_no_critical_victim_help_request();
+            const auto& threat = estimator->get_active_no_threat_help_request();
             for (int player_order = 0; player_order < 3; player_order++) {
-                if (help_requests.at(player_order)) {
+                if (critical_victim.at(player_order)) {
                     auto intervention_msg =
                         this->get_ask_for_help_intervention_message(
                             agent, time_step, player_order);
 
                     messages.push_back(intervention_msg);
 
-                    estimator->clear_active_ask_for_help(player_order);
-                    this->custom_logger->log_intervene_on_marker(time_step,
-                                                                 player_order);
+                    estimator->clear_active_ask_for_help_critical_victim(
+                        player_order);
+                    this->custom_logger
+                        ->log_intervene_on_ask_for_help_critical_victim(
+                            time_step, player_order);
+                }
+                if (threat.at(player_order)) {
+                    auto intervention_msg =
+                        this->get_ask_for_help_intervention_message(
+                            agent, time_step, player_order);
+
+                    messages.push_back(intervention_msg);
+
+                    estimator->clear_active_ask_for_help_threat(player_order);
+                    this->custom_logger->log_intervene_on_ask_for_help_threat(
+                        time_step, player_order);
                 }
             }
         }
@@ -334,10 +355,6 @@ namespace tomcat {
                 this->json_settings["explanations"]["introduction"];
             intervention_message["data"]["receivers"] = this->player_ids;
 
-            // TODO - remove
-            //            intervention_message["topic"] =
-            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
-
             return intervention_message;
         }
 
@@ -353,10 +370,6 @@ namespace tomcat {
             intervention_message["data"]["content"] =
                 this->json_settings["prompts"]["motivation"];
             intervention_message["data"]["receivers"] = this->player_ids;
-
-            // TODO - remove
-            //            intervention_message["topic"] =
-            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }
@@ -392,10 +405,6 @@ namespace tomcat {
                 this->json_settings["explanation"]["ask_for_help"];
             intervention_message["data"]["explanation"] = explanation;
 
-            // TODO - remove
-            //            intervention_message["topic"] =
-            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
-
             return intervention_message;
         }
 
@@ -420,14 +429,10 @@ namespace tomcat {
             intervention_message["data"]["receivers"] = nlohmann::json::array();
             intervention_message["data"]["receivers"].push_back(player_id);
             const string& explanation =
-                this->json_settings["explanation"]["ask_for_help"];
+                this->json_settings["explanations"]["ask_for_help"];
             intervention_message["data"]["explanation"] = fmt::format(
                 explanation,
                 ASISTStudy3InterventionEstimator::ASK_FOR_HELP_LATENCY);
-
-            // TODO - remove
-            //            intervention_message["topic"] =
-            //                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
 
             return intervention_message;
         }

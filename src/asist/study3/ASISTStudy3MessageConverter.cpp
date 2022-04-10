@@ -134,8 +134,8 @@ namespace tomcat {
             this->collapsed_rubble_observed =
                 vector<string>(this->num_players, "");
             this->collapsed_rubble_destruction_interaction = "";
-            this->player_locations =
-                vector<unordered_set<string>>(this->num_players);
+            this->player_location = vector<string>(this->num_players);
+            this->player_in_room = vector<bool>(3, false);
         }
 
         void
@@ -168,6 +168,8 @@ namespace tomcat {
             topics.insert("agent/pygl_fov/player/3d/summary");
             topics.insert("observations/events/player/rubble_collapse");
             topics.insert("observations/events/player/tool_used");
+            topics.insert("observations/events/player/proximity");
+            topics.insert("observations/events/player/rubble_destroyed");
 
             return topics;
         }
@@ -387,47 +389,16 @@ namespace tomcat {
                              json_message, "event", "Event:ToolUsed")) {
                     this->parse_tool_used_message(json_message);
                 }
+                else if (is_message_of(
+                             json_message, "event", "Event:proximity")) {
+                    this->parse_proximity_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:RubbleDestroyed")) {
+                    this->parse_rubble_destroyed_message(json_message);
+                }
             }
         }
-
-        //
-        //            string player_id;
-        //            int player_number = -1;
-        //
-        //            if (EXISTS("participant_id", json_message["data"])) {
-        //                if (json_message["data"]["participant_id"] == nullptr)
-        //                {
-        //                    if (json_message["msg"]["sub_type"] != "FoV") {
-        //                        throw TomcatModelException("Participant ID is
-        //                        null.");
-        //                    }
-        //                    // If it's FoV, we just ignore FoV Messages.
-        //                    return;
-        //                }
-        //                player_id = json_message["data"]["participant_id"];
-        //                if (EXISTS(player_id, this->player_id_to_number)) {
-        //                    player_number =
-        //                    this->player_id_to_number[player_id];
-        //                }
-        //            }
-        //
-        //            if (player_id != "") {
-        //                // Player evidence
-        //                if (json_message["header"]["message_type"] == "event"
-        //                &&
-        //                    json_message["msg"]["sub_type"] ==
-        //                    "Event:RoleSelected") {
-        //                    this->parse_role_selection_message(json_message,
-        //                                                       player_number);
-        //                }
-        //                else if (json_message["header"]["message_type"] ==
-        //                             "observation" &&
-        //                         json_message["msg"]["sub_type"] == "state") {
-        //                    this->parse_player_state_message(json_message,
-        //                                                     player_number);
-        //                }
-        //            }
-        //        }
 
         void ASISTStudy3MessageConverter::parse_utterance_message(
             const nlohmann::json& json_message) {
@@ -518,13 +489,21 @@ namespace tomcat {
             if (this->num_players_with_role == this->num_players) {
                 json_mission_log["players"] = nlohmann::json::array();
 
+                int engineer_order;
+
                 for (const auto& p : this->players) {
                     nlohmann::json json_player;
                     json_player["id"] = p.id;
                     json_player["color"] = p.color;
                     json_player["role"] = p.role;
                     json_mission_log["players"].push_back(json_player);
+
+                    if (player.role == "engineer") {
+                        engineer_order = player.index;
+                    }
                 }
+
+                json_mission_log["engineer_order"] = engineer_order;
             }
         }
 
@@ -600,29 +579,6 @@ namespace tomcat {
                 (string)json_message["data"]["participant_id"]);
 
             this->location_change[player_order] = true;
-
-            // Store players' current locations
-            this->player_locations[player_order].clear();
-            if (EXISTS("connections", json_message["data"])) {
-                for (const auto& json_connections :
-                     json_message["data"]["connections"]) {
-                    check_field(json_connections, "connected_locations");
-                    for (const auto& loc_id :
-                         json_connections["connected_locations"]) {
-                        this->player_locations[player_order].insert(
-                            (string)loc_id);
-                    }
-                }
-            }
-
-            if (EXISTS("locations", json_message["data"])) {
-                for (const auto& json_location :
-                     json_message["data"]["locations"]) {
-                    check_field(json_location, "id");
-                    this->player_locations[player_order].insert(
-                        (string)json_location["id"]);
-                }
-            }
         }
 
         void ASISTStudy3MessageConverter::parse_victim_placement_message(
@@ -669,6 +625,8 @@ namespace tomcat {
             const nlohmann::json& json_message) {
             check_field(json_message["data"], "fromBlock_x");
             check_field(json_message["data"], "toBlock_x");
+            check_field(json_message["data"], "fromBlock_y");
+            check_field(json_message["data"], "toBlock_y");
             check_field(json_message["data"], "fromBlock_z");
             check_field(json_message["data"], "toBlock_z");
             check_field(json_message["data"], "triggerLocation_x");
@@ -676,8 +634,13 @@ namespace tomcat {
 
             int from_x = json_message["data"]["fromBlock_x"];
             int to_x = json_message["data"]["toBlock_x"];
+            int from_y = json_message["data"]["fromBlock_y"];
+            int to_y = json_message["data"]["toBlock_y"];
             int from_z = json_message["data"]["fromBlock_z"];
             int to_z = json_message["data"]["toBlock_z"];
+
+            int quantity =
+                (to_x - from_x + 1) * (to_y - from_y + 1) * (to_z - from_z + 1);
 
             // We keep a list of positions where collapsed rubbles are supposed
             // to be. We can identify if the player realizes if it's trapped by
@@ -698,16 +661,26 @@ namespace tomcat {
                             trigger_pos.to_string();
                     }
                 }
+                this->collapsed_block_counts[trigger_pos.to_string()] =
+                    quantity;
             }
         }
 
         void ASISTStudy3MessageConverter::parse_fov_message(
             const nlohmann::json& json_message) {
-            check_field(json_message["data"], "participant_id");
             check_field(json_message["data"], "blocks");
 
-            int player_order = this->player_id_to_index.at(
-                (string)json_message["data"]["participant_id"]);
+            int player_order;
+
+            if (EXISTS("participant_id", json_message["data"])) {
+                player_order = this->player_id_to_index.at(
+                    (string)json_message["data"]["participant_id"]);
+            }
+            else {
+                check_field(json_message["data"], "playername");
+                player_order = this->player_id_to_index.at(
+                    (string)json_message["data"]["playername"]);
+            }
 
             for (const auto& json_block : json_message["data"]["blocks"]) {
                 check_field(json_block, "type");
@@ -749,9 +722,8 @@ namespace tomcat {
             check_field(json_message["data"], "target_block_type");
             check_field(json_message["data"], "tool_type");
 
-            if (boost::iequals(
-                    (string)json_message["data"]["target_block_x"]["tool_type"],
-                    "minecraft:gravel")) {
+            if (boost::iequals((string)json_message["data"]["tool_type"],
+                               "minecraft:gravel")) {
                 Position rubble_pos(
                     (int)json_message["data"]["target_block_x"],
                     (int)json_message["data"]["target_block_z"]);
@@ -760,6 +732,58 @@ namespace tomcat {
                            this->collapsed_block_positions)) {
                     this->collapsed_rubble_destruction_interaction =
                         this->collapsed_block_positions[rubble_pos.to_string()];
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_proximity_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participants");
+
+            for (const auto& json_participant :
+                 json_message["data"]["participants"]) {
+                check_field(json_participant, "participant_id");
+                check_field(json_participant,
+                            "distance_to_current_location_exits");
+                check_field(json_participant, "current_location");
+
+                const string& id = (string)json_participant["participant_id"];
+
+                if (!id.empty()) {
+                    int player_order = this->player_id_to_index.at(id);
+
+                    this->player_in_room[player_order] =
+                        !json_participant["distance_to_current_location_exits"]
+                             .empty();
+                    this->player_location[player_order] =
+                        json_participant["current_location"];
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_rubble_destroyed_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "rubble_x");
+            check_field(json_message["data"], "rubble_z");
+
+            Position rubble_pos((int)json_message["data"]["rubble_x"],
+                                (int)json_message["data"]["rubble_z"]);
+
+            if (EXISTS(rubble_pos.to_string(),
+                       this->collapsed_block_positions)) {
+                string threat_id =
+                    this->collapsed_block_positions[rubble_pos.to_string()];
+                this->collapsed_block_counts[threat_id] -= 1;
+
+                if (this->collapsed_block_counts[threat_id] == 0) {
+                    // Blocked entry is completely open
+                    this->collapsed_block_positions.erase(
+                        rubble_pos.to_string());
+
+                    for (int player_order = 0; player_order < this->num_players;
+                         player_order++) {
+                        this->collapsed_rubble_observed[player_order].clear();
+                    }
                 }
             }
         }
@@ -868,13 +892,13 @@ namespace tomcat {
                 this->collapsed_rubble_observed[player_order].clear();
                 this->critical_victim_proximity[player_order] = INT_MAX;
 
-                // Players' locations
-                nlohmann::json json_player_locations = nlohmann::json::array();
-                for (const string& loc_id :
-                     this->player_locations[player_order]) {
-                    json_player_locations.push_back(loc_id);
-                }
-                json_locations.push_back(json_player_locations);
+                // Players' location
+                nlohmann::json json_player_location;
+                json_player_location["id"] =
+                    this->player_location[player_order];
+                json_player_location["room"] =
+                    (bool)this->player_in_room[player_order];
+                json_locations.push_back(json_player_location);
                 // No need to clear the locations because it will be overwritten
                 // whenever the player moves to a new area.
             }

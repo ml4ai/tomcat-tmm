@@ -43,8 +43,7 @@ namespace tomcat {
                 inline const static std::string FOV = "fov";
                 inline const static std::string RUBBLE_COLLAPSE =
                     "rubble_collapse";
-                inline const static std::string LOCATIONS =
-                    "locations";
+                inline const static std::string LOCATIONS = "locations";
             };
 
             struct MarkerTypeTexts {
@@ -338,6 +337,10 @@ namespace tomcat {
 
             void parse_tool_used_message(const nlohmann::json& json_message);
 
+            void parse_proximity_message(const nlohmann::json& json_message);
+
+            void parse_rubble_destroyed_message(const nlohmann::json& json_message);
+
             /**
              * Gets the observations accumulated so far and creates an evidence
              * set with them.
@@ -410,13 +413,14 @@ namespace tomcat {
             std::vector<bool> mention_to_obstacle;
             std::vector<bool> mention_to_help;
             std::vector<double> critical_victim_proximity;
-            std::vector<bool> threat_observed;
             std::vector<std::string> collapsed_rubble_observed;
             std::string collapsed_rubble_destruction_interaction;
             std::unordered_set<std::string> collapsed_block_ids;
             std::unordered_map<std::string, std::string>
                 collapsed_block_positions;
-            std::vector<std::unordered_set<std::string>> player_locations;
+            std::unordered_map<std::string, int> collapsed_block_counts;
+            std::vector<std::string> player_location;
+            std::vector<bool> player_in_room;
         };
 
     } // namespace model

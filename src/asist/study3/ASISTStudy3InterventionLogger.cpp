@@ -180,11 +180,11 @@ namespace tomcat {
                     fmt::format("{} interacted with victim. ", player_color);
             }
             if (marker_placed) {
-                text += fmt::format("{} placed a marker. ", player_color);
+                text += fmt::format("{} placed a new marker. ", player_color);
             }
 
             text =
-                fmt::format("{}{} marker gets ready for intervention.",
+                fmt::format("{}Previous {} marker gets ready for intervention.",
                             text,
                             ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
                                 active_marker.type));
@@ -242,16 +242,17 @@ namespace tomcat {
                                     PLAYER_ORDER_TO_COLOR.at(player_order));
             }
             if (mention_to_critical_victim) {
-                text += fmt::format("{} mentioned critical victim.",
+                text += fmt::format("{} mentioned critical victim. ",
                                     PLAYER_ORDER_TO_COLOR.at(player_order));
             }
             if (other_players_around) {
-                text += fmt::format("At least one player {}.",
-                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+                text += fmt::format(
+                    "At least one other player is in the same location as {}. ",
+                    PLAYER_ORDER_TO_COLOR.at(player_order));
             }
 
             text = fmt::format(
-                "{}. Canceling ask-for-help (critical victim) intervention.",
+                "{}Canceling ask-for-help (critical victim) intervention.",
                 text);
 
             this->log_cancel_intervention(time_step, text);
@@ -291,13 +292,13 @@ namespace tomcat {
         void ASISTStudy3InterventionLogger::
             log_cancel_ask_for_help_threat_intervention(int time_step,
                                                         int player_order,
-                                                        bool area_changed,
+                                                        bool left_room,
                                                         bool help_requested,
                                                         bool being_released) {
             string text;
 
-            if (area_changed) {
-                fmt::format("{} changed area. ",
+            if (left_room) {
+                text = fmt::format("{} left room. ",
                             PLAYER_ORDER_TO_COLOR.at(player_order));
             }
             if (help_requested) {
@@ -310,7 +311,7 @@ namespace tomcat {
             }
 
             text = fmt::format(
-                "{}. Canceling ask-for-help (threat) intervention.", text);
+                "{}Canceling ask-for-help (threat) intervention.", text);
 
             this->log_cancel_intervention(time_step, text);
         }

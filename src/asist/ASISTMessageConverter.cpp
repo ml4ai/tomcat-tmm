@@ -29,9 +29,8 @@ namespace tomcat {
                                              const std::string& type) {
 
             return boost::iequals(
-                       (string)json_message["header"]["message_type"], type);
+                (string)json_message["header"]["message_type"], type);
         }
-
 
         bool
         ASISTMessageConverter::is_message_of(const nlohmann::json& json_message,
@@ -125,18 +124,10 @@ namespace tomcat {
                                     json_message["header"]["timestamp"];
                                 messages[timestamp] = json_message;
                             }
-                            else if (topic !=
-                                     "agent/pygl_fov/player/3d/summary") {
+                            else {
                                 const string& timestamp =
                                     json_message["msg"]["timestamp"];
                                 messages[timestamp] = json_message;
-
-                                //                                if (topic ==
-                                //                                    "agent/pygl_fov/player/3d/summary")
-                                //                                    {
-                                //                                    contains_fov
-                                //                                    = true;
-                                //                                }
                             }
 
                             this->parse_individual_message(json_message);

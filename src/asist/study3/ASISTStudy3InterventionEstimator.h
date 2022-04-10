@@ -117,7 +117,10 @@ namespace tomcat::model {
         const std::vector<ASISTStudy3MessageConverter::Marker>&
         get_active_unspoken_markers() const;
 
-        const std::vector<bool>& get_active_help_request() const;
+        const std::vector<bool>&
+        get_active_no_critical_victim_help_request() const;
+
+        const std::vector<bool>& get_active_no_threat_help_request() const;
 
       protected:
         //------------------------------------------------------------------
@@ -176,29 +179,35 @@ namespace tomcat::model {
         static bool does_player_need_help_to_wake_victim(
             int player_order, int time_step, const EvidenceSet& new_data);
 
-        static bool does_player_need_help_to_exit_room(
-            int player_order, int time_step, const EvidenceSet& new_data);
-
-        static bool get_threat_room_id(int player_order,
-                                       int time_step,
-                                       const EvidenceSet& new_data);
-
         static bool did_player_ask_for_help(int player_order,
                                             int time_step,
                                             const EvidenceSet& new_data);
 
-        static bool is_there_other_player_around(int player_order,
+        static bool is_there_another_player_around(int player_order,
                                                  int time_step,
                                                  const EvidenceSet& new_data);
 
         static bool did_player_speak_about_critical_victim(
             int player_order, int time_step, const EvidenceSet& new_data);
 
-        static bool is_player_being_released(
+        static bool does_player_need_help_to_exit_room(
             int player_order, int time_step, const EvidenceSet& new_data);
 
-        static std::string get_threat_id(
-            int player_order, int time_step, const EvidenceSet& new_data);
+        static std::string get_threat_id(int player_order,
+                                         int time_step,
+                                         const EvidenceSet& new_data);
+
+        static bool is_player_being_released(int player_order,
+                                             int time_step,
+                                             const EvidenceSet& new_data);
+
+        static bool is_player_in_room(int player_order,
+                                      int time_step,
+                                      const EvidenceSet& new_data);
+
+        static bool is_engineer_around(int player_order,
+                                       int time_step,
+                                       const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Member functions
