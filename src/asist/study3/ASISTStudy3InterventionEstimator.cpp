@@ -169,15 +169,14 @@ namespace tomcat {
             int time_step,
             const EvidenceSet& new_data) {
 
-            for (const auto& removed_marker :
-                 get_removed_markers(player_order, time_step, new_data)) {
+            const auto& removed_markers =
+                get_removed_markers(player_order, time_step, new_data);
 
-                if (marker == removed_marker) {
-                    return true;
-                }
-            }
-
-            return false;
+            return any_of(removed_markers.begin(),
+                          removed_markers.end(),
+                          [&m = marker](const Marker& removed_marker) {
+                              return removed_marker == m;
+                          });
         }
 
         bool

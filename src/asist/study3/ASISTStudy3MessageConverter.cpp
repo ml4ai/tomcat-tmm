@@ -508,7 +508,7 @@ namespace tomcat {
                     json_player["role"] = p.role;
                     json_mission_log["players"].push_back(json_player);
 
-                    if (player.role == "engineer") {
+                    if (p.role == "engineer") {
                         engineer_order = player.index;
                     }
                 }
