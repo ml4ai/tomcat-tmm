@@ -79,6 +79,11 @@ namespace tomcat {
                 bool speech,
                 bool marker_removal);
 
+            void log_hinder_communication_marker_intervention(
+                int time_step,
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& marker);
+
             void log_watch_communication_marker_intervention(
                 int time_step,
                 int player_order,

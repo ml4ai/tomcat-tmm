@@ -423,26 +423,35 @@ namespace tomcat {
                     if (boost::iequals((string)label, "Encouragement")) {
                         this->num_encouragement_utterances++;
                     }
-                    else if (boost::iequals((string)label, "CriticalVictim")) {
+                    else if (boost::iequals((string)label, "CriticalVictim") ||
+                             boost::iequals((string)label,
+                                            "CriticalMarkerBlock")) {
                         this->mention_to_critical_victim[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "RegularVictim")) {
+                    else if (boost::iequals((string)label, "RegularVictim") ||
+                             boost::iequals((string)label,
+                                            "RegularMarkerBlock")) {
                         this->mention_to_regular_victim[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "VictimTypeA")) {
+                    else if (boost::iequals((string)label, "VictimTypeA") ||
+                             boost::iequals((string)label, "TypeAMarker")) {
                         this->mention_to_victim_b[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "VictimTypeB")) {
+                    else if (boost::iequals((string)label, "VictimTypeB") ||
+                             boost::iequals((string)label, "TypeBMarker")) {
                         this->mention_to_victim_b[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "NoVictim")) {
+                    else if (boost::iequals((string)label, "NoVictim") ||
+                             boost::iequals((string)label,
+                                            "NoVictimMarkerBlock")) {
                         this->mention_to_no_victim[player_order] = true;
                     }
                     else if (boost::iequals((string)label, "Stuck") ||
                              boost::iequals((string)label, "HelpRequest") ||
                              boost::iequals((string)label, "NeedAction") ||
                              boost::iequals((string)label, "NeedItem") ||
-                             boost::iequals((string)label, "NeedRole")) {
+                             boost::iequals((string)label, "NeedRole") ||
+                             boost::iequals((string)label, "SOSMarker")) {
                         this->mention_to_help[player_order] = true;
                     }
                     else if (boost::iequals((string)label, "ThreatRoom") ||
@@ -451,7 +460,8 @@ namespace tomcat {
                              boost::iequals((string)label, "ThreatSign")) {
                         this->mention_to_threat[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "Obstacle")) {
+                    else if (boost::iequals((string)label, "Obstacle") ||
+                             boost::iequals((string)label, "RubbleMarker")) {
                         this->mention_to_obstacle[player_order] = true;
                     }
                 }
@@ -575,10 +585,10 @@ namespace tomcat {
             const nlohmann::json& json_message) {
             check_field(json_message["data"], "participant_id");
 
-            int player_order = this->player_id_to_index.at(
-                (string)json_message["data"]["participant_id"]);
-
-            this->location_change[player_order] = true;
+//            int player_order = this->player_id_to_index.at(
+//                (string)json_message["data"]["participant_id"]);
+//
+//            this->location_change[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_victim_placement_message(
@@ -755,8 +765,13 @@ namespace tomcat {
                     this->player_in_room[player_order] =
                         !json_participant["distance_to_current_location_exits"]
                              .empty();
-                    this->player_location[player_order] =
-                        json_participant["current_location"];
+
+                    const string& location = json_participant["current_location"];
+                    if (this->player_location[player_order] != location) {
+                        this->location_change[player_order] = true;
+                    }
+                    this->player_location[player_order] = location;
+
                 }
             }
         }

@@ -148,6 +148,11 @@ namespace tomcat::model {
             int time_step,
             const EvidenceSet& new_data);
 
+        static std::unordered_set<ASISTStudy3MessageConverter::MarkerType>
+        get_mentioned_marker_types(int player_order,
+                                   int time_step,
+                                   const EvidenceSet& new_data);
+
         static ASISTStudy3MessageConverter::Marker get_last_placed_marker(
             int player_order, int time_step, const EvidenceSet& new_data);
 
@@ -184,8 +189,8 @@ namespace tomcat::model {
                                             const EvidenceSet& new_data);
 
         static bool is_there_another_player_around(int player_order,
-                                                 int time_step,
-                                                 const EvidenceSet& new_data);
+                                                   int time_step,
+                                                   const EvidenceSet& new_data);
 
         static bool did_player_speak_about_critical_victim(
             int player_order, int time_step, const EvidenceSet& new_data);
@@ -208,6 +213,9 @@ namespace tomcat::model {
         static bool is_engineer_around(int player_order,
                                        int time_step,
                                        const EvidenceSet& new_data);
+
+        static bool should_watch_marker_type(
+            const ASISTStudy3MessageConverter::MarkerType& marker_type);
 
         //------------------------------------------------------------------
         // Member functions
@@ -233,6 +241,10 @@ namespace tomcat::model {
          * @param new_data: evidence
          */
         void estimate_communication_marker(const EvidenceSet& new_data);
+
+        void update_mention_to_marker_types(int player_order,
+                                            int time_step,
+                                            const EvidenceSet& new_data);
 
         /**
          * Estimate if players ask for help when they need it.
@@ -263,6 +275,8 @@ namespace tomcat::model {
         std::vector<bool> active_no_critical_victim_help_requests;
         std::vector<bool> active_no_threat_help_requests;
         std::vector<std::string> player_area;
+        std::vector<std::unordered_set<ASISTStudy3MessageConverter::MarkerType>>
+            mentioned_marker_types;
     };
 
 } // namespace tomcat::model

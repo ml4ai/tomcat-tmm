@@ -144,7 +144,26 @@ namespace tomcat {
                         marker.type));
             }
 
+            text = fmt::format("{}Canceling communication marker intervention.",
+                               text);
+
             this->log_cancel_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::
+            log_hinder_communication_marker_intervention(
+                int time_step,
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& marker) {
+
+            string text =
+                fmt::format("{} placed {} marker but spoke about it recently. "
+                            "No need to watch marker for intervention.",
+                            PLAYER_ORDER_TO_COLOR.at(player_order),
+                            ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                                marker.type));
+
+            this->log(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
@@ -299,7 +318,7 @@ namespace tomcat {
 
             if (left_room) {
                 text = fmt::format("{} left room. ",
-                            PLAYER_ORDER_TO_COLOR.at(player_order));
+                                   PLAYER_ORDER_TO_COLOR.at(player_order));
             }
             if (help_requested) {
                 text += fmt::format("{} asked for help. ",

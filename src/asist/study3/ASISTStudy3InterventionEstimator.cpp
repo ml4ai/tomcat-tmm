@@ -60,40 +60,47 @@ namespace tomcat {
                 new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
                                              [player_order];
 
-            if (unspoken_marker.type == MarkerType::NO_VICTIM &&
-                (bool)json_dialog["no_victim"]) {
-                return true;
+            return EXISTS(
+                unspoken_marker.type,
+                get_mentioned_marker_types(player_order, time_step, new_data));
+        }
+
+        unordered_set<MarkerType>
+        ASISTStudy3InterventionEstimator::get_mentioned_marker_types(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            const auto& json_dialog =
+                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
+                                             [player_order];
+
+            unordered_set<MarkerType> marker_types;
+
+            if ((bool)json_dialog["no_victim"]) {
+                marker_types.insert(MarkerType::NO_VICTIM);
             }
-            else if (unspoken_marker.type == MarkerType::REGULAR_VICTIM &&
-                     (bool)json_dialog["regular_victim"]) {
-                return true;
+            else if ((bool)json_dialog["regular_victim"]) {
+                marker_types.insert(MarkerType::REGULAR_VICTIM);
             }
-            else if (unspoken_marker.type == MarkerType::VICTIM_C &&
-                     (bool)json_dialog["critical_victim"]) {
-                return true;
+            else if ((bool)json_dialog["critical_victim"]) {
+                marker_types.insert(MarkerType::VICTIM_C);
             }
-            else if (unspoken_marker.type == MarkerType::VICTIM_A &&
-                     (bool)json_dialog["victim_a"]) {
-                return true;
+            else if ((bool)json_dialog["victim_a"]) {
+                marker_types.insert(MarkerType::VICTIM_A);
             }
-            else if (unspoken_marker.type == MarkerType::VICTIM_B &&
-                     (bool)json_dialog["victim_b"]) {
-                return true;
+            else if ((bool)json_dialog["victim_b"]) {
+                marker_types.insert(MarkerType::VICTIM_B);
             }
-            else if (unspoken_marker.type == MarkerType::RUBBLE &&
-                     (bool)json_dialog["obstacle"]) {
-                return true;
+            else if ((bool)json_dialog["obstacle"]) {
+                marker_types.insert(MarkerType::RUBBLE);
             }
-            else if (unspoken_marker.type == MarkerType::THREAT_ROOM &&
-                     (bool)json_dialog["threat"]) {
-                return true;
+            else if ((bool)json_dialog["threat"]) {
+                marker_types.insert(MarkerType::THREAT_ROOM);
             }
-            else if (unspoken_marker.type == MarkerType::SOS &&
-                     (bool)json_dialog["help_needed"]) {
-                return true;
+            else if ((bool)json_dialog["help_needed"]) {
+                marker_types.insert(MarkerType::SOS);
             }
 
-            return false;
+            return marker_types;
         }
 
         Marker ASISTStudy3InterventionEstimator::get_last_placed_marker(
@@ -239,9 +246,10 @@ namespace tomcat {
         string ASISTStudy3InterventionEstimator::get_threat_id(
             int player_order, int time_step, const EvidenceSet& new_data) {
 
-            string threat_id = new_data
-                .get_dict_like_data()[0][time_step][Labels::FOV][player_order]
-                                     ["collapsed_rubble_id"];
+            string threat_id =
+                new_data
+                    .get_dict_like_data()[0][time_step][Labels::FOV]
+                                         [player_order]["collapsed_rubble_id"];
             return threat_id;
         }
 
@@ -297,6 +305,14 @@ namespace tomcat {
             return around;
         }
 
+        bool should_watch_marker_type(
+            const ASISTStudy3MessageConverter::MarkerType& marker_type) {
+            return marker_type == MarkerType::VICTIM_C ||
+                   marker_type == MarkerType::REGULAR_VICTIM ||
+                   marker_type == MarkerType::RUBBLE ||
+                   marker_type == MarkerType::SOS;
+        }
+
         //----------------------------------------------------------------------
         // Member functions
         //----------------------------------------------------------------------
@@ -331,6 +347,9 @@ namespace tomcat {
                 this->active_no_critical_victim_help_requests =
                     vector<bool>(3, false);
                 this->active_no_threat_help_requests = vector<bool>(3, false);
+                this->mentioned_marker_types =
+                    vector<unordered_set<MarkerType>>(3);
+
                 this->containers_initialized = true;
             }
         }
@@ -418,21 +437,45 @@ namespace tomcat {
                     bool victim_interaction = did_player_interact_with_victim(
                         player_order, t, new_data);
                     bool marker_placed = !new_marker.is_none();
-                    bool count_as_new_marker = false;
+                    bool count_as_new_marker = true;
                     if (!this->watched_markers[player_order].is_none() &&
                         marker_placed) {
-                        count_as_new_marker =
-                            new_marker.position.distance_to(
-                                this->watched_markers[player_order].position) >
-                            VICINITY_MAX_RADIUS;
+                        double distance = new_marker.position.distance_to(
+                            this->watched_markers[player_order].position);
+                        if (distance <= VICINITY_MAX_RADIUS) {
+                            // If the new marker is too close from previous
+                            // placed markers, don't count it as a new marker.
+                            count_as_new_marker = false;
+                        }
                     }
 
-                    bool active_intervention =
+                    if (area_changed) {
+                        // Any mention to a marker type in the buffer is
+                        // cleared.
+                        this->mentioned_marker_types[player_order].clear();
+                    }
+
+                    this->update_mention_to_marker_types(
+                        player_order, t, new_data);
+                    if (EXISTS(new_marker.type,
+                               this->mentioned_marker_types[player_order])) {
+                        // The player spoke about the new marker before placing
+                        // it. Therefore, we don't have to intervene.
+                        count_as_new_marker = false;
+
+                        this->custom_logger
+                            ->log_hinder_communication_marker_intervention(
+                                this->last_time_step + t + 1,
+                                player_order,
+                                new_marker);
+                    }
+
+                    bool activate_intervention =
                         !this->watched_markers[player_order].is_none() &&
                         (area_changed || victim_interaction ||
                          (marker_placed && count_as_new_marker));
 
-                    if (active_intervention) {
+                    if (activate_intervention) {
                         this->active_markers[player_order] =
                             this->watched_markers[player_order];
 
@@ -448,7 +491,9 @@ namespace tomcat {
                         this->watched_markers[player_order] = Marker();
                     }
 
-                    if (marker_placed) {
+                    if (marker_placed && count_as_new_marker &&
+                        tomcat::model::should_watch_marker_type(
+                            new_marker.type)) {
                         // Watch the new marker for intervention
                         this->watched_markers[player_order] = new_marker;
 
@@ -460,6 +505,20 @@ namespace tomcat {
                     }
                 }
             }
+        }
+
+        void ASISTStudy3InterventionEstimator::update_mention_to_marker_types(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            const auto& json_dialog =
+                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
+                                             [player_order];
+
+            const auto& marker_types =
+                get_mentioned_marker_types(player_order, time_step, new_data);
+
+            this->mentioned_marker_types[player_order].insert(
+                marker_types.begin(), marker_types.end());
         }
 
         void ASISTStudy3InterventionEstimator::estimate_help_request(

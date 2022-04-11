@@ -108,7 +108,8 @@ namespace tomcat {
                 }
 
                 double distance_to(const Position& pos) const {
-                    return sqrt(this->x * pos.x + this->z * pos.z);
+                    return sqrt(pow(this->x - pos.x, 2) +
+                                pow(this->z - pos.z, 2));
                 }
 
                 nlohmann::json serialize() const {
@@ -339,7 +340,8 @@ namespace tomcat {
 
             void parse_proximity_message(const nlohmann::json& json_message);
 
-            void parse_rubble_destroyed_message(const nlohmann::json& json_message);
+            void
+            parse_rubble_destroyed_message(const nlohmann::json& json_message);
 
             /**
              * Gets the observations accumulated so far and creates an evidence
