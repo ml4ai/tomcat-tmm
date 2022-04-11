@@ -115,6 +115,10 @@ namespace tomcat {
                 bool mention_to_critical_victim,
                 bool other_players_around);
 
+            void log_hinder_ask_for_help_critical_victim_intervention(
+                int time_step,
+                int player_order);
+
             void log_intervene_on_ask_for_help_threat(int time_step,
                                                       int player_order);
 
@@ -131,6 +135,10 @@ namespace tomcat {
                                                         bool left_room,
                                                         bool help_request,
                                                         bool being_released);
+
+            void
+            log_hinder_ask_for_help_threat_intervention(int time_step,
+                                                        int player_order);
 
             void log_cancel_intervention(int time_step,
                                          const std::string& text);

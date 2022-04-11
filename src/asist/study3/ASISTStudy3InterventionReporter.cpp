@@ -402,7 +402,7 @@ namespace tomcat {
             intervention_message["data"]["receivers"] = nlohmann::json::array();
             intervention_message["data"]["receivers"].push_back(player_id);
             const string& explanation =
-                this->json_settings["explanation"]["ask_for_help"];
+                this->json_settings["explanations"]["ask_for_help"];
             intervention_message["data"]["explanation"] = explanation;
 
             return intervention_message;

@@ -228,34 +228,42 @@ namespace tomcat::model {
          */
         void initialize_containers(const EvidenceSet& new_data);
 
+        void update_communication(int player_order,
+                                  int time_step,
+                                  const EvidenceSet& new_data);
+
         /**
          * Estimate if team is motivated.
          *
          * @param new_data: evidence
          */
-        void estimate_motivation(const EvidenceSet& new_data);
+        void estimate_motivation(int time_step, const EvidenceSet& new_data);
 
         /**
          * Estimate if players placed markers and did not talk about it.
          *
          * @param new_data: evidence
          */
-        void estimate_communication_marker(const EvidenceSet& new_data);
-
-        void update_mention_to_marker_types(int player_order,
-                                            int time_step,
-                                            const EvidenceSet& new_data);
+        void estimate_communication_marker(int player_order,
+                                           int time_step,
+                                           const EvidenceSet& new_data);
 
         /**
          * Estimate if players ask for help when they need it.
          *
          * @param new_data: evidence
          */
-        void estimate_help_request(const EvidenceSet& new_data);
+        void estimate_help_request(int player_order,
+                                   int time_step,
+                                   const EvidenceSet& new_data);
 
-        void estimate_critical_victim_help_request(const EvidenceSet& new_data);
+        void estimate_critical_victim_help_request(int player_order,
+                                                   int time_step,
+                                                   const EvidenceSet& new_data);
 
-        void estimate_threat_help_request(const EvidenceSet& new_data);
+        void estimate_threat_help_request(int player_order,
+                                          int time_step,
+                                          const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Data members
@@ -277,6 +285,8 @@ namespace tomcat::model {
         std::vector<std::string> player_area;
         std::vector<std::unordered_set<ASISTStudy3MessageConverter::MarkerType>>
             mentioned_marker_types;
+        std::vector<bool> mentioned_critical_victim;
+        std::vector<bool> mentioned_help_request;
     };
 
 } // namespace tomcat::model

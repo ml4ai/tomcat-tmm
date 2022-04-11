@@ -625,10 +625,10 @@ namespace tomcat {
             const nlohmann::json& json_message) {
             check_field(json_message["data"], "participant_id");
 
-            int player_order = this->player_id_to_index.at(
-                (string)json_message["data"]["participant_id"]);
-
-            this->victim_interaction[player_order] = true;
+//            int player_order = this->player_id_to_index.at(
+//                (string)json_message["data"]["participant_id"]);
+//
+//            this->victim_interaction[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_rubble_collapse_message(

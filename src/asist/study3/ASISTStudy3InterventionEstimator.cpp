@@ -331,9 +331,18 @@ namespace tomcat {
 
             this->first_mission =
                 new_data.get_metadata()[0]["mission_order"] == 1;
-            this->estimate_motivation(new_data);
-            this->estimate_communication_marker(new_data);
-            this->estimate_help_request(new_data);
+
+            for (int t = 0; t < new_data.get_time_steps(); t++) {
+                this->estimate_motivation(t, new_data);
+
+                for (int player_order = 0; player_order < 3; player_order++) {
+                    this->update_communication(player_order, t, new_data);
+                    this->estimate_communication_marker(
+                        player_order, t, new_data);
+                    this->estimate_help_request(player_order, t, new_data);
+                }
+            }
+
             this->last_time_step += new_data.get_time_steps();
         }
 
@@ -349,13 +358,44 @@ namespace tomcat {
                 this->active_no_threat_help_requests = vector<bool>(3, false);
                 this->mentioned_marker_types =
                     vector<unordered_set<MarkerType>>(3);
+                this->mentioned_critical_victim = vector<bool>(3, false);
+                this->mentioned_help_request = vector<bool>(3, false);
 
                 this->containers_initialized = true;
             }
         }
 
+        void ASISTStudy3InterventionEstimator::update_communication(
+            int player_order, int time_step, const EvidenceSet& new_data) {
+
+            if (did_player_change_area(player_order, time_step, new_data)) {
+                // Recent mention to tracked information is cleared when the
+                // player changes location.
+                this->mentioned_marker_types[player_order].clear();
+                this->mentioned_critical_victim[player_order] = false;
+                this->mentioned_help_request[player_order] = false;
+            }
+
+            const auto& marker_types =
+                get_mentioned_marker_types(player_order, time_step, new_data);
+
+            this->mentioned_marker_types[player_order].insert(
+                marker_types.begin(), marker_types.end());
+
+            const auto& json_dialog =
+                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
+                                             [player_order];
+
+            if ((bool)json_dialog["critical_victim"]) {
+                this->mentioned_critical_victim[player_order] = true;
+            }
+            else if ((bool)json_dialog["help_needed"]) {
+                this->mentioned_help_request[player_order] = true;
+            }
+        }
+
         void ASISTStudy3InterventionEstimator::estimate_motivation(
-            const EvidenceSet& new_data) {
+            int time_step, const EvidenceSet& new_data) {
             const auto& metadata = new_data.get_metadata();
 
             check_field(metadata[0], "mission_order");
@@ -372,11 +412,9 @@ namespace tomcat {
                     this->custom_logger->log_watch_motivation_intervention(0);
                 }
 
-                for (int t = 0; t < new_data.get_time_steps(); t++) {
-                    increments +=
-                        (int)new_data
-                            .get_dict_like_data()[0][t][Labels::ENCOURAGEMENT];
-                }
+                increments +=
+                    (int)new_data.get_dict_like_data()[0][time_step]
+                                                      [Labels::ENCOURAGEMENT];
 
                 encouragement_node->increment_assignment(increments);
 
@@ -400,280 +438,265 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionEstimator::estimate_communication_marker(
-            const EvidenceSet& new_data) {
+            int player_order, int time_step, const EvidenceSet& new_data) {
 
-            for (int t = 0; t < new_data.get_time_steps(); t++) {
-                for (int player_order = 0; player_order < 3; player_order++) {
+            if (!this->watched_markers[player_order].is_none()) {
+                // Cancel watched marker if possible
+                bool marker_removal = did_player_remove_marker(
+                    this->watched_markers[player_order],
+                    player_order,
+                    time_step,
+                    new_data);
+                bool speech = did_player_speak_about_marker(
+                    player_order,
+                    this->watched_markers[player_order],
+                    time_step,
+                    new_data);
 
-                    if (!this->watched_markers[player_order].is_none()) {
-                        // Cancel watched marker if possible
-                        bool marker_removal = did_player_remove_marker(
-                            this->watched_markers[player_order],
+                if (marker_removal || speech) {
+                    this->custom_logger
+                        ->log_cancel_communication_marker_intervention(
+                            this->last_time_step + time_step + 1,
                             player_order,
-                            t,
-                            new_data);
-                        bool speech = did_player_speak_about_marker(
-                            player_order,
                             this->watched_markers[player_order],
-                            t,
-                            new_data);
-
-                        if (marker_removal || speech) {
-                            this->custom_logger
-                                ->log_cancel_communication_marker_intervention(
-                                    this->last_time_step + t + 1,
-                                    player_order,
-                                    this->watched_markers[player_order],
-                                    speech,
-                                    marker_removal);
-                            this->watched_markers[player_order] = Marker();
-                        }
-                    }
-
-                    Marker new_marker =
-                        get_last_placed_marker(player_order, t, new_data);
-                    bool area_changed =
-                        did_player_change_area(player_order, t, new_data);
-                    bool victim_interaction = did_player_interact_with_victim(
-                        player_order, t, new_data);
-                    bool marker_placed = !new_marker.is_none();
-                    bool count_as_new_marker = true;
-                    if (!this->watched_markers[player_order].is_none() &&
-                        marker_placed) {
-                        double distance = new_marker.position.distance_to(
-                            this->watched_markers[player_order].position);
-                        if (distance <= VICINITY_MAX_RADIUS) {
-                            // If the new marker is too close from previous
-                            // placed markers, don't count it as a new marker.
-                            count_as_new_marker = false;
-                        }
-                    }
-
-                    if (area_changed) {
-                        // Any mention to a marker type in the buffer is
-                        // cleared.
-                        this->mentioned_marker_types[player_order].clear();
-                    }
-
-                    this->update_mention_to_marker_types(
-                        player_order, t, new_data);
-                    if (EXISTS(new_marker.type,
-                               this->mentioned_marker_types[player_order])) {
-                        // The player spoke about the new marker before placing
-                        // it. Therefore, we don't have to intervene.
-                        count_as_new_marker = false;
-
-                        this->custom_logger
-                            ->log_hinder_communication_marker_intervention(
-                                this->last_time_step + t + 1,
-                                player_order,
-                                new_marker);
-                    }
-
-                    bool activate_intervention =
-                        !this->watched_markers[player_order].is_none() &&
-                        (area_changed || victim_interaction ||
-                         (marker_placed && count_as_new_marker));
-
-                    if (activate_intervention) {
-                        this->active_markers[player_order] =
-                            this->watched_markers[player_order];
-
-                        this->custom_logger
-                            ->log_activate_communication_marker_intervention(
-                                this->last_time_step + t + 1,
-                                player_order,
-                                this->watched_markers[player_order],
-                                area_changed,
-                                victim_interaction,
-                                marker_placed);
-
-                        this->watched_markers[player_order] = Marker();
-                    }
-
-                    if (marker_placed && count_as_new_marker &&
-                        tomcat::model::should_watch_marker_type(
-                            new_marker.type)) {
-                        // Watch the new marker for intervention
-                        this->watched_markers[player_order] = new_marker;
-
-                        this->custom_logger
-                            ->log_watch_communication_marker_intervention(
-                                this->last_time_step + t + 1,
-                                player_order,
-                                new_marker);
-                    }
+                            speech,
+                            marker_removal);
+                    this->watched_markers[player_order] = Marker();
                 }
+            }
+
+            Marker new_marker =
+                get_last_placed_marker(player_order, time_step, new_data);
+            bool area_changed =
+                did_player_change_area(player_order, time_step, new_data);
+            bool victim_interaction = did_player_interact_with_victim(
+                player_order, time_step, new_data);
+            bool marker_placed = !new_marker.is_none();
+            bool count_as_new_marker = true;
+            if (!this->watched_markers[player_order].is_none() &&
+                marker_placed) {
+                double distance = new_marker.position.distance_to(
+                    this->watched_markers[player_order].position);
+                if (distance <= VICINITY_MAX_RADIUS) {
+                    // If the new marker is too close from previous
+                    // placed markers, don't count it as a new marker.
+                    count_as_new_marker = false;
+                }
+            }
+
+            if (EXISTS(new_marker.type,
+                       this->mentioned_marker_types[player_order])) {
+                // The player spoke about the new marker before placing
+                // it. Therefore, we don't have to intervene.
+                count_as_new_marker = false;
+
+                this->custom_logger
+                    ->log_hinder_communication_marker_intervention(
+                        this->last_time_step + time_step + 1,
+                        player_order,
+                        new_marker);
+            }
+
+            bool activate_intervention =
+                !this->watched_markers[player_order].is_none() &&
+                (area_changed || victim_interaction ||
+                 (marker_placed && count_as_new_marker));
+
+            if (activate_intervention) {
+                this->active_markers[player_order] =
+                    this->watched_markers[player_order];
+
+                this->custom_logger
+                    ->log_activate_communication_marker_intervention(
+                        this->last_time_step + time_step + 1,
+                        player_order,
+                        this->watched_markers[player_order],
+                        area_changed,
+                        victim_interaction,
+                        marker_placed);
+
+                this->watched_markers[player_order] = Marker();
+            }
+
+            if (marker_placed && count_as_new_marker &&
+                tomcat::model::should_watch_marker_type(new_marker.type)) {
+                // Watch the new marker for intervention
+                this->watched_markers[player_order] = new_marker;
+
+                this->custom_logger
+                    ->log_watch_communication_marker_intervention(
+                        this->last_time_step + time_step + 1,
+                        player_order,
+                        new_marker);
             }
         }
 
-        void ASISTStudy3InterventionEstimator::update_mention_to_marker_types(
-            int player_order, int time_step, const EvidenceSet& new_data) {
-
-            const auto& json_dialog =
-                new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
-                                             [player_order];
-
-            const auto& marker_types =
-                get_mentioned_marker_types(player_order, time_step, new_data);
-
-            this->mentioned_marker_types[player_order].insert(
-                marker_types.begin(), marker_types.end());
-        }
-
         void ASISTStudy3InterventionEstimator::estimate_help_request(
-            const EvidenceSet& new_data) {
-            this->estimate_critical_victim_help_request(new_data);
-            this->estimate_threat_help_request(new_data);
+            int player_order, int time_step, const EvidenceSet& new_data) {
+            this->estimate_critical_victim_help_request(
+                player_order, time_step, new_data);
+            this->estimate_threat_help_request(
+                player_order, time_step, new_data);
         }
 
         void
         ASISTStudy3InterventionEstimator::estimate_critical_victim_help_request(
-            const EvidenceSet& new_data) {
-            for (int t = 0; t < new_data.get_time_steps(); t++) {
-                for (int player_order = 0; player_order < 3; player_order++) {
+            int player_order, int time_step, const EvidenceSet& new_data) {
 
-                    if (this->watched_critical_victims[player_order] >= 0) {
-                        // Cancel intervention if possible
-                        bool area_changed =
-                            did_player_change_area(player_order, t, new_data);
-                        bool help_requested =
-                            did_player_ask_for_help(player_order, t, new_data);
-                        bool mention_to_critical_victim =
-                            did_player_speak_about_critical_victim(
-                                player_order, t, new_data);
-                        int other_players_around =
-                            is_there_another_player_around(
-                                player_order, t, new_data);
-                        if (area_changed || help_requested ||
-                            mention_to_critical_victim ||
-                            other_players_around) {
-                            this->active_no_critical_victim_help_requests
-                                [player_order] = false;
-                            this->watched_critical_victims[player_order] = -1;
+            if (this->watched_critical_victims[player_order] >= 0) {
+                // Cancel intervention if possible
+                bool area_changed =
+                    did_player_change_area(player_order, time_step, new_data);
+                bool help_requested =
+                    did_player_ask_for_help(player_order, time_step, new_data);
+                bool mention_to_critical_victim =
+                    did_player_speak_about_critical_victim(
+                        player_order, time_step, new_data);
+                int other_players_around = is_there_another_player_around(
+                    player_order, time_step, new_data);
+                if (area_changed || help_requested ||
+                    mention_to_critical_victim || other_players_around) {
+                    this->active_no_critical_victim_help_requests
+                        [player_order] = false;
+                    this->watched_critical_victims[player_order] = -1;
 
-                            this->custom_logger
-                                ->log_cancel_ask_for_help_critical_victim_intervention(
-                                    this->last_time_step + t + 1,
-                                    player_order,
-                                    area_changed,
-                                    help_requested,
-                                    mention_to_critical_victim,
-                                    other_players_around);
-                        }
+                    this->custom_logger
+                        ->log_cancel_ask_for_help_critical_victim_intervention(
+                            this->last_time_step + time_step + 1,
+                            player_order,
+                            area_changed,
+                            help_requested,
+                            mention_to_critical_victim,
+                            other_players_around);
+                }
+            }
+
+            // Watch and activate intervention
+            if (does_player_need_help_to_wake_victim(
+                    player_order, time_step, new_data) &&
+                !is_there_another_player_around(
+                    player_order, time_step, new_data)) {
+
+                if (this->watched_critical_victims[player_order] < 0) {
+                    // This player was not being watched for help
+                    // request regarding saving a critical victim
+                    bool recent_mention_to_critical_victim =
+                        this->mentioned_critical_victim[player_order];
+
+                    if (recent_mention_to_critical_victim) {
+                        this->custom_logger
+                            ->log_hinder_ask_for_help_critical_victim_intervention(
+                                this->last_time_step + time_step + 1,
+                                player_order);
                     }
+                    else {
+                        this->watched_critical_victims[player_order] =
+                            this->last_time_step + time_step + 1;
 
-                    // Watch and activate intervention
-                    if (does_player_need_help_to_wake_victim(
-                            player_order, t, new_data) &&
-                        !is_there_another_player_around(
-                            player_order, t, new_data)) {
-                        if (this->watched_critical_victims[player_order] >= 0) {
-                            // We are already watching this player for help
-                            // request regarding critical victim awakening
-                            if (this->last_time_step + t + 1 -
-                                    this->watched_critical_victims
-                                        [player_order] >
-                                ASK_FOR_HELP_LATENCY) {
-                                // It has passed enough time. Restart watching
-                                // time and activate intervention.
-                                this->watched_critical_victims[player_order] =
-                                    this->last_time_step + t + 1;
-                                this->active_no_critical_victim_help_requests
-                                    [player_order] = true;
+                        this->custom_logger
+                            ->log_watch_ask_for_help_critical_victim_intervention(
+                                this->last_time_step + time_step + 1,
+                                player_order);
+                    }
+                }
+                else {
+                    // We are already watching this player for help
+                    // request regarding critical victim awakening
+                    if (this->last_time_step + time_step + 1 -
+                            this->watched_critical_victims[player_order] >
+                        ASK_FOR_HELP_LATENCY) {
+                        // It has passed enough time. Restart watching
+                        // time and activate intervention.
+                        this->watched_critical_victims[player_order] =
+                            this->last_time_step + time_step + 1;
+                        this->active_no_critical_victim_help_requests
+                            [player_order] = true;
 
-                                this->custom_logger
-                                    ->log_activate_ask_for_help_critical_victim_intervention(
-                                        this->last_time_step + t + 1,
-                                        player_order,
-                                        ASK_FOR_HELP_LATENCY);
-                            }
-                        }
-                        else {
-                            // This player was not being watched for help
-                            // request regarding saving a critical victim
-                            this->watched_critical_victims[player_order] =
-                                this->last_time_step + t + 1;
-
-                            this->custom_logger
-                                ->log_watch_ask_for_help_critical_victim_intervention(
-                                    this->last_time_step + t + 1, player_order);
-                        }
+                        this->custom_logger
+                            ->log_activate_ask_for_help_critical_victim_intervention(
+                                this->last_time_step + time_step + 1,
+                                player_order,
+                                ASK_FOR_HELP_LATENCY);
                     }
                 }
             }
         }
 
         void ASISTStudy3InterventionEstimator::estimate_threat_help_request(
-            const EvidenceSet& new_data) {
-            for (int t = 0; t < new_data.get_time_steps(); t++) {
-                for (int player_order = 0; player_order < 3; player_order++) {
+            int player_order, int time_step, const EvidenceSet& new_data) {
 
-                    bool is_in_room =
-                        is_player_in_room(player_order, t, new_data);
+            bool is_in_room =
+                is_player_in_room(player_order, time_step, new_data);
+            bool being_released =
+                is_player_being_released(player_order, time_step, new_data);
 
-                    bool canceled_intervention = false;
-                    if (!this->watched_threats[player_order].first.empty()) {
-                        // Cancel intervention if possible
-                        bool help_requested =
-                            did_player_ask_for_help(player_order, t, new_data);
-                        bool being_released =
-                            is_player_being_released(player_order, t, new_data);
-                        if (!is_in_room || help_requested || being_released) {
-                            this->active_no_threat_help_requests[player_order] =
-                                false;
-                            this->watched_threats[player_order] = {"", -1};
-                            canceled_intervention = true;
+            if (!this->watched_threats[player_order].first.empty()) {
+                // Cancel intervention if possible
+                bool help_requested =
+                    did_player_ask_for_help(player_order, time_step, new_data);
+                if (!is_in_room || help_requested || being_released) {
+                    this->active_no_threat_help_requests[player_order] = false;
+                    this->watched_threats[player_order] = {"", -1};
 
-                            this->custom_logger
-                                ->log_cancel_ask_for_help_threat_intervention(
-                                    this->last_time_step + t + 1,
-                                    player_order,
-                                    !is_in_room,
-                                    help_requested,
-                                    being_released);
-                        }
+                    this->custom_logger
+                        ->log_cancel_ask_for_help_threat_intervention(
+                            this->last_time_step + time_step + 1,
+                            player_order,
+                            !is_in_room,
+                            help_requested,
+                            being_released);
+                }
+            }
+
+            // Watch and activate
+            bool is_trapped = does_player_need_help_to_exit_room(
+                player_order, time_step, new_data);
+            bool is_engineer_nearby =
+                is_engineer_around(player_order, time_step, new_data);
+            if (!being_released && is_trapped && !is_engineer_nearby &&
+                is_in_room) {
+                string threat_id =
+                    get_threat_id(player_order, time_step, new_data);
+                if (this->watched_threats[player_order].first.empty()) {
+                    // This player was not being watched for help
+                    // request regarding exiting a threat room
+                    bool recent_mention_to_help =
+                        this->mentioned_help_request[player_order];
+
+                    if (recent_mention_to_help) {
+                        this->custom_logger
+                            ->log_hinder_ask_for_help_threat_intervention(
+                                this->last_time_step + time_step + 1,
+                                player_order);
                     }
+                    else {
+                        this->watched_threats[player_order] = {
+                            threat_id, this->last_time_step + time_step + 1};
 
-                    // Watch and activate
-                    bool is_trapped = does_player_need_help_to_exit_room(
-                        player_order, t, new_data);
-                    bool is_engineer_nearby =
-                        is_engineer_around(player_order, t, new_data);
-                    if (!canceled_intervention && is_trapped &&
-                        !is_engineer_nearby && is_in_room) {
-                        string threat_id =
-                            get_threat_id(player_order, t, new_data);
-                        if (this->watched_threats[player_order].first.empty()) {
-                            // This player was not being watched for help
-                            // request regarding exiting a threat room
-                            this->watched_threats[player_order] = {
-                                threat_id, this->last_time_step + t + 1};
+                        this->custom_logger
+                            ->log_watch_ask_for_help_threat_intervention(
+                                this->last_time_step + time_step + 1,
+                                player_order);
+                    }
+                }
+                else {
+                    // We are already watching this player for help
+                    // request regarding exiting a threat room
+                    if (this->last_time_step + time_step + 1 -
+                            this->watched_threats[player_order].second >
+                        ASK_FOR_HELP_LATENCY) {
+                        // It has passed enough time. Restart watching
+                        // time and activate intervention.
+                        this->watched_threats[player_order] = {
+                            threat_id, this->last_time_step + time_step + 1};
+                        this->active_no_threat_help_requests[player_order] =
+                            true;
 
-                            this->custom_logger
-                                ->log_watch_ask_for_help_threat_intervention(
-                                    this->last_time_step + t + 1, player_order);
-                        }
-                        else {
-                            // We are already watching this player for help
-                            // request regarding exiting a threat room
-                            if (this->last_time_step + t + 1 -
-                                    this->watched_threats[player_order].second >
-                                ASK_FOR_HELP_LATENCY) {
-                                // It has passed enough time. Restart watching
-                                // time and activate intervention.
-                                this->watched_threats[player_order] = {
-                                    threat_id, this->last_time_step + t + 1};
-                                this->active_no_threat_help_requests
-                                    [player_order] = true;
-
-                                this->custom_logger
-                                    ->log_activate_ask_for_help_threat_intervention(
-                                        this->last_time_step + t + 1,
-                                        player_order,
-                                        ASK_FOR_HELP_LATENCY);
-                            }
-                        }
+                        this->custom_logger
+                            ->log_activate_ask_for_help_threat_intervention(
+                                this->last_time_step + time_step + 1,
+                                player_order,
+                                ASK_FOR_HELP_LATENCY);
                     }
                 }
             }

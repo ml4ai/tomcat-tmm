@@ -277,6 +277,17 @@ namespace tomcat {
             this->log_cancel_intervention(time_step, text);
         }
 
+        void ASISTStudy3InterventionLogger::
+            log_hinder_ask_for_help_critical_victim_intervention(
+                int time_step, int player_order) {
+            string text = fmt::format(
+                "{} needs help to wake critical victim but mentioned that "
+                "recently. No need to watch for intervention.",
+                PLAYER_ORDER_TO_COLOR.at(player_order));
+
+            this->log(time_step, text);
+        }
+
         void
         ASISTStudy3InterventionLogger::log_intervene_on_ask_for_help_threat(
             int time_step, int player_order) {
@@ -333,6 +344,17 @@ namespace tomcat {
                 "{}Canceling ask-for-help (threat) intervention.", text);
 
             this->log_cancel_intervention(time_step, text);
+        }
+
+        void ASISTStudy3InterventionLogger::
+            log_hinder_ask_for_help_threat_intervention(int time_step,
+                                                        int player_order) {
+            string text = fmt::format(
+                "{} needs help to exit a threat room but mentioned that "
+                "recently. No need to watch for intervention.",
+                PLAYER_ORDER_TO_COLOR.at(player_order));
+
+            this->log(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::log_watch_intervention(
