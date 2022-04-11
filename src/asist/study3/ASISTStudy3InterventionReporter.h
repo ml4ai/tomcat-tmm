@@ -8,9 +8,9 @@
 #include <nlohmann/json.hpp>
 
 #include "asist/ASISTReporter.h"
+#include "asist/study3/ASISTStudy3InterventionLogger.h"
 #include "asist/study3/ASISTStudy3MessageConverter.h"
 #include "pipeline/estimation/Agent.h"
-#include "asist/study3/ASISTStudy3InterventionLogger.h"
 
 namespace tomcat {
     namespace model {
@@ -26,7 +26,8 @@ namespace tomcat {
             // Constructors & Destructor
             //------------------------------------------------------------------
 
-            ASISTStudy3InterventionReporter(const nlohmann::json& json_settings);
+            ASISTStudy3InterventionReporter(
+                const nlohmann::json& json_settings);
 
             ~ASISTStudy3InterventionReporter() = default;
 
@@ -166,6 +167,18 @@ namespace tomcat {
                 std::vector<nlohmann::json>& messages);
 
             /**
+             * Handles intervention of type "Ask for Help"
+             *
+             * @param agent: ASI
+             * @param time_step: time step of the intervention
+             * @param messages: list of intervention messages in the time step
+             */
+            void intervene_on_ask_for_help(
+                const AgentPtr& agent,
+                int time_step,
+                std::vector<nlohmann::json>& messages);
+
+            /**
              * Assembles ToMCAT's introduction as an intervention.
              *
              * @param agent: ASI
@@ -207,6 +220,32 @@ namespace tomcat {
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker) const;
+
+            /**
+             * Assembles ask-for-help (critical victim) intervention.
+             *
+             * @param agent: ASI
+             * @param time_step: time step at which the message is being
+             * generated
+             * @param player_order: player's index
+             *
+             * @return: json intervention message
+             */
+            nlohmann::json get_ask_for_help_critical_victim_intervention_message(
+                const AgentPtr& agent, int time_step, int player_order) const;
+
+            /**
+             * Assembles ask-for-help (threat) intervention.
+             *
+             * @param agent: ASI
+             * @param time_step: time step at which the message is being
+             * generated
+             * @param player_order: player's index
+             *
+             * @return: json intervention message
+             */
+            nlohmann::json get_ask_for_help_threat_intervention_message(
+                const AgentPtr& agent, int time_step, int player_order) const;
 
             //------------------------------------------------------------------
             // Data member

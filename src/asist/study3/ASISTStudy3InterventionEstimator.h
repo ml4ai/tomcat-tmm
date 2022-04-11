@@ -22,11 +22,14 @@ namespace tomcat::model {
      */
     class ASISTStudy3InterventionEstimator : public Estimator {
       public:
+        //------------------------------------------------------------------
+        // Types & Consts
+        //------------------------------------------------------------------
+        inline static const int VICINITY_MAX_RADIUS = 5;
+        inline static const int ASK_FOR_HELP_LATENCY = 10;
+
         inline static const std::string NAME =
             "asist_study3_intervention_estimator";
-
-        inline const static std::vector<std::string> PLAYER_ORDER_TO_COLOR = {
-            "Red", "Green", "Blue"};
 
         //------------------------------------------------------------------
         // Constructors & Destructor
@@ -87,6 +90,16 @@ namespace tomcat::model {
          */
         void clear_active_unspoken_marker(int player_order);
 
+        /**
+         * Inactivates ask-for-help intervention
+         *
+         * @param player_order: index of the player that has an active unspoken
+         * marker
+         */
+        void clear_active_ask_for_help_critical_victim(int player_order);
+
+        void clear_active_ask_for_help_threat(int player_order);
+
         //------------------------------------------------------------------
         // Getters & Setters
         //------------------------------------------------------------------
@@ -103,6 +116,11 @@ namespace tomcat::model {
 
         const std::vector<ASISTStudy3MessageConverter::Marker>&
         get_active_unspoken_markers() const;
+
+        const std::vector<bool>&
+        get_active_no_critical_victim_help_request() const;
+
+        const std::vector<bool>& get_active_no_threat_help_request() const;
 
       protected:
         //------------------------------------------------------------------
@@ -122,12 +140,6 @@ namespace tomcat::model {
 
       private:
         //------------------------------------------------------------------
-        // Types & Consts
-        //------------------------------------------------------------------
-        const static int MAX_DIST = 5;
-        const static int VICINITY_MAX_RADIUS = 5;
-
-        //------------------------------------------------------------------
         // Static functions
         //------------------------------------------------------------------
         static bool did_player_speak_about_marker(
@@ -135,6 +147,11 @@ namespace tomcat::model {
             const ASISTStudy3MessageConverter::Marker& unspoken_marker,
             int time_step,
             const EvidenceSet& new_data);
+
+        static std::unordered_set<ASISTStudy3MessageConverter::MarkerType>
+        get_mentioned_marker_types(int player_order,
+                                   int time_step,
+                                   const EvidenceSet& new_data);
 
         static ASISTStudy3MessageConverter::Marker get_last_placed_marker(
             int player_order, int time_step, const EvidenceSet& new_data);
@@ -158,6 +175,48 @@ namespace tomcat::model {
                                            int time_step,
                                            const EvidenceSet& new_data);
 
+        static bool did_player_remove_marker(
+            const ASISTStudy3MessageConverter::Marker& marker,
+            int player_order,
+            int time_step,
+            const EvidenceSet& new_data);
+
+        static bool does_player_need_help_to_wake_victim(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
+        static bool did_player_ask_for_help(int player_order,
+                                            int time_step,
+                                            const EvidenceSet& new_data);
+
+        static bool is_there_another_player_around(int player_order,
+                                                   int time_step,
+                                                   const EvidenceSet& new_data);
+
+        static bool did_player_speak_about_critical_victim(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
+        static bool does_player_need_help_to_exit_room(
+            int player_order, int time_step, const EvidenceSet& new_data);
+
+        static std::string get_threat_id(int player_order,
+                                         int time_step,
+                                         const EvidenceSet& new_data);
+
+        static bool is_player_being_released(int player_order,
+                                             int time_step,
+                                             const EvidenceSet& new_data);
+
+        static bool is_player_in_room(int player_order,
+                                      int time_step,
+                                      const EvidenceSet& new_data);
+
+        static bool is_engineer_around(int player_order,
+                                       int time_step,
+                                       const EvidenceSet& new_data);
+
+        static bool should_watch_marker_type(
+            const ASISTStudy3MessageConverter::MarkerType& marker_type);
+
         //------------------------------------------------------------------
         // Member functions
         //------------------------------------------------------------------
@@ -169,19 +228,42 @@ namespace tomcat::model {
          */
         void initialize_containers(const EvidenceSet& new_data);
 
+        void update_communication(int player_order,
+                                  int time_step,
+                                  const EvidenceSet& new_data);
+
         /**
          * Estimate if team is motivated.
          *
          * @param new_data: evidence
          */
-        void estimate_motivation(const EvidenceSet& new_data);
+        void estimate_motivation(int time_step, const EvidenceSet& new_data);
 
         /**
          * Estimate if players placed markers and did not talk about it.
          *
          * @param new_data: evidence
          */
-        void estimate_unspoken_markers(const EvidenceSet& new_data);
+        void estimate_communication_marker(int player_order,
+                                           int time_step,
+                                           const EvidenceSet& new_data);
+
+        /**
+         * Estimate if players ask for help when they need it.
+         *
+         * @param new_data: evidence
+         */
+        void estimate_help_request(int player_order,
+                                   int time_step,
+                                   const EvidenceSet& new_data);
+
+        void estimate_critical_victim_help_request(int player_order,
+                                                   int time_step,
+                                                   const EvidenceSet& new_data);
+
+        void estimate_threat_help_request(int player_order,
+                                          int time_step,
+                                          const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Data members
@@ -194,9 +276,17 @@ namespace tomcat::model {
         int last_time_step = -1;
         bool first_mission = true;
 
-        std::vector<ASISTStudy3MessageConverter::Marker> last_placed_markers;
-        std::vector<ASISTStudy3MessageConverter::Marker>
-            active_unspoken_markers;
+        std::vector<ASISTStudy3MessageConverter::Marker> watched_markers;
+        std::vector<ASISTStudy3MessageConverter::Marker> active_markers;
+        std::vector<int> watched_critical_victims;
+        std::vector<std::pair<std::string, int>> watched_threats;
+        std::vector<bool> active_no_critical_victim_help_requests;
+        std::vector<bool> active_no_threat_help_requests;
+        std::vector<std::string> player_area;
+        std::vector<std::unordered_set<ASISTStudy3MessageConverter::MarkerType>>
+            mentioned_marker_types;
+        std::vector<bool> mentioned_critical_victim;
+        std::vector<bool> mentioned_help_request;
     };
 
 } // namespace tomcat::model

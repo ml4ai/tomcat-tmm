@@ -114,9 +114,9 @@ namespace tomcat {
             this->num_encouragement_utterances = 0;
             this->placed_markers = vector<vector<Marker>>(this->num_players);
             this->removed_markers = vector<vector<Marker>>(this->num_players);
-            this->player_positions = vector<Position>(this->num_players);
-            this->location_changes = vector<bool>(this->num_players, false);
-            this->victim_interactions = vector<bool>(this->num_players, false);
+            this->player_position = vector<Position>(this->num_players);
+            this->location_change = vector<bool>(this->num_players, false);
+            this->victim_interaction = vector<bool>(this->num_players, false);
             this->mention_to_critical_victim =
                 vector<bool>(this->num_players, false);
             this->mention_to_regular_victim =
@@ -127,6 +127,15 @@ namespace tomcat {
             this->mention_to_no_victim = vector<bool>(this->num_players, false);
             this->mention_to_obstacle = vector<bool>(this->num_players, false);
             this->mention_to_help = vector<bool>(this->num_players, false);
+            this->collapsed_block_ids.clear();
+            this->collapsed_block_positions.clear();
+            this->critical_victim_proximity =
+                vector<double>(this->num_players, INT_MAX);
+            this->collapsed_rubble_observed =
+                vector<string>(this->num_players, "");
+            this->collapsed_rubble_destruction_interaction = "";
+            this->player_location = vector<string>(this->num_players);
+            this->player_in_room = vector<bool>(3, false);
         }
 
         void
@@ -156,6 +165,11 @@ namespace tomcat {
             topics.insert("observations/events/player/victim_picked_up");
             topics.insert("observations/events/player/triage");
             topics.insert("observations/events/player/proximity_block");
+            topics.insert("agent/pygl_fov/player/3d/summary");
+            topics.insert("observations/events/player/rubble_collapse");
+            topics.insert("observations/events/player/tool_used");
+            topics.insert("observations/events/player/proximity");
+            topics.insert("observations/events/player/rubble_destroyed");
 
             return topics;
         }
@@ -364,47 +378,27 @@ namespace tomcat {
                                        "Event:ProximityBlockInteraction")) {
                     this->parse_victim_proximity_message(json_message);
                 }
+                else if (is_message_of(
+                             json_message, "event", "Event:RubbleCollapse")) {
+                    this->parse_rubble_collapse_message(json_message);
+                }
+                else if (is_message_of(json_message, "observation", "FoV")) {
+                    this->parse_fov_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:ToolUsed")) {
+                    this->parse_tool_used_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:proximity")) {
+                    this->parse_proximity_message(json_message);
+                }
+                else if (is_message_of(
+                             json_message, "event", "Event:RubbleDestroyed")) {
+                    this->parse_rubble_destroyed_message(json_message);
+                }
             }
         }
-
-        //
-        //            string player_id;
-        //            int player_number = -1;
-        //
-        //            if (EXISTS("participant_id", json_message["data"])) {
-        //                if (json_message["data"]["participant_id"] == nullptr)
-        //                {
-        //                    if (json_message["msg"]["sub_type"] != "FoV") {
-        //                        throw TomcatModelException("Participant ID is
-        //                        null.");
-        //                    }
-        //                    // If it's FoV, we just ignore FoV Messages.
-        //                    return;
-        //                }
-        //                player_id = json_message["data"]["participant_id"];
-        //                if (EXISTS(player_id, this->player_id_to_number)) {
-        //                    player_number =
-        //                    this->player_id_to_number[player_id];
-        //                }
-        //            }
-        //
-        //            if (player_id != "") {
-        //                // Player evidence
-        //                if (json_message["header"]["message_type"] == "event"
-        //                &&
-        //                    json_message["msg"]["sub_type"] ==
-        //                    "Event:RoleSelected") {
-        //                    this->parse_role_selection_message(json_message,
-        //                                                       player_number);
-        //                }
-        //                else if (json_message["header"]["message_type"] ==
-        //                             "observation" &&
-        //                         json_message["msg"]["sub_type"] == "state") {
-        //                    this->parse_player_state_message(json_message,
-        //                                                     player_number);
-        //                }
-        //            }
-        //        }
 
         void ASISTStudy3MessageConverter::parse_utterance_message(
             const nlohmann::json& json_message) {
@@ -429,26 +423,35 @@ namespace tomcat {
                     if (boost::iequals((string)label, "Encouragement")) {
                         this->num_encouragement_utterances++;
                     }
-                    else if (boost::iequals((string)label, "CriticalVictim")) {
+                    else if (boost::iequals((string)label, "CriticalVictim") ||
+                             boost::iequals((string)label,
+                                            "CriticalMarkerBlock")) {
                         this->mention_to_critical_victim[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "RegularVictim")) {
+                    else if (boost::iequals((string)label, "RegularVictim") ||
+                             boost::iequals((string)label,
+                                            "RegularMarkerBlock")) {
                         this->mention_to_regular_victim[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "VictimTypeA")) {
+                    else if (boost::iequals((string)label, "VictimTypeA") ||
+                             boost::iequals((string)label, "TypeAMarker")) {
                         this->mention_to_victim_b[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "VictimTypeB")) {
+                    else if (boost::iequals((string)label, "VictimTypeB") ||
+                             boost::iequals((string)label, "TypeBMarker")) {
                         this->mention_to_victim_b[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "NoVictim")) {
+                    else if (boost::iequals((string)label, "NoVictim") ||
+                             boost::iequals((string)label,
+                                            "NoVictimMarkerBlock")) {
                         this->mention_to_no_victim[player_order] = true;
                     }
                     else if (boost::iequals((string)label, "Stuck") ||
                              boost::iequals((string)label, "HelpRequest") ||
                              boost::iequals((string)label, "NeedAction") ||
                              boost::iequals((string)label, "NeedItem") ||
-                             boost::iequals((string)label, "NeedRole")) {
+                             boost::iequals((string)label, "NeedRole") ||
+                             boost::iequals((string)label, "SOSMarker")) {
                         this->mention_to_help[player_order] = true;
                     }
                     else if (boost::iequals((string)label, "ThreatRoom") ||
@@ -457,7 +460,8 @@ namespace tomcat {
                              boost::iequals((string)label, "ThreatSign")) {
                         this->mention_to_threat[player_order] = true;
                     }
-                    else if (boost::iequals((string)label, "Obstacle")) {
+                    else if (boost::iequals((string)label, "Obstacle") ||
+                             boost::iequals((string)label, "RubbleMarker")) {
                         this->mention_to_obstacle[player_order] = true;
                     }
                 }
@@ -495,13 +499,21 @@ namespace tomcat {
             if (this->num_players_with_role == this->num_players) {
                 json_mission_log["players"] = nlohmann::json::array();
 
+                int engineer_order;
+
                 for (const auto& p : this->players) {
                     nlohmann::json json_player;
                     json_player["id"] = p.id;
                     json_player["color"] = p.color;
                     json_player["role"] = p.role;
                     json_mission_log["players"].push_back(json_player);
+
+                    if (p.role == "engineer") {
+                        engineer_order = player.index;
+                    }
                 }
+
+                json_mission_log["engineer_order"] = engineer_order;
             }
         }
 
@@ -566,17 +578,17 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->player_positions[player_order] = pos;
+            this->player_position[player_order] = pos;
         }
 
         void ASISTStudy3MessageConverter::parse_new_location_message(
             const nlohmann::json& json_message) {
             check_field(json_message["data"], "participant_id");
 
-            int player_order = this->player_id_to_index.at(
-                (string)json_message["data"]["participant_id"]);
-
-            this->location_changes[player_order] = true;
+//            int player_order = this->player_id_to_index.at(
+//                (string)json_message["data"]["participant_id"]);
+//
+//            this->location_change[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_victim_placement_message(
@@ -586,7 +598,7 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->victim_interactions[player_order] = true;
+            this->victim_interaction[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_victim_pickedup_message(
@@ -596,7 +608,7 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->victim_interactions[player_order] = true;
+            this->victim_interaction[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_victim_triage_message(
@@ -606,17 +618,189 @@ namespace tomcat {
             int player_order = this->player_id_to_index.at(
                 (string)json_message["data"]["participant_id"]);
 
-            this->victim_interactions[player_order] = true;
+            this->victim_interaction[player_order] = true;
         }
 
         void ASISTStudy3MessageConverter::parse_victim_proximity_message(
             const nlohmann::json& json_message) {
             check_field(json_message["data"], "participant_id");
 
-            int player_order = this->player_id_to_index.at(
-                (string)json_message["data"]["participant_id"]);
+//            int player_order = this->player_id_to_index.at(
+//                (string)json_message["data"]["participant_id"]);
+//
+//            this->victim_interaction[player_order] = true;
+        }
 
-            this->victim_interactions[player_order] = true;
+        void ASISTStudy3MessageConverter::parse_rubble_collapse_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "fromBlock_x");
+            check_field(json_message["data"], "toBlock_x");
+            check_field(json_message["data"], "fromBlock_y");
+            check_field(json_message["data"], "toBlock_y");
+            check_field(json_message["data"], "fromBlock_z");
+            check_field(json_message["data"], "toBlock_z");
+            check_field(json_message["data"], "triggerLocation_x");
+            check_field(json_message["data"], "triggerLocation_z");
+
+            int from_x = json_message["data"]["fromBlock_x"];
+            int to_x = json_message["data"]["toBlock_x"];
+            int from_y = json_message["data"]["fromBlock_y"];
+            int to_y = json_message["data"]["toBlock_y"];
+            int from_z = json_message["data"]["fromBlock_z"];
+            int to_z = json_message["data"]["toBlock_z"];
+
+            int quantity =
+                (to_x - from_x + 1) * (to_y - from_y + 1) * (to_z - from_z + 1);
+
+            // We keep a list of positions where collapsed rubbles are supposed
+            // to be. We can identify if the player realizes if it's trapped by
+            // checking whether the rubble in their FoV fall into one of those
+            // blocks.
+            Position trigger_pos(
+                (int)json_message["data"]["triggerLocation_x"],
+                (int)json_message["data"]["triggerLocation_z"]);
+            if (!EXISTS(trigger_pos.to_string(), this->collapsed_block_ids)) {
+                // We just need to store the position once to be able to check
+                // if any of the collapsed blocks are in the players' FoV and
+                // whether the engineer is destroying any of them.
+                for (int x = from_x; x <= to_x; x++) {
+                    for (int z = from_z; z <= to_z; z++) {
+                        Position rubble_pos(x, z);
+                        this->collapsed_block_positions[rubble_pos
+                                                            .to_string()] =
+                            trigger_pos.to_string();
+                    }
+                }
+                this->collapsed_block_counts[trigger_pos.to_string()] =
+                    quantity;
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_fov_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "blocks");
+
+            int player_order;
+
+            if (EXISTS("participant_id", json_message["data"])) {
+                player_order = this->player_id_to_index.at(
+                    (string)json_message["data"]["participant_id"]);
+            }
+            else {
+                check_field(json_message["data"], "playername");
+                player_order = this->player_id_to_index.at(
+                    (string)json_message["data"]["playername"]);
+            }
+
+            for (const auto& json_block : json_message["data"]["blocks"]) {
+                check_field(json_block, "type");
+                check_field(json_block, "location");
+
+                Position block_pos((int)json_block["location"][0],
+                                   (int)json_block["location"][2]);
+
+                if (boost::iequals((string)json_block["type"],
+                                   "block_victim_proximity")) {
+
+                    double distance =
+                        this->player_position[player_order].distance_to(
+                            block_pos);
+
+                    // We keep the distance to the closest critical victim in
+                    // the player's FoV
+                    this->critical_victim_proximity[player_order] =
+                        min(this->critical_victim_proximity[player_order],
+                            distance);
+                }
+                else if (boost::iequals((string)json_block["type"], "gravel")) {
+                    if (EXISTS(block_pos.to_string(),
+                               this->collapsed_block_positions)) {
+                        // We store the id of the trigger for the observed
+                        // collapsed rubble.
+                        this->collapsed_rubble_observed[player_order] =
+                            this->collapsed_block_positions[block_pos
+                                                                .to_string()];
+                    }
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_tool_used_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "target_block_x");
+            check_field(json_message["data"], "target_block_z");
+            check_field(json_message["data"], "target_block_type");
+            check_field(json_message["data"], "tool_type");
+
+            if (boost::iequals((string)json_message["data"]["tool_type"],
+                               "minecraft:gravel")) {
+                Position rubble_pos(
+                    (int)json_message["data"]["target_block_x"],
+                    (int)json_message["data"]["target_block_z"]);
+
+                if (EXISTS(rubble_pos.to_string(),
+                           this->collapsed_block_positions)) {
+                    this->collapsed_rubble_destruction_interaction =
+                        this->collapsed_block_positions[rubble_pos.to_string()];
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_proximity_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "participants");
+
+            for (const auto& json_participant :
+                 json_message["data"]["participants"]) {
+                check_field(json_participant, "participant_id");
+                check_field(json_participant,
+                            "distance_to_current_location_exits");
+                check_field(json_participant, "current_location");
+
+                const string& id = (string)json_participant["participant_id"];
+
+                if (!id.empty()) {
+                    int player_order = this->player_id_to_index.at(id);
+
+                    this->player_in_room[player_order] =
+                        !json_participant["distance_to_current_location_exits"]
+                             .empty();
+
+                    const string& location = json_participant["current_location"];
+                    if (this->player_location[player_order] != location) {
+                        this->location_change[player_order] = true;
+                    }
+                    this->player_location[player_order] = location;
+
+                }
+            }
+        }
+
+        void ASISTStudy3MessageConverter::parse_rubble_destroyed_message(
+            const nlohmann::json& json_message) {
+            check_field(json_message["data"], "rubble_x");
+            check_field(json_message["data"], "rubble_z");
+
+            Position rubble_pos((int)json_message["data"]["rubble_x"],
+                                (int)json_message["data"]["rubble_z"]);
+
+            if (EXISTS(rubble_pos.to_string(),
+                       this->collapsed_block_positions)) {
+                string threat_id =
+                    this->collapsed_block_positions[rubble_pos.to_string()];
+                this->collapsed_block_counts[threat_id] -= 1;
+
+                if (this->collapsed_block_counts[threat_id] == 0) {
+                    // Blocked entry is completely open
+                    this->collapsed_block_positions.erase(
+                        rubble_pos.to_string());
+
+                    for (int player_order = 0; player_order < this->num_players;
+                         player_order++) {
+                        this->collapsed_rubble_observed[player_order].clear();
+                    }
+                }
+            }
         }
 
         void ASISTStudy3MessageConverter::parse_scoreboard_message(
@@ -646,6 +830,8 @@ namespace tomcat {
             nlohmann::json json_victim_interactions = nlohmann::json::array();
             nlohmann::json json_player_positions = nlohmann::json::array();
             nlohmann::json json_dialog = nlohmann::json::array();
+            nlohmann::json json_fovs = nlohmann::json::array();
+            nlohmann::json json_locations = nlohmann::json::array();
             for (int player_order = 0; player_order < this->num_players;
                  player_order++) {
                 // Placed markers
@@ -669,17 +855,17 @@ namespace tomcat {
 
                 // Location changes
                 json_location_changes.push_back(
-                    (bool)this->location_changes[player_order]);
-                this->location_changes[player_order] = false;
+                    (bool)this->location_change[player_order]);
+                this->location_change[player_order] = false;
 
                 // Victim interactions
                 json_victim_interactions.push_back(
-                    (bool)this->victim_interactions[player_order]);
-                this->victim_interactions[player_order] = false;
+                    (bool)this->victim_interaction[player_order]);
+                this->victim_interaction[player_order] = false;
 
                 // Player positions
                 json_player_positions.push_back(
-                    this->player_positions[player_order].serialize());
+                    this->player_position[player_order].serialize());
 
                 // Dialog
                 nlohmann::json json_mentions;
@@ -709,7 +895,34 @@ namespace tomcat {
                 this->mention_to_obstacle[player_order] = false;
                 this->mention_to_threat[player_order] = false;
                 this->mention_to_help[player_order] = false;
+
+                // FoV
+                nlohmann::json json_fov;
+                json_fov["collapsed_rubble_id"] =
+                    this->collapsed_rubble_observed[player_order];
+                json_fov["distance_to_critical_victim"] =
+                    this->critical_victim_proximity[player_order];
+                json_fovs.push_back(json_fov);
+
+                this->collapsed_rubble_observed[player_order].clear();
+                this->critical_victim_proximity[player_order] = INT_MAX;
+
+                // Players' location
+                nlohmann::json json_player_location;
+                json_player_location["id"] =
+                    this->player_location[player_order];
+                json_player_location["room"] =
+                    (bool)this->player_in_room[player_order];
+                json_locations.push_back(json_player_location);
+                // No need to clear the locations because it will be overwritten
+                // whenever the player moves to a new area.
             }
+
+            nlohmann::json json_rubble_collapse;
+            json_rubble_collapse
+                ["destruction_interaction_collapsed_rubble_id"] =
+                    this->collapsed_rubble_destruction_interaction;
+            this->collapsed_rubble_destruction_interaction.clear();
 
             dict_data[Labels::LAST_PLACED_MARKERS] = json_last_placed_markers;
             dict_data[Labels::REMOVED_MARKERS] = json_removed_markers;
@@ -717,6 +930,9 @@ namespace tomcat {
             dict_data[Labels::VICTIM_INTERACTIONS] = json_victim_interactions;
             dict_data[Labels::PLAYER_POSITIONS] = json_player_positions;
             dict_data[Labels::DIALOG] = json_dialog;
+            dict_data[Labels::FOV] = json_fovs;
+            dict_data[Labels::RUBBLE_COLLAPSE] = json_rubble_collapse;
+            dict_data[Labels::LOCATIONS] = json_locations;
 
             // Clear data that should not persist across time steps
 

@@ -40,6 +40,10 @@ namespace tomcat {
                 inline const static std::string VICTIM_INTERACTIONS =
                     "victim_interaction";
                 inline const static std::string DIALOG = "dialog";
+                inline const static std::string FOV = "fov";
+                inline const static std::string RUBBLE_COLLAPSE =
+                    "rubble_collapse";
+                inline const static std::string LOCATIONS = "locations";
             };
 
             struct MarkerTypeTexts {
@@ -117,6 +121,10 @@ namespace tomcat {
 
                 bool operator==(const Position& position) const {
                     return position.x == this->x and position.z == this->z;
+                }
+
+                std::string to_string() const {
+                    return fmt::format("{}#{}", this->x, this->z);
                 }
             };
 
@@ -323,6 +331,18 @@ namespace tomcat {
             void
             parse_victim_proximity_message(const nlohmann::json& json_message);
 
+            void
+            parse_rubble_collapse_message(const nlohmann::json& json_message);
+
+            void parse_fov_message(const nlohmann::json& json_message);
+
+            void parse_tool_used_message(const nlohmann::json& json_message);
+
+            void parse_proximity_message(const nlohmann::json& json_message);
+
+            void
+            parse_rubble_destroyed_message(const nlohmann::json& json_message);
+
             /**
              * Gets the observations accumulated so far and creates an evidence
              * set with them.
@@ -383,9 +403,9 @@ namespace tomcat {
 
             std::vector<std::vector<Marker>> placed_markers;
             std::vector<std::vector<Marker>> removed_markers;
-            std::vector<Position> player_positions;
-            std::vector<bool> location_changes;
-            std::vector<bool> victim_interactions;
+            std::vector<Position> player_position;
+            std::vector<bool> location_change;
+            std::vector<bool> victim_interaction;
             std::vector<bool> mention_to_critical_victim;
             std::vector<bool> mention_to_regular_victim;
             std::vector<bool> mention_to_victim_a;
@@ -394,6 +414,15 @@ namespace tomcat {
             std::vector<bool> mention_to_no_victim;
             std::vector<bool> mention_to_obstacle;
             std::vector<bool> mention_to_help;
+            std::vector<double> critical_victim_proximity;
+            std::vector<std::string> collapsed_rubble_observed;
+            std::string collapsed_rubble_destruction_interaction;
+            std::unordered_set<std::string> collapsed_block_ids;
+            std::unordered_map<std::string, std::string>
+                collapsed_block_positions;
+            std::unordered_map<std::string, int> collapsed_block_counts;
+            std::vector<std::string> player_location;
+            std::vector<bool> player_in_room;
         };
 
     } // namespace model
