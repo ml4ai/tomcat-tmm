@@ -414,6 +414,7 @@ namespace tomcat {
             std::vector<bool> mention_to_no_victim;
             std::vector<bool> mention_to_obstacle;
             std::vector<bool> mention_to_help;
+            std::vector<bool> mention_to_help_on_the_way;
             std::vector<double> critical_victim_proximity;
             std::vector<std::string> collapsed_rubble_observed;
             std::string collapsed_rubble_destruction_interaction;

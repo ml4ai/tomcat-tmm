@@ -27,6 +27,7 @@ namespace tomcat::model {
         //------------------------------------------------------------------
         inline static const int VICINITY_MAX_RADIUS = 5;
         inline static const int ASK_FOR_HELP_LATENCY = 10;
+        inline static const int HELP_ON_THE_WAY_LATENCY = 10;
 
         inline static const std::string NAME =
             "asist_study3_intervention_estimator";
@@ -96,9 +97,11 @@ namespace tomcat::model {
          * @param player_order: index of the player that has an active unspoken
          * marker
          */
-        void clear_active_ask_for_help_critical_victim(int player_order);
+        void clear_active_no_ask_for_help_critical_victim(int player_order);
 
-        void clear_active_ask_for_help_threat(int player_order);
+        void clear_active_no_ask_for_help_threat(int player_order);
+
+        void clear_active_no_help_on_the_way(int player_order);
 
         //------------------------------------------------------------------
         // Getters & Setters
@@ -121,6 +124,8 @@ namespace tomcat::model {
         get_active_no_critical_victim_help_request() const;
 
         const std::vector<bool>& get_active_no_threat_help_request() const;
+
+        const std::vector<bool>& get_active_no_help_on_the_way() const;
 
       protected:
         //------------------------------------------------------------------
@@ -217,6 +222,10 @@ namespace tomcat::model {
         static bool should_watch_marker_type(
             const ASISTStudy3MessageConverter::MarkerType& marker_type);
 
+        static int get_helper_player_order(int assisted_player_order,
+                                           int time_step,
+                                           const EvidenceSet& new_data);
+
         //------------------------------------------------------------------
         // Member functions
         //------------------------------------------------------------------
@@ -265,6 +274,10 @@ namespace tomcat::model {
                                           int time_step,
                                           const EvidenceSet& new_data);
 
+        void estimate_help_on_the_way(int player_order,
+                                      int time_step,
+                                      const EvidenceSet& new_data);
+
         //------------------------------------------------------------------
         // Data members
         //------------------------------------------------------------------
@@ -280,9 +293,10 @@ namespace tomcat::model {
         std::vector<ASISTStudy3MessageConverter::Marker> active_markers;
         std::vector<int> watched_critical_victims;
         std::vector<std::pair<std::string, int>> watched_threats;
+        std::vector<int> watched_no_help_on_the_way;
         std::vector<bool> active_no_critical_victim_help_requests;
         std::vector<bool> active_no_threat_help_requests;
-        std::vector<std::string> player_area;
+        std::vector<bool> active_no_help_on_the_way;
         std::vector<std::unordered_set<ASISTStudy3MessageConverter::MarkerType>>
             mentioned_marker_types;
         std::vector<bool> mentioned_critical_victim;

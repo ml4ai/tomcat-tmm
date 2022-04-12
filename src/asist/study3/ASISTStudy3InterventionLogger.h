@@ -116,11 +116,7 @@ namespace tomcat {
                 bool other_players_around);
 
             void log_hinder_ask_for_help_critical_victim_intervention(
-                int time_step,
-                int player_order);
-
-            void log_intervene_on_ask_for_help_threat(int time_step,
-                                                      int player_order);
+                int time_step, int player_order);
 
             void log_watch_ask_for_help_threat_intervention(int time_step,
                                                             int player_order);
@@ -136,9 +132,28 @@ namespace tomcat {
                                                         bool help_request,
                                                         bool being_released);
 
-            void
-            log_hinder_ask_for_help_threat_intervention(int time_step,
+            void log_hinder_ask_for_help_threat_intervention(int time_step,
+                                                             int player_order);
+
+            void log_intervene_on_ask_for_help_threat(int time_step,
+                                                      int player_order);
+
+            void log_intervene_on_help_on_the_way(int time_step,
+                                                  int player_order);
+
+            void log_watch_help_on_the_way_intervention(int time_step,
                                                         int player_order);
+
+            void log_activate_help_on_the_way_intervention(int time_step,
+                                                           int player_order,
+                                                           int latency);
+
+            void
+            log_cancel_help_on_the_way_intervention(int time_step,
+                                                    int assisted_player_order_,
+                                                    int helper_player_order,
+                                                    bool area_changed,
+                                                    bool help_request_answered);
 
             void log_cancel_intervention(int time_step,
                                          const std::string& text);
