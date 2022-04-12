@@ -127,6 +127,7 @@ namespace tomcat {
             this->mention_to_no_victim = vector<bool>(this->num_players, false);
             this->mention_to_obstacle = vector<bool>(this->num_players, false);
             this->mention_to_help = vector<bool>(this->num_players, false);
+            this->mention_to_help_on_the_way = vector<bool>(this->num_players, false);
             this->collapsed_block_ids.clear();
             this->collapsed_block_positions.clear();
             this->critical_victim_proximity =
@@ -463,6 +464,9 @@ namespace tomcat {
                     else if (boost::iequals((string)label, "Obstacle") ||
                              boost::iequals((string)label, "RubbleMarker")) {
                         this->mention_to_obstacle[player_order] = true;
+                    }else if (boost::iequals((string)label, "OnMyWay") ||
+                             boost::iequals((string)label, "Agreement")) {
+                        this->mention_to_help_on_the_way[player_order] = true;
                     }
                 }
             }
@@ -885,6 +889,8 @@ namespace tomcat {
                     (bool)this->mention_to_threat.at(player_order);
                 json_mentions["help_needed"] =
                     (bool)this->mention_to_help.at(player_order);
+                json_mentions["help_on_the_way"] =
+                    (bool)this->mention_to_help_on_the_way.at(player_order);
                 json_dialog.push_back(json_mentions);
 
                 this->mention_to_no_victim[player_order] = false;
@@ -895,6 +901,7 @@ namespace tomcat {
                 this->mention_to_obstacle[player_order] = false;
                 this->mention_to_threat[player_order] = false;
                 this->mention_to_help[player_order] = false;
+                this->mention_to_help_on_the_way[player_order] = false;
 
                 // FoV
                 nlohmann::json json_fov;

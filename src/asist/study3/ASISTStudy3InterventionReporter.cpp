@@ -72,23 +72,6 @@ namespace tomcat {
             message["data"] = json_data;
         }
 
-        nlohmann::json
-        ASISTStudy3InterventionReporter::get_template_intervention_message(
-            const AgentPtr& agent, int time_step) {
-            nlohmann::json intervention_message;
-            add_header_section(
-                intervention_message, agent, "agent", time_step, 0);
-            add_msg_section(
-                intervention_message, agent, "Intervention:Chat", time_step, 0);
-            add_common_data_section(intervention_message, agent, time_step, 0);
-
-            // TODO - remove before merging with main branch
-            intervention_message["topic"] =
-                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
-
-            return intervention_message;
-        }
-
         string ASISTStudy3InterventionReporter::player_order_to_color(
             int player_order) {
 
@@ -176,10 +159,43 @@ namespace tomcat {
                 if (this->introduced) {
                     this->intervene_on_communication_marker(agent, t, messages);
                     this->intervene_on_ask_for_help(agent, t, messages);
+                    this->intervene_on_help_on_the_way(agent, t, messages);
                 }
             }
 
             return messages;
+        }
+
+        nlohmann::json
+        ASISTStudy3InterventionReporter::get_template_intervention_message(
+            const AgentPtr& agent,
+            int time_step,
+            const nlohmann::json& receivers,
+            const string& intervention_type) const {
+
+            check_field(this->json_settings, "prompts");
+            check_field(this->json_settings["prompts"], intervention_type);
+            check_field(this->json_settings, "explanations");
+            check_field(this->json_settings["explanations"], intervention_type);
+
+            nlohmann::json intervention_message;
+            add_header_section(
+                intervention_message, agent, "agent", time_step, 0);
+            add_msg_section(
+                intervention_message, agent, "Intervention:Chat", time_step, 0);
+            add_common_data_section(intervention_message, agent, time_step, 0);
+
+            intervention_message["data"]["content"] =
+                this->json_settings["prompts"][intervention_type];
+            intervention_message["data"]["receivers"] = receivers;
+            intervention_message["data"]["explanation"]["info"] =
+                this->json_settings["explanations"][intervention_type];
+
+            // TODO - remove before merging with main branch
+            intervention_message["topic"] =
+                "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat";
+
+            return intervention_message;
         }
 
         void ASISTStudy3InterventionReporter::intervene_on_introduction(
@@ -237,12 +253,8 @@ namespace tomcat {
                 int num_encouragements = estimator->get_num_encouragements();
                 if (cdf <= min_percentile) {
                     auto motivation_msg =
-                        this->get_motivation_intervention_message(agent,
-                                                                  time_step);
-                    motivation_msg["data"]["explanation"] = fmt::format(
-                        (string)this
-                            ->json_settings["explanations"]["motivation"],
-                        cdf);
+                        this->get_motivation_intervention_message(
+                            agent, time_step, cdf);
                     messages.push_back(motivation_msg);
 
                     this->custom_logger->log_intervene_on_motivation(
@@ -318,7 +330,7 @@ namespace tomcat {
 
                     messages.push_back(intervention_msg);
 
-                    estimator->clear_active_ask_for_help_critical_victim(
+                    estimator->clear_active_no_ask_for_help_critical_victim(
                         player_order);
                     this->custom_logger
                         ->log_intervene_on_ask_for_help_critical_victim(
@@ -331,8 +343,42 @@ namespace tomcat {
 
                     messages.push_back(intervention_msg);
 
-                    estimator->clear_active_ask_for_help_threat(player_order);
+                    estimator->clear_active_no_ask_for_help_threat(
+                        player_order);
                     this->custom_logger->log_intervene_on_ask_for_help_threat(
+                        time_step, player_order);
+                }
+            }
+        }
+
+        void ASISTStudy3InterventionReporter::intervene_on_help_on_the_way(
+            const AgentPtr& agent,
+            int time_step,
+            vector<nlohmann::json>& messages) {
+
+            check_field(this->json_settings, "activations");
+            check_field(this->json_settings["activations"], "help_on_the_way");
+
+            if (!this->json_settings["activations"]["help_on_the_way"]) {
+                return;
+            }
+
+            auto estimator =
+                dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
+                    agent->get_estimators()[0]);
+
+            const auto& no_help_on_the_way =
+                estimator->get_active_no_help_on_the_way();
+            for (int player_order = 0; player_order < 3; player_order++) {
+                if (no_help_on_the_way.at(player_order)) {
+                    auto intervention_msg =
+                        this->get_help_on_the_way_intervention_message(
+                            agent, time_step, player_order);
+
+                    messages.push_back(intervention_msg);
+
+                    estimator->clear_active_no_help_on_the_way(player_order);
+                    this->custom_logger->log_intervene_on_help_on_the_way(
                         time_step, player_order);
                 }
             }
@@ -342,34 +388,23 @@ namespace tomcat {
         ASISTStudy3InterventionReporter::get_introductory_intervention_message(
             const AgentPtr& agent, int time_step) const {
 
-            check_field(this->json_settings, "prompts");
-            check_field(this->json_settings["prompts"], "introduction");
-            check_field(this->json_settings, "explanations");
-            check_field(this->json_settings["explanations"], "introduction");
-
             nlohmann::json intervention_message =
-                this->get_template_intervention_message(agent, time_step);
-            intervention_message["data"]["content"] =
-                this->json_settings["prompts"]["introduction"];
-            intervention_message["data"]["explanation"]["info"] =
-                this->json_settings["explanations"]["introduction"];
-            intervention_message["data"]["receivers"] = this->player_ids;
+                this->get_template_intervention_message(
+                    agent, time_step, this->player_ids, "introduction");
 
             return intervention_message;
         }
 
         nlohmann::json
         ASISTStudy3InterventionReporter::get_motivation_intervention_message(
-            const AgentPtr& agent, int time_step) const {
-
-            check_field(this->json_settings, "prompts");
-            check_field(this->json_settings["prompts"], "motivation");
+            const AgentPtr& agent, int time_step, double cdf) const {
 
             nlohmann::json intervention_message =
-                this->get_template_intervention_message(agent, time_step);
-            intervention_message["data"]["content"] =
-                this->json_settings["prompts"]["motivation"];
-            intervention_message["data"]["receivers"] = this->player_ids;
+                this->get_template_intervention_message(
+                    agent, time_step, this->player_ids, "motivation");
+            intervention_message["data"]["explanation"]["info"] = fmt::format(
+                (string)intervention_message["data"]["explanation"]["info"],
+                cdf);
 
             return intervention_message;
         }
@@ -381,29 +416,21 @@ namespace tomcat {
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker) const {
 
-            check_field(this->json_settings, "prompts");
-            check_field(this->json_settings["prompts"], "communication_marker");
-            check_field(this->json_settings, "explanations");
-            check_field(this->json_settings["explanations"],
-                        "communication_marker");
+            string player_color = player_order_to_color(player_order);
+            nlohmann::json receivers = nlohmann::json::array();
+            receivers.push_back(player_ids_per_color[player_order]);
 
             nlohmann::json intervention_message =
-                this->get_template_intervention_message(agent, time_step);
-            const string& prompt =
-                this->json_settings["prompts"]["communication_marker"];
-            string player_color = player_order_to_color(player_order);
+                this->get_template_intervention_message(
+                    agent, time_step, receivers, "communication_marker");
+
             string marker_type =
                 ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
                     marker.type);
-
-            string player_id = player_ids_per_color[player_order];
             intervention_message["data"]["content"] =
-                fmt::format(prompt, player_color, marker_type);
-            intervention_message["data"]["receivers"] = nlohmann::json::array();
-            intervention_message["data"]["receivers"].push_back(player_id);
-            const string& explanation =
-                this->json_settings["explanations"]["communication_marker"];
-            intervention_message["data"]["explanation"]["info"] = explanation;
+                fmt::format((string)intervention_message["data"]["content"],
+                            player_color,
+                            marker_type);
 
             return intervention_message;
         }
@@ -412,29 +439,21 @@ namespace tomcat {
             get_ask_for_help_critical_victim_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const {
 
-            check_field(this->json_settings, "prompts");
-            check_field(this->json_settings["prompts"],
-                        "ask_for_help_critical_victim");
-            check_field(this->json_settings, "explanations");
-            check_field(this->json_settings["explanations"],
-                        "ask_for_help_critical_victim");
+            string player_color = player_order_to_color(player_order);
+            nlohmann::json receivers = nlohmann::json::array();
+            receivers.push_back(player_ids_per_color[player_order]);
 
             nlohmann::json intervention_message =
-                this->get_template_intervention_message(agent, time_step);
-            const string& prompt =
-                this->json_settings["prompts"]["ask_for_help_critical_victim"];
-            string player_color = player_order_to_color(player_order);
+                this->get_template_intervention_message(
+                    agent,
+                    time_step,
+                    receivers,
+                    "ask_for_help_critical_victim");
 
-            string player_id = player_ids_per_color[player_order];
-            intervention_message["data"]["content"] =
-                fmt::format(prompt, player_color);
-            intervention_message["data"]["receivers"] = nlohmann::json::array();
-            intervention_message["data"]["receivers"].push_back(player_id);
-            const string& explanation =
-                this->json_settings["explanations"]
-                                   ["ask_for_help_critical_victim"];
+            intervention_message["data"]["content"] = fmt::format(
+                (string)intervention_message["data"]["content"], player_color);
             intervention_message["data"]["explanation"]["info"] = fmt::format(
-                explanation,
+                (string)intervention_message["data"]["explanation"]["info"],
                 ASISTStudy3InterventionEstimator::ASK_FOR_HELP_LATENCY);
 
             return intervention_message;
@@ -444,28 +463,41 @@ namespace tomcat {
             get_ask_for_help_threat_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const {
 
-            check_field(this->json_settings, "prompts");
-            check_field(this->json_settings["prompts"], "ask_for_help_threat");
-            check_field(this->json_settings, "explanations");
-            check_field(this->json_settings["explanations"],
-                        "ask_for_help_threat");
+            string player_color = player_order_to_color(player_order);
+            nlohmann::json receivers = nlohmann::json::array();
+            receivers.push_back(player_ids_per_color[player_order]);
 
             nlohmann::json intervention_message =
-                this->get_template_intervention_message(agent, time_step);
-            const string& prompt =
-                this->json_settings["prompts"]["ask_for_help_threat"];
-            string player_color = player_order_to_color(player_order);
+                this->get_template_intervention_message(
+                    agent, time_step, receivers, "ask_for_help_threat");
 
-            string player_id = player_ids_per_color[player_order];
-            intervention_message["data"]["content"] =
-                fmt::format(prompt, player_color);
-            intervention_message["data"]["receivers"] = nlohmann::json::array();
-            intervention_message["data"]["receivers"].push_back(player_id);
-            const string& explanation =
-                this->json_settings["explanations"]["ask_for_help_threat"];
+            intervention_message["data"]["content"] = fmt::format(
+                (string)intervention_message["data"]["content"], player_color);
             intervention_message["data"]["explanation"]["info"] = fmt::format(
-                explanation,
+                (string)intervention_message["data"]["explanation"]["info"],
                 ASISTStudy3InterventionEstimator::ASK_FOR_HELP_LATENCY);
+
+            return intervention_message;
+        }
+
+        nlohmann::json ASISTStudy3InterventionReporter::
+            get_help_on_the_way_intervention_message(const AgentPtr& agent,
+                                                     int time_step,
+                                                     int player_order) const {
+
+            string player_color = player_order_to_color(player_order);
+            nlohmann::json receivers = nlohmann::json::array();
+            receivers.push_back(player_ids_per_color[player_order]);
+
+            nlohmann::json intervention_message =
+                this->get_template_intervention_message(
+                    agent, time_step, receivers, "help_on_the_way");
+
+            intervention_message["data"]["content"] = fmt::format(
+                (string)intervention_message["data"]["content"], player_color);
+            intervention_message["data"]["explanation"]["info"] = fmt::format(
+                (string)intervention_message["data"]["explanation"]["info"],
+                ASISTStudy3InterventionEstimator::HELP_ON_THE_WAY_LATENCY);
 
             return intervention_message;
         }

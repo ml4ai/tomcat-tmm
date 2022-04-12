@@ -88,19 +88,6 @@ namespace tomcat {
                                                 int data_point);
 
             /**
-             * Creates a template intervention message.
-             *
-             * @param agent: ASI
-             * @param time_step: time step at which the message is being
-             * generated
-             *
-             * @return: json intervention message
-             */
-            static nlohmann::json
-            get_template_intervention_message(const AgentPtr& agent,
-                                              int time_step);
-
-            /**
              * Returns the player color to add to a message based on its order.
              * The map follows the RGB order. That is 0 - Red, 1 - Green, 2 -
              * Blue
@@ -130,6 +117,25 @@ namespace tomcat {
              * @param agent: ASI
              */
             void store_player_info(const AgentPtr& agent);
+
+            /**
+             * Creates a template intervention message.
+             *
+             * @param agent: ASI
+             * @param time_step: time step at which the message is being
+             * generated
+             * @param receivers: list of players that must receive the
+             * intervention
+             * @param intervention_type: type of the intervention matching the
+             * types in the reporter settings file
+             *
+             * @return: json intervention message
+             */
+            nlohmann::json get_template_intervention_message(
+                const AgentPtr& agent,
+                int time_step,
+                const nlohmann::json& receivers,
+                const std::string& intervention_type) const;
 
             /**
              * Handles intervention of type "Introduction"
@@ -173,10 +179,22 @@ namespace tomcat {
              * @param time_step: time step of the intervention
              * @param messages: list of intervention messages in the time step
              */
-            void intervene_on_ask_for_help(
-                const AgentPtr& agent,
-                int time_step,
-                std::vector<nlohmann::json>& messages);
+            void
+            intervene_on_ask_for_help(const AgentPtr& agent,
+                                      int time_step,
+                                      std::vector<nlohmann::json>& messages);
+
+            /**
+             * Handles intervention of type "Help on the Way"
+             *
+             * @param agent: ASI
+             * @param time_step: time step of the intervention
+             * @param messages: list of intervention messages in the time step
+             */
+            void
+            intervene_on_help_on_the_way(const AgentPtr& agent,
+                                         int time_step,
+                                         std::vector<nlohmann::json>& messages);
 
             /**
              * Assembles ToMCAT's introduction as an intervention.
@@ -197,12 +215,12 @@ namespace tomcat {
              * @param agent: ASI
              * @param time_step: time step at which the message is being
              * generated
+             * @param CDF: cdf that triggered intervention
              *
              * @return: json intervention message
              */
-            nlohmann::json
-            get_motivation_intervention_message(const AgentPtr& agent,
-                                                int time_step) const;
+            nlohmann::json get_motivation_intervention_message(
+                const AgentPtr& agent, int time_step, double cdf) const;
 
             /**
              * Assembles communication marker intervention.
@@ -231,7 +249,8 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            nlohmann::json get_ask_for_help_critical_victim_intervention_message(
+            nlohmann::json
+            get_ask_for_help_critical_victim_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             /**
@@ -245,6 +264,19 @@ namespace tomcat {
              * @return: json intervention message
              */
             nlohmann::json get_ask_for_help_threat_intervention_message(
+                const AgentPtr& agent, int time_step, int player_order) const;
+
+            /**
+             * Assembles help-on-the-way intervention.
+             *
+             * @param agent: ASI
+             * @param time_step: time step at which the message is being
+             * generated
+             * @param player_order: player's index
+             *
+             * @return: json intervention message
+             */
+            nlohmann::json get_help_on_the_way_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             //------------------------------------------------------------------
