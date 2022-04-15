@@ -173,14 +173,14 @@ namespace tomcat {
                 std::vector<nlohmann::json>& messages);
 
             /**
-             * Handles intervention of type "Ask for Help"
+             * Handles intervention of type "Help Request"
              *
              * @param agent: ASI
              * @param time_step: time step of the intervention
              * @param messages: list of intervention messages in the time step
              */
             void
-            intervene_on_ask_for_help(const AgentPtr& agent,
+            intervene_on_help_request(const AgentPtr& agent,
                                       int time_step,
                                       std::vector<nlohmann::json>& messages);
 
@@ -254,7 +254,7 @@ namespace tomcat {
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             /**
-             * Assembles ask-for-help (threat) intervention.
+             * Assembles help-request-room-escape intervention.
              *
              * @param agent: ASI
              * @param time_step: time step at which the message is being
@@ -263,7 +263,7 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            nlohmann::json get_ask_for_help_threat_intervention_message(
+            nlohmann::json get_help_request_room_escape_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             /**

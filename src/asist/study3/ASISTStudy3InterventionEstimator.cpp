@@ -200,7 +200,7 @@ namespace tomcat::model {
         return json_dialog["help_needed"];
     }
 
-    bool ASISTStudy3InterventionEstimator::is_there_another_player_around(
+    bool ASISTStudy3InterventionEstimator::is_there_another_player_in_same_area(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
         const string& player_location =
@@ -235,11 +235,12 @@ namespace tomcat::model {
     bool ASISTStudy3InterventionEstimator::does_player_need_help_to_exit_room(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
-        return !get_threat_id(player_order, time_step, new_data).empty() &&
-               is_player_in_room(player_order, time_step, new_data);
+        return !get_active_threat_id(player_order, time_step, new_data)
+                    .empty() &&
+               is_player_inside_room(player_order, time_step, new_data);
     }
 
-    string ASISTStudy3InterventionEstimator::get_threat_id(
+    string ASISTStudy3InterventionEstimator::get_active_threat_id(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
         string threat_id =
@@ -248,14 +249,14 @@ namespace tomcat::model {
         return threat_id;
     }
 
-    bool ASISTStudy3InterventionEstimator::is_player_in_room(
+    bool ASISTStudy3InterventionEstimator::is_player_inside_room(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
         return new_data.get_dict_like_data()[0][time_step][Labels::LOCATIONS]
                                             [player_order]["room"];
     }
 
-    bool ASISTStudy3InterventionEstimator::is_engineer_around(
+    bool ASISTStudy3InterventionEstimator::is_engineer_in_same_room(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
         int engineer_order = new_data.get_metadata()[0]["engineer_order"];
@@ -362,22 +363,19 @@ namespace tomcat::model {
         if (!this->containers_initialized) {
             this->watched_markers = vector<Marker>(3);
             this->watched_critical_victims = vector<int>(3, -1);
-            this->watched_threats = vector<pair<string, int>>(3, {"", -1});
             this->watched_no_help_on_the_way = vector<int>(3, -1);
             this->active_markers = vector<Marker>(3);
             this->active_no_critical_victim_help_requests =
                 vector<bool>(3, false);
-            this->active_no_threat_help_requests = vector<bool>(3, false);
             this->active_no_help_on_the_way = vector<bool>(3, false);
             this->mentioned_marker_types = vector<unordered_set<MarkerType>>(3);
-            this->mentioned_critical_victim = vector<bool>(3, false);
-            this->mentioned_help_request = vector<bool>(3, false);
+            this->recently_mentioned_critical_victim = vector<bool>(3, false);
+            this->recently_mentioned_help_request = vector<bool>(3, false);
 
             this->help_request_room_escape_state =
                 vector<InterventionState>(3, InterventionState::NONE);
             this->help_request_room_escape_timer = vector<int>(3, 0);
-            this->help_request_room_escape_watched_threat_ids =
-                vector<string>(3, "");
+            this->latest_active_threat_id = vector<string>(3, "");
 
             this->containers_initialized = true;
         }
@@ -390,8 +388,8 @@ namespace tomcat::model {
             // Recent mention to tracked information is cleared when the
             // player changes location.
             this->mentioned_marker_types[player_order].clear();
-            this->mentioned_critical_victim[player_order] = false;
-            this->mentioned_help_request[player_order] = false;
+            this->recently_mentioned_critical_victim[player_order] = false;
+            this->recently_mentioned_help_request[player_order] = false;
         }
 
         const auto& marker_types =
@@ -405,10 +403,10 @@ namespace tomcat::model {
                                          [player_order];
 
         if ((bool)json_dialog["critical_victim"]) {
-            this->mentioned_critical_victim[player_order] = true;
+            this->recently_mentioned_critical_victim[player_order] = true;
         }
         else if ((bool)json_dialog["help_needed"]) {
-            this->mentioned_help_request[player_order] = true;
+            this->recently_mentioned_help_request[player_order] = true;
         }
     }
 
@@ -543,7 +541,8 @@ namespace tomcat::model {
         int player_order, int time_step, const EvidenceSet& new_data) {
         this->estimate_critical_victim_help_request(
             player_order, time_step, new_data);
-        this->estimate_threat_help_request(player_order, time_step, new_data);
+        this->estimate_help_request_room_escape(
+            player_order, time_step, new_data);
     }
 
     void
@@ -559,7 +558,7 @@ namespace tomcat::model {
             bool mention_to_critical_victim =
                 did_player_speak_about_critical_victim(
                     player_order, time_step, new_data);
-            int other_players_around = is_there_another_player_around(
+            int other_players_around = is_there_another_player_in_same_area(
                 player_order, time_step, new_data);
             if (area_changed || help_requested || mention_to_critical_victim ||
                 other_players_around) {
@@ -579,11 +578,11 @@ namespace tomcat::model {
         }
 
         bool recent_mention_to_critical_victim =
-            this->mentioned_critical_victim[player_order];
-        bool activate_intervention =
-            does_player_need_help_to_wake_victim(
-                player_order, time_step, new_data) &&
-            !is_there_another_player_around(player_order, time_step, new_data);
+            this->recently_mentioned_critical_victim[player_order];
+        bool activate_intervention = does_player_need_help_to_wake_victim(
+                                         player_order, time_step, new_data) &&
+                                     !is_there_another_player_in_same_area(
+                                         player_order, time_step, new_data);
 
         // Watch and activate intervention
         if (activate_intervention && !recent_mention_to_critical_victim) {
@@ -606,7 +605,7 @@ namespace tomcat::model {
                 // request regarding critical victim awakening
                 if (this->last_time_step + time_step + 1 -
                         this->watched_critical_victims[player_order] >
-                    ASK_FOR_HELP_LATENCY) {
+                    HELP_REQUEST_LATENCY) {
                     // It has passed enough time. Restart watching
                     // time and activate intervention.
                     this->watched_critical_victims[player_order] =
@@ -618,13 +617,13 @@ namespace tomcat::model {
                         ->log_activate_ask_for_help_critical_victim_intervention(
                             this->last_time_step + time_step + 1,
                             player_order,
-                            ASK_FOR_HELP_LATENCY);
+                            HELP_REQUEST_LATENCY);
                 }
             }
         }
     }
 
-    void ASISTStudy3InterventionEstimator::estimate_threat_help_request(
+    void ASISTStudy3InterventionEstimator::estimate_help_request_room_escape(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
         if (this->help_request_room_escape_state[player_order] ==
@@ -632,19 +631,19 @@ namespace tomcat::model {
             bool is_trapped = does_player_need_help_to_exit_room(
                 player_order, time_step, new_data);
             bool is_engineer_in_room =
-                is_engineer_around(player_order, time_step, new_data);
+                is_engineer_in_same_room(player_order, time_step, new_data);
 
             if (is_trapped && !is_engineer_in_room) {
                 string threat_id =
-                    get_threat_id(player_order, time_step, new_data);
+                    get_active_threat_id(player_order, time_step, new_data);
                 bool is_being_released = is_player_being_released(
                     player_order, time_step, new_data, threat_id);
                 bool recent_mention_to_help =
-                    this->mentioned_help_request[player_order];
+                    this->recently_mentioned_help_request[player_order];
 
                 if (recent_mention_to_help || is_being_released) {
                     this->custom_logger
-                        ->log_hinder_ask_for_help_threat_intervention(
+                        ->log_hinder_help_request_room_escape_intervention(
                             this->last_time_step + time_step + 1,
                             player_order,
                             recent_mention_to_help,
@@ -654,13 +653,12 @@ namespace tomcat::model {
                     this->help_request_room_escape_state[player_order] =
                         InterventionState::WATCHED;
                     this->help_request_room_escape_timer[player_order] =
-                        ASK_FOR_HELP_LATENCY;
-                    this->help_request_room_escape_watched_threat_ids
-                        [player_order] =
-                        get_threat_id(player_order, time_step, new_data);
+                        HELP_REQUEST_LATENCY;
+                    this->latest_active_threat_id[player_order] =
+                        get_active_threat_id(player_order, time_step, new_data);
 
                     this->custom_logger
-                        ->log_watch_ask_for_help_threat_intervention(
+                        ->log_watch_help_request_room_escape_intervention(
                             this->last_time_step + time_step + 1, player_order);
                 }
             }
@@ -670,15 +668,14 @@ namespace tomcat::model {
             bool help_requested =
                 did_player_ask_for_help(player_order, time_step, new_data);
             bool left_room =
-                !is_player_in_room(player_order, time_step, new_data);
+                !is_player_inside_room(player_order, time_step, new_data);
             bool is_engineer_in_room =
-                is_engineer_around(player_order, time_step, new_data);
+                is_engineer_in_same_room(player_order, time_step, new_data);
             bool being_released = this->is_player_being_released(
                 player_order,
                 time_step,
                 new_data,
-                this->help_request_room_escape_watched_threat_ids
-                    [player_order]);
+                this->latest_active_threat_id[player_order]);
 
             if (help_requested || left_room || is_engineer_in_room ||
                 being_released) {
@@ -686,7 +683,7 @@ namespace tomcat::model {
                     InterventionState::NONE;
 
                 this->custom_logger
-                    ->log_cancel_ask_for_help_threat_intervention(
+                    ->log_cancel_help_request_room_escape_intervention(
                         this->last_time_step + time_step + 1,
                         player_order,
                         left_room,
@@ -704,10 +701,10 @@ namespace tomcat::model {
                         InterventionState::ACTIVE;
 
                     this->custom_logger
-                        ->log_activate_ask_for_help_threat_intervention(
+                        ->log_activate_help_request_room_escape_intervention(
                             this->last_time_step + time_step + 1,
                             player_order,
-                            ASK_FOR_HELP_LATENCY);
+                            HELP_REQUEST_LATENCY);
                 }
             }
         }
@@ -826,7 +823,7 @@ namespace tomcat::model {
             // request answer
             if (this->last_time_step + time_step + 1 -
                     this->watched_no_help_on_the_way[player_order] >
-                ASK_FOR_HELP_LATENCY) {
+                HELP_REQUEST_LATENCY) {
 
                 // It has passed enough time. Restart watching
                 // time and activate intervention.
@@ -837,7 +834,7 @@ namespace tomcat::model {
                 this->custom_logger->log_activate_help_on_the_way_intervention(
                     this->last_time_step + time_step + 1,
                     player_order,
-                    ASK_FOR_HELP_LATENCY);
+                    HELP_REQUEST_LATENCY);
             }
         }
     }
@@ -898,6 +895,12 @@ namespace tomcat::model {
         return (int)encouragement_node->get_assignment()(0, 0);
     }
 
+    bool ASISTStudy3InterventionEstimator::
+        is_help_request_room_escape_intervention_active(int player_order) {
+        return this->help_request_room_escape_state[player_order] ==
+               InterventionState::ACTIVE;
+    }
+
     void ASISTStudy3InterventionEstimator::clear_active_unspoken_marker(
         int player_order) {
 
@@ -916,13 +919,15 @@ namespace tomcat::model {
         this->active_no_critical_victim_help_requests[player_order] = false;
     }
 
-    void ASISTStudy3InterventionEstimator::clear_active_no_ask_for_help_threat(
+    void ASISTStudy3InterventionEstimator::
+        restart_help_request_room_escape_intervention(
         int player_order) {
-        this->active_no_threat_help_requests[player_order] = false;
+        // This is a recurrent intervention. Once delivered to a participant, we
+        // keep watching for it until it gets canceled.
         this->help_request_room_escape_state[player_order] =
             InterventionState::WATCHED;
         this->help_request_room_escape_timer[player_order] =
-            ASK_FOR_HELP_LATENCY;
+            HELP_REQUEST_LATENCY;
     }
 
     void ASISTStudy3InterventionEstimator::clear_active_no_help_on_the_way(
@@ -946,18 +951,6 @@ namespace tomcat::model {
     const vector<bool>& ASISTStudy3InterventionEstimator::
         get_active_no_critical_victim_help_request() const {
         return this->active_no_critical_victim_help_requests;
-    }
-
-    vector<bool>
-    ASISTStudy3InterventionEstimator::get_active_no_threat_help_request()
-        const {
-        vector<bool> active;
-
-        for (const auto& state : this->help_request_room_escape_state) {
-            active.push_back(state == InterventionState::ACTIVE);
-        }
-
-        return active;
     }
 
     const vector<bool>&

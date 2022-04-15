@@ -158,7 +158,7 @@ namespace tomcat {
 
                 if (this->introduced) {
                     this->intervene_on_communication_marker(agent, t, messages);
-                    this->intervene_on_ask_for_help(agent, t, messages);
+                    this->intervene_on_help_request(agent, t, messages);
                     this->intervene_on_help_on_the_way(agent, t, messages);
                 }
             }
@@ -303,15 +303,15 @@ namespace tomcat {
             }
         }
 
-        void ASISTStudy3InterventionReporter::intervene_on_ask_for_help(
+        void ASISTStudy3InterventionReporter::intervene_on_help_request(
             const AgentPtr& agent,
             int time_step,
             vector<nlohmann::json>& messages) {
 
             check_field(this->json_settings, "activations");
-            check_field(this->json_settings["activations"], "ask_for_help");
+            check_field(this->json_settings["activations"], "help_request");
 
-            if (!this->json_settings["activations"]["ask_for_help"]) {
+            if (!this->json_settings["activations"]["help_request"]) {
                 return;
             }
 
@@ -321,7 +321,6 @@ namespace tomcat {
 
             const auto& critical_victim =
                 estimator->get_active_no_critical_victim_help_request();
-            const auto& threat = estimator->get_active_no_threat_help_request();
             for (int player_order = 0; player_order < 3; player_order++) {
                 if (critical_victim.at(player_order)) {
                     auto intervention_msg =
@@ -336,17 +335,19 @@ namespace tomcat {
                         ->log_intervene_on_ask_for_help_critical_victim(
                             time_step, player_order);
                 }
-                if (threat.at(player_order)) {
+                if (estimator->is_help_request_room_escape_intervention_active(
+                        player_order)) {
                     auto intervention_msg =
-                        this->get_ask_for_help_threat_intervention_message(
+                        this->get_help_request_room_escape_intervention_message(
                             agent, time_step, player_order);
 
                     messages.push_back(intervention_msg);
 
-                    estimator->clear_active_no_ask_for_help_threat(
+                    estimator->restart_help_request_room_escape_intervention(
                         player_order);
-                    this->custom_logger->log_intervene_on_ask_for_help_threat(
-                        time_step, player_order);
+                    this->custom_logger
+                        ->log_intervene_on_help_request_room_escape(
+                            time_step, player_order);
                 }
             }
         }
@@ -454,13 +455,13 @@ namespace tomcat {
                 (string)intervention_message["data"]["content"], player_color);
             intervention_message["data"]["explanation"]["info"] = fmt::format(
                 (string)intervention_message["data"]["explanation"]["info"],
-                ASISTStudy3InterventionEstimator::ASK_FOR_HELP_LATENCY);
+                ASISTStudy3InterventionEstimator::HELP_REQUEST_LATENCY);
 
             return intervention_message;
         }
 
         nlohmann::json ASISTStudy3InterventionReporter::
-            get_ask_for_help_threat_intervention_message(
+            get_help_request_room_escape_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const {
 
             string player_color = player_order_to_color(player_order);
@@ -469,13 +470,13 @@ namespace tomcat {
 
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(
-                    agent, time_step, receivers, "ask_for_help_threat");
+                    agent, time_step, receivers, "help_request_room_escape");
 
             intervention_message["data"]["content"] = fmt::format(
                 (string)intervention_message["data"]["content"], player_color);
             intervention_message["data"]["explanation"]["info"] = fmt::format(
                 (string)intervention_message["data"]["explanation"]["info"],
-                ASISTStudy3InterventionEstimator::ASK_FOR_HELP_LATENCY);
+                ASISTStudy3InterventionEstimator::HELP_REQUEST_LATENCY);
 
             return intervention_message;
         }

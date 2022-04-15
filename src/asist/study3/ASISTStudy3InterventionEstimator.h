@@ -26,7 +26,7 @@ namespace tomcat::model {
         // Types & Consts
         //------------------------------------------------------------------
         inline static const int VICINITY_MAX_RADIUS = 5;
-        inline static const int ASK_FOR_HELP_LATENCY = 10;
+        inline static const int HELP_REQUEST_LATENCY = 10;
         inline static const int HELP_ON_THE_WAY_LATENCY = 10;
 
         inline static const std::string NAME =
@@ -99,9 +99,11 @@ namespace tomcat::model {
          */
         void clear_active_no_ask_for_help_critical_victim(int player_order);
 
-        void clear_active_no_ask_for_help_threat(int player_order);
+        void restart_help_request_room_escape_intervention(int player_order);
 
         void clear_active_no_help_on_the_way(int player_order);
+
+        bool is_help_request_room_escape_intervention_active(int player_order);
 
         //------------------------------------------------------------------
         // Getters & Setters
@@ -122,8 +124,6 @@ namespace tomcat::model {
 
         const std::vector<bool>&
         get_active_no_critical_victim_help_request() const;
-
-        std::vector<bool> get_active_no_threat_help_request() const;
 
         const std::vector<bool>& get_active_no_help_on_the_way() const;
 
@@ -199,7 +199,7 @@ namespace tomcat::model {
                                             int time_step,
                                             const EvidenceSet& new_data);
 
-        static bool is_there_another_player_around(int player_order,
+        static bool is_there_another_player_in_same_area(int player_order,
                                                    int time_step,
                                                    const EvidenceSet& new_data);
 
@@ -209,15 +209,15 @@ namespace tomcat::model {
         static bool does_player_need_help_to_exit_room(
             int player_order, int time_step, const EvidenceSet& new_data);
 
-        static std::string get_threat_id(int player_order,
+        static std::string get_active_threat_id(int player_order,
                                          int time_step,
                                          const EvidenceSet& new_data);
 
-        static bool is_player_in_room(int player_order,
+        static bool is_player_inside_room(int player_order,
                                       int time_step,
                                       const EvidenceSet& new_data);
 
-        static bool is_engineer_around(int player_order,
+        static bool is_engineer_in_same_room(int player_order,
                                        int time_step,
                                        const EvidenceSet& new_data);
 
@@ -277,9 +277,9 @@ namespace tomcat::model {
                                                    int time_step,
                                                    const EvidenceSet& new_data);
 
-        void estimate_threat_help_request(int player_order,
-                                          int time_step,
-                                          const EvidenceSet& new_data);
+        void estimate_help_request_room_escape(int player_order,
+                                               int time_step,
+                                               const EvidenceSet& new_data);
 
         void estimate_help_on_the_way(int player_order,
                                       int time_step,
@@ -299,19 +299,21 @@ namespace tomcat::model {
         std::vector<ASISTStudy3MessageConverter::Marker> watched_markers;
         std::vector<ASISTStudy3MessageConverter::Marker> active_markers;
         std::vector<int> watched_critical_victims;
-        std::vector<std::pair<std::string, int>> watched_threats;
         std::vector<int> watched_no_help_on_the_way;
         std::vector<bool> active_no_critical_victim_help_requests;
-        std::vector<bool> active_no_threat_help_requests;
         std::vector<bool> active_no_help_on_the_way;
         std::vector<std::unordered_set<ASISTStudy3MessageConverter::MarkerType>>
             mentioned_marker_types;
-        std::vector<bool> mentioned_critical_victim;
-        std::vector<bool> mentioned_help_request;
 
+        // Variables to keep track of the state machine
         std::vector<InterventionState> help_request_room_escape_state;
-        std::vector<std::string> help_request_room_escape_watched_threat_ids;
         std::vector<int> help_request_room_escape_timer;
+
+        // Variables to keep track of information that needs to persist beyond a
+        // time step
+        std::vector<bool> recently_mentioned_critical_victim;
+        std::vector<bool> recently_mentioned_help_request;
+        std::vector<std::string> latest_active_threat_id;
     };
 
 } // namespace tomcat::model
