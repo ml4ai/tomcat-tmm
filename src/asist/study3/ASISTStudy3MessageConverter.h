@@ -317,8 +317,6 @@ namespace tomcat {
             void
             parse_player_position_message(const nlohmann::json& json_message);
 
-            void parse_new_location_message(const nlohmann::json& json_message);
-
             void
             parse_victim_placement_message(const nlohmann::json& json_message);
 
@@ -327,9 +325,6 @@ namespace tomcat {
 
             void
             parse_victim_triage_message(const nlohmann::json& json_message);
-
-            void
-            parse_victim_proximity_message(const nlohmann::json& json_message);
 
             void
             parse_rubble_collapse_message(const nlohmann::json& json_message);
@@ -419,9 +414,9 @@ namespace tomcat {
             std::vector<std::string> collapsed_rubble_observed;
             std::string collapsed_rubble_destruction_interaction;
             std::unordered_set<std::string> collapsed_block_ids;
+            std::unordered_set<std::string> active_threat_ids;
             std::unordered_map<std::string, std::string>
                 collapsed_block_positions;
-            std::unordered_map<std::string, int> collapsed_block_counts;
             std::vector<std::string> player_location;
             std::vector<bool> player_in_room;
         };

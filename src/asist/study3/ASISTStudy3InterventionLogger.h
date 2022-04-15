@@ -130,10 +130,14 @@ namespace tomcat {
                                                         int player_order,
                                                         bool left_room,
                                                         bool help_request,
-                                                        bool being_released);
+                                                        bool being_released,
+                                                        bool is_engineer_in_room);
 
-            void log_hinder_ask_for_help_threat_intervention(int time_step,
-                                                             int player_order);
+            void log_hinder_ask_for_help_threat_intervention(
+                int time_step,
+                int player_orderr,
+                bool recent_mention_to_help,
+                bool is_being_released);
 
             void log_intervene_on_ask_for_help_threat(int time_step,
                                                       int player_order);

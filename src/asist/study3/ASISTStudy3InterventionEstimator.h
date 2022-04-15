@@ -123,7 +123,7 @@ namespace tomcat::model {
         const std::vector<bool>&
         get_active_no_critical_victim_help_request() const;
 
-        const std::vector<bool>& get_active_no_threat_help_request() const;
+        std::vector<bool> get_active_no_threat_help_request() const;
 
         const std::vector<bool>& get_active_no_help_on_the_way() const;
 
@@ -144,6 +144,12 @@ namespace tomcat::model {
         //------------------------------------------------------------------
 
       private:
+        //------------------------------------------------------------------
+        // Types
+        //------------------------------------------------------------------
+
+        enum InterventionState { WATCHED, ACTIVE, NONE };
+
         //------------------------------------------------------------------
         // Static functions
         //------------------------------------------------------------------
@@ -207,10 +213,6 @@ namespace tomcat::model {
                                          int time_step,
                                          const EvidenceSet& new_data);
 
-        static bool is_player_being_released(int player_order,
-                                             int time_step,
-                                             const EvidenceSet& new_data);
-
         static bool is_player_in_room(int player_order,
                                       int time_step,
                                       const EvidenceSet& new_data);
@@ -225,6 +227,11 @@ namespace tomcat::model {
         static int get_helper_player_order(int assisted_player_order,
                                            int time_step,
                                            const EvidenceSet& new_data);
+
+        static bool is_player_being_released(int player_order,
+                                             int time_step,
+                                             const EvidenceSet& new_data,
+                                             const std::string& threat_id);
 
         //------------------------------------------------------------------
         // Member functions
@@ -301,6 +308,10 @@ namespace tomcat::model {
             mentioned_marker_types;
         std::vector<bool> mentioned_critical_victim;
         std::vector<bool> mentioned_help_request;
+
+        std::vector<InterventionState> help_request_room_escape_state;
+        std::vector<std::string> help_request_room_escape_watched_threat_ids;
+        std::vector<int> help_request_room_escape_timer;
     };
 
 } // namespace tomcat::model

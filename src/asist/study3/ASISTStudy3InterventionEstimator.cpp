@@ -235,7 +235,8 @@ namespace tomcat::model {
     bool ASISTStudy3InterventionEstimator::does_player_need_help_to_exit_room(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
-        return !get_threat_id(player_order, time_step, new_data).empty();
+        return !get_threat_id(player_order, time_step, new_data).empty() &&
+               is_player_in_room(player_order, time_step, new_data);
     }
 
     string ASISTStudy3InterventionEstimator::get_threat_id(
@@ -245,23 +246,6 @@ namespace tomcat::model {
             new_data.get_dict_like_data()[0][time_step][Labels::FOV]
                                          [player_order]["collapsed_rubble_id"];
         return threat_id;
-    }
-
-    bool ASISTStudy3InterventionEstimator::is_player_being_released(
-        int player_order, int time_step, const EvidenceSet& new_data) {
-
-        string threat_id = get_threat_id(player_order, time_step, new_data);
-
-        const string& threat_id_being_removed =
-            new_data.get_dict_like_data()
-                [0][time_step][Labels::RUBBLE_COLLAPSE]
-                ["destruction_interaction_collapsed_rubble_id"];
-
-        if (threat_id.empty() || threat_id_being_removed.empty()) {
-            return false;
-        }
-
-        return threat_id == threat_id_being_removed;
     }
 
     bool ASISTStudy3InterventionEstimator::is_player_in_room(
@@ -307,7 +291,8 @@ namespace tomcat::model {
     int ASISTStudy3InterventionEstimator::get_helper_player_order(
         int assisted_player_order, int time_step, const EvidenceSet& new_data) {
 
-        for (int helper_player_order = 0; helper_player_order < 3; helper_player_order++) {
+        for (int helper_player_order = 0; helper_player_order < 3;
+             helper_player_order++) {
             if (helper_player_order != assisted_player_order) {
                 const auto& json_dialog =
                     new_data.get_dict_like_data()[0][time_step][Labels::DIALOG]
@@ -320,6 +305,24 @@ namespace tomcat::model {
         }
 
         return -1;
+    }
+
+    bool ASISTStudy3InterventionEstimator::is_player_being_released(
+        int player_order,
+        int time_step,
+        const EvidenceSet& new_data,
+        const string& threat_id) {
+
+        const string& threat_id_being_removed =
+            new_data.get_dict_like_data()
+                [0][time_step][Labels::RUBBLE_COLLAPSE]
+                ["destruction_interaction_collapsed_rubble_id"];
+
+        if (threat_id.empty() || threat_id_being_removed.empty()) {
+            return false;
+        }
+
+        return threat_id == threat_id_being_removed;
     }
 
     //----------------------------------------------------------------------
@@ -369,6 +372,12 @@ namespace tomcat::model {
             this->mentioned_marker_types = vector<unordered_set<MarkerType>>(3);
             this->mentioned_critical_victim = vector<bool>(3, false);
             this->mentioned_help_request = vector<bool>(3, false);
+
+            this->help_request_room_escape_state =
+                vector<InterventionState>(3, InterventionState::NONE);
+            this->help_request_room_escape_timer = vector<int>(3, 0);
+            this->help_request_room_escape_watched_threat_ids =
+                vector<string>(3, "");
 
             this->containers_initialized = true;
         }
@@ -571,10 +580,10 @@ namespace tomcat::model {
 
         bool recent_mention_to_critical_victim =
             this->mentioned_critical_victim[player_order];
-        bool activate_intervention = does_player_need_help_to_wake_victim(
-                                         player_order, time_step, new_data) &&
-                                     !is_there_another_player_around(
-                                         player_order, time_step, new_data);
+        bool activate_intervention =
+            does_player_need_help_to_wake_victim(
+                player_order, time_step, new_data) &&
+            !is_there_another_player_around(player_order, time_step, new_data);
 
         // Watch and activate intervention
         if (activate_intervention && !recent_mention_to_critical_victim) {
@@ -618,67 +627,81 @@ namespace tomcat::model {
     void ASISTStudy3InterventionEstimator::estimate_threat_help_request(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
-        bool is_in_room = is_player_in_room(player_order, time_step, new_data);
-        bool being_released =
-            is_player_being_released(player_order, time_step, new_data);
+        if (this->help_request_room_escape_state[player_order] ==
+            InterventionState::NONE) {
+            bool is_trapped = does_player_need_help_to_exit_room(
+                player_order, time_step, new_data);
+            bool is_engineer_in_room =
+                is_engineer_around(player_order, time_step, new_data);
 
-        if (!this->watched_threats[player_order].first.empty()) {
-            // Cancel intervention if possible
+            if (is_trapped && !is_engineer_in_room) {
+                string threat_id =
+                    get_threat_id(player_order, time_step, new_data);
+                bool is_being_released = is_player_being_released(
+                    player_order, time_step, new_data, threat_id);
+                bool recent_mention_to_help =
+                    this->mentioned_help_request[player_order];
+
+                if (recent_mention_to_help || is_being_released) {
+                    this->custom_logger
+                        ->log_hinder_ask_for_help_threat_intervention(
+                            this->last_time_step + time_step + 1,
+                            player_order,
+                            recent_mention_to_help,
+                            is_being_released);
+                }
+                else {
+                    this->help_request_room_escape_state[player_order] =
+                        InterventionState::WATCHED;
+                    this->help_request_room_escape_timer[player_order] =
+                        ASK_FOR_HELP_LATENCY;
+                    this->help_request_room_escape_watched_threat_ids
+                        [player_order] =
+                        get_threat_id(player_order, time_step, new_data);
+
+                    this->custom_logger
+                        ->log_watch_ask_for_help_threat_intervention(
+                            this->last_time_step + time_step + 1, player_order);
+                }
+            }
+        }
+        else {
+            // Check if it can be canceled
             bool help_requested =
                 did_player_ask_for_help(player_order, time_step, new_data);
-            if (!is_in_room || help_requested || being_released) {
-                this->active_no_threat_help_requests[player_order] = false;
-                this->watched_threats[player_order] = {"", -1};
+            bool left_room =
+                !is_player_in_room(player_order, time_step, new_data);
+            bool is_engineer_in_room =
+                is_engineer_around(player_order, time_step, new_data);
+            bool being_released = this->is_player_being_released(
+                player_order,
+                time_step,
+                new_data,
+                this->help_request_room_escape_watched_threat_ids
+                    [player_order]);
+
+            if (help_requested || left_room || is_engineer_in_room ||
+                being_released) {
+                this->help_request_room_escape_state[player_order] =
+                    InterventionState::NONE;
 
                 this->custom_logger
                     ->log_cancel_ask_for_help_threat_intervention(
                         this->last_time_step + time_step + 1,
                         player_order,
-                        !is_in_room,
+                        left_room,
                         help_requested,
-                        being_released);
-            }
-        }
-
-        // Watch and activate
-        bool is_trapped = does_player_need_help_to_exit_room(
-            player_order, time_step, new_data);
-        bool is_engineer_nearby =
-            is_engineer_around(player_order, time_step, new_data);
-        bool recent_mention_to_help =
-            this->mentioned_help_request[player_order];
-        bool activate_intervention = !being_released && is_trapped &&
-                                     !is_engineer_nearby && is_in_room;
-
-        if (activate_intervention && !recent_mention_to_help) {
-            string threat_id = get_threat_id(player_order, time_step, new_data);
-
-            this->watched_threats[player_order] = {
-                threat_id, this->last_time_step + time_step + 1};
-
-            this->custom_logger->log_watch_ask_for_help_threat_intervention(
-                this->last_time_step + time_step + 1, player_order);
-        }
-        else {
-            if (activate_intervention && recent_mention_to_help) {
-                this->custom_logger
-                    ->log_hinder_ask_for_help_threat_intervention(
-                        this->last_time_step + time_step + 1, player_order);
+                        being_released,
+                        is_engineer_in_room);
             }
 
-            if (!this->watched_threats[player_order].first.empty()) {
-                // We are already watching this player for help
-                // request regarding exiting a threat room
-                if (this->last_time_step + time_step + 1 -
-                        this->watched_threats[player_order].second >
-                    ASK_FOR_HELP_LATENCY) {
-                    // It has passed enough time. Restart watching
-                    // time and activate intervention.
-                    string threat_id =
-                        get_threat_id(player_order, time_step, new_data);
-                    this->watched_threats[player_order] = {
-                        threat_id, this->last_time_step + time_step + 1};
-                    this->active_no_threat_help_requests[player_order] = true;
+            if (this->help_request_room_escape_state[player_order] ==
+                InterventionState::WATCHED) {
+                // Decrement counter
+                this->help_request_room_escape_timer[player_order] -= 1;
+                if (this->help_request_room_escape_timer[player_order] == 0) {
+                    this->help_request_room_escape_state[player_order] =
+                        InterventionState::ACTIVE;
 
                     this->custom_logger
                         ->log_activate_ask_for_help_threat_intervention(
@@ -688,6 +711,80 @@ namespace tomcat::model {
                 }
             }
         }
+
+        //        if (!this->watched_threats[player_order].first.empty()) {
+        //            // Cancel intervention if possible
+        //            bool help_requested =
+        //                did_player_ask_for_help(player_order, time_step,
+        //                new_data);
+        //            if (!is_in_room || help_requested || being_released) {
+        //                this->active_no_threat_help_requests[player_order] =
+        //                false; this->watched_threats[player_order] = {"", -1};
+        //
+        //                this->custom_logger
+        //                    ->log_cancel_ask_for_help_threat_intervention(
+        //                        this->last_time_step + time_step + 1,
+        //                        player_order,
+        //                        !is_in_room,
+        //                        help_requested,
+        //                        being_released);
+        //            }
+        //        }
+        //
+        //        // Watch and activate
+        //        bool is_trapped = does_player_need_help_to_exit_room(
+        //            player_order, time_step, new_data);
+        //        bool is_engineer_nearby =
+        //            is_engineer_around(player_order, time_step, new_data);
+        //        bool recent_mention_to_help =
+        //            this->mentioned_help_request[player_order];
+        //        bool activate_intervention =
+        //            !being_released && is_trapped && !is_engineer_nearby &&
+        //            is_in_room;
+        //
+        //        if (activate_intervention && !recent_mention_to_help) {
+        //            string threat_id = get_threat_id(player_order, time_step,
+        //            new_data);
+        //
+        //            this->watched_threats[player_order] = {
+        //                threat_id, this->last_time_step + time_step + 1};
+        //
+        //            this->custom_logger->log_watch_ask_for_help_threat_intervention(
+        //                this->last_time_step + time_step + 1, player_order);
+        //        }
+        //        else {
+        //            if (activate_intervention && recent_mention_to_help) {
+        //                this->custom_logger
+        //                    ->log_hinder_ask_for_help_threat_intervention(
+        //                        this->last_time_step + time_step + 1,
+        //                        player_order);
+        //            }
+        //
+        //            if (!this->watched_threats[player_order].first.empty()) {
+        //                // We are already watching this player for help
+        //                // request regarding exiting a threat room
+        //                if (this->last_time_step + time_step + 1 -
+        //                        this->watched_threats[player_order].second >
+        //                    ASK_FOR_HELP_LATENCY) {
+        //                    // It has passed enough time. Restart watching
+        //                    // time and activate intervention.
+        //                    string threat_id =
+        //                        get_threat_id(player_order, time_step,
+        //                        new_data);
+        //                    this->watched_threats[player_order] = {
+        //                        threat_id, this->last_time_step + time_step +
+        //                        1};
+        //                    this->active_no_threat_help_requests[player_order]
+        //                    = true;
+        //
+        //                    this->custom_logger
+        //                        ->log_activate_ask_for_help_threat_intervention(
+        //                            this->last_time_step + time_step + 1,
+        //                            player_order,
+        //                            ASK_FOR_HELP_LATENCY);
+        //                }
+        //            }
+        //        }
     }
 
     void ASISTStudy3InterventionEstimator::estimate_help_on_the_way(
@@ -822,6 +919,10 @@ namespace tomcat::model {
     void ASISTStudy3InterventionEstimator::clear_active_no_ask_for_help_threat(
         int player_order) {
         this->active_no_threat_help_requests[player_order] = false;
+        this->help_request_room_escape_state[player_order] =
+            InterventionState::WATCHED;
+        this->help_request_room_escape_timer[player_order] =
+            ASK_FOR_HELP_LATENCY;
     }
 
     void ASISTStudy3InterventionEstimator::clear_active_no_help_on_the_way(
@@ -847,10 +948,16 @@ namespace tomcat::model {
         return this->active_no_critical_victim_help_requests;
     }
 
-    const vector<bool>&
+    vector<bool>
     ASISTStudy3InterventionEstimator::get_active_no_threat_help_request()
         const {
-        return this->active_no_threat_help_requests;
+        vector<bool> active;
+
+        for (const auto& state : this->help_request_room_escape_state) {
+            active.push_back(state == InterventionState::ACTIVE);
+        }
+
+        return active;
     }
 
     const vector<bool>&
