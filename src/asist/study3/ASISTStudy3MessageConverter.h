@@ -411,12 +411,12 @@ namespace tomcat {
             std::vector<bool> mention_to_help;
             std::vector<bool> mention_to_help_on_the_way;
             std::vector<double> critical_victim_proximity;
-            std::vector<std::string> collapsed_rubble_observed;
-            std::string collapsed_rubble_destruction_interaction;
-            std::unordered_set<std::string> collapsed_block_ids;
+            std::vector<std::string> dynamic_obstacles_in_fov;
+            std::string dynamic_obstacle_being_destroyed;
+            std::unordered_set<std::string> threat_ids;
             std::unordered_set<std::string> active_threat_ids;
             std::unordered_map<std::string, std::string>
-                collapsed_block_positions;
+                dynamic_obstacle_to_threat;
             std::vector<std::string> player_location;
             std::vector<bool> player_in_room;
         };

@@ -129,13 +129,13 @@ namespace tomcat {
             this->mention_to_help = vector<bool>(this->num_players, false);
             this->mention_to_help_on_the_way =
                 vector<bool>(this->num_players, false);
-            this->collapsed_block_ids.clear();
-            this->collapsed_block_positions.clear();
+            this->threat_ids.clear();
+            this->dynamic_obstacle_to_threat.clear();
             this->critical_victim_proximity =
                 vector<double>(this->num_players, INT_MAX);
-            this->collapsed_rubble_observed =
+            this->dynamic_obstacles_in_fov =
                 vector<string>(this->num_players, "");
-            this->collapsed_rubble_destruction_interaction = "";
+            this->dynamic_obstacle_being_destroyed = "";
             this->player_location = vector<string>(this->num_players);
             this->player_in_room = vector<bool>(3, false);
         }
@@ -629,14 +629,14 @@ namespace tomcat {
             Position trigger_pos(
                 (int)json_message["data"]["triggerLocation_x"],
                 (int)json_message["data"]["triggerLocation_z"]);
-            if (!EXISTS(trigger_pos.to_string(), this->collapsed_block_ids)) {
+            if (!EXISTS(trigger_pos.to_string(), this->threat_ids)) {
                 // We just need to store the position once to be able to check
                 // if any of the collapsed blocks are in the players' FoV and
                 // whether the engineer is destroying any of them.
                 for (int x = from_x; x <= to_x; x++) {
                     for (int z = from_z; z <= to_z; z++) {
                         Position rubble_pos(x, z);
-                        this->collapsed_block_positions[rubble_pos
+                        this->dynamic_obstacle_to_threat[rubble_pos
                                                             .to_string()] =
                             trigger_pos.to_string();
                     }
@@ -684,14 +684,14 @@ namespace tomcat {
                 }
                 else if (boost::iequals((string)json_block["type"], "gravel")) {
                     if (EXISTS(block_pos.to_string(),
-                               this->collapsed_block_positions)) {
+                               this->dynamic_obstacle_to_threat)) {
                         // We store the id of the trigger for the observed
                         // collapsed rubble.
                         const string& threat_id =
-                            this->collapsed_block_positions[block_pos
+                            this->dynamic_obstacle_to_threat[block_pos
                                                                 .to_string()];
                         if (EXISTS(threat_id, this->active_threat_ids)) {
-                            this->collapsed_rubble_observed[player_order] =
+                            this->dynamic_obstacles_in_fov[player_order] =
                                 threat_id;
                         }
                     }
@@ -716,9 +716,9 @@ namespace tomcat {
                     (int)json_message["data"]["target_block_z"]);
 
                 if (EXISTS(rubble_pos.to_string(),
-                           this->collapsed_block_positions)) {
-                    this->collapsed_rubble_destruction_interaction =
-                        this->collapsed_block_positions[rubble_pos.to_string()];
+                           this->dynamic_obstacle_to_threat)) {
+                    this->dynamic_obstacle_being_destroyed =
+                        this->dynamic_obstacle_to_threat[rubble_pos.to_string()];
                 }
             }
         }
@@ -762,9 +762,9 @@ namespace tomcat {
                                 (int)json_message["data"]["rubble_z"]);
 
             if (EXISTS(rubble_pos.to_string(),
-                       this->collapsed_block_positions)) {
+                       this->dynamic_obstacle_to_threat)) {
                 string threat_id =
-                    this->collapsed_block_positions[rubble_pos.to_string()];
+                    this->dynamic_obstacle_to_threat[rubble_pos.to_string()];
 
                 this->active_threat_ids.erase(threat_id);
             }
@@ -868,10 +868,10 @@ namespace tomcat {
 
                 // FoV
                 nlohmann::json json_fov;
-                if (EXISTS(this->collapsed_rubble_observed[player_order],
+                if (EXISTS(this->dynamic_obstacles_in_fov[player_order],
                            this->active_threat_ids)) {
                     json_fov["collapsed_rubble_id"] =
-                        this->collapsed_rubble_observed[player_order];
+                        this->dynamic_obstacles_in_fov[player_order];
                 }
                 else {
                     json_fov["collapsed_rubble_id"] = "";
@@ -880,7 +880,7 @@ namespace tomcat {
                     this->critical_victim_proximity[player_order];
                 json_fovs.push_back(json_fov);
 
-                this->collapsed_rubble_observed[player_order].clear();
+                this->dynamic_obstacles_in_fov[player_order].clear();
                 this->critical_victim_proximity[player_order] = INT_MAX;
 
                 // Players' location
@@ -897,8 +897,8 @@ namespace tomcat {
             nlohmann::json json_rubble_collapse;
             json_rubble_collapse
                 ["destruction_interaction_collapsed_rubble_id"] =
-                    this->collapsed_rubble_destruction_interaction;
-            this->collapsed_rubble_destruction_interaction.clear();
+                    this->dynamic_obstacle_being_destroyed;
+            this->dynamic_obstacle_being_destroyed.clear();
 
             dict_data[Labels::LAST_PLACED_MARKERS] = json_last_placed_markers;
             dict_data[Labels::REMOVED_MARKERS] = json_removed_markers;
