@@ -253,7 +253,7 @@ namespace tomcat {
             string text;
 
             if (area_changed) {
-                fmt::format("{} changed area. ",
+                text = fmt::format("{} changed area. ",
                             PLAYER_ORDER_TO_COLOR.at(player_order));
             }
             if (help_requested) {
@@ -280,9 +280,10 @@ namespace tomcat {
         void ASISTStudy3InterventionLogger::
             log_hinder_ask_for_help_critical_victim_intervention(
                 int time_step, int player_order) {
+
             string text = fmt::format(
-                "{} needs help to wake critical victim but mentioned that "
-                "recently. No need to watch for intervention.",
+                "{} needs help to wake a critical victim but mentioned that "
+                "recently. No need to watch intervention.",
                 PLAYER_ORDER_TO_COLOR.at(player_order));
 
             this->log(time_step, text);

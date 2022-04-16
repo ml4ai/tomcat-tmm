@@ -83,6 +83,11 @@ namespace tomcat::model {
          */
         int get_num_encouragements() const;
 
+        bool
+        is_help_request_critical_victim_intervention_active(int player_order);
+
+        bool is_help_request_room_escape_intervention_active(int player_order);
+
         /**
          * Removes current active unspoken marker from the list.
          *
@@ -97,13 +102,12 @@ namespace tomcat::model {
          * @param player_order: index of the player that has an active unspoken
          * marker
          */
-        void clear_active_no_ask_for_help_critical_victim(int player_order);
+        void
+        restart_help_request_critical_victim_intervention(int player_order);
 
         void restart_help_request_room_escape_intervention(int player_order);
 
         void clear_active_no_help_on_the_way(int player_order);
-
-        bool is_help_request_room_escape_intervention_active(int player_order);
 
         //------------------------------------------------------------------
         // Getters & Setters
@@ -121,9 +125,6 @@ namespace tomcat::model {
 
         const std::vector<ASISTStudy3MessageConverter::Marker>&
         get_active_unspoken_markers() const;
-
-        const std::vector<bool>&
-        get_active_no_critical_victim_help_request() const;
 
         const std::vector<bool>& get_active_no_help_on_the_way() const;
 
@@ -199,9 +200,8 @@ namespace tomcat::model {
                                             int time_step,
                                             const EvidenceSet& new_data);
 
-        static bool is_there_another_player_in_same_area(int player_order,
-                                                   int time_step,
-                                                   const EvidenceSet& new_data);
+        static bool is_there_another_player_in_same_area(
+            int player_order, int time_step, const EvidenceSet& new_data);
 
         static bool did_player_speak_about_critical_victim(
             int player_order, int time_step, const EvidenceSet& new_data);
@@ -210,16 +210,16 @@ namespace tomcat::model {
             int player_order, int time_step, const EvidenceSet& new_data);
 
         static std::string get_active_threat_id(int player_order,
-                                         int time_step,
-                                         const EvidenceSet& new_data);
+                                                int time_step,
+                                                const EvidenceSet& new_data);
 
         static bool is_player_inside_room(int player_order,
-                                      int time_step,
-                                      const EvidenceSet& new_data);
+                                          int time_step,
+                                          const EvidenceSet& new_data);
 
         static bool is_engineer_in_same_room(int player_order,
-                                       int time_step,
-                                       const EvidenceSet& new_data);
+                                             int time_step,
+                                             const EvidenceSet& new_data);
 
         static bool should_watch_marker_type(
             const ASISTStudy3MessageConverter::MarkerType& marker_type);
@@ -273,7 +273,7 @@ namespace tomcat::model {
                                    int time_step,
                                    const EvidenceSet& new_data);
 
-        void estimate_critical_victim_help_request(int player_order,
+        void estimate_help_request_critical_victim(int player_order,
                                                    int time_step,
                                                    const EvidenceSet& new_data);
 
@@ -298,14 +298,14 @@ namespace tomcat::model {
 
         std::vector<ASISTStudy3MessageConverter::Marker> watched_markers;
         std::vector<ASISTStudy3MessageConverter::Marker> active_markers;
-        std::vector<int> watched_critical_victims;
         std::vector<int> watched_no_help_on_the_way;
-        std::vector<bool> active_no_critical_victim_help_requests;
         std::vector<bool> active_no_help_on_the_way;
         std::vector<std::unordered_set<ASISTStudy3MessageConverter::MarkerType>>
             mentioned_marker_types;
 
         // Variables to keep track of the state machine
+        std::vector<InterventionState> help_request_critical_victim_state;
+        std::vector<int> help_request_critical_victim_timer;
         std::vector<InterventionState> help_request_room_escape_state;
         std::vector<int> help_request_room_escape_timer;
 

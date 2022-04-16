@@ -111,12 +111,13 @@ namespace tomcat {
                 int time_step,
                 int player_order,
                 bool area_changed,
-                bool help_request,
+                bool help_requested,
                 bool mention_to_critical_victim,
                 bool other_players_around);
 
             void log_hinder_ask_for_help_critical_victim_intervention(
-                int time_step, int player_order);
+                int time_step,
+                int player_order);
 
             void
             log_watch_help_request_room_escape_intervention(int time_step,

@@ -319,18 +319,19 @@ namespace tomcat {
                 dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
                     agent->get_estimators()[0]);
 
-            const auto& critical_victim =
-                estimator->get_active_no_critical_victim_help_request();
             for (int player_order = 0; player_order < 3; player_order++) {
-                if (critical_victim.at(player_order)) {
+                if (estimator
+                        ->is_help_request_critical_victim_intervention_active(
+                            player_order)) {
                     auto intervention_msg =
                         this->get_ask_for_help_critical_victim_intervention_message(
                             agent, time_step, player_order);
 
                     messages.push_back(intervention_msg);
 
-                    estimator->clear_active_no_ask_for_help_critical_victim(
-                        player_order);
+                    estimator
+                        ->restart_help_request_critical_victim_intervention(
+                            player_order);
                     this->custom_logger
                         ->log_intervene_on_ask_for_help_critical_victim(
                             time_step, player_order);
