@@ -161,38 +161,38 @@ namespace tomcat {
                                          std::vector<nlohmann::json>& messages);
 
             /**
-             * Handles intervention of type "Communication Marker"
+             * Handles intervention of type "Marker Block"
              *
              * @param agent: ASI
              * @param time_step: time step of the intervention
              * @param messages: list of intervention messages in the time step
              */
-            void intervene_on_communication_marker(
+            void intervene_on_marker(
                 const AgentPtr& agent,
                 int time_step,
                 std::vector<nlohmann::json>& messages);
 
             /**
-             * Handles intervention of type "Ask for Help"
+             * Handles intervention of type "Help Request"
              *
              * @param agent: ASI
              * @param time_step: time step of the intervention
              * @param messages: list of intervention messages in the time step
              */
             void
-            intervene_on_ask_for_help(const AgentPtr& agent,
+            intervene_on_help_request(const AgentPtr& agent,
                                       int time_step,
                                       std::vector<nlohmann::json>& messages);
 
             /**
-             * Handles intervention of type "Help on the Way"
+             * Handles intervention of type "Help Request Reply"
              *
              * @param agent: ASI
              * @param time_step: time step of the intervention
              * @param messages: list of intervention messages in the time step
              */
             void
-            intervene_on_help_on_the_way(const AgentPtr& agent,
+            intervene_on_help_request_reply(const AgentPtr& agent,
                                          int time_step,
                                          std::vector<nlohmann::json>& messages);
 
@@ -210,7 +210,7 @@ namespace tomcat {
                                                   int time_step) const;
 
             /**
-             * Assembles motivation intervention.
+             * Assembles motivation intervention message.
              *
              * @param agent: ASI
              * @param time_step: time step at which the message is being
@@ -223,7 +223,7 @@ namespace tomcat {
                 const AgentPtr& agent, int time_step, double cdf) const;
 
             /**
-             * Assembles communication marker intervention.
+             * Assembles marker block intervention message.
              *
              * @param agent: ASI
              * @param time_step: time step at which the message is being
@@ -233,14 +233,14 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            nlohmann::json get_communication_marker_intervention_message(
+            nlohmann::json get_marker_intervention_message(
                 const AgentPtr& agent,
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker) const;
 
             /**
-             * Assembles ask-for-help (critical victim) intervention.
+             * Assembles help-request-critical-victim intervention message.
              *
              * @param agent: ASI
              * @param time_step: time step at which the message is being
@@ -250,11 +250,11 @@ namespace tomcat {
              * @return: json intervention message
              */
             nlohmann::json
-            get_ask_for_help_critical_victim_intervention_message(
+            get_help_request_critical_victim_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             /**
-             * Assembles ask-for-help (threat) intervention.
+             * Assembles help-request-room-escape intervention message.
              *
              * @param agent: ASI
              * @param time_step: time step at which the message is being
@@ -263,11 +263,11 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            nlohmann::json get_ask_for_help_threat_intervention_message(
+            nlohmann::json get_help_request_room_escape_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             /**
-             * Assembles help-on-the-way intervention.
+             * Assembles help-request-reply intervention.
              *
              * @param agent: ASI
              * @param time_step: time step at which the message is being
@@ -276,7 +276,7 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            nlohmann::json get_help_on_the_way_intervention_message(
+            nlohmann::json get_help_request_reply_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             //------------------------------------------------------------------

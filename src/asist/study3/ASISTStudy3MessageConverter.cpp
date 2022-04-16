@@ -127,14 +127,15 @@ namespace tomcat {
             this->mention_to_no_victim = vector<bool>(this->num_players, false);
             this->mention_to_obstacle = vector<bool>(this->num_players, false);
             this->mention_to_help = vector<bool>(this->num_players, false);
-            this->mention_to_help_on_the_way = vector<bool>(this->num_players, false);
-            this->collapsed_block_ids.clear();
-            this->collapsed_block_positions.clear();
+            this->mention_to_help_on_the_way =
+                vector<bool>(this->num_players, false);
+            this->threat_ids.clear();
+            this->dynamic_obstacle_to_threat.clear();
             this->critical_victim_proximity =
                 vector<double>(this->num_players, INT_MAX);
-            this->collapsed_rubble_observed =
+            this->dynamic_obstacles_in_fov =
                 vector<string>(this->num_players, "");
-            this->collapsed_rubble_destruction_interaction = "";
+            this->dynamic_obstacle_being_destroyed = "";
             this->player_location = vector<string>(this->num_players);
             this->player_in_room = vector<bool>(3, false);
         }
@@ -158,14 +159,12 @@ namespace tomcat {
             topics.insert("observations/state");
             topics.insert("agent/dialog");
             topics.insert("observations/events/player/role_selected");
-            topics.insert("observations/events/mission/planning");
             topics.insert("observations/events/player/marker_placed");
             topics.insert("observations/events/player/marker_removed");
             topics.insert("observations/events/player/location");
             topics.insert("observations/events/player/victim_placed");
             topics.insert("observations/events/player/victim_picked_up");
             topics.insert("observations/events/player/triage");
-            topics.insert("observations/events/player/proximity_block");
             topics.insert("agent/pygl_fov/player/3d/summary");
             topics.insert("observations/events/player/rubble_collapse");
             topics.insert("observations/events/player/tool_used");
@@ -325,9 +324,6 @@ namespace tomcat {
 
                     this->players[player.index] = player;
                     this->player_id_to_index[player.id] = player.index;
-
-                    // TODO - remove when the dialog agent fixes the
-                    // inconsistency with the participant_id
                     this->player_id_to_index[(
                         string)info_per_player["playername"]] = player.index;
                 }
@@ -356,10 +352,6 @@ namespace tomcat {
                              json_message, "event", "Event:MarkerRemoved")) {
                     this->parse_marker_removed_message(json_message);
                 }
-                else if (is_message_of(
-                             json_message, "event", "Event:location")) {
-                    this->parse_new_location_message(json_message);
-                }
                 else if (is_message_of(json_message, "observation", "state")) {
                     this->parse_player_position_message(json_message);
                 }
@@ -373,11 +365,6 @@ namespace tomcat {
                 }
                 else if (is_message_of(json_message, "event", "Event:Triage")) {
                     this->parse_victim_triage_message(json_message);
-                }
-                else if (is_message_of(json_message,
-                                       "event",
-                                       "Event:ProximityBlockInteraction")) {
-                    this->parse_victim_proximity_message(json_message);
                 }
                 else if (is_message_of(
                              json_message, "event", "Event:RubbleCollapse")) {
@@ -464,7 +451,8 @@ namespace tomcat {
                     else if (boost::iequals((string)label, "Obstacle") ||
                              boost::iequals((string)label, "RubbleMarker")) {
                         this->mention_to_obstacle[player_order] = true;
-                    }else if (boost::iequals((string)label, "OnMyWay") ||
+                    }
+                    else if (boost::iequals((string)label, "OnMyWay") ||
                              boost::iequals((string)label, "Agreement")) {
                         this->mention_to_help_on_the_way[player_order] = true;
                     }
@@ -513,7 +501,7 @@ namespace tomcat {
                     json_mission_log["players"].push_back(json_player);
 
                     if (p.role == "engineer") {
-                        engineer_order = player.index;
+                        engineer_order = p.index;
                     }
                 }
 
@@ -585,16 +573,6 @@ namespace tomcat {
             this->player_position[player_order] = pos;
         }
 
-        void ASISTStudy3MessageConverter::parse_new_location_message(
-            const nlohmann::json& json_message) {
-            check_field(json_message["data"], "participant_id");
-
-//            int player_order = this->player_id_to_index.at(
-//                (string)json_message["data"]["participant_id"]);
-//
-//            this->location_change[player_order] = true;
-        }
-
         void ASISTStudy3MessageConverter::parse_victim_placement_message(
             const nlohmann::json& json_message) {
             check_field(json_message["data"], "participant_id");
@@ -625,16 +603,6 @@ namespace tomcat {
             this->victim_interaction[player_order] = true;
         }
 
-        void ASISTStudy3MessageConverter::parse_victim_proximity_message(
-            const nlohmann::json& json_message) {
-            check_field(json_message["data"], "participant_id");
-
-//            int player_order = this->player_id_to_index.at(
-//                (string)json_message["data"]["participant_id"]);
-//
-//            this->victim_interaction[player_order] = true;
-        }
-
         void ASISTStudy3MessageConverter::parse_rubble_collapse_message(
             const nlohmann::json& json_message) {
             check_field(json_message["data"], "fromBlock_x");
@@ -648,13 +616,8 @@ namespace tomcat {
 
             int from_x = json_message["data"]["fromBlock_x"];
             int to_x = json_message["data"]["toBlock_x"];
-            int from_y = json_message["data"]["fromBlock_y"];
-            int to_y = json_message["data"]["toBlock_y"];
             int from_z = json_message["data"]["fromBlock_z"];
             int to_z = json_message["data"]["toBlock_z"];
-
-            int quantity =
-                (to_x - from_x + 1) * (to_y - from_y + 1) * (to_z - from_z + 1);
 
             // We keep a list of positions where collapsed rubbles are supposed
             // to be. We can identify if the player realizes if it's trapped by
@@ -663,21 +626,21 @@ namespace tomcat {
             Position trigger_pos(
                 (int)json_message["data"]["triggerLocation_x"],
                 (int)json_message["data"]["triggerLocation_z"]);
-            if (!EXISTS(trigger_pos.to_string(), this->collapsed_block_ids)) {
+            if (!EXISTS(trigger_pos.to_string(), this->threat_ids)) {
                 // We just need to store the position once to be able to check
                 // if any of the collapsed blocks are in the players' FoV and
                 // whether the engineer is destroying any of them.
                 for (int x = from_x; x <= to_x; x++) {
                     for (int z = from_z; z <= to_z; z++) {
                         Position rubble_pos(x, z);
-                        this->collapsed_block_positions[rubble_pos
-                                                            .to_string()] =
+                        this->dynamic_obstacle_to_threat[rubble_pos
+                                                             .to_string()] =
                             trigger_pos.to_string();
                     }
                 }
-                this->collapsed_block_counts[trigger_pos.to_string()] =
-                    quantity;
             }
+
+            this->active_threat_ids.insert(trigger_pos.to_string());
         }
 
         void ASISTStudy3MessageConverter::parse_fov_message(
@@ -718,12 +681,16 @@ namespace tomcat {
                 }
                 else if (boost::iequals((string)json_block["type"], "gravel")) {
                     if (EXISTS(block_pos.to_string(),
-                               this->collapsed_block_positions)) {
+                               this->dynamic_obstacle_to_threat)) {
                         // We store the id of the trigger for the observed
                         // collapsed rubble.
-                        this->collapsed_rubble_observed[player_order] =
-                            this->collapsed_block_positions[block_pos
-                                                                .to_string()];
+                        const string& threat_id =
+                            this->dynamic_obstacle_to_threat[block_pos
+                                                                 .to_string()];
+                        if (EXISTS(threat_id, this->active_threat_ids)) {
+                            this->dynamic_obstacles_in_fov[player_order] =
+                                threat_id;
+                        }
                     }
                 }
             }
@@ -736,16 +703,20 @@ namespace tomcat {
             check_field(json_message["data"], "target_block_type");
             check_field(json_message["data"], "tool_type");
 
-            if (boost::iequals((string)json_message["data"]["tool_type"],
-                               "minecraft:gravel")) {
+            if (boost::iequals(
+                    (string)json_message["data"]["target_block_type"],
+                    "minecraft:gravel") &&
+                boost::iequals((string)json_message["data"]["tool_type"],
+                               "hammer")) {
                 Position rubble_pos(
                     (int)json_message["data"]["target_block_x"],
                     (int)json_message["data"]["target_block_z"]);
 
                 if (EXISTS(rubble_pos.to_string(),
-                           this->collapsed_block_positions)) {
-                    this->collapsed_rubble_destruction_interaction =
-                        this->collapsed_block_positions[rubble_pos.to_string()];
+                           this->dynamic_obstacle_to_threat)) {
+                    this->dynamic_obstacle_being_destroyed =
+                        this->dynamic_obstacle_to_threat[rubble_pos
+                                                             .to_string()];
                 }
             }
         }
@@ -770,12 +741,12 @@ namespace tomcat {
                         !json_participant["distance_to_current_location_exits"]
                              .empty();
 
-                    const string& location = json_participant["current_location"];
+                    const string& location =
+                        json_participant["current_location"];
                     if (this->player_location[player_order] != location) {
                         this->location_change[player_order] = true;
                     }
                     this->player_location[player_order] = location;
-
                 }
             }
         }
@@ -789,21 +760,11 @@ namespace tomcat {
                                 (int)json_message["data"]["rubble_z"]);
 
             if (EXISTS(rubble_pos.to_string(),
-                       this->collapsed_block_positions)) {
+                       this->dynamic_obstacle_to_threat)) {
                 string threat_id =
-                    this->collapsed_block_positions[rubble_pos.to_string()];
-                this->collapsed_block_counts[threat_id] -= 1;
+                    this->dynamic_obstacle_to_threat[rubble_pos.to_string()];
 
-                if (this->collapsed_block_counts[threat_id] == 0) {
-                    // Blocked entry is completely open
-                    this->collapsed_block_positions.erase(
-                        rubble_pos.to_string());
-
-                    for (int player_order = 0; player_order < this->num_players;
-                         player_order++) {
-                        this->collapsed_rubble_observed[player_order].clear();
-                    }
-                }
+                this->active_threat_ids.erase(threat_id);
             }
         }
 
@@ -905,13 +866,19 @@ namespace tomcat {
 
                 // FoV
                 nlohmann::json json_fov;
-                json_fov["collapsed_rubble_id"] =
-                    this->collapsed_rubble_observed[player_order];
+                if (EXISTS(this->dynamic_obstacles_in_fov[player_order],
+                           this->active_threat_ids)) {
+                    json_fov["collapsed_rubble_id"] =
+                        this->dynamic_obstacles_in_fov[player_order];
+                }
+                else {
+                    json_fov["collapsed_rubble_id"] = "";
+                }
                 json_fov["distance_to_critical_victim"] =
                     this->critical_victim_proximity[player_order];
                 json_fovs.push_back(json_fov);
 
-                this->collapsed_rubble_observed[player_order].clear();
+                this->dynamic_obstacles_in_fov[player_order].clear();
                 this->critical_victim_proximity[player_order] = INT_MAX;
 
                 // Players' location
@@ -928,8 +895,8 @@ namespace tomcat {
             nlohmann::json json_rubble_collapse;
             json_rubble_collapse
                 ["destruction_interaction_collapsed_rubble_id"] =
-                    this->collapsed_rubble_destruction_interaction;
-            this->collapsed_rubble_destruction_interaction.clear();
+                    this->dynamic_obstacle_being_destroyed;
+            this->dynamic_obstacle_being_destroyed.clear();
 
             dict_data[Labels::LAST_PLACED_MARKERS] = json_last_placed_markers;
             dict_data[Labels::REMOVED_MARKERS] = json_removed_markers;

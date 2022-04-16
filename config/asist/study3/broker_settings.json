@@ -1,0 +1,8 @@
+{
+  "address": "localhost",
+  "port": 1883,
+  "estimates_topic": "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat",
+  "log_topic": "",
+  "num_connection_trials": 5,
+  "milliseconds_before_connection_retrial": 20
+}

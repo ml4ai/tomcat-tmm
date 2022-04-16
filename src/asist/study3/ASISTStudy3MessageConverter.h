@@ -59,7 +59,6 @@ namespace tomcat {
             };
 
             enum MarkerType {
-                NONE,
                 NO_VICTIM,
                 VICTIM_A,
                 VICTIM_B,
@@ -132,10 +131,6 @@ namespace tomcat {
                 ASISTStudy3MessageConverter::MarkerType type;
                 Position position;
 
-                Marker()
-                    : type(ASISTStudy3MessageConverter::MarkerType::NONE),
-                      position(Position()) {}
-
                 Marker(ASISTStudy3MessageConverter::MarkerType type,
                        const Position& position)
                     : type(type), position(position) {}
@@ -146,24 +141,20 @@ namespace tomcat {
                     this->position = Position(serialized_marker["position"]);
                 }
 
-                bool is_none() const {
-                    return this->type ==
-                           ASISTStudy3MessageConverter::MarkerType::NONE;
-                }
-
                 nlohmann::json serialize() const {
                     nlohmann::json json_marker;
-                    if (!this->is_none()) {
-                        json_marker["type"] =
-                            MARKER_TYPE_TO_TEXT.at(this->type);
-                        json_marker["position"] = this->position.serialize();
-                    }
+                    json_marker["type"] = MARKER_TYPE_TO_TEXT.at(this->type);
+                    json_marker["position"] = this->position.serialize();
                     return json_marker;
                 }
 
                 bool operator==(const Marker& marker) const {
                     return marker.position == this->position and
                            marker.type == this->type;
+                }
+
+                double distance_to(const Marker& other_marker) const {
+                    return this->position.distance_to(other_marker.position);
                 }
             };
 
@@ -317,8 +308,6 @@ namespace tomcat {
             void
             parse_player_position_message(const nlohmann::json& json_message);
 
-            void parse_new_location_message(const nlohmann::json& json_message);
-
             void
             parse_victim_placement_message(const nlohmann::json& json_message);
 
@@ -327,9 +316,6 @@ namespace tomcat {
 
             void
             parse_victim_triage_message(const nlohmann::json& json_message);
-
-            void
-            parse_victim_proximity_message(const nlohmann::json& json_message);
 
             void
             parse_rubble_collapse_message(const nlohmann::json& json_message);
@@ -416,12 +402,12 @@ namespace tomcat {
             std::vector<bool> mention_to_help;
             std::vector<bool> mention_to_help_on_the_way;
             std::vector<double> critical_victim_proximity;
-            std::vector<std::string> collapsed_rubble_observed;
-            std::string collapsed_rubble_destruction_interaction;
-            std::unordered_set<std::string> collapsed_block_ids;
+            std::vector<std::string> dynamic_obstacles_in_fov;
+            std::string dynamic_obstacle_being_destroyed;
+            std::unordered_set<std::string> threat_ids;
+            std::unordered_set<std::string> active_threat_ids;
             std::unordered_map<std::string, std::string>
-                collapsed_block_positions;
-            std::unordered_map<std::string, int> collapsed_block_counts;
+                dynamic_obstacle_to_threat;
             std::vector<std::string> player_location;
             std::vector<bool> player_in_room;
         };

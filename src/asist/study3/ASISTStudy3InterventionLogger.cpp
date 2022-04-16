@@ -114,47 +114,44 @@ namespace tomcat {
             int time_step, int player_order) {
 
             string text =
-                fmt::format("Communication-marker intervention for player {}.",
+                fmt::format("Marker-block intervention for player {}.",
                             PLAYER_ORDER_TO_COLOR.at(player_order));
             this->log_trigger_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::
-            log_cancel_communication_marker_intervention(
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& marker,
-                bool speech,
-                bool marker_removal) {
+        void ASISTStudy3InterventionLogger::log_cancel_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker,
+            bool marker_removed,
+            bool marker_mentioned) {
 
             string text;
 
-            if (speech) {
-                text = fmt::format(
-                    "{} spoke about {}. ",
-                    PLAYER_ORDER_TO_COLOR.at(player_order),
-                    ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
-                        marker.type));
-            }
-            if (marker_removal) {
+            if (marker_removed) {
                 text += fmt::format(
                     "{} removed {} marker. ",
                     PLAYER_ORDER_TO_COLOR.at(player_order),
                     ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
                         marker.type));
             }
+            if (marker_mentioned) {
+                text = fmt::format(
+                    "{} spoke about {}. ",
+                    PLAYER_ORDER_TO_COLOR.at(player_order),
+                    ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                        marker.type));
+            }
 
-            text = fmt::format("{}Canceling communication marker intervention.",
-                               text);
+            text = fmt::format("{}Canceling marker intervention.", text);
 
             this->log_cancel_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::
-            log_hinder_communication_marker_intervention(
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& marker) {
+        void ASISTStudy3InterventionLogger::log_hinder_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker) {
 
             string text =
                 fmt::format("{} placed {} marker but spoke about it recently. "
@@ -166,11 +163,10 @@ namespace tomcat {
             this->log(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::
-            log_watch_communication_marker_intervention(
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& marker) {
+        void ASISTStudy3InterventionLogger::log_watch_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker) {
 
             string text =
                 fmt::format("{} placed {} marker.",
@@ -180,18 +176,39 @@ namespace tomcat {
             this->log_watch_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::
-            log_activate_communication_marker_intervention(
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& active_marker,
-                bool area_changed,
-                bool victim_interaction,
-                bool marker_placed) {
+        void
+        ASISTStudy3InterventionLogger::log_marker_too_close_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& new_marker,
+            const ASISTStudy3MessageConverter::Marker& watched_marker) {
+
+            const string& player_color = PLAYER_ORDER_TO_COLOR.at(player_order);
+            const string& new_type =
+                ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                    new_marker.type);
+            const string& watched_type =
+                ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                    watched_marker.type);
+            string text = fmt::format(
+                "{} placed a {} marker too close to the currently watched {} "
+                "marker. No need to activate the intervention.",
+                player_color,
+                new_type,
+                watched_type);
+        }
+
+        void ASISTStudy3InterventionLogger::log_activate_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& active_marker,
+            bool changed_area,
+            bool victim_interaction,
+            bool marker_placed) {
 
             string text;
             const string& player_color = PLAYER_ORDER_TO_COLOR.at(player_order);
-            if (area_changed) {
+            if (changed_area) {
                 text = fmt::format("{} changed area. ", player_color);
             }
             if (victim_interaction) {
@@ -212,17 +229,17 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionLogger::
-            log_intervene_on_ask_for_help_critical_victim(int time_step,
-                                                          int player_order) {
+            log_intervene_help_request_critical_victim(int time_step,
+                                                       int player_order) {
 
             string text = fmt::format(
-                "Ask-for-help (critical_victim) intervention for player {}.",
+                "Help-request-critical-victim intervention for player {}.",
                 PLAYER_ORDER_TO_COLOR.at(player_order));
             this->log_trigger_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
-            log_watch_ask_for_help_critical_victim_intervention(
+            log_watch_help_request_critical_victim_intervention(
                 int time_step, int player_order) {
 
             string text = fmt::format("{} needs help to wake critical victim.",
@@ -231,7 +248,7 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionLogger::
-            log_activate_ask_for_help_critical_victim_intervention(
+            log_activate_help_request_critical_victim_intervention(
                 int time_step, int player_order, int latency) {
 
             string text =
@@ -243,18 +260,18 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionLogger::
-            log_cancel_ask_for_help_critical_victim_intervention(
+            log_cancel_help_request_critical_victim_intervention(
                 int time_step,
                 int player_order,
-                bool area_changed,
+                bool changed_area,
                 bool help_requested,
                 bool mention_to_critical_victim,
                 bool other_players_around) {
             string text;
 
-            if (area_changed) {
-                fmt::format("{} changed area. ",
-                            PLAYER_ORDER_TO_COLOR.at(player_order));
+            if (changed_area) {
+                text = fmt::format("{} changed area. ",
+                                   PLAYER_ORDER_TO_COLOR.at(player_order));
             }
             if (help_requested) {
                 text += fmt::format("{} asked for help. ",
@@ -271,60 +288,62 @@ namespace tomcat {
             }
 
             text = fmt::format(
-                "{}Canceling ask-for-help (critical victim) intervention.",
-                text);
+                "{}Canceling help-request-critical-victim intervention.", text);
 
             this->log_cancel_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
-            log_hinder_ask_for_help_critical_victim_intervention(
+            log_hinder_help_request_critical_victim_intervention(
                 int time_step, int player_order) {
+
             string text = fmt::format(
-                "{} needs help to wake critical victim but mentioned that "
-                "recently. No need to watch for intervention.",
+                "{} needs help to wake a critical victim but mentioned that "
+                "recently. No need to watch intervention.",
                 PLAYER_ORDER_TO_COLOR.at(player_order));
 
             this->log(time_step, text);
         }
 
-        void
-        ASISTStudy3InterventionLogger::log_intervene_on_ask_for_help_threat(
-            int time_step, int player_order) {
+        void ASISTStudy3InterventionLogger::
+            log_intervene_on_help_request_room_escape(int time_step,
+                                                      int player_order) {
 
-            string text =
-                fmt::format("Ask-for-help (threat) intervention for player {}.",
-                            PLAYER_ORDER_TO_COLOR.at(player_order));
+            string text = fmt::format(
+                "Help-request-room-escape intervention for player {}.",
+                PLAYER_ORDER_TO_COLOR.at(player_order));
             this->log_trigger_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
-            log_watch_ask_for_help_threat_intervention(int time_step,
-                                                       int player_order) {
+            log_watch_help_request_room_escape_intervention(int time_step,
+                                                            int player_order) {
 
-            string text = fmt::format("{} needs help to exit threat room.",
+            string text = fmt::format("{} needs help to exit a threat room.",
                                       PLAYER_ORDER_TO_COLOR.at(player_order));
             this->log_watch_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
-            log_activate_ask_for_help_threat_intervention(int time_step,
-                                                          int player_order,
-                                                          int latency) {
+            log_activate_help_request_room_escape_intervention(int time_step,
+                                                               int player_order,
+                                                               int latency) {
 
             string text = fmt::format("{} did not ask for help to exit "
-                                      "threat room in the last {} seconds.",
+                                      "a threat room in the last {} seconds.",
                                       PLAYER_ORDER_TO_COLOR.at(player_order),
                                       latency);
             this->log_activate_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
-            log_cancel_ask_for_help_threat_intervention(int time_step,
-                                                        int player_order,
-                                                        bool left_room,
-                                                        bool help_requested,
-                                                        bool being_released) {
+            log_cancel_help_request_room_escape_intervention(
+                int time_step,
+                int player_order,
+                bool left_room,
+                bool help_requested,
+                bool being_released,
+                bool is_engineer_in_room) {
             string text;
 
             if (left_room) {
@@ -336,40 +355,56 @@ namespace tomcat {
                                     PLAYER_ORDER_TO_COLOR.at(player_order));
             }
             if (being_released) {
-                text += fmt::format("{} is being released by the engineer.",
+                text += fmt::format("{} is being released by the engineer. ",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+            if (is_engineer_in_room) {
+                text += fmt::format("Engineer is in the same room as {}. ",
                                     PLAYER_ORDER_TO_COLOR.at(player_order));
             }
 
             text = fmt::format(
-                "{}Canceling ask-for-help (threat) intervention.", text);
+                "{}Canceling help-request-room-escape intervention.", text);
 
             this->log_cancel_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
-            log_hinder_ask_for_help_threat_intervention(int time_step,
-                                                        int player_order) {
-            string text = fmt::format(
-                "{} needs help to exit a threat room but mentioned that "
-                "recently. No need to watch for intervention.",
-                PLAYER_ORDER_TO_COLOR.at(player_order));
+            log_hinder_help_request_room_escape_intervention(
+                int time_step,
+                int player_order,
+                bool recent_mention_to_help,
+                bool is_being_released) {
+
+            string text;
+            if (recent_mention_to_help) {
+                text = fmt::format(
+                    "{} needs help to exit a threat room but mentioned that "
+                    "recently. ",
+                    PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+            if (is_being_released) {
+                text += fmt::format("{} is being released by the engineer. ",
+                                    PLAYER_ORDER_TO_COLOR.at(player_order));
+            }
+
+            text = fmt::format("{}No need to watch intervention.", text);
 
             this->log(time_step, text);
         }
 
-        void
-        ASISTStudy3InterventionLogger::log_intervene_on_help_on_the_way(
+        void ASISTStudy3InterventionLogger::log_intervene_on_help_request_reply(
             int time_step, int player_order) {
 
             string text =
-                fmt::format("Help-on-the-way intervention for player {}.",
+                fmt::format("Help-request-reply intervention for player {}.",
                             PLAYER_ORDER_TO_COLOR.at(player_order));
             this->log_trigger_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
-            log_watch_help_on_the_way_intervention(int time_step,
-                                                       int player_order) {
+            log_watch_help_request_reply_intervention(int time_step,
+                                                      int player_order) {
 
             string text = fmt::format("{} asked for help.",
                                       PLAYER_ORDER_TO_COLOR.at(player_order));
@@ -377,9 +412,9 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionLogger::
-            log_activate_help_on_the_way_intervention(int time_step,
-                                                          int player_order,
-                                                          int latency) {
+            log_activate_help_request_reply_intervention(int time_step,
+                                                         int player_order,
+                                                         int latency) {
 
             string text = fmt::format("{} asked for help but no one "
                                       "replied in the last {} seconds.",
@@ -389,25 +424,28 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionLogger::
-            log_cancel_help_on_the_way_intervention(int time_step,
-                                                        int assisted_player_order_,
-                                                    int helper_player_order,
-                                                        bool changed_area,
-                                                        bool help_request_answered) {
+            log_cancel_help_request_reply_intervention(
+                int time_step,
+                int assisted_player_order_,
+                int helper_player_order,
+                bool changed_area,
+                bool help_request_answered) {
             string text;
 
             if (changed_area) {
-                text = fmt::format("{} changed area. ",
-                                   PLAYER_ORDER_TO_COLOR.at(assisted_player_order_));
+                text = fmt::format(
+                    "{} changed area. ",
+                    PLAYER_ORDER_TO_COLOR.at(assisted_player_order_));
             }
             if (help_request_answered) {
-                text += fmt::format("{} answered to {}'s help request. ",
-                                    PLAYER_ORDER_TO_COLOR.at(helper_player_order),
-                                    PLAYER_ORDER_TO_COLOR.at(assisted_player_order_));
+                text += fmt::format(
+                    "{} answered to {}'s help request. ",
+                    PLAYER_ORDER_TO_COLOR.at(helper_player_order),
+                    PLAYER_ORDER_TO_COLOR.at(assisted_player_order_));
             }
 
-            text = fmt::format(
-                "{}Canceling help-on-the-way intervention.", text);
+            text = fmt::format("{}Canceling help-request-reply intervention.",
+                               text);
 
             this->log_cancel_intervention(time_step, text);
         }

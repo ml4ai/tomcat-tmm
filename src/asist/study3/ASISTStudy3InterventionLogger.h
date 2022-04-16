@@ -72,88 +72,97 @@ namespace tomcat {
 
             void log_intervene_on_marker(int time_step, int player_order);
 
-            void log_cancel_communication_marker_intervention(
+            void log_cancel_marker_intervention(
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker,
-                bool speech,
-                bool marker_removal);
+                bool marker_removed,
+                bool marker_mentioned);
 
-            void log_hinder_communication_marker_intervention(
+            void log_hinder_marker_intervention(
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker);
 
-            void log_watch_communication_marker_intervention(
+            void log_watch_marker_intervention(
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker);
 
-            void log_activate_communication_marker_intervention(
+            void log_marker_too_close_marker_intervention(
+                int time_step,
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& new_marker,
+                const ASISTStudy3MessageConverter::Marker& watched_marker);
+
+            void log_activate_marker_intervention(
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& active_marker,
-                bool area_changed,
+                bool changed_area,
                 bool victim_interaction,
                 bool marker_placed);
 
-            void
-            log_intervene_on_ask_for_help_critical_victim(int time_step,
-                                                          int player_order);
+            void log_intervene_help_request_critical_victim(int time_step,
+                                                            int player_order);
 
-            void log_watch_ask_for_help_critical_victim_intervention(
+            void log_watch_help_request_critical_victim_intervention(
                 int time_step, int player_order);
 
-            void log_activate_ask_for_help_critical_victim_intervention(
+            void log_activate_help_request_critical_victim_intervention(
                 int time_step, int player_order, int latency);
 
-            void log_cancel_ask_for_help_critical_victim_intervention(
+            void log_cancel_help_request_critical_victim_intervention(
                 int time_step,
                 int player_order,
-                bool area_changed,
-                bool help_request,
+                bool changed_area,
+                bool help_requested,
                 bool mention_to_critical_victim,
                 bool other_players_around);
 
-            void log_hinder_ask_for_help_critical_victim_intervention(
+            void log_hinder_help_request_critical_victim_intervention(
                 int time_step, int player_order);
 
-            void log_watch_ask_for_help_threat_intervention(int time_step,
+            void
+            log_watch_help_request_room_escape_intervention(int time_step,
                                                             int player_order);
 
-            void log_activate_ask_for_help_threat_intervention(int time_step,
-                                                               int player_order,
-                                                               int latency);
+            void log_activate_help_request_room_escape_intervention(
+                int time_step, int player_order, int latency);
 
-            void
-            log_cancel_ask_for_help_threat_intervention(int time_step,
-                                                        int player_order,
-                                                        bool left_room,
-                                                        bool help_request,
-                                                        bool being_released);
+            void log_cancel_help_request_room_escape_intervention(
+                int time_step,
+                int player_order,
+                bool left_room,
+                bool help_request,
+                bool being_released,
+                bool is_engineer_in_room);
 
-            void log_hinder_ask_for_help_threat_intervention(int time_step,
-                                                             int player_order);
+            void log_hinder_help_request_room_escape_intervention(
+                int time_step,
+                int player_orderr,
+                bool recent_mention_to_help,
+                bool is_being_released);
 
-            void log_intervene_on_ask_for_help_threat(int time_step,
-                                                      int player_order);
+            void log_intervene_on_help_request_room_escape(int time_step,
+                                                           int player_order);
 
-            void log_intervene_on_help_on_the_way(int time_step,
-                                                  int player_order);
+            void log_intervene_on_help_request_reply(int time_step,
+                                                     int player_order);
 
-            void log_watch_help_on_the_way_intervention(int time_step,
-                                                        int player_order);
+            void log_watch_help_request_reply_intervention(int time_step,
+                                                           int player_order);
 
-            void log_activate_help_on_the_way_intervention(int time_step,
-                                                           int player_order,
-                                                           int latency);
+            void log_activate_help_request_reply_intervention(int time_step,
+                                                              int player_order,
+                                                              int latency);
 
-            void
-            log_cancel_help_on_the_way_intervention(int time_step,
-                                                    int assisted_player_order_,
-                                                    int helper_player_order,
-                                                    bool area_changed,
-                                                    bool help_request_answered);
+            void log_cancel_help_request_reply_intervention(
+                int time_step,
+                int assisted_player_order_,
+                int helper_player_order,
+                bool area_changed,
+                bool help_request_answered);
 
             void log_cancel_intervention(int time_step,
                                          const std::string& text);
