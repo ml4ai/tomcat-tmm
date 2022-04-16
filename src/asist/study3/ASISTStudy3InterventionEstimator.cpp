@@ -51,7 +51,7 @@ namespace tomcat::model {
     //----------------------------------------------------------------------
     bool ASISTStudy3InterventionEstimator::did_player_speak_about_marker(
         int player_order,
-        const Marker& unspoken_marker,
+        const Marker& marker,
         int time_step,
         const EvidenceSet& new_data) {
 
@@ -60,7 +60,7 @@ namespace tomcat::model {
                                          [player_order];
 
         return EXISTS(
-            unspoken_marker.type,
+            marker.type,
             get_mentioned_marker_types(player_order, time_step, new_data));
     }
 
@@ -102,7 +102,7 @@ namespace tomcat::model {
         return marker_types;
     }
 
-    Marker ASISTStudy3InterventionEstimator::get_last_placed_marker(
+    shared_ptr<Marker> ASISTStudy3InterventionEstimator::get_last_placed_marker(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
         const auto& json_marker =
@@ -111,10 +111,10 @@ namespace tomcat::model {
                                      [player_order];
 
         if (!json_marker.empty()) {
-            return Marker(json_marker);
+            return make_shared<Marker>(Marker(json_marker));
         }
 
-        return Marker();
+        return nullptr;
     }
 
     bool ASISTStudy3InterventionEstimator::did_player_interact_with_victim(
@@ -283,7 +283,7 @@ namespace tomcat::model {
         return around;
     }
 
-    bool should_watch_marker_type(
+    bool ASISTStudy3InterventionEstimator::should_watch_marker_type(
         const ASISTStudy3MessageConverter::MarkerType& marker_type) {
         return marker_type == MarkerType::VICTIM_C ||
                marker_type == MarkerType::REGULAR_VICTIM ||
@@ -336,7 +336,6 @@ namespace tomcat::model {
         Estimator::copy(estimator);
 
         this->last_time_step = estimator.last_time_step;
-        // TODO
     }
 
     void
@@ -347,13 +346,15 @@ namespace tomcat::model {
         this->first_mission = new_data.get_metadata()[0]["mission_order"] == 1;
 
         for (int t = 0; t < new_data.get_time_steps(); t++) {
-            this->estimate_motivation(t, new_data);
+            this->estimate_motivation_intervention(t, new_data);
 
             for (int player_order = 0; player_order < 3; player_order++) {
                 this->update_communication(player_order, t, new_data);
-                this->estimate_communication_marker(player_order, t, new_data);
-                this->estimate_help_request(player_order, t, new_data);
-                this->estimate_help_request_reply(player_order, t, new_data);
+                this->estimate_marker_intervention(player_order, t, new_data);
+                this->estimate_help_request_intervention(
+                    player_order, t, new_data);
+                this->estimate_help_request_reply_intervention(
+                    player_order, t, new_data);
             }
         }
 
@@ -363,20 +364,23 @@ namespace tomcat::model {
     void ASISTStudy3InterventionEstimator::initialize_containers(
         const EvidenceSet& new_data) {
         if (!this->containers_initialized) {
-            this->watched_markers = vector<Marker>(3);
-            this->active_markers = vector<Marker>(3);
-
-            this->help_request_critical_victim_state =
+            this->marker_intervention_state =
                 vector<InterventionState>(3, InterventionState::NONE);
-            this->help_request_critical_victim_timer = vector<int>(3, 0);
-            this->help_request_room_escape_state =
+            this->help_request_critical_victim_intervention_state =
                 vector<InterventionState>(3, InterventionState::NONE);
-            this->help_request_room_escape_timer = vector<int>(3, 0);
+            this->help_request_critical_victim_intervention_timer =
+                vector<int>(3, 0);
+            this->help_request_room_escape_intervention_state =
+                vector<InterventionState>(3, InterventionState::NONE);
+            this->help_request_room_escape_intervention_timer =
+                vector<int>(3, 0);
             this->latest_active_threat_id = vector<string>(3, "");
-            this->help_request_reply_state =
+            this->help_request_reply_intervention_state =
                 vector<InterventionState>(3, InterventionState::NONE);
-            this->help_request_reply_timer = vector<int>(3, 0);
+            this->help_request_reply_intervention_timer = vector<int>(3, 0);
 
+            this->watched_marker = vector<shared_ptr<Marker>>(3, nullptr);
+            this->active_marker = vector<shared_ptr<Marker>>(3, nullptr);
             this->mentioned_marker_types = vector<unordered_set<MarkerType>>(3);
             this->recently_mentioned_critical_victim = vector<bool>(3, false);
             this->recently_mentioned_help_request = vector<bool>(3, false);
@@ -414,7 +418,7 @@ namespace tomcat::model {
         }
     }
 
-    void ASISTStudy3InterventionEstimator::estimate_motivation(
+    void ASISTStudy3InterventionEstimator::estimate_motivation_intervention(
         int time_step, const EvidenceSet& new_data) {
         const auto& metadata = new_data.get_metadata();
 
@@ -455,106 +459,145 @@ namespace tomcat::model {
         }
     }
 
-    void ASISTStudy3InterventionEstimator::estimate_communication_marker(
+    void ASISTStudy3InterventionEstimator::estimate_marker_intervention(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
-        if (!this->watched_markers[player_order].is_none()) {
-            // Cancel watched marker if possible
-            bool marker_removal =
-                did_player_remove_marker(this->watched_markers[player_order],
+        if (this->marker_intervention_state[player_order] ==
+            InterventionState::ACTIVE) {
+            // Intervention was not delivered.
+            this->restart_marker_intervention(player_order);
+        }
+
+        if (this->marker_intervention_state[player_order] ==
+            InterventionState::NONE) {
+
+            auto new_marker =
+                get_last_placed_marker(player_order, time_step, new_data);
+            if (new_marker && should_watch_marker_type(new_marker->type)) {
+                bool marker_mentioned_recently =
+                    EXISTS(new_marker->type,
+                           this->mentioned_marker_types[player_order]);
+                if (marker_mentioned_recently) {
+                    this->custom_logger->log_hinder_marker_intervention(
+                        this->last_time_step + time_step + 1,
+                        player_order,
+                        *new_marker);
+                }
+                else {
+                    this->marker_intervention_state[player_order] =
+                        InterventionState::WATCHED;
+                    this->watched_marker[player_order] = new_marker;
+
+                    this->custom_logger->log_watch_marker_intervention(
+                        this->last_time_step + time_step + 1,
+                        player_order,
+                        *new_marker);
+                }
+            }
+        }
+        else {
+            // Check if it can be canceled
+            bool marker_removed =
+                did_player_remove_marker(*this->watched_marker[player_order],
                                          player_order,
                                          time_step,
                                          new_data);
-            bool speech = did_player_speak_about_marker(
+
+            bool marker_mentioned = did_player_speak_about_marker(
                 player_order,
-                this->watched_markers[player_order],
+                *this->watched_marker[player_order],
                 time_step,
                 new_data);
 
-            if (marker_removal || speech) {
-                this->custom_logger
-                    ->log_cancel_communication_marker_intervention(
+            if (marker_removed || marker_mentioned) {
+                this->marker_intervention_state[player_order] =
+                    InterventionState::NONE;
+
+                this->custom_logger->log_cancel_marker_intervention(
+                    this->last_time_step + time_step + 1,
+                    player_order,
+                    *this->watched_marker[player_order],
+                    marker_removed,
+                    marker_mentioned);
+            }
+
+            // Check for activation
+            if (this->marker_intervention_state[player_order] ==
+                InterventionState::WATCHED) {
+
+                auto new_marker =
+                    get_last_placed_marker(player_order, time_step, new_data);
+                if (new_marker) {
+                    // Check if the new marker is far enough from the previous
+                    // placed marker.
+                    if (new_marker->distance_to(
+                            *this->watched_marker[player_order]) <=
+                        VICINITY_MAX_RADIUS) {
+                        if (should_watch_marker_type(new_marker->type)) {
+                            this->watched_marker[player_order] = new_marker;
+                        }
+
+                        this->custom_logger
+                            ->log_marker_too_close_marker_intervention(
+                                this->last_time_step + time_step + 1,
+                                player_order,
+                                *new_marker,
+                                *this->watched_marker[player_order]);
+
+                        new_marker = nullptr;
+                    }
+                }
+
+                bool area_changed =
+                    did_player_change_area(player_order, time_step, new_data);
+                bool victim_interaction = did_player_interact_with_victim(
+                    player_order, time_step, new_data);
+
+                if (area_changed || victim_interaction || new_marker) {
+                    this->marker_intervention_state[player_order] =
+                        InterventionState::ACTIVE;
+
+                    this->active_marker[player_order] =
+                        move(this->watched_marker[player_order]);
+
+                    this->custom_logger->log_activate_marker_intervention(
                         this->last_time_step + time_step + 1,
                         player_order,
-                        this->watched_markers[player_order],
-                        speech,
-                        marker_removal);
-                this->watched_markers[player_order] = Marker();
+                        *this->active_marker[player_order],
+                        area_changed,
+                        victim_interaction,
+                        new_marker != nullptr);
+
+                    // If a new marker triggered the intervention activation, it
+                    // must be added to the watch list.
+                    if (new_marker &&
+                        should_watch_marker_type(new_marker->type)) {
+                        this->watched_marker[player_order] = new_marker;
+
+                        this->custom_logger->log_watch_marker_intervention(
+                            this->last_time_step + time_step + 1,
+                            player_order,
+                            *new_marker);
+                    }
+                }
             }
-        }
-
-        Marker new_marker =
-            get_last_placed_marker(player_order, time_step, new_data);
-        bool area_changed =
-            did_player_change_area(player_order, time_step, new_data);
-        bool victim_interaction =
-            did_player_interact_with_victim(player_order, time_step, new_data);
-        bool marker_placed = !new_marker.is_none();
-        bool count_as_new_marker = true;
-        if (!this->watched_markers[player_order].is_none() && marker_placed) {
-            double distance = new_marker.position.distance_to(
-                this->watched_markers[player_order].position);
-            if (distance <= VICINITY_MAX_RADIUS) {
-                // If the new marker is too close from previous
-                // placed markers, don't count it as a new marker.
-                count_as_new_marker = false;
-            }
-        }
-
-        if (EXISTS(new_marker.type,
-                   this->mentioned_marker_types[player_order])) {
-            // The player spoke about the new marker before placing
-            // it. Therefore, we don't have to intervene.
-            count_as_new_marker = false;
-
-            this->custom_logger->log_hinder_communication_marker_intervention(
-                this->last_time_step + time_step + 1, player_order, new_marker);
-        }
-
-        bool activate_intervention =
-            !this->watched_markers[player_order].is_none() &&
-            (area_changed || victim_interaction ||
-             (marker_placed && count_as_new_marker));
-
-        if (activate_intervention) {
-            this->active_markers[player_order] =
-                this->watched_markers[player_order];
-
-            this->custom_logger->log_activate_communication_marker_intervention(
-                this->last_time_step + time_step + 1,
-                player_order,
-                this->watched_markers[player_order],
-                area_changed,
-                victim_interaction,
-                marker_placed);
-
-            this->watched_markers[player_order] = Marker();
-        }
-
-        if (marker_placed && count_as_new_marker &&
-            tomcat::model::should_watch_marker_type(new_marker.type)) {
-            // Watch the new marker for intervention
-            this->watched_markers[player_order] = new_marker;
-
-            this->custom_logger->log_watch_communication_marker_intervention(
-                this->last_time_step + time_step + 1, player_order, new_marker);
         }
     }
 
-    void ASISTStudy3InterventionEstimator::estimate_help_request(
+    void ASISTStudy3InterventionEstimator::estimate_help_request_intervention(
         int player_order, int time_step, const EvidenceSet& new_data) {
-        this->estimate_help_request_critical_victim(
+        this->estimate_help_request_critical_victim_intervention(
             player_order, time_step, new_data);
-        this->estimate_help_request_room_escape(
+        this->estimate_help_request_room_escape_intervention(
             player_order, time_step, new_data);
     }
 
-    void
-    ASISTStudy3InterventionEstimator::estimate_help_request_critical_victim(
-        int player_order, int time_step, const EvidenceSet& new_data) {
+    void ASISTStudy3InterventionEstimator::
+        estimate_help_request_critical_victim_intervention(
+            int player_order, int time_step, const EvidenceSet& new_data) {
 
-        if (this->help_request_critical_victim_state[player_order] ==
-            InterventionState::NONE) {
+        if (this->help_request_critical_victim_intervention_state
+                [player_order] == InterventionState::NONE) {
             bool help_needed = does_player_need_help_to_wake_victim(
                 player_order, time_step, new_data);
             bool help_requested =
@@ -579,10 +622,10 @@ namespace tomcat::model {
                             this->last_time_step + time_step + 1, player_order);
                 }
                 else {
-                    this->help_request_critical_victim_state[player_order] =
-                        InterventionState::WATCHED;
-                    this->help_request_critical_victim_timer[player_order] =
-                        HELP_REQUEST_LATENCY;
+                    this->help_request_critical_victim_intervention_state
+                        [player_order] = InterventionState::WATCHED;
+                    this->help_request_critical_victim_intervention_timer
+                        [player_order] = HELP_REQUEST_LATENCY;
 
                     this->custom_logger
                         ->log_watch_help_request_critical_victim_intervention(
@@ -604,8 +647,8 @@ namespace tomcat::model {
 
             if (help_requested || mentioned_critical_victim || changed_area ||
                 !is_alone) {
-                this->help_request_critical_victim_state[player_order] =
-                    InterventionState::NONE;
+                this->help_request_critical_victim_intervention_state
+                    [player_order] = InterventionState::NONE;
 
                 this->custom_logger
                     ->log_cancel_help_request_critical_victim_intervention(
@@ -617,14 +660,15 @@ namespace tomcat::model {
                         !is_alone);
             }
 
-            if (this->help_request_critical_victim_state[player_order] ==
-                InterventionState::WATCHED) {
+            if (this->help_request_critical_victim_intervention_state
+                    [player_order] == InterventionState::WATCHED) {
                 // Decrement counter
-                this->help_request_critical_victim_timer[player_order] -= 1;
-                if (this->help_request_critical_victim_timer[player_order] ==
-                    0) {
-                    this->help_request_critical_victim_state[player_order] =
-                        InterventionState::ACTIVE;
+                this->help_request_critical_victim_intervention_timer
+                    [player_order] -= 1;
+                if (this->help_request_critical_victim_intervention_timer
+                        [player_order] == 0) {
+                    this->help_request_critical_victim_intervention_state
+                        [player_order] = InterventionState::ACTIVE;
 
                     this->custom_logger
                         ->log_activate_help_request_critical_victim_intervention(
@@ -636,10 +680,11 @@ namespace tomcat::model {
         }
     }
 
-    void ASISTStudy3InterventionEstimator::estimate_help_request_room_escape(
-        int player_order, int time_step, const EvidenceSet& new_data) {
+    void ASISTStudy3InterventionEstimator::
+        estimate_help_request_room_escape_intervention(
+            int player_order, int time_step, const EvidenceSet& new_data) {
 
-        if (this->help_request_room_escape_state[player_order] ==
+        if (this->help_request_room_escape_intervention_state[player_order] ==
             InterventionState::NONE) {
             bool help_requested =
                 did_player_ask_for_help(player_order, time_step, new_data);
@@ -665,10 +710,10 @@ namespace tomcat::model {
                             is_being_released);
                 }
                 else {
-                    this->help_request_room_escape_state[player_order] =
-                        InterventionState::WATCHED;
-                    this->help_request_room_escape_timer[player_order] =
-                        HELP_REQUEST_LATENCY;
+                    this->help_request_room_escape_intervention_state
+                        [player_order] = InterventionState::WATCHED;
+                    this->help_request_room_escape_intervention_timer
+                        [player_order] = HELP_REQUEST_LATENCY;
                     this->latest_active_threat_id[player_order] =
                         get_active_threat_id(player_order, time_step, new_data);
 
@@ -694,8 +739,8 @@ namespace tomcat::model {
 
             if (help_requested || left_room || is_engineer_in_room ||
                 being_released) {
-                this->help_request_room_escape_state[player_order] =
-                    InterventionState::NONE;
+                this->help_request_room_escape_intervention_state
+                    [player_order] = InterventionState::NONE;
 
                 this->custom_logger
                     ->log_cancel_help_request_room_escape_intervention(
@@ -707,13 +752,15 @@ namespace tomcat::model {
                         is_engineer_in_room);
             }
 
-            if (this->help_request_room_escape_state[player_order] ==
-                InterventionState::WATCHED) {
+            if (this->help_request_room_escape_intervention_state
+                    [player_order] == InterventionState::WATCHED) {
                 // Decrement counter
-                this->help_request_room_escape_timer[player_order] -= 1;
-                if (this->help_request_room_escape_timer[player_order] == 0) {
-                    this->help_request_room_escape_state[player_order] =
-                        InterventionState::ACTIVE;
+                this->help_request_room_escape_intervention_timer
+                    [player_order] -= 1;
+                if (this->help_request_room_escape_intervention_timer
+                        [player_order] == 0) {
+                    this->help_request_room_escape_intervention_state
+                        [player_order] = InterventionState::ACTIVE;
 
                     this->custom_logger
                         ->log_activate_help_request_room_escape_intervention(
@@ -725,18 +772,19 @@ namespace tomcat::model {
         }
     }
 
-    void ASISTStudy3InterventionEstimator::estimate_help_request_reply(
+    void
+    ASISTStudy3InterventionEstimator::estimate_help_request_reply_intervention(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
-        if (this->help_request_reply_state[player_order] ==
+        if (this->help_request_reply_intervention_state[player_order] ==
             InterventionState::NONE) {
             bool help_requested =
                 did_player_ask_for_help(player_order, time_step, new_data);
 
             if (help_requested) {
-                this->help_request_reply_state[player_order] =
+                this->help_request_reply_intervention_state[player_order] =
                     InterventionState::WATCHED;
-                this->help_request_reply_timer[player_order] =
+                this->help_request_reply_intervention_timer[player_order] =
                     HELP_REQUEST_REPLY_LATENCY;
 
                 this->custom_logger->log_watch_help_request_reply_intervention(
@@ -752,7 +800,7 @@ namespace tomcat::model {
             bool help_request_answered = helper_player_order >= 0;
 
             if (help_request_answered || area_changed) {
-                this->help_request_reply_state[player_order] =
+                this->help_request_reply_intervention_state[player_order] =
                     InterventionState::NONE;
 
                 this->custom_logger->log_cancel_help_request_reply_intervention(
@@ -763,12 +811,13 @@ namespace tomcat::model {
                     help_request_answered);
             }
 
-            if (this->help_request_reply_state[player_order] ==
+            if (this->help_request_reply_intervention_state[player_order] ==
                 InterventionState::WATCHED) {
                 // Decrement counter
-                this->help_request_reply_timer[player_order] -= 1;
-                if (this->help_request_reply_timer[player_order] == 0) {
-                    this->help_request_reply_state[player_order] =
+                this->help_request_reply_intervention_timer[player_order] -= 1;
+                if (this->help_request_reply_intervention_timer[player_order] ==
+                    0) {
+                    this->help_request_reply_intervention_state[player_order] =
                         InterventionState::ACTIVE;
 
                     this->custom_logger
@@ -783,21 +832,6 @@ namespace tomcat::model {
 
     void
     ASISTStudy3InterventionEstimator::get_info(nlohmann::json& json) const {
-        // TODO - maybe it is not necessary
-        //            nlohmann::json json_info;
-        //            json_info["name"] = this->get_name();
-        //            if (this->first_mission) {
-        //                json_info["num_encouragements"] = to_string(
-        //                    dynamic_pointer_cast<ASISTStudy3InterventionModel>(
-        //                        this->model)
-        //                        ->get_encouragement_node()
-        //                        ->get_assignment());
-        //            }
-        //            else {
-        //                json_info["encouragement_cdf"] =
-        //                this->encouragement_cdf;
-        //            }
-        //            json.push_back(json_info);
     }
 
     string ASISTStudy3InterventionEstimator::get_name() const { return NAME; }
@@ -837,45 +871,59 @@ namespace tomcat::model {
         return (int)encouragement_node->get_assignment()(0, 0);
     }
 
-    bool ASISTStudy3InterventionEstimator::
-        is_help_request_critical_victim_intervention_active(int player_order) {
-        return this->help_request_critical_victim_state[player_order] ==
+    const Marker& ASISTStudy3InterventionEstimator::get_active_marker(
+        int player_order) const {
+        return *this->active_marker.at(player_order);
+    }
+
+    bool ASISTStudy3InterventionEstimator::is_marker_intervention_active(
+        int player_order) {
+        return this->marker_intervention_state[player_order] ==
                InterventionState::ACTIVE;
     }
 
     bool ASISTStudy3InterventionEstimator::
+        is_help_request_critical_victim_intervention_active(int player_order) {
+        return this->help_request_critical_victim_intervention_state
+                   [player_order] == InterventionState::ACTIVE;
+    }
+
+    bool ASISTStudy3InterventionEstimator::
         is_help_request_room_escape_intervention_active(int player_order) {
-        return this->help_request_room_escape_state[player_order] ==
-               InterventionState::ACTIVE;
+        return this->help_request_room_escape_intervention_state
+                   [player_order] == InterventionState::ACTIVE;
     }
 
     bool
     ASISTStudy3InterventionEstimator::is_help_request_reply_intervention_active(
         int player_order) {
-        return this->help_request_reply_state[player_order] ==
+        return this->help_request_reply_intervention_state[player_order] ==
                InterventionState::ACTIVE;
     }
 
-    void ASISTStudy3InterventionEstimator::clear_active_unspoken_marker(
+    void ASISTStudy3InterventionEstimator::restart_marker_intervention(
         int player_order) {
 
-        if (this->active_markers[player_order] ==
-            this->watched_markers[player_order]) {
-            // Remove if from the last placed marker as well because we
-            // don't want to keep track of it anymore.
-            this->watched_markers[player_order] = Marker();
+        // This is a single-shot intervention. Once delivered to a participant,
+        // it is no longer tracked unless there's a different marker in the
+        // watching list.
+        if (this->watched_marker[player_order]) {
+            this->marker_intervention_state[player_order] =
+                InterventionState::WATCHED;
         }
-
-        this->active_markers[player_order] = Marker();
+        else {
+            this->marker_intervention_state[player_order] =
+                InterventionState::NONE;
+        }
     }
 
     void ASISTStudy3InterventionEstimator::
         restart_help_request_critical_victim_intervention(int player_order) {
         // This is a recurrent intervention. Once delivered to a participant, we
         // keep watching for it until it gets canceled.
-        this->help_request_critical_victim_state[player_order] =
+        this->help_request_critical_victim_intervention_state[player_order] =
             InterventionState::WATCHED;
-        this->help_request_critical_victim_timer[player_order] =
+        this->help_request_critical_victim_intervention_timer[player_order] =
             HELP_REQUEST_LATENCY;
     }
 
@@ -883,9 +931,9 @@ namespace tomcat::model {
         restart_help_request_room_escape_intervention(int player_order) {
         // This is a recurrent intervention. Once delivered to a participant, we
         // keep watching for it until it gets canceled.
-        this->help_request_room_escape_state[player_order] =
+        this->help_request_room_escape_intervention_state[player_order] =
             InterventionState::WATCHED;
-        this->help_request_room_escape_timer[player_order] =
+        this->help_request_room_escape_intervention_timer[player_order] =
             HELP_REQUEST_LATENCY;
     }
 
@@ -894,9 +942,9 @@ namespace tomcat::model {
         int player_order) {
         // This is a recurrent intervention. Once delivered to a participant, we
         // keep watching for it until it gets canceled.
-        this->help_request_reply_state[player_order] =
+        this->help_request_reply_intervention_state[player_order] =
             InterventionState::WATCHED;
-        this->help_request_reply_timer[player_order] =
+        this->help_request_reply_intervention_timer[player_order] =
             HELP_REQUEST_REPLY_LATENCY;
     }
 
@@ -906,11 +954,6 @@ namespace tomcat::model {
 
     int ASISTStudy3InterventionEstimator::get_last_time_step() const {
         return last_time_step;
-    }
-
-    const vector<Marker>&
-    ASISTStudy3InterventionEstimator::get_active_unspoken_markers() const {
-        return active_markers;
     }
 
     //----------------------------------------------------------------------

@@ -324,9 +324,6 @@ namespace tomcat {
 
                     this->players[player.index] = player;
                     this->player_id_to_index[player.id] = player.index;
-
-                    // TODO - remove when the dialog agent fixes the
-                    // inconsistency with the participant_id
                     this->player_id_to_index[(
                         string)info_per_player["playername"]] = player.index;
                 }
@@ -637,7 +634,7 @@ namespace tomcat {
                     for (int z = from_z; z <= to_z; z++) {
                         Position rubble_pos(x, z);
                         this->dynamic_obstacle_to_threat[rubble_pos
-                                                            .to_string()] =
+                                                             .to_string()] =
                             trigger_pos.to_string();
                     }
                 }
@@ -689,7 +686,7 @@ namespace tomcat {
                         // collapsed rubble.
                         const string& threat_id =
                             this->dynamic_obstacle_to_threat[block_pos
-                                                                .to_string()];
+                                                                 .to_string()];
                         if (EXISTS(threat_id, this->active_threat_ids)) {
                             this->dynamic_obstacles_in_fov[player_order] =
                                 threat_id;
@@ -718,7 +715,8 @@ namespace tomcat {
                 if (EXISTS(rubble_pos.to_string(),
                            this->dynamic_obstacle_to_threat)) {
                     this->dynamic_obstacle_being_destroyed =
-                        this->dynamic_obstacle_to_threat[rubble_pos.to_string()];
+                        this->dynamic_obstacle_to_threat[rubble_pos
+                                                             .to_string()];
                 }
             }
         }

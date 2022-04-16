@@ -72,24 +72,30 @@ namespace tomcat {
 
             void log_intervene_on_marker(int time_step, int player_order);
 
-            void log_cancel_communication_marker_intervention(
+            void log_cancel_marker_intervention(
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker,
-                bool speech,
-                bool marker_removal);
+                bool marker_removed,
+                bool marker_mentioned);
 
-            void log_hinder_communication_marker_intervention(
+            void log_hinder_marker_intervention(
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker);
 
-            void log_watch_communication_marker_intervention(
+            void log_watch_marker_intervention(
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& marker);
 
-            void log_activate_communication_marker_intervention(
+            void log_marker_too_close_marker_intervention(
+                int time_step,
+                int player_order,
+                const ASISTStudy3MessageConverter::Marker& new_marker,
+                const ASISTStudy3MessageConverter::Marker& watched_marker);
+
+            void log_activate_marker_intervention(
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& active_marker,
@@ -98,7 +104,7 @@ namespace tomcat {
                 bool marker_placed);
 
             void log_intervene_help_request_critical_victim(int time_step,
-                                                          int player_order);
+                                                            int player_order);
 
             void log_watch_help_request_critical_victim_intervention(
                 int time_step, int player_order);
@@ -115,8 +121,7 @@ namespace tomcat {
                 bool other_players_around);
 
             void log_hinder_help_request_critical_victim_intervention(
-                int time_step,
-                int player_order);
+                int time_step, int player_order);
 
             void
             log_watch_help_request_room_escape_intervention(int time_step,
@@ -143,21 +148,21 @@ namespace tomcat {
                                                            int player_order);
 
             void log_intervene_on_help_request_reply(int time_step,
-                                                  int player_order);
+                                                     int player_order);
 
             void log_watch_help_request_reply_intervention(int time_step,
-                                                        int player_order);
+                                                           int player_order);
 
             void log_activate_help_request_reply_intervention(int time_step,
-                                                           int player_order,
-                                                           int latency);
+                                                              int player_order,
+                                                              int latency);
 
-            void
-            log_cancel_help_request_reply_intervention(int time_step,
-                                                    int assisted_player_order_,
-                                                    int helper_player_order,
-                                                    bool area_changed,
-                                                    bool help_request_answered);
+            void log_cancel_help_request_reply_intervention(
+                int time_step,
+                int assisted_player_order_,
+                int helper_player_order,
+                bool area_changed,
+                bool help_request_answered);
 
             void log_cancel_intervention(int time_step,
                                          const std::string& text);

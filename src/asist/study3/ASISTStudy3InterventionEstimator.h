@@ -68,20 +68,14 @@ namespace tomcat::model {
 
         void set_logger(const OnlineLoggerPtr& logger) override;
 
-        /**
-         * Get the CDF of the number of encouragement utterances identified in
-         * mission 1.
-         *
-         * @return CDF
-         */
         double get_encouragement_cdf() const;
 
-        /**
-         * Get the number of encouragement utterances identified so far.
-         *
-         * @return Number of encouragement utterances
-         */
         int get_num_encouragements() const;
+
+        const ASISTStudy3MessageConverter::Marker&
+        get_active_marker(int player_order) const;
+
+        bool is_marker_intervention_active(int player_order);
 
         bool
         is_help_request_critical_victim_intervention_active(int player_order);
@@ -90,20 +84,8 @@ namespace tomcat::model {
 
         bool is_help_request_reply_intervention_active(int player_order);
 
-        /**
-         * Removes current active unspoken marker from the list.
-         *
-         * @param player_order: index of the player that has an active unspoken
-         * marker
-         */
-        void clear_active_unspoken_marker(int player_order);
+        void restart_marker_intervention(int player_order);
 
-        /**
-         * Inactivates ask-for-help intervention
-         *
-         * @param player_order: index of the player that has an active unspoken
-         * marker
-         */
         void
         restart_help_request_critical_victim_intervention(int player_order);
 
@@ -124,9 +106,6 @@ namespace tomcat::model {
         //------------------------------------------------------------------
 
         int get_last_time_step() const;
-
-        const std::vector<ASISTStudy3MessageConverter::Marker>&
-        get_active_unspoken_markers() const;
 
       protected:
         //------------------------------------------------------------------
@@ -156,7 +135,7 @@ namespace tomcat::model {
         //------------------------------------------------------------------
         static bool did_player_speak_about_marker(
             int player_order,
-            const ASISTStudy3MessageConverter::Marker& unspoken_marker,
+            const ASISTStudy3MessageConverter::Marker& marker,
             int time_step,
             const EvidenceSet& new_data);
 
@@ -165,8 +144,10 @@ namespace tomcat::model {
                                    int time_step,
                                    const EvidenceSet& new_data);
 
-        static ASISTStudy3MessageConverter::Marker get_last_placed_marker(
-            int player_order, int time_step, const EvidenceSet& new_data);
+        static std::shared_ptr<ASISTStudy3MessageConverter::Marker>
+        get_last_placed_marker(int player_order,
+                               int time_step,
+                               const EvidenceSet& new_data);
 
         static bool did_player_interact_with_victim(
             int player_order, int time_step, const EvidenceSet& new_data);
@@ -237,53 +218,31 @@ namespace tomcat::model {
         // Member functions
         //------------------------------------------------------------------
 
-        /**
-         * Initialize containers with the number of trials being estimated.
-         *
-         * @param new_data: evidence
-         */
         void initialize_containers(const EvidenceSet& new_data);
 
         void update_communication(int player_order,
                                   int time_step,
                                   const EvidenceSet& new_data);
 
-        /**
-         * Estimate if team is motivated.
-         *
-         * @param new_data: evidence
-         */
-        void estimate_motivation(int time_step, const EvidenceSet& new_data);
+        void estimate_motivation_intervention(int time_step,
+                                              const EvidenceSet& new_data);
 
-        /**
-         * Estimate if players placed markers and did not talk about it.
-         *
-         * @param new_data: evidence
-         */
-        void estimate_communication_marker(int player_order,
-                                           int time_step,
-                                           const EvidenceSet& new_data);
+        void estimate_marker_intervention(int player_order,
+                                          int time_step,
+                                          const EvidenceSet& new_data);
 
-        /**
-         * Estimate if players ask for help when they need it.
-         *
-         * @param new_data: evidence
-         */
-        void estimate_help_request(int player_order,
-                                   int time_step,
-                                   const EvidenceSet& new_data);
+        void estimate_help_request_intervention(int player_order,
+                                                int time_step,
+                                                const EvidenceSet& new_data);
 
-        void estimate_help_request_critical_victim(int player_order,
-                                                   int time_step,
-                                                   const EvidenceSet& new_data);
+        void estimate_help_request_critical_victim_intervention(
+            int player_order, int time_step, const EvidenceSet& new_data);
 
-        void estimate_help_request_room_escape(int player_order,
-                                               int time_step,
-                                               const EvidenceSet& new_data);
+        void estimate_help_request_room_escape_intervention(
+            int player_order, int time_step, const EvidenceSet& new_data);
 
-        void estimate_help_request_reply(int player_order,
-                                      int time_step,
-                                      const EvidenceSet& new_data);
+        void estimate_help_request_reply_intervention(
+            int player_order, int time_step, const EvidenceSet& new_data);
 
         //------------------------------------------------------------------
         // Data members
@@ -296,19 +255,23 @@ namespace tomcat::model {
         int last_time_step = -1;
         bool first_mission = true;
 
-        std::vector<ASISTStudy3MessageConverter::Marker> watched_markers;
-        std::vector<ASISTStudy3MessageConverter::Marker> active_markers;
-
         // Variables to keep track of the state machine
-        std::vector<InterventionState> help_request_critical_victim_state;
-        std::vector<int> help_request_critical_victim_timer;
-        std::vector<InterventionState> help_request_room_escape_state;
-        std::vector<int> help_request_room_escape_timer;
-        std::vector<InterventionState> help_request_reply_state;
-        std::vector<int> help_request_reply_timer;
+        std::vector<InterventionState> marker_intervention_state;
+        std::vector<InterventionState>
+            help_request_critical_victim_intervention_state;
+        std::vector<int> help_request_critical_victim_intervention_timer;
+        std::vector<InterventionState>
+            help_request_room_escape_intervention_state;
+        std::vector<int> help_request_room_escape_intervention_timer;
+        std::vector<InterventionState> help_request_reply_intervention_state;
+        std::vector<int> help_request_reply_intervention_timer;
 
         // Variables to keep track of information that needs to persist beyond a
-        // time step
+        // time step. One entry per player in the vectors below.
+        std::vector<std::shared_ptr<ASISTStudy3MessageConverter::Marker>>
+            watched_marker;
+        std::vector<std::shared_ptr<ASISTStudy3MessageConverter::Marker>>
+            active_marker;
         std::vector<std::unordered_set<ASISTStudy3MessageConverter::MarkerType>>
             mentioned_marker_types;
         std::vector<bool> recently_mentioned_critical_victim;

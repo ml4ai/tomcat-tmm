@@ -114,47 +114,44 @@ namespace tomcat {
             int time_step, int player_order) {
 
             string text =
-                fmt::format("Communication-marker intervention for player {}.",
+                fmt::format("Marker-block intervention for player {}.",
                             PLAYER_ORDER_TO_COLOR.at(player_order));
             this->log_trigger_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::
-            log_cancel_communication_marker_intervention(
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& marker,
-                bool speech,
-                bool marker_removal) {
+        void ASISTStudy3InterventionLogger::log_cancel_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker,
+            bool marker_removed,
+            bool marker_mentioned) {
 
             string text;
 
-            if (speech) {
-                text = fmt::format(
-                    "{} spoke about {}. ",
-                    PLAYER_ORDER_TO_COLOR.at(player_order),
-                    ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
-                        marker.type));
-            }
-            if (marker_removal) {
+            if (marker_removed) {
                 text += fmt::format(
                     "{} removed {} marker. ",
                     PLAYER_ORDER_TO_COLOR.at(player_order),
                     ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
                         marker.type));
             }
+            if (marker_mentioned) {
+                text = fmt::format(
+                    "{} spoke about {}. ",
+                    PLAYER_ORDER_TO_COLOR.at(player_order),
+                    ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                        marker.type));
+            }
 
-            text = fmt::format("{}Canceling communication marker intervention.",
-                               text);
+            text = fmt::format("{}Canceling marker intervention.", text);
 
             this->log_cancel_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::
-            log_hinder_communication_marker_intervention(
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& marker) {
+        void ASISTStudy3InterventionLogger::log_hinder_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker) {
 
             string text =
                 fmt::format("{} placed {} marker but spoke about it recently. "
@@ -166,11 +163,10 @@ namespace tomcat {
             this->log(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::
-            log_watch_communication_marker_intervention(
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& marker) {
+        void ASISTStudy3InterventionLogger::log_watch_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker) {
 
             string text =
                 fmt::format("{} placed {} marker.",
@@ -180,14 +176,35 @@ namespace tomcat {
             this->log_watch_intervention(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::
-            log_activate_communication_marker_intervention(
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& active_marker,
-                bool changed_area,
-                bool victim_interaction,
-                bool marker_placed) {
+        void
+        ASISTStudy3InterventionLogger::log_marker_too_close_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& new_marker,
+            const ASISTStudy3MessageConverter::Marker& watched_marker) {
+
+            const string& player_color = PLAYER_ORDER_TO_COLOR.at(player_order);
+            const string& new_type =
+                ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                    new_marker.type);
+            const string& watched_type =
+                ASISTStudy3MessageConverter::MARKER_TYPE_TO_TEXT.at(
+                    watched_marker.type);
+            string text = fmt::format(
+                "{} placed a {} marker too close to the currently watched {} "
+                "marker. No need to activate the intervention.",
+                player_color,
+                new_type,
+                watched_type);
+        }
+
+        void ASISTStudy3InterventionLogger::log_activate_marker_intervention(
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& active_marker,
+            bool changed_area,
+            bool victim_interaction,
+            bool marker_placed) {
 
             string text;
             const string& player_color = PLAYER_ORDER_TO_COLOR.at(player_order);

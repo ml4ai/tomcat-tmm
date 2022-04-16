@@ -59,7 +59,6 @@ namespace tomcat {
             };
 
             enum MarkerType {
-                NONE,
                 NO_VICTIM,
                 VICTIM_A,
                 VICTIM_B,
@@ -132,10 +131,6 @@ namespace tomcat {
                 ASISTStudy3MessageConverter::MarkerType type;
                 Position position;
 
-                Marker()
-                    : type(ASISTStudy3MessageConverter::MarkerType::NONE),
-                      position(Position()) {}
-
                 Marker(ASISTStudy3MessageConverter::MarkerType type,
                        const Position& position)
                     : type(type), position(position) {}
@@ -146,24 +141,20 @@ namespace tomcat {
                     this->position = Position(serialized_marker["position"]);
                 }
 
-                bool is_none() const {
-                    return this->type ==
-                           ASISTStudy3MessageConverter::MarkerType::NONE;
-                }
-
                 nlohmann::json serialize() const {
                     nlohmann::json json_marker;
-                    if (!this->is_none()) {
-                        json_marker["type"] =
-                            MARKER_TYPE_TO_TEXT.at(this->type);
-                        json_marker["position"] = this->position.serialize();
-                    }
+                    json_marker["type"] = MARKER_TYPE_TO_TEXT.at(this->type);
+                    json_marker["position"] = this->position.serialize();
                     return json_marker;
                 }
 
                 bool operator==(const Marker& marker) const {
                     return marker.position == this->position and
                            marker.type == this->type;
+                }
+
+                double distance_to(const Marker& other_marker) const {
+                    return this->position.distance_to(other_marker.position);
                 }
             };
 
