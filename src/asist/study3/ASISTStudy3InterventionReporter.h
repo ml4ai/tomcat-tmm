@@ -250,7 +250,7 @@ namespace tomcat {
              * @return: json intervention message
              */
             nlohmann::json
-            get_ask_for_help_critical_victim_intervention_message(
+            get_help_request_critical_victim_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             /**

@@ -573,7 +573,7 @@ namespace tomcat::model {
                 if (recent_mention_to_help ||
                     recent_mention_to_critical_victim) {
                     this->custom_logger
-                        ->log_hinder_ask_for_help_critical_victim_intervention(
+                        ->log_hinder_help_request_critical_victim_intervention(
                             this->last_time_step + time_step + 1, player_order);
                 }
                 else {
@@ -583,7 +583,7 @@ namespace tomcat::model {
                         HELP_REQUEST_LATENCY;
 
                     this->custom_logger
-                        ->log_watch_ask_for_help_critical_victim_intervention(
+                        ->log_watch_help_request_critical_victim_intervention(
                             this->last_time_step + time_step + 1, player_order);
                 }
             }
@@ -606,7 +606,7 @@ namespace tomcat::model {
                     InterventionState::NONE;
 
                 this->custom_logger
-                    ->log_cancel_ask_for_help_critical_victim_intervention(
+                    ->log_cancel_help_request_critical_victim_intervention(
                         this->last_time_step + time_step + 1,
                         player_order,
                         changed_area,
@@ -625,7 +625,7 @@ namespace tomcat::model {
                         InterventionState::ACTIVE;
 
                     this->custom_logger
-                        ->log_activate_ask_for_help_critical_victim_intervention(
+                        ->log_activate_help_request_critical_victim_intervention(
                             this->last_time_step + time_step + 1,
                             player_order,
                             HELP_REQUEST_LATENCY);

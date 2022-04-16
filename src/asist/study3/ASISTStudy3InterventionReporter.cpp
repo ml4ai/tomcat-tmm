@@ -324,7 +324,7 @@ namespace tomcat {
                         ->is_help_request_critical_victim_intervention_active(
                             player_order)) {
                     auto intervention_msg =
-                        this->get_ask_for_help_critical_victim_intervention_message(
+                        this->get_help_request_critical_victim_intervention_message(
                             agent, time_step, player_order);
 
                     messages.push_back(intervention_msg);
@@ -333,7 +333,7 @@ namespace tomcat {
                         ->restart_help_request_critical_victim_intervention(
                             player_order);
                     this->custom_logger
-                        ->log_intervene_on_ask_for_help_critical_victim(
+                        ->log_intervene_help_request_critical_victim(
                             time_step, player_order);
                 }
                 if (estimator->is_help_request_room_escape_intervention_active(
@@ -438,7 +438,7 @@ namespace tomcat {
         }
 
         nlohmann::json ASISTStudy3InterventionReporter::
-            get_ask_for_help_critical_victim_intervention_message(
+            get_help_request_critical_victim_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const {
 
             string player_color = player_order_to_color(player_order);
@@ -450,7 +450,7 @@ namespace tomcat {
                     agent,
                     time_step,
                     receivers,
-                    "ask_for_help_critical_victim");
+                    "help_request_critical_victim");
 
             intervention_message["data"]["content"] = fmt::format(
                 (string)intervention_message["data"]["content"], player_color);

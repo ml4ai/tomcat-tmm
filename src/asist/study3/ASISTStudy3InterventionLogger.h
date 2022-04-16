@@ -93,29 +93,28 @@ namespace tomcat {
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& active_marker,
-                bool area_changed,
+                bool changed_area,
                 bool victim_interaction,
                 bool marker_placed);
 
-            void
-            log_intervene_on_ask_for_help_critical_victim(int time_step,
+            void log_intervene_help_request_critical_victim(int time_step,
                                                           int player_order);
 
-            void log_watch_ask_for_help_critical_victim_intervention(
+            void log_watch_help_request_critical_victim_intervention(
                 int time_step, int player_order);
 
-            void log_activate_ask_for_help_critical_victim_intervention(
+            void log_activate_help_request_critical_victim_intervention(
                 int time_step, int player_order, int latency);
 
-            void log_cancel_ask_for_help_critical_victim_intervention(
+            void log_cancel_help_request_critical_victim_intervention(
                 int time_step,
                 int player_order,
-                bool area_changed,
+                bool changed_area,
                 bool help_requested,
                 bool mention_to_critical_victim,
                 bool other_players_around);
 
-            void log_hinder_ask_for_help_critical_victim_intervention(
+            void log_hinder_help_request_critical_victim_intervention(
                 int time_step,
                 int player_order);
 

@@ -185,13 +185,13 @@ namespace tomcat {
                 int time_step,
                 int player_order,
                 const ASISTStudy3MessageConverter::Marker& active_marker,
-                bool area_changed,
+                bool changed_area,
                 bool victim_interaction,
                 bool marker_placed) {
 
             string text;
             const string& player_color = PLAYER_ORDER_TO_COLOR.at(player_order);
-            if (area_changed) {
+            if (changed_area) {
                 text = fmt::format("{} changed area. ", player_color);
             }
             if (victim_interaction) {
@@ -212,17 +212,17 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionLogger::
-            log_intervene_on_ask_for_help_critical_victim(int time_step,
+            log_intervene_help_request_critical_victim(int time_step,
                                                           int player_order) {
 
             string text = fmt::format(
-                "Ask-for-help (critical_victim) intervention for player {}.",
+                "Help-request-critical-victim intervention for player {}.",
                 PLAYER_ORDER_TO_COLOR.at(player_order));
             this->log_trigger_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
-            log_watch_ask_for_help_critical_victim_intervention(
+            log_watch_help_request_critical_victim_intervention(
                 int time_step, int player_order) {
 
             string text = fmt::format("{} needs help to wake critical victim.",
@@ -231,7 +231,7 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionLogger::
-            log_activate_ask_for_help_critical_victim_intervention(
+            log_activate_help_request_critical_victim_intervention(
                 int time_step, int player_order, int latency) {
 
             string text =
@@ -243,16 +243,16 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionLogger::
-            log_cancel_ask_for_help_critical_victim_intervention(
+            log_cancel_help_request_critical_victim_intervention(
                 int time_step,
                 int player_order,
-                bool area_changed,
+                bool changed_area,
                 bool help_requested,
                 bool mention_to_critical_victim,
                 bool other_players_around) {
             string text;
 
-            if (area_changed) {
+            if (changed_area) {
                 text = fmt::format("{} changed area. ",
                             PLAYER_ORDER_TO_COLOR.at(player_order));
             }
@@ -271,14 +271,14 @@ namespace tomcat {
             }
 
             text = fmt::format(
-                "{}Canceling ask-for-help (critical victim) intervention.",
+                "{}Canceling help-request-critical-victim intervention.",
                 text);
 
             this->log_cancel_intervention(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::
-            log_hinder_ask_for_help_critical_victim_intervention(
+            log_hinder_help_request_critical_victim_intervention(
                 int time_step, int player_order) {
 
             string text = fmt::format(
