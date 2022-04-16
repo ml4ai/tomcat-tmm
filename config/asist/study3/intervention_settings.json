@@ -1,0 +1,32 @@
+{
+  "introduction_time_step": 10,
+  "motivation_time_step": 15,
+  "motivation_min_percentile": 50,
+  "missions_to_intervene": [
+    1,
+    2
+  ],
+  "prompts": {
+    "introduction": "Hi, Team. I am ToMCAT. I will assist you in this mission. Good luck and team up!",
+    "motivation": "Team, I suggest you encourage each other more during the mission to keep the energy up.",
+    "marker_block": "{}, let your teammates know about the {} marker you recently placed.",
+    "help_request_critical_victim": "{}, it seems you need some help to rescue a critical victim. Ask your teammates for assistance.",
+    "help_request_room_escape": "{}, it seems you need some help to exit this room. Ask your teammates for assistance.",
+    "help_request_reply": "{}, it's been a while since you asked for help. Remind your teammates."
+  },
+  "explanations": {
+    "introduction": "This intervention was triggered to ensure the team knows about the agent's existence and goals.",
+    "motivation": "This intervention was triggered because the team members did not encourage each other enough in the first mission. p = {}.",
+    "marker_block": "This intervention was triggered because a player placed a marker and did not talk about that to the team. The team might not realize a new object showed up on their maps if they are not informed whenever that happens.",
+    "help_request_critical_victim": "This intervention was triggered because the player is in need of assistance to wake a critical victim for more than {} seconds but did not ask for help. The agent detects that players need assistance when they see critical victims in the vicinity and no other player is around.",
+    "help_request_room_escape": "This intervention was triggered because the player is in need of assistance to exit a threat room for more than {} seconds but did not ask for help. The agent detects that players need assistance when they are notice they are trapped inside a room.",
+    "help_request_reply": "This intervention was triggered because the player asked for help and did not get an answer for more than {} seconds."
+  },
+  "activations": {
+    "introduction": true,
+    "motivation": true,
+    "marker_block": true,
+    "help_request": true,
+    "help_request_reply": true
+  }
+}

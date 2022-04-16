@@ -14,4 +14,4 @@ services:
           - uaz_tmm_agent
     entrypoint: ["bash", "entrypoint.sh"]
     volumes:
-      - ./data/asist/study3_intervention1:/tomcat-tmm/data/asist/study3_intervention1/logs
+      - ./data/asist/study3:/tomcat-tmm/data/asist/study3/logs

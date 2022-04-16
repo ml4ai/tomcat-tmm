@@ -1,0 +1,20 @@
+{
+  "agent": {
+    "id": "ASI_UAZ_TA1_ToMCAT",
+    "version": "3.5.4",
+    "model": {
+      "type": "custom",
+      "name": "asist_study3_intervention_model",
+      "filename": "model_settings.json"
+    },
+    "ignored_observations": [
+    ],
+    "estimators": [
+      {
+        "type": "custom",
+        "name": "asist_study3_intervention_estimator",
+        "settings": {}
+      }
+    ]
+  }
+}

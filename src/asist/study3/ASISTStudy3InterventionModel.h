@@ -98,6 +98,7 @@ namespace tomcat {
             //------------------------------------------------------------------
             // Data member
             //------------------------------------------------------------------
+            double mean_encouragement;
             std::shared_ptr<RandomVariableNode> encouragement_node;
         };
 
