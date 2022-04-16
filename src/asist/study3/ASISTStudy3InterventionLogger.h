@@ -142,18 +142,18 @@ namespace tomcat {
             void log_intervene_on_help_request_room_escape(int time_step,
                                                            int player_order);
 
-            void log_intervene_on_help_on_the_way(int time_step,
+            void log_intervene_on_help_request_reply(int time_step,
                                                   int player_order);
 
-            void log_watch_help_on_the_way_intervention(int time_step,
+            void log_watch_help_request_reply_intervention(int time_step,
                                                         int player_order);
 
-            void log_activate_help_on_the_way_intervention(int time_step,
+            void log_activate_help_request_reply_intervention(int time_step,
                                                            int player_order,
                                                            int latency);
 
             void
-            log_cancel_help_on_the_way_intervention(int time_step,
+            log_cancel_help_request_reply_intervention(int time_step,
                                                     int assisted_player_order_,
                                                     int helper_player_order,
                                                     bool area_changed,

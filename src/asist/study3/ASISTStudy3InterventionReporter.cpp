@@ -159,7 +159,7 @@ namespace tomcat {
                 if (this->introduced) {
                     this->intervene_on_communication_marker(agent, t, messages);
                     this->intervene_on_help_request(agent, t, messages);
-                    this->intervene_on_help_on_the_way(agent, t, messages);
+                    this->intervene_on_help_request_reply(agent, t, messages);
                 }
             }
 
@@ -353,15 +353,16 @@ namespace tomcat {
             }
         }
 
-        void ASISTStudy3InterventionReporter::intervene_on_help_on_the_way(
+        void ASISTStudy3InterventionReporter::intervene_on_help_request_reply(
             const AgentPtr& agent,
             int time_step,
             vector<nlohmann::json>& messages) {
 
             check_field(this->json_settings, "activations");
-            check_field(this->json_settings["activations"], "help_on_the_way");
+            check_field(this->json_settings["activations"],
+                        "help_request_reply");
 
-            if (!this->json_settings["activations"]["help_on_the_way"]) {
+            if (!this->json_settings["activations"]["help_request_reply"]) {
                 return;
             }
 
@@ -369,18 +370,18 @@ namespace tomcat {
                 dynamic_pointer_cast<ASISTStudy3InterventionEstimator>(
                     agent->get_estimators()[0]);
 
-            const auto& no_help_on_the_way =
-                estimator->get_active_no_help_on_the_way();
             for (int player_order = 0; player_order < 3; player_order++) {
-                if (no_help_on_the_way.at(player_order)) {
+                if (estimator->is_help_request_reply_intervention_active(
+                        player_order)) {
                     auto intervention_msg =
-                        this->get_help_on_the_way_intervention_message(
+                        this->get_help_request_reply_intervention_message(
                             agent, time_step, player_order);
 
                     messages.push_back(intervention_msg);
 
-                    estimator->clear_active_no_help_on_the_way(player_order);
-                    this->custom_logger->log_intervene_on_help_on_the_way(
+                    estimator->restart_help_request_reply_intervention(
+                        player_order);
+                    this->custom_logger->log_intervene_on_help_request_reply(
                         time_step, player_order);
                 }
             }
@@ -483,9 +484,8 @@ namespace tomcat {
         }
 
         nlohmann::json ASISTStudy3InterventionReporter::
-            get_help_on_the_way_intervention_message(const AgentPtr& agent,
-                                                     int time_step,
-                                                     int player_order) const {
+            get_help_request_reply_intervention_message(
+                const AgentPtr& agent, int time_step, int player_order) const {
 
             string player_color = player_order_to_color(player_order);
             nlohmann::json receivers = nlohmann::json::array();
@@ -493,13 +493,13 @@ namespace tomcat {
 
             nlohmann::json intervention_message =
                 this->get_template_intervention_message(
-                    agent, time_step, receivers, "help_on_the_way");
+                    agent, time_step, receivers, "help_request_reply");
 
             intervention_message["data"]["content"] = fmt::format(
                 (string)intervention_message["data"]["content"], player_color);
             intervention_message["data"]["explanation"]["info"] = fmt::format(
                 (string)intervention_message["data"]["explanation"]["info"],
-                ASISTStudy3InterventionEstimator::HELP_ON_THE_WAY_LATENCY);
+                ASISTStudy3InterventionEstimator::HELP_REQUEST_REPLY_LATENCY);
 
             return intervention_message;
         }

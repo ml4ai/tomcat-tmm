@@ -27,7 +27,7 @@ namespace tomcat::model {
         //------------------------------------------------------------------
         inline static const int VICINITY_MAX_RADIUS = 5;
         inline static const int HELP_REQUEST_LATENCY = 10;
-        inline static const int HELP_ON_THE_WAY_LATENCY = 10;
+        inline static const int HELP_REQUEST_REPLY_LATENCY = 10;
 
         inline static const std::string NAME =
             "asist_study3_intervention_estimator";
@@ -88,6 +88,8 @@ namespace tomcat::model {
 
         bool is_help_request_room_escape_intervention_active(int player_order);
 
+        bool is_help_request_reply_intervention_active(int player_order);
+
         /**
          * Removes current active unspoken marker from the list.
          *
@@ -107,7 +109,7 @@ namespace tomcat::model {
 
         void restart_help_request_room_escape_intervention(int player_order);
 
-        void clear_active_no_help_on_the_way(int player_order);
+        void restart_help_request_reply_intervention(int player_order);
 
         //------------------------------------------------------------------
         // Getters & Setters
@@ -125,8 +127,6 @@ namespace tomcat::model {
 
         const std::vector<ASISTStudy3MessageConverter::Marker>&
         get_active_unspoken_markers() const;
-
-        const std::vector<bool>& get_active_no_help_on_the_way() const;
 
       protected:
         //------------------------------------------------------------------
@@ -281,7 +281,7 @@ namespace tomcat::model {
                                                int time_step,
                                                const EvidenceSet& new_data);
 
-        void estimate_help_on_the_way(int player_order,
+        void estimate_help_request_reply(int player_order,
                                       int time_step,
                                       const EvidenceSet& new_data);
 
@@ -298,19 +298,19 @@ namespace tomcat::model {
 
         std::vector<ASISTStudy3MessageConverter::Marker> watched_markers;
         std::vector<ASISTStudy3MessageConverter::Marker> active_markers;
-        std::vector<int> watched_no_help_on_the_way;
-        std::vector<bool> active_no_help_on_the_way;
-        std::vector<std::unordered_set<ASISTStudy3MessageConverter::MarkerType>>
-            mentioned_marker_types;
 
         // Variables to keep track of the state machine
         std::vector<InterventionState> help_request_critical_victim_state;
         std::vector<int> help_request_critical_victim_timer;
         std::vector<InterventionState> help_request_room_escape_state;
         std::vector<int> help_request_room_escape_timer;
+        std::vector<InterventionState> help_request_reply_state;
+        std::vector<int> help_request_reply_timer;
 
         // Variables to keep track of information that needs to persist beyond a
         // time step
+        std::vector<std::unordered_set<ASISTStudy3MessageConverter::MarkerType>>
+            mentioned_marker_types;
         std::vector<bool> recently_mentioned_critical_victim;
         std::vector<bool> recently_mentioned_help_request;
         std::vector<std::string> latest_active_threat_id;

@@ -192,7 +192,7 @@ namespace tomcat {
              * @param messages: list of intervention messages in the time step
              */
             void
-            intervene_on_help_on_the_way(const AgentPtr& agent,
+            intervene_on_help_request_reply(const AgentPtr& agent,
                                          int time_step,
                                          std::vector<nlohmann::json>& messages);
 
@@ -267,7 +267,7 @@ namespace tomcat {
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             /**
-             * Assembles help-on-the-way intervention.
+             * Assembles help-request-reply intervention.
              *
              * @param agent: ASI
              * @param time_step: time step at which the message is being
@@ -276,7 +276,7 @@ namespace tomcat {
              *
              * @return: json intervention message
              */
-            nlohmann::json get_help_on_the_way_intervention_message(
+            nlohmann::json get_help_request_reply_intervention_message(
                 const AgentPtr& agent, int time_step, int player_order) const;
 
             //------------------------------------------------------------------

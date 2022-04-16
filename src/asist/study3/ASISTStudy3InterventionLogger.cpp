@@ -213,7 +213,7 @@ namespace tomcat {
 
         void ASISTStudy3InterventionLogger::
             log_intervene_help_request_critical_victim(int time_step,
-                                                          int player_order) {
+                                                       int player_order) {
 
             string text = fmt::format(
                 "Help-request-critical-victim intervention for player {}.",
@@ -254,7 +254,7 @@ namespace tomcat {
 
             if (changed_area) {
                 text = fmt::format("{} changed area. ",
-                            PLAYER_ORDER_TO_COLOR.at(player_order));
+                                   PLAYER_ORDER_TO_COLOR.at(player_order));
             }
             if (help_requested) {
                 text += fmt::format("{} asked for help. ",
@@ -271,8 +271,7 @@ namespace tomcat {
             }
 
             text = fmt::format(
-                "{}Canceling help-request-critical-victim intervention.",
-                text);
+                "{}Canceling help-request-critical-victim intervention.", text);
 
             this->log_cancel_intervention(time_step, text);
         }
@@ -377,18 +376,18 @@ namespace tomcat {
             this->log(time_step, text);
         }
 
-        void ASISTStudy3InterventionLogger::log_intervene_on_help_on_the_way(
+        void ASISTStudy3InterventionLogger::log_intervene_on_help_request_reply(
             int time_step, int player_order) {
 
             string text =
-                fmt::format("Help-on-the-way intervention for player {}.",
+                fmt::format("Help-request-reply intervention for player {}.",
                             PLAYER_ORDER_TO_COLOR.at(player_order));
             this->log_trigger_intervention(time_step, text);
         }
 
-        void
-        ASISTStudy3InterventionLogger::log_watch_help_on_the_way_intervention(
-            int time_step, int player_order) {
+        void ASISTStudy3InterventionLogger::
+            log_watch_help_request_reply_intervention(int time_step,
+                                                      int player_order) {
 
             string text = fmt::format("{} asked for help.",
                                       PLAYER_ORDER_TO_COLOR.at(player_order));
@@ -396,9 +395,9 @@ namespace tomcat {
         }
 
         void ASISTStudy3InterventionLogger::
-            log_activate_help_on_the_way_intervention(int time_step,
-                                                      int player_order,
-                                                      int latency) {
+            log_activate_help_request_reply_intervention(int time_step,
+                                                         int player_order,
+                                                         int latency) {
 
             string text = fmt::format("{} asked for help but no one "
                                       "replied in the last {} seconds.",
@@ -407,13 +406,13 @@ namespace tomcat {
             this->log_activate_intervention(time_step, text);
         }
 
-        void
-        ASISTStudy3InterventionLogger::log_cancel_help_on_the_way_intervention(
-            int time_step,
-            int assisted_player_order_,
-            int helper_player_order,
-            bool changed_area,
-            bool help_request_answered) {
+        void ASISTStudy3InterventionLogger::
+            log_cancel_help_request_reply_intervention(
+                int time_step,
+                int assisted_player_order_,
+                int helper_player_order,
+                bool changed_area,
+                bool help_request_answered) {
             string text;
 
             if (changed_area) {
@@ -428,8 +427,8 @@ namespace tomcat {
                     PLAYER_ORDER_TO_COLOR.at(assisted_player_order_));
             }
 
-            text =
-                fmt::format("{}Canceling help-on-the-way intervention.", text);
+            text = fmt::format("{}Canceling help-request-reply intervention.",
+                               text);
 
             this->log_cancel_intervention(time_step, text);
         }
