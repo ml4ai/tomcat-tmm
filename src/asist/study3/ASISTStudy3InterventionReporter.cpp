@@ -68,7 +68,6 @@ namespace tomcat {
             json_data["type"] = "string";
             json_data["renderers"] = nlohmann::json::array();
             json_data["renderers"].push_back("Minecraft_Chat");
-            json_data["source"] = agent->get_id();
             message["data"] = json_data;
         }
 
