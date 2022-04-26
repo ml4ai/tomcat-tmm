@@ -11,6 +11,7 @@
 !/tools
 !/test
 !/entrypoint.sh
+!/config
 
 # Ignore unnecessary files inside allowed directories
 # This should go after the allowed directories
