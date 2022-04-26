@@ -207,7 +207,7 @@ namespace tomcat {
 
             if (!this->json_settings["activations"]["introduction"] ||
                 mission_order > 1) {
-                // The agent only intervenes in the first mission
+                // The agent only introduces itself in the first mission
                 this->introduced = true;
                 return;
             }
