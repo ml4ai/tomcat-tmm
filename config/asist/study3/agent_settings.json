@@ -1,7 +1,7 @@
 {
   "agent": {
     "id": "ASI_UAZ_TA1_ToMCAT",
-    "version": "3.5.4",
+    "version": "3.5.6",
     "model": {
       "type": "custom",
       "name": "asist_study3_intervention_model",

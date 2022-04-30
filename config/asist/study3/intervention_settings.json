@@ -24,7 +24,7 @@
   },
   "activations": {
     "introduction": true,
-    "motivation": true,
+    "motivation": false,
     "marker_block": true,
     "help_request": true,
     "help_request_reply": true

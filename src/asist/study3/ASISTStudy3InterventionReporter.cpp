@@ -202,7 +202,12 @@ namespace tomcat {
             check_field(this->json_settings, "introduction_time_step");
             check_field(this->json_settings["activations"], "introduction");
 
-            if (!this->json_settings["activations"]["introduction"]) {
+            int mission_order =
+                agent->get_evidence_metadata()[0]["mission_order"];
+
+            if (!this->json_settings["activations"]["introduction"] ||
+                mission_order > 1) {
+                // The agent only introduces itself in the first mission
                 this->introduced = true;
                 return;
             }
@@ -268,8 +273,7 @@ namespace tomcat {
             vector<nlohmann::json>& messages) {
 
             check_field(this->json_settings, "activations");
-            check_field(this->json_settings["activations"],
-                        "marker_block");
+            check_field(this->json_settings["activations"], "marker_block");
 
             if (!this->json_settings["activations"]["marker_block"]) {
                 return;
@@ -406,11 +410,12 @@ namespace tomcat {
             return intervention_message;
         }
 
-        nlohmann::json ASISTStudy3InterventionReporter::get_marker_intervention_message(
-                const AgentPtr& agent,
-                int time_step,
-                int player_order,
-                const ASISTStudy3MessageConverter::Marker& marker) const {
+        nlohmann::json
+        ASISTStudy3InterventionReporter::get_marker_intervention_message(
+            const AgentPtr& agent,
+            int time_step,
+            int player_order,
+            const ASISTStudy3MessageConverter::Marker& marker) const {
 
             string player_color = player_order_to_color(player_order);
             nlohmann::json receivers = nlohmann::json::array();

@@ -39,6 +39,15 @@ namespace tomcat {
             this->log_file << "Activate\t";
             this->log_file << "Intervene\t";
             this->log_file << "\n";
+
+            cout << "Timestamp\t";
+            cout << "Mission Timer\t";
+            cout << "Text\t";
+            cout << "Watch\t";
+            cout << "Cancel\t";
+            cout << "Activate\t";
+            cout << "Intervene\t";
+            cout << "\n";
         }
 
         void ASISTStudy3InterventionLogger::log(const string& text) {
@@ -50,6 +59,8 @@ namespace tomcat {
             this->log_common_info("", text);
             this->log_file << "\n";
             this->log_file.flush();
+
+            cout << "\n";
         }
 
         void ASISTStudy3InterventionLogger::log_first_evidence_set(
@@ -196,6 +207,8 @@ namespace tomcat {
                 player_color,
                 new_type,
                 watched_type);
+
+            this->log(time_step, text);
         }
 
         void ASISTStudy3InterventionLogger::log_activate_marker_intervention(
@@ -457,6 +470,9 @@ namespace tomcat {
             this->log_file << "X\t";
             this->log_file << "\n";
             this->log_file.flush();
+
+            cout << "X\t";
+            cout << "\n";
         }
 
         void ASISTStudy3InterventionLogger::log_cancel_intervention(
@@ -467,6 +483,10 @@ namespace tomcat {
             this->log_file << "X\t"; // cancel
             this->log_file << "\n";
             this->log_file.flush();
+
+            cout << "\t";  // watch
+            cout << "X\t"; // cancel
+            cout << "\n";
         }
 
         void ASISTStudy3InterventionLogger::log_activate_intervention(
@@ -477,6 +497,10 @@ namespace tomcat {
             this->log_file << "X";    // activate
             this->log_file << "\n";
             this->log_file.flush();
+
+            cout << "\t\t"; // watch and cancel
+            cout << "X";    // activate
+            cout << "\n";
         }
 
         void ASISTStudy3InterventionLogger::log_trigger_intervention(
@@ -487,6 +511,10 @@ namespace tomcat {
             this->log_file << "X";      // intervene
             this->log_file << "\n";
             this->log_file.flush();
+
+            cout << "\t\t\t"; // watch, cancel, activate
+            cout << "X";      // intervene
+            cout << "\n";
         }
 
         void ASISTStudy3InterventionLogger::log(int time_step,
@@ -495,13 +523,21 @@ namespace tomcat {
                                   boost::trim_copy(text));
             this->log_file << "\n";
             this->log_file.flush();
+
+            cout << "\n";
         }
 
         void ASISTStudy3InterventionLogger::log_common_info(
             const string& mission_timer, const string& text) {
-            this->log_file << Timer::get_current_timestamp() << "\t";
+            string timestamp = Timer::get_current_timestamp();
+
+            this->log_file << timestamp << "\t";
             this->log_file << mission_timer << "\t";
             this->log_file << text << "\t";
+
+            cout << timestamp << "\t";
+            cout << mission_timer << "\t";
+            cout << text << "\t";
         }
 
         std::string ASISTStudy3InterventionLogger::time_step_to_mission_timer(

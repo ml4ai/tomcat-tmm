@@ -1,5 +1,5 @@
 {
-  "address": "localhost",
+  "address": "mosquitto",
   "port": 1883,
   "estimates_topic": "agent/intervention/ASI_UAZ_TA1_ToMCAT/chat",
   "log_topic": "",

@@ -89,3 +89,4 @@ __pycache__
 
 # Preventing people from accidentally committing ASIST human subjects data to the repo.
 HSR*
+deploy_to_gitlab
