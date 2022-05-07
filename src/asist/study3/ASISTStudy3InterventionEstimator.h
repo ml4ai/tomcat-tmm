@@ -168,9 +168,8 @@ namespace tomcat::model {
                                            int time_step,
                                            const EvidenceSet& new_data);
 
-        static bool did_player_remove_marker(
+        static bool did_any_player_remove_marker(
             const ASISTStudy3MessageConverter::Marker& marker,
-            int player_order,
             int time_step,
             const EvidenceSet& new_data);
 
@@ -209,8 +208,7 @@ namespace tomcat::model {
                                            int time_step,
                                            const EvidenceSet& new_data);
 
-        static bool is_player_being_released(int player_order,
-                                             int time_step,
+        static bool is_player_being_released(int time_step,
                                              const EvidenceSet& new_data,
                                              const std::string& threat_id);
 

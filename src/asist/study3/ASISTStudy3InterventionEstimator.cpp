@@ -161,20 +161,34 @@ namespace tomcat::model {
                                  [player_order];
     }
 
-    bool ASISTStudy3InterventionEstimator::did_player_remove_marker(
+    bool ASISTStudy3InterventionEstimator::did_any_player_remove_marker(
         const ASISTStudy3MessageConverter::Marker& marker,
-        int player_order,
         int time_step,
         const EvidenceSet& new_data) {
 
-        const auto& removed_markers =
-            get_removed_markers(player_order, time_step, new_data);
+        // I changed the logic to consider removals from any player because
+        // if any player removes a marker before the intervention is triggered,
+        // it means the player who removed the marker is in the same location
+        // as the player who placed the marker, and, therefore, the player who
+        // placed the marker is very likely to be aware of the removal.
+        // I found a concrete case of this situation in a trial.
 
-        return any_of(removed_markers.begin(),
-                      removed_markers.end(),
-                      [&m = marker](const Marker& removed_marker) {
-                          return removed_marker == m;
-                      });
+        for (int player_order = 0; player_order < 3; player_order++) {
+            const auto& removed_markers =
+                get_removed_markers(player_order, time_step, new_data);
+
+            bool removed = any_of(removed_markers.begin(),
+                                  removed_markers.end(),
+                                  [&m = marker](const Marker& removed_marker) {
+                                      return removed_marker == m;
+                                  });
+
+            if (removed) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     bool ASISTStudy3InterventionEstimator::does_player_need_help_to_wake_victim(
@@ -311,10 +325,7 @@ namespace tomcat::model {
     }
 
     bool ASISTStudy3InterventionEstimator::is_player_being_released(
-        int player_order,
-        int time_step,
-        const EvidenceSet& new_data,
-        const string& threat_id) {
+        int time_step, const EvidenceSet& new_data, const string& threat_id) {
 
         const string& threat_id_being_removed =
             new_data.get_dict_like_data()
@@ -497,11 +508,8 @@ namespace tomcat::model {
         }
         else {
             // Check if it can be canceled
-            bool marker_removed =
-                did_player_remove_marker(*this->watched_marker[player_order],
-                                         player_order,
-                                         time_step,
-                                         new_data);
+            bool marker_removed = did_any_player_remove_marker(
+                *this->watched_marker[player_order], time_step, new_data);
 
             bool marker_mentioned = did_player_speak_about_marker(
                 player_order,
@@ -696,8 +704,8 @@ namespace tomcat::model {
             if (!help_requested && is_trapped && !is_engineer_in_room) {
                 string threat_id =
                     get_active_threat_id(player_order, time_step, new_data);
-                bool is_being_released = is_player_being_released(
-                    player_order, time_step, new_data, threat_id);
+                bool is_being_released =
+                    is_player_being_released(time_step, new_data, threat_id);
                 bool recent_mention_to_help =
                     this->recently_mentioned_help_request[player_order];
 
@@ -732,7 +740,6 @@ namespace tomcat::model {
             bool is_engineer_in_room =
                 is_engineer_in_same_room(player_order, time_step, new_data);
             bool being_released = this->is_player_being_released(
-                player_order,
                 time_step,
                 new_data,
                 this->latest_active_threat_id[player_order]);
@@ -831,8 +838,7 @@ namespace tomcat::model {
     }
 
     void
-    ASISTStudy3InterventionEstimator::get_info(nlohmann::json& json) const {
-    }
+    ASISTStudy3InterventionEstimator::get_info(nlohmann::json& json) const {}
 
     string ASISTStudy3InterventionEstimator::get_name() const { return NAME; }
 
