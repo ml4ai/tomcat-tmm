@@ -251,9 +251,17 @@ namespace tomcat::model {
     bool ASISTStudy3InterventionEstimator::does_player_need_help_to_exit_room(
         int player_order, int time_step, const EvidenceSet& new_data) {
 
-        return !get_active_threat_id(player_order, time_step, new_data)
-                    .empty() &&
-               is_player_inside_room(player_order, time_step, new_data);
+        string threat_id =
+            get_active_threat_id(player_order, time_step, new_data);
+
+        const string& player_location =
+            new_data.get_dict_like_data()[0][time_step][Labels::LOCATIONS]
+                                         [player_order]["id"];
+
+        // The player might be seeing the obstacle but be in a different room.
+        // Therefore, not trapped in the room associated with this active
+        // threat.
+        return !threat_id.empty() && (threat_id == player_location);
     }
 
     string ASISTStudy3InterventionEstimator::get_active_threat_id(
@@ -424,7 +432,7 @@ namespace tomcat::model {
         if ((bool)json_dialog["critical_victim"]) {
             this->recently_mentioned_critical_victim[player_order] = true;
         }
-        else if ((bool)json_dialog["help_needed"]) {
+        if ((bool)json_dialog["help_needed"]) {
             this->recently_mentioned_help_request[player_order] = true;
         }
     }
@@ -816,6 +824,23 @@ namespace tomcat::model {
                     helper_player_order,
                     area_changed,
                     help_request_answered);
+
+                if (area_changed) {
+                    this->help_request_reply_intervention_state[player_order] =
+                        InterventionState::NONE;
+                }
+                else {
+                    // Restart the counter. Even if other players answered to
+                    // the help request, they might forget about it.
+                    this->help_request_reply_intervention_state[player_order] =
+                        InterventionState::WATCHED;
+                    this->help_request_reply_intervention_timer[player_order] =
+                        HELP_REQUEST_REPLY_LATENCY;
+
+                    this->custom_logger
+                        ->log_watch_help_request_reply_intervention(
+                            this->last_time_step + time_step + 1, player_order);
+                }
             }
 
             if (this->help_request_reply_intervention_state[player_order] ==
