@@ -611,8 +611,10 @@ namespace tomcat {
             check_field(json_message["data"], "toBlock_y");
             check_field(json_message["data"], "fromBlock_z");
             check_field(json_message["data"], "toBlock_z");
-            check_field(json_message["data"], "triggerLocation_x");
-            check_field(json_message["data"], "triggerLocation_z");
+            check_field(json_message["data"], "participant_id");
+
+            int player_order = this->player_id_to_index.at(
+                (string)json_message["data"]["participant_id"]);
 
             int from_x = json_message["data"]["fromBlock_x"];
             int to_x = json_message["data"]["toBlock_x"];
@@ -623,24 +625,23 @@ namespace tomcat {
             // to be. We can identify if the player realizes if it's trapped by
             // checking whether the rubble in their FoV fall into one of those
             // blocks.
-            Position trigger_pos(
-                (int)json_message["data"]["triggerLocation_x"],
-                (int)json_message["data"]["triggerLocation_z"]);
-            if (!EXISTS(trigger_pos.to_string(), this->threat_ids)) {
-                // We just need to store the position once to be able to check
-                // if any of the collapsed blocks are in the players' FoV and
-                // whether the engineer is destroying any of them.
-                for (int x = from_x; x <= to_x; x++) {
-                    for (int z = from_z; z <= to_z; z++) {
-                        Position rubble_pos(x, z);
-                        this->dynamic_obstacle_to_threat[rubble_pos
-                                                             .to_string()] =
-                            trigger_pos.to_string();
-                    }
+
+            // We do not set the threat id as the position of the trigger
+            // anymore. Instead, we set it as the location of the player who
+            // triggered the collapse. Then, all collapses associated with room
+            // will be centralized and this will eliminate the issue we were
+            // having with spread out obstacles. If any of the obstacles in a
+            // room is freed, we consider the player is not trapped anymore.
+            const string& threat_id = this->player_location.at(player_order);
+            for (int x = from_x; x <= to_x; x++) {
+                for (int z = from_z; z <= to_z; z++) {
+                    Position rubble_pos(x, z);
+                    this->dynamic_obstacle_to_threat[rubble_pos.to_string()] =
+                        threat_id;
                 }
             }
 
-            this->active_threat_ids.insert(trigger_pos.to_string());
+            this->active_threat_ids.insert(threat_id);
         }
 
         void ASISTStudy3MessageConverter::parse_fov_message(
