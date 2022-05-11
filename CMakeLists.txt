@@ -35,7 +35,6 @@ find_package(
         date_time
         filesystem
         program_options
-        thread
         REQUIRED)
 
 # Json library is being used for writing evaluations to an output stream
@@ -55,7 +54,8 @@ set(EXTERNAL_LIBS
         fmt::fmt
         nlohmann_json::nlohmann_json
         ${Mosquitto_LIBRARIES}
-        )
+	-pthread
+)
 
 enable_testing()
 
